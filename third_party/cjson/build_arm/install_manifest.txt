@@ -1,0 +1,7 @@
+/Users/wangergou/code/github/wire-os/daima-agent/third_party/build_libs_arm/include/cjson/cJSON.h
+/Users/wangergou/code/github/wire-os/daima-agent/third_party/build_libs_arm/lib/pkgconfig/libcjson.pc
+/Users/wangergou/code/github/wire-os/daima-agent/third_party/build_libs_arm/lib/libcjson.a
+/Users/wangergou/code/github/wire-os/daima-agent/third_party/build_libs_arm/lib/cmake/cJSON/cjson.cmake
+/Users/wangergou/code/github/wire-os/daima-agent/third_party/build_libs_arm/lib/cmake/cJSON/cjson-release.cmake
+/Users/wangergou/code/github/wire-os/daima-agent/third_party/build_libs_arm/lib/cmake/cJSON/cJSONConfig.cmake
+/Users/wangergou/code/github/wire-os/daima-agent/third_party/build_libs_arm/lib/cmake/cJSON/cJSONConfigVersion.cmake

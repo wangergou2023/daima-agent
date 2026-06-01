@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DAIMA</title>
+  <link rel="stylesheet" href="/app.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <section class="chat-shell">
+      <header class="topbar">
+        <div class="topbar-actions">
+          <div class="status-chip" aria-live="polite">
+            <span id="dot" class="dot"></span>
+            <span id="status">未连接</span>
+          </div>
+          <label class="theme-control" aria-label="Theme">
+            <span>主题</span>
+            <select id="themeSelect" class="theme-switch" aria-label="Theme">
+              <option value="warm">Warm Light</option>
+              <option value="mist">Mist Blue</option>
+              <option value="plain">Soft Plain</option>
+            </select>
+          </label>
+        </div>
+      </header>
+
+      <section class="thread-card">
+        <div class="viewport">
+          <div id="messages" class="messages" aria-live="polite"></div>
+          <button
+            id="scrollToBottom"
+            class="scroll-bottom"
+            type="button"
+            aria-label="Scroll to latest messages"
+            hidden
+          >
+            ↓
+          </button>
+        </div>
+
+        <form id="composer" class="composer">
+          <div class="empty-hero">
+            <h2 class="empty-title">DAIMA</h2>
+          </div>
+          <div class="composer-frame">
+            <div class="composer-row">
+              <textarea
+                id="input"
+                rows="1"
+                placeholder="有问题，尽管问"
+                aria-label="Message input"
+                required
+              ></textarea>
+              <button
+                id="sendBtn"
+                class="send-btn"
+                type="submit"
+                aria-label="Send message"
+                title="Send message"
+              >Send</button>
+            </div>
+            <div class="actions">
+              <span id="ctxBadge" class="context-badge">
+                <strong>加载中</strong>
+                <span>上下文统计...</span>
+              </span>
+              <span class="hint">回车发送，Shift + 回车换行</span>
+            </div>
+          </div>
+        </form>
+      </section>
+    </section>
+    <p class="ai-disclaimer">内容由AI生成，请仔细甄别</p>
+  </main>
+
+  <div id="sudoModal" class="sudo-modal">
+    <div class="sudo-card">
+      <div class="sudo-title">Sudo password required</div>
+      <div id="sudoPrompt" class="sudo-body">A command needs elevated privileges.</div>
+      <input id="sudoInput" class="sudo-input" type="password" placeholder="Enter sudo password" />
+      <div class="sudo-actions">
+        <button id="sudoCancel" type="button" class="ghost-btn">Cancel</button>
+        <button id="sudoSubmit" type="button">Continue</button>
+      </div>
+    </div>
+  </div>
+
+  <aside id="petDock" class="pet-dock" hidden aria-hidden="true">
+    <div id="petChooser" class="pet-chooser" hidden aria-hidden="true">
+      <button
+        id="petChooserButton"
+        class="pet-chooser-button"
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded="false"
+        aria-label="切换宠物"
+      >
+        <span class="pet-chooser-kicker">Pet</span>
+        <span id="petChooserLabel" class="pet-chooser-label">咕嘎</span>
+        <span class="pet-chooser-caret">⌄</span>
+      </button>
+      <div id="petChooserMenu" class="pet-chooser-menu" role="listbox" hidden></div>
+    </div>
+    <div class="pet-stage">
+      <div id="petBubble" class="pet-bubble" hidden aria-hidden="true"></div>
+      <button id="petButton" class="pet-button" type="button" aria-label="Play pet animation">
+        <div id="petRunner" class="pet-runner">
+          <div id="petSprite" class="pet-sprite" role="img" aria-label="Daima pet"></div>
+        </div>
+      </button>
+    </div>
+  </aside>
+
+  <script src="/pet.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

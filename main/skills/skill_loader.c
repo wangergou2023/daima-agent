@@ -1,0 +1,287 @@
+/* 技能加载与内置技能注册。 */
+
+#include "skills/skill_loader.h"
+#include "skills/skill_meta.h"
+#include "app/daima_fs.h"
+#include "app/daima_paths.h"
+#include "daima_config.h"
+
+#include <stdio.h>
+#include <string.h>
+#include <dirent.h>
+#include <stdbool.h>
+#include <sys/stat.h>
+#include "daima_log.h"
+
+static const char *TAG = "skills";
+
+/* ── 内置技能内容 ─────────────────────────────────── */
+
+#define BUILTIN_WEATHER \
+    "# 天气\n" \
+    "\n" \
+    "通过 weather 工具获取当前天气与预报（基于 wttr.in，无需 API Key）。\n" \
+    "\n" \
+    "## 何时使用\n" \
+    "当用户询问天气、温度、降雨、预报等。\n" \
+    "\n" \
+    "## 使用步骤\n" \
+    "1. 使用 get_current_time 获取当前日期\n" \
+    "2. 调用 weather 工具：{\"location\":\"城市\",\"type\":\"current\"}\n" \
+    "3. 若用户要预报，可用 {\"location\":\"城市\",\"type\":\"forecast\",\"days\":3}\n" \
+    "4. 用简洁友好的格式回答\n" \
+    "\n" \
+    "## 示例\n" \
+    "用户：\"东京今天天气怎么样？\"\n" \
+    "→ get_current_time\n" \
+    "→ weather {\"location\":\"东京\",\"type\":\"current\"}\n" \
+    "→ \"东京：8°C，局部多云。体感 6°C，湿度 40%，风速 10 km/h。\"\n"
+
+#define BUILTIN_DAILY_BRIEFING \
+    "# 每日简报\n" \
+    "\n" \
+    "为用户生成个性化的每日简报。\n" \
+    "\n" \
+    "## 何时使用\n" \
+    "当用户要求每日简报、早报或“今天有什么新消息”。\n" \
+    "也适合作为 heartbeat/cron 任务。\n" \
+    "\n" \
+    "## 使用步骤\n" \
+    "1. 用 get_current_time 获取今天日期\n" \
+    "2. 读取数据目录中的 MEMORY.md 获取用户偏好与上下文\n" \
+    "3. 读取今日笔记（若存在）\n" \
+    "4. 若 USER.md 中有地点，用 weather 获取天气\n" \
+    "5. 汇总记忆中的待办事项与今日计划\n" \
+    "6. 输出简洁简报，包含：\n" \
+    "   - 日期与时间\n" \
+    "   - 天气（若 USER.md 有地点）\n" \
+    "   - 记忆中的待办事项\n" \
+    "   - 已安排的 cron 任务\n" \
+    "\n" \
+    "## 格式\n" \
+    "保持简短——最多 5-10 条要点，使用用户偏好语言。\n"
+
+#define BUILTIN_SKILL_CREATOR \
+    "# 技能创建器\n" \
+    "\n" \
+    "为代马 Daima 创建新技能。\n" \
+    "\n" \
+    "## 何时使用\n" \
+    "当用户要求创建新技能、教会新的能力或扩展功能时。\n" \
+    "\n" \
+    "## 如何创建技能\n" \
+    "1. 选择简短、清晰的名称（小写，可用连字符）\n" \
+    "2. SKILL.md 须包含固定的 YAML front matter（必须有 name 和 description）：\n" \
+    "   - `---`\n" \
+    "   - `name: <技能名>`\n" \
+    "   - `description: <一句话描述>`\n" \
+    "   - `---`\n" \
+    "3. front matter 之后按以下结构编写：\n" \
+    "   - `# 标题` —— 清晰的名称\n" \
+    "   - 简短描述段落\n" \
+    "   - `## 何时使用` —— 触发条件\n" \
+    "   - `## 使用步骤` —— 操作说明\n" \
+    "   - `## 示例` —— 具体示例（可选但推荐）\n" \
+    "4. 使用 write_file 保存到技能目录下的 `<name>/SKILL.md`\n" \
+    "5. 下一次对话开始后技能会自动生效\n" \
+    "\n" \
+    "## 最佳实践\n" \
+    "- 技能要简洁，避免过长（上下文有限）\n" \
+    "- 重点写“做什么”，而不是“怎么做”\n" \
+    "- 明确指出需要调用的工具\n" \
+    "- 通过提问测试新技能是否生效\n" \
+    "\n" \
+    "## 示例\n" \
+    "创建 \"translate\" 技能：\n" \
+    "write_file path=\"spiffs_data/skills/translate/SKILL.md\" content=\"---\\nname: 翻译\\n" \
+    "description: 在语言之间翻译文本。\\n---\\n\\n# 翻译\\n\\n在语言之间翻译文本。\\n\\n" \
+    "## 何时使用\\n当用户要求翻译文本时。\\n\\n" \
+    "## 使用步骤\\n1. 识别源语言与目标语言\\n" \
+    "2. 直接翻译\\n\"\n"
+
+/* 内置技能注册表 */
+typedef struct {
+    const char *filename;   /* 例如 "weather" */
+    const char *content;
+} builtin_skill_t;
+
+static const builtin_skill_t s_builtins[] = {
+    { "weather",        BUILTIN_WEATHER        },
+    { "daily-briefing", BUILTIN_DAILY_BRIEFING },
+    { "skill-creator",  BUILTIN_SKILL_CREATOR  },
+};
+
+#define NUM_BUILTINS (sizeof(s_builtins) / sizeof(s_builtins[0]))
+
+/* ── 缺失时安装内置技能 ──────────────────────── */
+
+static void install_builtin(const builtin_skill_t *skill)
+{
+    char dir_path[128];
+    char file_path[160];
+    char legacy_path[160];
+    snprintf(dir_path, sizeof(dir_path), "%s/%s", daima_path_skills_dir(), skill->filename);
+    snprintf(file_path, sizeof(file_path), "%s/SKILL.md", dir_path);
+    snprintf(legacy_path, sizeof(legacy_path), "%s/%s.md", daima_path_skills_dir(), skill->filename);
+
+    /* 检查是否已存在 */
+    FILE *f = fopen(file_path, "r");
+    if (f) {
+        fclose(f);
+        DAIMA_LOGD(TAG, "Skill exists: %s", file_path);
+        return;
+    }
+
+    f = fopen(legacy_path, "r");
+    if (f) {
+        fclose(f);
+        DAIMA_LOGD(TAG, "Legacy skill exists: %s", legacy_path);
+        return;
+    }
+
+    /* 写入内置技能 */
+    daima_fs_ensure_dir(daima_path_skills_dir());
+    daima_fs_ensure_dir(dir_path);
+
+    f = fopen(file_path, "w");
+    if (!f) {
+        DAIMA_LOGE(TAG, "Cannot write skill: %s", file_path);
+        return;
+    }
+
+    fputs(skill->content, f);
+    fclose(f);
+    DAIMA_LOGI(TAG, "Installed built-in skill: %s", file_path);
+}
+
+daima_err_t skill_loader_init(void)
+{
+    DAIMA_LOGI(TAG, "Initializing skills system");
+
+    for (size_t i = 0; i < NUM_BUILTINS; i++) {
+        install_builtin(&s_builtins[i]);
+    }
+
+    DAIMA_LOGI(TAG, "Skills system ready (%d built-in)", (int)NUM_BUILTINS);
+    return DAIMA_OK;
+}
+
+/* ── 为系统提示构建技能摘要 ──────────────────── */
+
+/**
+ * 将首行解析为标题：期望格式为 "# 标题"
+ * 返回跳过 "# " 后的指针；若无前缀则返回原行。
+ */
+static bool has_suffix(const char *str, const char *suffix)
+{
+    if (!str || !suffix) return false;
+    size_t len = strlen(str);
+    size_t suf_len = strlen(suffix);
+    if (suf_len == 0 || len < suf_len) return false;
+    return strcmp(str + len - suf_len, suffix) == 0;
+}
+
+static bool is_dir_path(const char *path)
+{
+    struct stat st;
+    if (stat(path, &st) != 0) return false;
+    return S_ISDIR(st.st_mode);
+}
+
+static bool append_skill_summary_from_file(char *buf, size_t size, size_t *off, const char *full_path)
+{
+    if (!buf || !off || !full_path || size == 0 || *off >= size - 1) return false;
+    daima_skill_meta_t meta = {0};
+    if (!skill_meta_read_file(full_path, &meta)) return false;
+
+    *off += snprintf(buf + *off, size - *off,
+        "- **%s**: %s (read with: read_file %s)\n",
+        meta.title[0] ? meta.title : "(untitled)",
+        meta.description[0] ? meta.description : "(no description)",
+        full_path);
+    return true;
+}
+
+size_t skill_loader_build_summary(char *buf, size_t size)
+{
+    size_t off = 0;
+    bool found = false;
+    buf[0] = '\0';
+
+    DIR *dir = opendir(daima_path_spiffs_base());
+    if (!dir) {
+        DAIMA_LOGW(TAG, "Cannot open SPIFFS for skill enumeration");
+    }
+
+    struct dirent *ent;
+    /* SPIFFS 的 readdir 返回相对挂载点的文件名（如 "skills/weather/SKILL.md"）。
+       兼容新结构 skills/<name>/SKILL.md 与旧结构 skills/<name>.md。 */
+    const char *skills_subdir = "skills/";
+    const size_t subdir_len = strlen(skills_subdir);
+
+    if (dir) {
+        while ((ent = readdir(dir)) != NULL && off < size - 1) {
+            const char *name = ent->d_name;
+
+            /* 匹配 skills/ 下的技能文件 */
+            if (strncmp(name, skills_subdir, subdir_len) != 0) continue;
+
+            size_t name_len = strlen(name);
+            if (name_len < subdir_len + 4) continue;  /* 至少为 "skills/x.md" 或 "skills/x/SKILL.md" */
+
+            const char *subpath = name + subdir_len;
+            bool has_subdir = strchr(subpath, '/') != NULL;
+            bool is_new_layout = has_suffix(name, "/SKILL.md");
+            bool is_legacy_layout = !has_subdir && has_suffix(name, ".md");
+            if (!is_new_layout && !is_legacy_layout) continue;
+
+            /* 构建完整路径 */
+            char full_path[296];
+            snprintf(full_path, sizeof(full_path), "%s/%s", daima_path_spiffs_base(), name);
+
+            if (append_skill_summary_from_file(buf, size, &off, full_path)) {
+                found = true;
+            }
+        }
+        closedir(dir);
+    }
+
+    /* 兼容本地文件系统：技能位于真实的 skills/<name>/SKILL.md */
+    if (!found) {
+        DIR *skills_dir = opendir(daima_path_skills_dir());
+        if (!skills_dir) {
+            DAIMA_LOGW(TAG, "Cannot open skills directory for enumeration");
+        } else {
+            while ((ent = readdir(skills_dir)) != NULL && off < size - 1) {
+                const char *name = ent->d_name;
+                if (!name || name[0] == '.') continue;
+
+                char entry_path[296];
+                snprintf(entry_path, sizeof(entry_path), "%s/%s", daima_path_skills_dir(), name);
+
+                if (is_dir_path(entry_path)) {
+                    char full_path[320];
+                    snprintf(full_path, sizeof(full_path), "%s/SKILL.md", entry_path);
+
+                    if (append_skill_summary_from_file(buf, size, &off, full_path)) {
+                        found = true;
+                    }
+                    continue;
+                }
+
+                size_t name_len = strlen(name);
+                if (name_len < 4) continue;
+                if (!has_suffix(name, ".md")) continue;
+
+                if (append_skill_summary_from_file(buf, size, &off, entry_path)) {
+                    found = true;
+                }
+            }
+            closedir(skills_dir);
+        }
+    }
+
+    buf[off] = '\0';
+    DAIMA_LOGD(TAG, "Skills summary: %d bytes", (int)off);
+    return off;
+}

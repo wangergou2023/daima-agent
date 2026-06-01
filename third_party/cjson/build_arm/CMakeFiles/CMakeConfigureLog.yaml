@@ -1,0 +1,1839 @@
+
+---
+events:
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/CMakeDetermineSystem.cmake:12 (find_program)"
+      - "CMakeLists.txt:4 (project)"
+    mode: "program"
+    variable: "CMAKE_UNAME"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "FIRST"
+      SearchAppBundle: "FIRST"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "uname"
+    candidate_directories:
+      - "/usr/local/bin/"
+      - "/System/Cryptexes/App/usr/bin/"
+      - "/usr/bin/"
+      - "/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin/"
+      - "/opt/homebrew/bin/"
+    searched_directories:
+      - "/usr/local/bin/uname"
+      - "/System/Cryptexes/App/usr/bin/uname"
+    found: "/usr/bin/uname"
+    search_context:
+      ENV{PATH}:
+        - "/usr/local/bin"
+        - "/System/Cryptexes/App/usr/bin"
+        - "/usr/bin"
+        - "/bin"
+        - "/usr/sbin"
+        - "/sbin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin"
+        - "/opt/homebrew/bin"
+      CMAKE_INSTALL_PREFIX: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/build_libs_arm"
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/CMakeDetermineSystem.cmake:207 (message)"
+      - "CMakeLists.txt:4 (project)"
+    message: |
+      The target system is: Linux -  - arm
+      The host system is: Darwin - 24.6.0 - arm64
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/CMakeUnixFindMake.cmake:5 (find_program)"
+      - "CMakeLists.txt:4 (project)"
+    mode: "program"
+    variable: "CMAKE_MAKE_PROGRAM"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "FIRST"
+      SearchAppBundle: "FIRST"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "gmake"
+      - "make"
+      - "smake"
+    candidate_directories:
+      - "/usr/local/bin/"
+      - "/System/Cryptexes/App/usr/bin/"
+      - "/usr/bin/"
+      - "/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin/"
+      - "/opt/homebrew/bin/"
+    searched_directories:
+      - "/usr/local/bin/gmake"
+      - "/System/Cryptexes/App/usr/bin/gmake"
+      - "/usr/bin/gmake"
+      - "/bin/gmake"
+      - "/usr/sbin/gmake"
+      - "/sbin/gmake"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin/gmake"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin/gmake"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin/gmake"
+      - "/opt/homebrew/bin/gmake"
+      - "/usr/local/bin/make"
+      - "/System/Cryptexes/App/usr/bin/make"
+    found: "/usr/bin/make"
+    search_context:
+      ENV{PATH}:
+        - "/usr/local/bin"
+        - "/System/Cryptexes/App/usr/bin"
+        - "/usr/bin"
+        - "/bin"
+        - "/usr/sbin"
+        - "/sbin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin"
+        - "/opt/homebrew/bin"
+      CMAKE_INSTALL_PREFIX: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/build_libs_arm"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/CMakeDetermineCompilerId.cmake:468 (find_file)"
+      - "/opt/homebrew/share/cmake/Modules/CMakeDetermineCompilerId.cmake:506 (CMAKE_DETERMINE_COMPILER_ID_WRITE)"
+      - "/opt/homebrew/share/cmake/Modules/CMakeDetermineCompilerId.cmake:8 (CMAKE_DETERMINE_COMPILER_ID_BUILD)"
+      - "/opt/homebrew/share/cmake/Modules/CMakeDetermineCompilerId.cmake:64 (__determine_compiler_id_test)"
+      - "/opt/homebrew/share/cmake/Modules/CMakeDetermineCCompiler.cmake:122 (CMAKE_DETERMINE_COMPILER_ID)"
+      - "CMakeLists.txt:4 (project)"
+    mode: "file"
+    variable: "src_in"
+    description: "Path to a file."
+    settings:
+      SearchFramework: "FIRST"
+      SearchAppBundle: "FIRST"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "CMakeCCompilerId.c.in"
+    candidate_directories:
+      - "/opt/homebrew/share/cmake/Modules/"
+    found: "/opt/homebrew/share/cmake/Modules/CMakeCCompilerId.c.in"
+    search_context:
+      ENV{PATH}:
+        - "/usr/local/bin"
+        - "/System/Cryptexes/App/usr/bin"
+        - "/usr/bin"
+        - "/bin"
+        - "/usr/sbin"
+        - "/sbin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin"
+        - "/opt/homebrew/bin"
+      CMAKE_INSTALL_PREFIX: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/build_libs_arm"
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/CMakeDetermineCompilerId.cmake:17 (message)"
+      - "/opt/homebrew/share/cmake/Modules/CMakeDetermineCompilerId.cmake:64 (__determine_compiler_id_test)"
+      - "/opt/homebrew/share/cmake/Modules/CMakeDetermineCCompiler.cmake:122 (CMAKE_DETERMINE_COMPILER_ID)"
+      - "CMakeLists.txt:4 (project)"
+    message: |
+      Compiling the C compiler identification source file "CMakeCCompilerId.c" succeeded.
+      Compiler: /opt/homebrew/bin/arm-linux-musleabihf-gcc 
+      Build flags: -march=armv7-a;-mtune=cortex-a7;-mfpu=neon-vfpv4;-mfloat-abi=hard
+      Id flags:  
+      
+      The output was:
+      0
+      
+      
+      Compilation of the C compiler identification source "CMakeCCompilerId.c" produced "a.out"
+      
+      The C compiler identification is GNU, found in:
+        /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/4.3.2/CompilerIdC/a.out
+      
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/CMakeFindBinUtils.cmake:243 (find_program)"
+      - "/opt/homebrew/share/cmake/Modules/CMakeDetermineCCompiler.cmake:200 (include)"
+      - "CMakeLists.txt:4 (project)"
+    mode: "program"
+    variable: "CMAKE_STRIP"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "FIRST"
+      SearchAppBundle: "FIRST"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "arm-linux-musleabihf-strip"
+      - "strip"
+    candidate_directories:
+      - "/opt/homebrew/bin/"
+      - "/usr/local/bin/"
+      - "/System/Cryptexes/App/usr/bin/"
+      - "/usr/bin/"
+      - "/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin/"
+    found: "/opt/homebrew/bin/arm-linux-musleabihf-strip"
+    search_context:
+      ENV{PATH}:
+        - "/usr/local/bin"
+        - "/System/Cryptexes/App/usr/bin"
+        - "/usr/bin"
+        - "/bin"
+        - "/usr/sbin"
+        - "/sbin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin"
+        - "/opt/homebrew/bin"
+      CMAKE_INSTALL_PREFIX: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/build_libs_arm"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/CMakeFindBinUtils.cmake:243 (find_program)"
+      - "/opt/homebrew/share/cmake/Modules/CMakeDetermineCCompiler.cmake:200 (include)"
+      - "CMakeLists.txt:4 (project)"
+    mode: "program"
+    variable: "CMAKE_LINKER"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "FIRST"
+      SearchAppBundle: "FIRST"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "arm-linux-musleabihf-ld"
+      - "ld"
+    candidate_directories:
+      - "/opt/homebrew/bin/"
+      - "/usr/local/bin/"
+      - "/System/Cryptexes/App/usr/bin/"
+      - "/usr/bin/"
+      - "/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin/"
+    found: "/opt/homebrew/bin/arm-linux-musleabihf-ld"
+    search_context:
+      ENV{PATH}:
+        - "/usr/local/bin"
+        - "/System/Cryptexes/App/usr/bin"
+        - "/usr/bin"
+        - "/bin"
+        - "/usr/sbin"
+        - "/sbin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin"
+        - "/opt/homebrew/bin"
+      CMAKE_INSTALL_PREFIX: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/build_libs_arm"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/CMakeFindBinUtils.cmake:243 (find_program)"
+      - "/opt/homebrew/share/cmake/Modules/CMakeDetermineCCompiler.cmake:200 (include)"
+      - "CMakeLists.txt:4 (project)"
+    mode: "program"
+    variable: "CMAKE_NM"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "FIRST"
+      SearchAppBundle: "FIRST"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "arm-linux-musleabihf-nm"
+      - "nm"
+    candidate_directories:
+      - "/opt/homebrew/bin/"
+      - "/usr/local/bin/"
+      - "/System/Cryptexes/App/usr/bin/"
+      - "/usr/bin/"
+      - "/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin/"
+    found: "/opt/homebrew/bin/arm-linux-musleabihf-nm"
+    search_context:
+      ENV{PATH}:
+        - "/usr/local/bin"
+        - "/System/Cryptexes/App/usr/bin"
+        - "/usr/bin"
+        - "/bin"
+        - "/usr/sbin"
+        - "/sbin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin"
+        - "/opt/homebrew/bin"
+      CMAKE_INSTALL_PREFIX: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/build_libs_arm"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/CMakeFindBinUtils.cmake:243 (find_program)"
+      - "/opt/homebrew/share/cmake/Modules/CMakeDetermineCCompiler.cmake:200 (include)"
+      - "CMakeLists.txt:4 (project)"
+    mode: "program"
+    variable: "CMAKE_OBJDUMP"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "FIRST"
+      SearchAppBundle: "FIRST"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "arm-linux-musleabihf-objdump"
+      - "objdump"
+    candidate_directories:
+      - "/opt/homebrew/bin/"
+      - "/usr/local/bin/"
+      - "/System/Cryptexes/App/usr/bin/"
+      - "/usr/bin/"
+      - "/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin/"
+    found: "/opt/homebrew/bin/arm-linux-musleabihf-objdump"
+    search_context:
+      ENV{PATH}:
+        - "/usr/local/bin"
+        - "/System/Cryptexes/App/usr/bin"
+        - "/usr/bin"
+        - "/bin"
+        - "/usr/sbin"
+        - "/sbin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin"
+        - "/opt/homebrew/bin"
+      CMAKE_INSTALL_PREFIX: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/build_libs_arm"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/CMakeFindBinUtils.cmake:243 (find_program)"
+      - "/opt/homebrew/share/cmake/Modules/CMakeDetermineCCompiler.cmake:200 (include)"
+      - "CMakeLists.txt:4 (project)"
+    mode: "program"
+    variable: "CMAKE_OBJCOPY"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "FIRST"
+      SearchAppBundle: "FIRST"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "arm-linux-musleabihf-objcopy"
+      - "objcopy"
+    candidate_directories:
+      - "/opt/homebrew/bin/"
+      - "/usr/local/bin/"
+      - "/System/Cryptexes/App/usr/bin/"
+      - "/usr/bin/"
+      - "/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin/"
+    found: "/opt/homebrew/bin/arm-linux-musleabihf-objcopy"
+    search_context:
+      ENV{PATH}:
+        - "/usr/local/bin"
+        - "/System/Cryptexes/App/usr/bin"
+        - "/usr/bin"
+        - "/bin"
+        - "/usr/sbin"
+        - "/sbin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin"
+        - "/opt/homebrew/bin"
+      CMAKE_INSTALL_PREFIX: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/build_libs_arm"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/CMakeFindBinUtils.cmake:243 (find_program)"
+      - "/opt/homebrew/share/cmake/Modules/CMakeDetermineCCompiler.cmake:200 (include)"
+      - "CMakeLists.txt:4 (project)"
+    mode: "program"
+    variable: "CMAKE_READELF"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "FIRST"
+      SearchAppBundle: "FIRST"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "arm-linux-musleabihf-readelf"
+      - "readelf"
+    candidate_directories:
+      - "/opt/homebrew/bin/"
+      - "/usr/local/bin/"
+      - "/System/Cryptexes/App/usr/bin/"
+      - "/usr/bin/"
+      - "/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin/"
+    found: "/opt/homebrew/bin/arm-linux-musleabihf-readelf"
+    search_context:
+      ENV{PATH}:
+        - "/usr/local/bin"
+        - "/System/Cryptexes/App/usr/bin"
+        - "/usr/bin"
+        - "/bin"
+        - "/usr/sbin"
+        - "/sbin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin"
+        - "/opt/homebrew/bin"
+      CMAKE_INSTALL_PREFIX: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/build_libs_arm"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/CMakeFindBinUtils.cmake:243 (find_program)"
+      - "/opt/homebrew/share/cmake/Modules/CMakeDetermineCCompiler.cmake:200 (include)"
+      - "CMakeLists.txt:4 (project)"
+    mode: "program"
+    variable: "CMAKE_DLLTOOL"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "FIRST"
+      SearchAppBundle: "FIRST"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "arm-linux-musleabihf-dlltool"
+      - "dlltool"
+    candidate_directories:
+      - "/opt/homebrew/bin/"
+      - "/usr/local/bin/"
+      - "/System/Cryptexes/App/usr/bin/"
+      - "/usr/bin/"
+      - "/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin/"
+    searched_directories:
+      - "/opt/homebrew/bin/arm-linux-musleabihf-dlltool"
+      - "/usr/local/bin/arm-linux-musleabihf-dlltool"
+      - "/System/Cryptexes/App/usr/bin/arm-linux-musleabihf-dlltool"
+      - "/usr/bin/arm-linux-musleabihf-dlltool"
+      - "/bin/arm-linux-musleabihf-dlltool"
+      - "/usr/sbin/arm-linux-musleabihf-dlltool"
+      - "/sbin/arm-linux-musleabihf-dlltool"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin/arm-linux-musleabihf-dlltool"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin/arm-linux-musleabihf-dlltool"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin/arm-linux-musleabihf-dlltool"
+      - "/opt/homebrew/bin/dlltool"
+      - "/usr/local/bin/dlltool"
+      - "/System/Cryptexes/App/usr/bin/dlltool"
+      - "/usr/bin/dlltool"
+      - "/bin/dlltool"
+      - "/usr/sbin/dlltool"
+      - "/sbin/dlltool"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin/dlltool"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin/dlltool"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin/dlltool"
+    found: false
+    search_context:
+      ENV{PATH}:
+        - "/usr/local/bin"
+        - "/System/Cryptexes/App/usr/bin"
+        - "/usr/bin"
+        - "/bin"
+        - "/usr/sbin"
+        - "/sbin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin"
+        - "/opt/homebrew/bin"
+      CMAKE_INSTALL_PREFIX: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/build_libs_arm"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/CMakeFindBinUtils.cmake:243 (find_program)"
+      - "/opt/homebrew/share/cmake/Modules/CMakeDetermineCCompiler.cmake:200 (include)"
+      - "CMakeLists.txt:4 (project)"
+    mode: "program"
+    variable: "CMAKE_ADDR2LINE"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "FIRST"
+      SearchAppBundle: "FIRST"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "arm-linux-musleabihf-addr2line"
+      - "addr2line"
+    candidate_directories:
+      - "/opt/homebrew/bin/"
+      - "/usr/local/bin/"
+      - "/System/Cryptexes/App/usr/bin/"
+      - "/usr/bin/"
+      - "/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin/"
+    found: "/opt/homebrew/bin/arm-linux-musleabihf-addr2line"
+    search_context:
+      ENV{PATH}:
+        - "/usr/local/bin"
+        - "/System/Cryptexes/App/usr/bin"
+        - "/usr/bin"
+        - "/bin"
+        - "/usr/sbin"
+        - "/sbin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin"
+        - "/opt/homebrew/bin"
+      CMAKE_INSTALL_PREFIX: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/build_libs_arm"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/CMakeFindBinUtils.cmake:243 (find_program)"
+      - "/opt/homebrew/share/cmake/Modules/CMakeDetermineCCompiler.cmake:200 (include)"
+      - "CMakeLists.txt:4 (project)"
+    mode: "program"
+    variable: "CMAKE_TAPI"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "FIRST"
+      SearchAppBundle: "FIRST"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "arm-linux-musleabihf-tapi"
+      - "tapi"
+    candidate_directories:
+      - "/opt/homebrew/bin/"
+      - "/usr/local/bin/"
+      - "/System/Cryptexes/App/usr/bin/"
+      - "/usr/bin/"
+      - "/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin/"
+    searched_directories:
+      - "/opt/homebrew/bin/arm-linux-musleabihf-tapi"
+      - "/usr/local/bin/arm-linux-musleabihf-tapi"
+      - "/System/Cryptexes/App/usr/bin/arm-linux-musleabihf-tapi"
+      - "/usr/bin/arm-linux-musleabihf-tapi"
+      - "/bin/arm-linux-musleabihf-tapi"
+      - "/usr/sbin/arm-linux-musleabihf-tapi"
+      - "/sbin/arm-linux-musleabihf-tapi"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin/arm-linux-musleabihf-tapi"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin/arm-linux-musleabihf-tapi"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin/arm-linux-musleabihf-tapi"
+      - "/opt/homebrew/bin/tapi"
+      - "/usr/local/bin/tapi"
+      - "/System/Cryptexes/App/usr/bin/tapi"
+      - "/usr/bin/tapi"
+      - "/bin/tapi"
+      - "/usr/sbin/tapi"
+      - "/sbin/tapi"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin/tapi"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin/tapi"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin/tapi"
+    found: false
+    search_context:
+      ENV{PATH}:
+        - "/usr/local/bin"
+        - "/System/Cryptexes/App/usr/bin"
+        - "/usr/bin"
+        - "/bin"
+        - "/usr/sbin"
+        - "/sbin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin"
+        - "/opt/homebrew/bin"
+      CMAKE_INSTALL_PREFIX: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/build_libs_arm"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Compiler/GNU-FindBinUtils.cmake:18 (find_program)"
+      - "/opt/homebrew/share/cmake/Modules/CMakeDetermineCCompiler.cmake:201 (include)"
+      - "CMakeLists.txt:4 (project)"
+    mode: "program"
+    variable: "CMAKE_C_COMPILER_AR"
+    description: "A wrapper around 'ar' adding the appropriate '--plugin' option for the GCC compiler"
+    settings:
+      SearchFramework: "FIRST"
+      SearchAppBundle: "FIRST"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "arm-linux-musleabihf-gcc-ar-14.2"
+      - "arm-linux-musleabihf-gcc-ar-14"
+      - "arm-linux-musleabihf-gcc-ar14"
+      - "arm-linux-musleabihf-gcc-ar"
+    candidate_directories:
+      - "/opt/homebrew/bin/"
+      - "/usr/local/bin/"
+      - "/System/Cryptexes/App/usr/bin/"
+      - "/usr/bin/"
+      - "/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin/"
+    searched_directories:
+      - "/opt/homebrew/bin/arm-linux-musleabihf-gcc-ar-14.2"
+      - "/usr/local/bin/arm-linux-musleabihf-gcc-ar-14.2"
+      - "/System/Cryptexes/App/usr/bin/arm-linux-musleabihf-gcc-ar-14.2"
+      - "/usr/bin/arm-linux-musleabihf-gcc-ar-14.2"
+      - "/bin/arm-linux-musleabihf-gcc-ar-14.2"
+      - "/usr/sbin/arm-linux-musleabihf-gcc-ar-14.2"
+      - "/sbin/arm-linux-musleabihf-gcc-ar-14.2"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin/arm-linux-musleabihf-gcc-ar-14.2"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin/arm-linux-musleabihf-gcc-ar-14.2"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin/arm-linux-musleabihf-gcc-ar-14.2"
+      - "/opt/homebrew/bin/arm-linux-musleabihf-gcc-ar-14"
+      - "/usr/local/bin/arm-linux-musleabihf-gcc-ar-14"
+      - "/System/Cryptexes/App/usr/bin/arm-linux-musleabihf-gcc-ar-14"
+      - "/usr/bin/arm-linux-musleabihf-gcc-ar-14"
+      - "/bin/arm-linux-musleabihf-gcc-ar-14"
+      - "/usr/sbin/arm-linux-musleabihf-gcc-ar-14"
+      - "/sbin/arm-linux-musleabihf-gcc-ar-14"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin/arm-linux-musleabihf-gcc-ar-14"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin/arm-linux-musleabihf-gcc-ar-14"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin/arm-linux-musleabihf-gcc-ar-14"
+      - "/opt/homebrew/bin/arm-linux-musleabihf-gcc-ar14"
+      - "/usr/local/bin/arm-linux-musleabihf-gcc-ar14"
+      - "/System/Cryptexes/App/usr/bin/arm-linux-musleabihf-gcc-ar14"
+      - "/usr/bin/arm-linux-musleabihf-gcc-ar14"
+      - "/bin/arm-linux-musleabihf-gcc-ar14"
+      - "/usr/sbin/arm-linux-musleabihf-gcc-ar14"
+      - "/sbin/arm-linux-musleabihf-gcc-ar14"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin/arm-linux-musleabihf-gcc-ar14"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin/arm-linux-musleabihf-gcc-ar14"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin/arm-linux-musleabihf-gcc-ar14"
+    found: "/opt/homebrew/bin/arm-linux-musleabihf-gcc-ar"
+    search_context:
+      ENV{PATH}:
+        - "/usr/local/bin"
+        - "/System/Cryptexes/App/usr/bin"
+        - "/usr/bin"
+        - "/bin"
+        - "/usr/sbin"
+        - "/sbin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin"
+        - "/opt/homebrew/bin"
+      CMAKE_INSTALL_PREFIX: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/build_libs_arm"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Compiler/GNU-FindBinUtils.cmake:30 (find_program)"
+      - "/opt/homebrew/share/cmake/Modules/CMakeDetermineCCompiler.cmake:201 (include)"
+      - "CMakeLists.txt:4 (project)"
+    mode: "program"
+    variable: "CMAKE_C_COMPILER_RANLIB"
+    description: "A wrapper around 'ranlib' adding the appropriate '--plugin' option for the GCC compiler"
+    settings:
+      SearchFramework: "FIRST"
+      SearchAppBundle: "FIRST"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "arm-linux-musleabihf-gcc-ranlib-14.2"
+      - "arm-linux-musleabihf-gcc-ranlib-14"
+      - "arm-linux-musleabihf-gcc-ranlib14"
+      - "arm-linux-musleabihf-gcc-ranlib"
+    candidate_directories:
+      - "/opt/homebrew/bin/"
+      - "/usr/local/bin/"
+      - "/System/Cryptexes/App/usr/bin/"
+      - "/usr/bin/"
+      - "/bin/"
+      - "/usr/sbin/"
+      - "/sbin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin/"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin/"
+    searched_directories:
+      - "/opt/homebrew/bin/arm-linux-musleabihf-gcc-ranlib-14.2"
+      - "/usr/local/bin/arm-linux-musleabihf-gcc-ranlib-14.2"
+      - "/System/Cryptexes/App/usr/bin/arm-linux-musleabihf-gcc-ranlib-14.2"
+      - "/usr/bin/arm-linux-musleabihf-gcc-ranlib-14.2"
+      - "/bin/arm-linux-musleabihf-gcc-ranlib-14.2"
+      - "/usr/sbin/arm-linux-musleabihf-gcc-ranlib-14.2"
+      - "/sbin/arm-linux-musleabihf-gcc-ranlib-14.2"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin/arm-linux-musleabihf-gcc-ranlib-14.2"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin/arm-linux-musleabihf-gcc-ranlib-14.2"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin/arm-linux-musleabihf-gcc-ranlib-14.2"
+      - "/opt/homebrew/bin/arm-linux-musleabihf-gcc-ranlib-14"
+      - "/usr/local/bin/arm-linux-musleabihf-gcc-ranlib-14"
+      - "/System/Cryptexes/App/usr/bin/arm-linux-musleabihf-gcc-ranlib-14"
+      - "/usr/bin/arm-linux-musleabihf-gcc-ranlib-14"
+      - "/bin/arm-linux-musleabihf-gcc-ranlib-14"
+      - "/usr/sbin/arm-linux-musleabihf-gcc-ranlib-14"
+      - "/sbin/arm-linux-musleabihf-gcc-ranlib-14"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin/arm-linux-musleabihf-gcc-ranlib-14"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin/arm-linux-musleabihf-gcc-ranlib-14"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin/arm-linux-musleabihf-gcc-ranlib-14"
+      - "/opt/homebrew/bin/arm-linux-musleabihf-gcc-ranlib14"
+      - "/usr/local/bin/arm-linux-musleabihf-gcc-ranlib14"
+      - "/System/Cryptexes/App/usr/bin/arm-linux-musleabihf-gcc-ranlib14"
+      - "/usr/bin/arm-linux-musleabihf-gcc-ranlib14"
+      - "/bin/arm-linux-musleabihf-gcc-ranlib14"
+      - "/usr/sbin/arm-linux-musleabihf-gcc-ranlib14"
+      - "/sbin/arm-linux-musleabihf-gcc-ranlib14"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin/arm-linux-musleabihf-gcc-ranlib14"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin/arm-linux-musleabihf-gcc-ranlib14"
+      - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin/arm-linux-musleabihf-gcc-ranlib14"
+    found: "/opt/homebrew/bin/arm-linux-musleabihf-gcc-ranlib"
+    search_context:
+      ENV{PATH}:
+        - "/usr/local/bin"
+        - "/System/Cryptexes/App/usr/bin"
+        - "/usr/bin"
+        - "/bin"
+        - "/usr/sbin"
+        - "/sbin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin"
+        - "/opt/homebrew/bin"
+      CMAKE_INSTALL_PREFIX: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/build_libs_arm"
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/CMakeDetermineCompilerABI.cmake:83 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:4 (project)"
+    checks:
+      - "Detecting C compiler ABI info"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-1oEmbm"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-1oEmbm"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "CMAKE_C_ABI_COMPILED"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-1oEmbm'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_2ec12/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_2ec12.dir/build.make CMakeFiles/cmTC_2ec12.dir/build
+        Building C object CMakeFiles/cmTC_2ec12.dir/CMakeCCompilerABI.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc   -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard    -v -o CMakeFiles/cmTC_2ec12.dir/CMakeCCompilerABI.c.o -c /opt/homebrew/share/cmake/Modules/CMakeCCompilerABI.c
+        Using built-in specs.
+        COLLECT_GCC=/opt/homebrew/bin/arm-linux-musleabihf-gcc
+        Target: arm-linux-musleabihf
+        Configured with: ../src_gcc/configure --enable-languages=c,c++ --with-float=hard --disable-nls --with-debug-prefix-map=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11= --disable-libquadmath --disable-decimal-float --disable-libitm --disable-fixed-point --with-system-zlib --disable-bootstrap --disable-assembly --disable-werror --target=arm-linux-musleabihf --prefix= --libdir=/lib --disable-multilib --with-sysroot=/arm-linux-musleabihf --enable-tls --disable-libmudflap --disable-libsanitizer --disable-gnu-indirect-function --disable-libmpx --enable-initfini-array --enable-libstdcxx-time=rt --with-build-sysroot=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_sysroot AR_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/binutils/ar AS_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/gas/as-new LD_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/ld/ld-new NM_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/binutils/nm-new OBJCOPY_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/binutils/objcopy OBJDUMP_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/binutils/objdump RANLIB_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/binutils/ranlib READELF_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/binutils/readelf STRIP_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/binutils/strip-new --build=aarch64-apple-darwin24.6.0 --host=aarch64-apple-darwin24.6.0
+        Thread model: posix
+        Supported LTO compression algorithms: zlib
+        gcc version 14.2.0 (GCC) 
+        COLLECT_GCC_OPTIONS= '-mtune=cortex-a7' '-mfpu=neon-vfpv4' '-mfloat-abi=hard' '-v' '-o' 'CMakeFiles/cmTC_2ec12.dir/CMakeCCompilerABI.c.o' '-c' '-mtls-dialect=gnu' '-marm' '-mlibarch=armv7-a+neon-vfpv4' '-march=armv7-a+neon-vfpv4' '-dumpdir' 'CMakeFiles/cmTC_2ec12.dir/'
+         /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../libexec/gcc/arm-linux-musleabihf/14.2.0/cc1 -quiet -v -iprefix /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/ -isysroot /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../arm-linux-musleabihf /opt/homebrew/share/cmake/Modules/CMakeCCompilerABI.c -quiet -dumpdir CMakeFiles/cmTC_2ec12.dir/ -dumpbase CMakeCCompilerABI.c.c -dumpbase-ext .c -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -mtls-dialect=gnu -marm -mlibarch=armv7-a+neon-vfpv4 -march=armv7-a+neon-vfpv4 -version -o /var/folders/s2/k7yjhqtj6hj5ktb7_54y8z1h0000gn/T//ccLN0zNb.s
+        GNU C17 (GCC) version 14.2.0 (arm-linux-musleabihf)
+        	compiled by GNU C version Apple LLVM 17.0.0 (clang-1700.0.13.5), GMP version 6.1.2, MPFR version 4.0.2, MPC version 1.1.0, isl version isl-0.21-GMP
+        
+        GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072
+        ignoring nonexistent directory "/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../arm-linux-musleabihf/usr/local/include"
+        ignoring duplicate directory "/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/../../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/include"
+        ignoring nonexistent directory "/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../arm-linux-musleabihf/usr/include"
+        ignoring duplicate directory "/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/../../lib/gcc/arm-linux-musleabihf/14.2.0/include"
+        #include "..." search starts here:
+        #include <...> search starts here:
+         /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/include
+         /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/include
+        End of search list.
+        Compiler executable checksum: dcac4fbece8e2977e6bba28d0a4e4705
+        COLLECT_GCC_OPTIONS= '-mtune=cortex-a7' '-mfpu=neon-vfpv4' '-mfloat-abi=hard' '-v' '-o' 'CMakeFiles/cmTC_2ec12.dir/CMakeCCompilerABI.c.o' '-c' '-mtls-dialect=gnu' '-marm' '-mlibarch=armv7-a+neon-vfpv4' '-march=armv7-a+neon-vfpv4' '-dumpdir' 'CMakeFiles/cmTC_2ec12.dir/'
+         /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/bin/as -v -march=armv7-a+neon-vfpv4 -mfloat-abi=hard -mfpu=neon-vfpv4 -meabi=5 -o CMakeFiles/cmTC_2ec12.dir/CMakeCCompilerABI.c.o /var/folders/s2/k7yjhqtj6hj5ktb7_54y8z1h0000gn/T//ccLN0zNb.s
+        GNU assembler version 2.44 (arm-linux-musleabihf) using BFD version (GNU Binutils) 2.44
+        COMPILER_PATH=/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../libexec/gcc/arm-linux-musleabihf/14.2.0/:/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../libexec/gcc/:/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/bin/
+        LIBRARY_PATH=/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/:/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/:/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib/:/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../arm-linux-musleabihf/lib/
+        COLLECT_GCC_OPTIONS= '-mtune=cortex-a7' '-mfpu=neon-vfpv4' '-mfloat-abi=hard' '-v' '-o' 'CMakeFiles/cmTC_2ec12.dir/CMakeCCompilerABI.c.o' '-c' '-mtls-dialect=gnu' '-marm' '-mlibarch=armv7-a+neon-vfpv4' '-march=armv7-a+neon-vfpv4' '-dumpdir' 'CMakeFiles/cmTC_2ec12.dir/CMakeCCompilerABI.c.'
+        Linking C executable cmTC_2ec12
+        /opt/homebrew/bin/cmake -E cmake_link_script CMakeFiles/cmTC_2ec12.dir/link.txt --verbose=1
+        Using built-in specs.
+        COLLECT_GCC=/opt/homebrew/bin/arm-linux-musleabihf-gcc
+        COLLECT_LTO_WRAPPER=/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../libexec/gcc/arm-linux-musleabihf/14.2.0/lto-wrapper
+        Target: arm-linux-musleabihf
+        Configured with: ../src_gcc/configure --enable-languages=c,c++ --with-float=hard --disable-nls --with-debug-prefix-map=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11= --disable-libquadmath --disable-decimal-float --disable-libitm --disable-fixed-point --with-system-zlib --disable-bootstrap --disable-assembly --disable-werror --target=arm-linux-musleabihf --prefix= --libdir=/lib --disable-multilib --with-sysroot=/arm-linux-musleabihf --enable-tls --disable-libmudflap --disable-libsanitizer --disable-gnu-indirect-function --disable-libmpx --enable-initfini-array --enable-libstdcxx-time=rt --with-build-sysroot=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_sysroot AR_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/binutils/ar AS_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/gas/as-new LD_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/ld/ld-new NM_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/binutils/nm-new OBJCOPY_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/binutils/objcopy OBJDUMP_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/binutils/objdump RANLIB_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/binutils/ranlib READELF_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/binutils/readelf STRIP_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/binutils/strip-new --build=aarch64-apple-darwin24.6.0 --host=aarch64-apple-darwin24.6.0
+        Thread model: posix
+        Supported LTO compression algorithms: zlib
+        gcc version 14.2.0 (GCC) 
+        COMPILER_PATH=/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../libexec/gcc/arm-linux-musleabihf/14.2.0/:/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../libexec/gcc/:/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/bin/
+        LIBRARY_PATH=/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/:/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/:/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib/:/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../arm-linux-musleabihf/lib/
+        COLLECT_GCC_OPTIONS= '-mtune=cortex-a7' '-mfpu=neon-vfpv4' '-mfloat-abi=hard' '-v' '-o' 'cmTC_2ec12' '-mtls-dialect=gnu' '-marm' '-mlibarch=armv7-a+neon-vfpv4' '-march=armv7-a+neon-vfpv4' '-dumpdir' 'cmTC_2ec12.'
+         /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../libexec/gcc/arm-linux-musleabihf/14.2.0/collect2 -plugin /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../libexec/gcc/arm-linux-musleabihf/14.2.0/liblto_plugin.so -plugin-opt=/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../libexec/gcc/arm-linux-musleabihf/14.2.0/lto-wrapper -plugin-opt=-fresolution=/var/folders/s2/k7yjhqtj6hj5ktb7_54y8z1h0000gn/T//ccrD9zyS.res -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_s --sysroot=/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../arm-linux-musleabihf --eh-frame-hdr -dynamic-linker /lib/ld-musl-armhf.so.1 -X -m armelf_linux_eabi -o cmTC_2ec12 /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib/crt1.o /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib/crti.o /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/crtbegin.o -L/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0 -L/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc -L/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib -L/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../arm-linux-musleabihf/lib -v CMakeFiles/cmTC_2ec12.dir/CMakeCCompilerABI.c.o -lgcc --push-state --as-needed -lgcc_s --pop-state -lc -lgcc --push-state --as-needed -lgcc_s --pop-state /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/crtend.o /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib/crtn.o
+        collect2 version 14.2.0
+        /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/bin/ld -plugin /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../libexec/gcc/arm-linux-musleabihf/14.2.0/liblto_plugin.so -plugin-opt=/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../libexec/gcc/arm-linux-musleabihf/14.2.0/lto-wrapper -plugin-opt=-fresolution=/var/folders/s2/k7yjhqtj6hj5ktb7_54y8z1h0000gn/T//ccrD9zyS.res -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_s --sysroot=/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../arm-linux-musleabihf --eh-frame-hdr -dynamic-linker /lib/ld-musl-armhf.so.1 -X -m armelf_linux_eabi -o cmTC_2ec12 /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib/crt1.o /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib/crti.o /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/crtbegin.o -L/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0 -L/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc -L/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib -L/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../arm-linux-musleabihf/lib -v CMakeFiles/cmTC_2ec12.dir/CMakeCCompilerABI.c.o -lgcc --push-state --as-needed -lgcc_s --pop-state -lc -lgcc --push-state --as-needed -lgcc_s --pop-state /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/crtend.o /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib/crtn.o
+        GNU ld (GNU Binutils) 2.44
+        COLLECT_GCC_OPTIONS= '-mtune=cortex-a7' '-mfpu=neon-vfpv4' '-mfloat-abi=hard' '-v' '-o' 'cmTC_2ec12' '-mtls-dialect=gnu' '-marm' '-mlibarch=armv7-a+neon-vfpv4' '-march=armv7-a+neon-vfpv4' '-dumpdir' 'cmTC_2ec12.'
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard   -v -Wl,-v CMakeFiles/cmTC_2ec12.dir/CMakeCCompilerABI.c.o -o cmTC_2ec12
+        
+      exitCode: 0
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/CMakeDetermineCompilerABI.cmake:217 (message)"
+      - "/opt/homebrew/share/cmake/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:4 (project)"
+    message: |
+      Parsed C implicit include dir info: rv=done
+        found start of include info
+        found start of implicit include info
+          add: [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/include]
+          add: [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/include]
+        end of search list found
+        collapse include dir [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/include] ==> [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/arm-linux-musleabihf/include]
+        collapse include dir [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/include] ==> [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/lib/gcc/arm-linux-musleabihf/14.2.0/include]
+        implicit include dirs: [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/arm-linux-musleabihf/include;/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/lib/gcc/arm-linux-musleabihf/14.2.0/include]
+      
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/CMakeDetermineCompilerABI.cmake:253 (message)"
+      - "/opt/homebrew/share/cmake/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:4 (project)"
+    message: |
+      Parsed C implicit link information:
+        link line regex: [^( *|.*[/\\])(ld[0-9]*(|\\.[a-rt-z][a-z]*|\\.s[a-np-z][a-z]*|\\.so[a-z]+)|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\\]+-)?ld|collect2)[^/\\]*( |$)]
+        linker tool regex: [^[ 	]*(->|"|[0-9]+>[ 	-]*Build:[ 	0-9]+ ms[ 	]*)?[ 	]*(([^"]*[/\\])?(ld[0-9]*(|\\.[a-rt-z][a-z]*|\\.s[a-np-z][a-z]*|\\.so[a-z]+)))("|,| |$)]
+        ignore line: [Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-1oEmbm']
+        ignore line: []
+        ignore line: [Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_2ec12/fast]
+        ignore line: [/Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_2ec12.dir/build.make CMakeFiles/cmTC_2ec12.dir/build]
+        ignore line: [Building C object CMakeFiles/cmTC_2ec12.dir/CMakeCCompilerABI.c.o]
+        ignore line: [/opt/homebrew/bin/arm-linux-musleabihf-gcc   -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard    -v -o CMakeFiles/cmTC_2ec12.dir/CMakeCCompilerABI.c.o -c /opt/homebrew/share/cmake/Modules/CMakeCCompilerABI.c]
+        ignore line: [Using built-in specs.]
+        ignore line: [COLLECT_GCC=/opt/homebrew/bin/arm-linux-musleabihf-gcc]
+        ignore line: [Target: arm-linux-musleabihf]
+        ignore line: [Configured with: ../src_gcc/configure --enable-languages=c,c++ --with-float=hard --disable-nls --with-debug-prefix-map=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11= --disable-libquadmath --disable-decimal-float --disable-libitm --disable-fixed-point --with-system-zlib --disable-bootstrap --disable-assembly --disable-werror --target=arm-linux-musleabihf --prefix= --libdir=/lib --disable-multilib --with-sysroot=/arm-linux-musleabihf --enable-tls --disable-libmudflap --disable-libsanitizer --disable-gnu-indirect-function --disable-libmpx --enable-initfini-array --enable-libstdcxx-time=rt --with-build-sysroot=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_sysroot AR_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/binutils/ar AS_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/gas/as-new LD_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/ld/ld-new NM_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/binutils/nm-new OBJCOPY_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/binutils/objcopy OBJDUMP_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/binutils/objdump RANLIB_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/binutils/ranlib READELF_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/binutils/readelf STRIP_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/binutils/strip-new --build=aarch64-apple-darwin24.6.0 --host=aarch64-apple-darwin24.6.0]
+        ignore line: [Thread model: posix]
+        ignore line: [Supported LTO compression algorithms: zlib]
+        ignore line: [gcc version 14.2.0 (GCC) ]
+        ignore line: [COLLECT_GCC_OPTIONS= '-mtune=cortex-a7' '-mfpu=neon-vfpv4' '-mfloat-abi=hard' '-v' '-o' 'CMakeFiles/cmTC_2ec12.dir/CMakeCCompilerABI.c.o' '-c' '-mtls-dialect=gnu' '-marm' '-mlibarch=armv7-a+neon-vfpv4' '-march=armv7-a+neon-vfpv4' '-dumpdir' 'CMakeFiles/cmTC_2ec12.dir/']
+        ignore line: [ /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../libexec/gcc/arm-linux-musleabihf/14.2.0/cc1 -quiet -v -iprefix /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/ -isysroot /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../arm-linux-musleabihf /opt/homebrew/share/cmake/Modules/CMakeCCompilerABI.c -quiet -dumpdir CMakeFiles/cmTC_2ec12.dir/ -dumpbase CMakeCCompilerABI.c.c -dumpbase-ext .c -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -mtls-dialect=gnu -marm -mlibarch=armv7-a+neon-vfpv4 -march=armv7-a+neon-vfpv4 -version -o /var/folders/s2/k7yjhqtj6hj5ktb7_54y8z1h0000gn/T//ccLN0zNb.s]
+        ignore line: [GNU C17 (GCC) version 14.2.0 (arm-linux-musleabihf)]
+        ignore line: [	compiled by GNU C version Apple LLVM 17.0.0 (clang-1700.0.13.5)  GMP version 6.1.2  MPFR version 4.0.2  MPC version 1.1.0  isl version isl-0.21-GMP]
+        ignore line: []
+        ignore line: [GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072]
+        ignore line: [ignoring nonexistent directory "/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../arm-linux-musleabihf/usr/local/include"]
+        ignore line: [ignoring duplicate directory "/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/../../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/include"]
+        ignore line: [ignoring nonexistent directory "/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../arm-linux-musleabihf/usr/include"]
+        ignore line: [ignoring duplicate directory "/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/../../lib/gcc/arm-linux-musleabihf/14.2.0/include"]
+        ignore line: [#include "..." search starts here:]
+        ignore line: [#include <...> search starts here:]
+        ignore line: [ /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/include]
+        ignore line: [ /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/include]
+        ignore line: [End of search list.]
+        ignore line: [Compiler executable checksum: dcac4fbece8e2977e6bba28d0a4e4705]
+        ignore line: [COLLECT_GCC_OPTIONS= '-mtune=cortex-a7' '-mfpu=neon-vfpv4' '-mfloat-abi=hard' '-v' '-o' 'CMakeFiles/cmTC_2ec12.dir/CMakeCCompilerABI.c.o' '-c' '-mtls-dialect=gnu' '-marm' '-mlibarch=armv7-a+neon-vfpv4' '-march=armv7-a+neon-vfpv4' '-dumpdir' 'CMakeFiles/cmTC_2ec12.dir/']
+        ignore line: [ /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/bin/as -v -march=armv7-a+neon-vfpv4 -mfloat-abi=hard -mfpu=neon-vfpv4 -meabi=5 -o CMakeFiles/cmTC_2ec12.dir/CMakeCCompilerABI.c.o /var/folders/s2/k7yjhqtj6hj5ktb7_54y8z1h0000gn/T//ccLN0zNb.s]
+        ignore line: [GNU assembler version 2.44 (arm-linux-musleabihf) using BFD version (GNU Binutils) 2.44]
+        ignore line: [COMPILER_PATH=/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../libexec/gcc/arm-linux-musleabihf/14.2.0/:/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../libexec/gcc/:/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/bin/]
+        ignore line: [LIBRARY_PATH=/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/:/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/:/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib/:/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../arm-linux-musleabihf/lib/]
+        ignore line: [COLLECT_GCC_OPTIONS= '-mtune=cortex-a7' '-mfpu=neon-vfpv4' '-mfloat-abi=hard' '-v' '-o' 'CMakeFiles/cmTC_2ec12.dir/CMakeCCompilerABI.c.o' '-c' '-mtls-dialect=gnu' '-marm' '-mlibarch=armv7-a+neon-vfpv4' '-march=armv7-a+neon-vfpv4' '-dumpdir' 'CMakeFiles/cmTC_2ec12.dir/CMakeCCompilerABI.c.']
+        ignore line: [Linking C executable cmTC_2ec12]
+        ignore line: [/opt/homebrew/bin/cmake -E cmake_link_script CMakeFiles/cmTC_2ec12.dir/link.txt --verbose=1]
+        ignore line: [Using built-in specs.]
+        ignore line: [COLLECT_GCC=/opt/homebrew/bin/arm-linux-musleabihf-gcc]
+        ignore line: [COLLECT_LTO_WRAPPER=/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../libexec/gcc/arm-linux-musleabihf/14.2.0/lto-wrapper]
+        ignore line: [Target: arm-linux-musleabihf]
+        ignore line: [Configured with: ../src_gcc/configure --enable-languages=c,c++ --with-float=hard --disable-nls --with-debug-prefix-map=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11= --disable-libquadmath --disable-decimal-float --disable-libitm --disable-fixed-point --with-system-zlib --disable-bootstrap --disable-assembly --disable-werror --target=arm-linux-musleabihf --prefix= --libdir=/lib --disable-multilib --with-sysroot=/arm-linux-musleabihf --enable-tls --disable-libmudflap --disable-libsanitizer --disable-gnu-indirect-function --disable-libmpx --enable-initfini-array --enable-libstdcxx-time=rt --with-build-sysroot=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_sysroot AR_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/binutils/ar AS_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/gas/as-new LD_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/ld/ld-new NM_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/binutils/nm-new OBJCOPY_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/binutils/objcopy OBJDUMP_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/binutils/objdump RANLIB_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/binutils/ranlib READELF_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/binutils/readelf STRIP_FOR_TARGET=/private/tmp/musl-cross-20260114-10675-63y5yt/musl-cross-make-0.9.11/build/local/arm-linux-musleabihf/obj_binutils/binutils/strip-new --build=aarch64-apple-darwin24.6.0 --host=aarch64-apple-darwin24.6.0]
+        ignore line: [Thread model: posix]
+        ignore line: [Supported LTO compression algorithms: zlib]
+        ignore line: [gcc version 14.2.0 (GCC) ]
+        ignore line: [COMPILER_PATH=/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../libexec/gcc/arm-linux-musleabihf/14.2.0/:/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../libexec/gcc/:/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/bin/]
+        ignore line: [LIBRARY_PATH=/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/:/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/:/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib/:/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../arm-linux-musleabihf/lib/]
+        ignore line: [COLLECT_GCC_OPTIONS= '-mtune=cortex-a7' '-mfpu=neon-vfpv4' '-mfloat-abi=hard' '-v' '-o' 'cmTC_2ec12' '-mtls-dialect=gnu' '-marm' '-mlibarch=armv7-a+neon-vfpv4' '-march=armv7-a+neon-vfpv4' '-dumpdir' 'cmTC_2ec12.']
+        link line: [ /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../libexec/gcc/arm-linux-musleabihf/14.2.0/collect2 -plugin /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../libexec/gcc/arm-linux-musleabihf/14.2.0/liblto_plugin.so -plugin-opt=/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../libexec/gcc/arm-linux-musleabihf/14.2.0/lto-wrapper -plugin-opt=-fresolution=/var/folders/s2/k7yjhqtj6hj5ktb7_54y8z1h0000gn/T//ccrD9zyS.res -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_s --sysroot=/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../arm-linux-musleabihf --eh-frame-hdr -dynamic-linker /lib/ld-musl-armhf.so.1 -X -m armelf_linux_eabi -o cmTC_2ec12 /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib/crt1.o /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib/crti.o /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/crtbegin.o -L/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0 -L/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc -L/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib -L/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../arm-linux-musleabihf/lib -v CMakeFiles/cmTC_2ec12.dir/CMakeCCompilerABI.c.o -lgcc --push-state --as-needed -lgcc_s --pop-state -lc -lgcc --push-state --as-needed -lgcc_s --pop-state /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/crtend.o /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib/crtn.o]
+          arg [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../libexec/gcc/arm-linux-musleabihf/14.2.0/collect2] ==> ignore
+          arg [-plugin] ==> ignore
+          arg [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../libexec/gcc/arm-linux-musleabihf/14.2.0/liblto_plugin.so] ==> ignore
+          arg [-plugin-opt=/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../libexec/gcc/arm-linux-musleabihf/14.2.0/lto-wrapper] ==> ignore
+          arg [-plugin-opt=-fresolution=/var/folders/s2/k7yjhqtj6hj5ktb7_54y8z1h0000gn/T//ccrD9zyS.res] ==> ignore
+          arg [-plugin-opt=-pass-through=-lgcc] ==> ignore
+          arg [-plugin-opt=-pass-through=-lgcc_s] ==> ignore
+          arg [-plugin-opt=-pass-through=-lc] ==> ignore
+          arg [-plugin-opt=-pass-through=-lgcc] ==> ignore
+          arg [-plugin-opt=-pass-through=-lgcc_s] ==> ignore
+          arg [--sysroot=/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../arm-linux-musleabihf] ==> ignore
+          arg [--eh-frame-hdr] ==> ignore
+          arg [-dynamic-linker] ==> ignore
+          arg [/lib/ld-musl-armhf.so.1] ==> ignore
+          arg [-X] ==> ignore
+          arg [-m] ==> ignore
+          arg [armelf_linux_eabi] ==> ignore
+          arg [-o] ==> ignore
+          arg [cmTC_2ec12] ==> ignore
+          arg [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib/crt1.o] ==> obj [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib/crt1.o]
+          arg [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib/crti.o] ==> obj [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib/crti.o]
+          arg [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/crtbegin.o] ==> obj [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/crtbegin.o]
+          arg [-L/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0] ==> dir [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0]
+          arg [-L/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc] ==> dir [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc]
+          arg [-L/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib] ==> dir [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib]
+          arg [-L/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../arm-linux-musleabihf/lib] ==> dir [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../arm-linux-musleabihf/lib]
+          arg [-v] ==> ignore
+          arg [CMakeFiles/cmTC_2ec12.dir/CMakeCCompilerABI.c.o] ==> ignore
+          arg [-lgcc] ==> lib [gcc]
+          arg [--push-state] ==> ignore
+          arg [--as-needed] ==> ignore
+          arg [-lgcc_s] ==> lib [gcc_s]
+          arg [--pop-state] ==> ignore
+          arg [-lc] ==> lib [c]
+          arg [-lgcc] ==> lib [gcc]
+          arg [--push-state] ==> ignore
+          arg [--as-needed] ==> ignore
+          arg [-lgcc_s] ==> lib [gcc_s]
+          arg [--pop-state] ==> ignore
+          arg [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/crtend.o] ==> obj [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/crtend.o]
+          arg [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib/crtn.o] ==> obj [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib/crtn.o]
+        ignore line: [collect2 version 14.2.0]
+        ignore line: [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/bin/ld -plugin /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../libexec/gcc/arm-linux-musleabihf/14.2.0/liblto_plugin.so -plugin-opt=/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../libexec/gcc/arm-linux-musleabihf/14.2.0/lto-wrapper -plugin-opt=-fresolution=/var/folders/s2/k7yjhqtj6hj5ktb7_54y8z1h0000gn/T//ccrD9zyS.res -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_s --sysroot=/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../arm-linux-musleabihf --eh-frame-hdr -dynamic-linker /lib/ld-musl-armhf.so.1 -X -m armelf_linux_eabi -o cmTC_2ec12 /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib/crt1.o /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib/crti.o /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/crtbegin.o -L/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0 -L/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc -L/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib -L/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../arm-linux-musleabihf/lib -v CMakeFiles/cmTC_2ec12.dir/CMakeCCompilerABI.c.o -lgcc --push-state --as-needed -lgcc_s --pop-state -lc -lgcc --push-state --as-needed -lgcc_s --pop-state /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/crtend.o /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib/crtn.o]
+        linker tool for 'C': /opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/bin/ld
+        collapse obj [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib/crt1.o] ==> [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/arm-linux-musleabihf/lib/crt1.o]
+        collapse obj [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib/crti.o] ==> [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/arm-linux-musleabihf/lib/crti.o]
+        collapse obj [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/crtbegin.o] ==> [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/lib/gcc/arm-linux-musleabihf/14.2.0/crtbegin.o]
+        collapse obj [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/crtend.o] ==> [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/lib/gcc/arm-linux-musleabihf/14.2.0/crtend.o]
+        collapse obj [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib/crtn.o] ==> [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/arm-linux-musleabihf/lib/crtn.o]
+        collapse library dir [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0] ==> [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/lib/gcc/arm-linux-musleabihf/14.2.0]
+        collapse library dir [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc] ==> [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/lib/gcc]
+        collapse library dir [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/lib] ==> [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/arm-linux-musleabihf/lib]
+        collapse library dir [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../arm-linux-musleabihf/lib] ==> [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/arm-linux-musleabihf/lib]
+        implicit libs: [gcc;gcc_s;c;gcc;gcc_s]
+        implicit objs: [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/arm-linux-musleabihf/lib/crt1.o;/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/arm-linux-musleabihf/lib/crti.o;/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/lib/gcc/arm-linux-musleabihf/14.2.0/crtbegin.o;/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/lib/gcc/arm-linux-musleabihf/14.2.0/crtend.o;/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/arm-linux-musleabihf/lib/crtn.o]
+        implicit dirs: [/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/lib/gcc/arm-linux-musleabihf/14.2.0;/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/lib/gcc;/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/arm-linux-musleabihf/lib]
+        implicit fwks: []
+      
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CMakeDetermineLinkerId.cmake:38 (message)"
+      - "/opt/homebrew/share/cmake/Modules/CMakeDetermineCompilerABI.cmake:299 (cmake_determine_linker_id)"
+      - "/opt/homebrew/share/cmake/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:4 (project)"
+    message: |
+      Running the C compiler's linker: "/opt/homebrew/Cellar/musl-cross/0.9.11/libexec/bin/../lib/gcc/arm-linux-musleabihf/14.2.0/../../../../arm-linux-musleabihf/bin/ld" "-v"
+      GNU ld (GNU Binutils) 2.44
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:103 (CHECK_C_COMPILER_FLAG)"
+    checks:
+      - "Performing Test FLAG_SUPPORTED_stdc89"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-3zpLCc"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-3zpLCc"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "FLAG_SUPPORTED_stdc89"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-3zpLCc'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_82567/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_82567.dir/build.make CMakeFiles/cmTC_82567.dir/build
+        Building C object CMakeFiles/cmTC_82567.dir/src.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -DFLAG_SUPPORTED_stdc89  -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard    -std=c89 -o CMakeFiles/cmTC_82567.dir/src.c.o -c /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-3zpLCc/src.c
+        Linking C executable cmTC_82567
+        /opt/homebrew/bin/cmake -E cmake_link_script CMakeFiles/cmTC_82567.dir/link.txt --verbose=1
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard  CMakeFiles/cmTC_82567.dir/src.c.o -o cmTC_82567
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:103 (CHECK_C_COMPILER_FLAG)"
+    checks:
+      - "Performing Test FLAG_SUPPORTED_pedantic"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-7KiA01"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-7KiA01"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "FLAG_SUPPORTED_pedantic"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-7KiA01'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_85bf8/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_85bf8.dir/build.make CMakeFiles/cmTC_85bf8.dir/build
+        Building C object CMakeFiles/cmTC_85bf8.dir/src.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -DFLAG_SUPPORTED_pedantic  -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89    -pedantic -o CMakeFiles/cmTC_85bf8.dir/src.c.o -c /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-7KiA01/src.c
+        Linking C executable cmTC_85bf8
+        /opt/homebrew/bin/cmake -E cmake_link_script CMakeFiles/cmTC_85bf8.dir/link.txt --verbose=1
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89  CMakeFiles/cmTC_85bf8.dir/src.c.o -o cmTC_85bf8
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:103 (CHECK_C_COMPILER_FLAG)"
+    checks:
+      - "Performing Test FLAG_SUPPORTED_Wall"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-UimNWm"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-UimNWm"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "FLAG_SUPPORTED_Wall"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-UimNWm'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_8bd06/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_8bd06.dir/build.make CMakeFiles/cmTC_8bd06.dir/build
+        Building C object CMakeFiles/cmTC_8bd06.dir/src.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -DFLAG_SUPPORTED_Wall  -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic    -Wall -o CMakeFiles/cmTC_8bd06.dir/src.c.o -c /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-UimNWm/src.c
+        Linking C executable cmTC_8bd06
+        /opt/homebrew/bin/cmake -E cmake_link_script CMakeFiles/cmTC_8bd06.dir/link.txt --verbose=1
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic  CMakeFiles/cmTC_8bd06.dir/src.c.o -o cmTC_8bd06
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:103 (CHECK_C_COMPILER_FLAG)"
+    checks:
+      - "Performing Test FLAG_SUPPORTED_Wextra"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-zSw85U"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-zSw85U"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "FLAG_SUPPORTED_Wextra"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-zSw85U'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_7f5e6/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_7f5e6.dir/build.make CMakeFiles/cmTC_7f5e6.dir/build
+        Building C object CMakeFiles/cmTC_7f5e6.dir/src.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -DFLAG_SUPPORTED_Wextra  -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall    -Wextra -o CMakeFiles/cmTC_7f5e6.dir/src.c.o -c /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-zSw85U/src.c
+        Linking C executable cmTC_7f5e6
+        /opt/homebrew/bin/cmake -E cmake_link_script CMakeFiles/cmTC_7f5e6.dir/link.txt --verbose=1
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall  CMakeFiles/cmTC_7f5e6.dir/src.c.o -o cmTC_7f5e6
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:103 (CHECK_C_COMPILER_FLAG)"
+    checks:
+      - "Performing Test FLAG_SUPPORTED_Werror"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-U5tmnv"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-U5tmnv"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "FLAG_SUPPORTED_Werror"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-U5tmnv'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_7e029/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_7e029.dir/build.make CMakeFiles/cmTC_7e029.dir/build
+        Building C object CMakeFiles/cmTC_7e029.dir/src.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -DFLAG_SUPPORTED_Werror  -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra    -Werror -o CMakeFiles/cmTC_7e029.dir/src.c.o -c /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-U5tmnv/src.c
+        Linking C executable cmTC_7e029
+        /opt/homebrew/bin/cmake -E cmake_link_script CMakeFiles/cmTC_7e029.dir/link.txt --verbose=1
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra  CMakeFiles/cmTC_7e029.dir/src.c.o -o cmTC_7e029
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:103 (CHECK_C_COMPILER_FLAG)"
+    checks:
+      - "Performing Test FLAG_SUPPORTED_Wstrictprototypes"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-QuKvUU"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-QuKvUU"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "FLAG_SUPPORTED_Wstrictprototypes"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-QuKvUU'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_70193/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_70193.dir/build.make CMakeFiles/cmTC_70193.dir/build
+        Building C object CMakeFiles/cmTC_70193.dir/src.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -DFLAG_SUPPORTED_Wstrictprototypes  -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror    -Wstrict-prototypes -o CMakeFiles/cmTC_70193.dir/src.c.o -c /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-QuKvUU/src.c
+        Linking C executable cmTC_70193
+        /opt/homebrew/bin/cmake -E cmake_link_script CMakeFiles/cmTC_70193.dir/link.txt --verbose=1
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror  CMakeFiles/cmTC_70193.dir/src.c.o -o cmTC_70193
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:103 (CHECK_C_COMPILER_FLAG)"
+    checks:
+      - "Performing Test FLAG_SUPPORTED_Wwritestrings"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-sVVuJk"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-sVVuJk"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "FLAG_SUPPORTED_Wwritestrings"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-sVVuJk'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_739ec/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_739ec.dir/build.make CMakeFiles/cmTC_739ec.dir/build
+        Building C object CMakeFiles/cmTC_739ec.dir/src.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -DFLAG_SUPPORTED_Wwritestrings  -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes    -Wwrite-strings -o CMakeFiles/cmTC_739ec.dir/src.c.o -c /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-sVVuJk/src.c
+        Linking C executable cmTC_739ec
+        /opt/homebrew/bin/cmake -E cmake_link_script CMakeFiles/cmTC_739ec.dir/link.txt --verbose=1
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes  CMakeFiles/cmTC_739ec.dir/src.c.o -o cmTC_739ec
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:103 (CHECK_C_COMPILER_FLAG)"
+    checks:
+      - "Performing Test FLAG_SUPPORTED_Wshadow"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-WGO8Mk"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-WGO8Mk"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "FLAG_SUPPORTED_Wshadow"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-WGO8Mk'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_e8a4a/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_e8a4a.dir/build.make CMakeFiles/cmTC_e8a4a.dir/build
+        Building C object CMakeFiles/cmTC_e8a4a.dir/src.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -DFLAG_SUPPORTED_Wshadow  -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings    -Wshadow -o CMakeFiles/cmTC_e8a4a.dir/src.c.o -c /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-WGO8Mk/src.c
+        Linking C executable cmTC_e8a4a
+        /opt/homebrew/bin/cmake -E cmake_link_script CMakeFiles/cmTC_e8a4a.dir/link.txt --verbose=1
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings  CMakeFiles/cmTC_e8a4a.dir/src.c.o -o cmTC_e8a4a
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:103 (CHECK_C_COMPILER_FLAG)"
+    checks:
+      - "Performing Test FLAG_SUPPORTED_Winitself"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-M3I5Ea"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-M3I5Ea"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "FLAG_SUPPORTED_Winitself"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-M3I5Ea'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_df49e/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_df49e.dir/build.make CMakeFiles/cmTC_df49e.dir/build
+        Building C object CMakeFiles/cmTC_df49e.dir/src.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -DFLAG_SUPPORTED_Winitself  -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow    -Winit-self -o CMakeFiles/cmTC_df49e.dir/src.c.o -c /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-M3I5Ea/src.c
+        Linking C executable cmTC_df49e
+        /opt/homebrew/bin/cmake -E cmake_link_script CMakeFiles/cmTC_df49e.dir/link.txt --verbose=1
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow  CMakeFiles/cmTC_df49e.dir/src.c.o -o cmTC_df49e
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:103 (CHECK_C_COMPILER_FLAG)"
+    checks:
+      - "Performing Test FLAG_SUPPORTED_Wcastalign"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-YZEWHD"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-YZEWHD"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "FLAG_SUPPORTED_Wcastalign"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-YZEWHD'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_9f5ca/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_9f5ca.dir/build.make CMakeFiles/cmTC_9f5ca.dir/build
+        Building C object CMakeFiles/cmTC_9f5ca.dir/src.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -DFLAG_SUPPORTED_Wcastalign  -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self    -Wcast-align -o CMakeFiles/cmTC_9f5ca.dir/src.c.o -c /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-YZEWHD/src.c
+        Linking C executable cmTC_9f5ca
+        /opt/homebrew/bin/cmake -E cmake_link_script CMakeFiles/cmTC_9f5ca.dir/link.txt --verbose=1
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self  CMakeFiles/cmTC_9f5ca.dir/src.c.o -o cmTC_9f5ca
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:103 (CHECK_C_COMPILER_FLAG)"
+    checks:
+      - "Performing Test FLAG_SUPPORTED_Wformat2"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-OeZQ70"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-OeZQ70"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "FLAG_SUPPORTED_Wformat2"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-OeZQ70'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_95d0c/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_95d0c.dir/build.make CMakeFiles/cmTC_95d0c.dir/build
+        Building C object CMakeFiles/cmTC_95d0c.dir/src.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -DFLAG_SUPPORTED_Wformat2  -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align    -Wformat=2 -o CMakeFiles/cmTC_95d0c.dir/src.c.o -c /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-OeZQ70/src.c
+        Linking C executable cmTC_95d0c
+        /opt/homebrew/bin/cmake -E cmake_link_script CMakeFiles/cmTC_95d0c.dir/link.txt --verbose=1
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align  CMakeFiles/cmTC_95d0c.dir/src.c.o -o cmTC_95d0c
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:103 (CHECK_C_COMPILER_FLAG)"
+    checks:
+      - "Performing Test FLAG_SUPPORTED_Wmissingprototypes"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-CfupA9"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-CfupA9"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "FLAG_SUPPORTED_Wmissingprototypes"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-CfupA9'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_96802/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_96802.dir/build.make CMakeFiles/cmTC_96802.dir/build
+        Building C object CMakeFiles/cmTC_96802.dir/src.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -DFLAG_SUPPORTED_Wmissingprototypes  -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2    -Wmissing-prototypes -o CMakeFiles/cmTC_96802.dir/src.c.o -c /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-CfupA9/src.c
+        Linking C executable cmTC_96802
+        /opt/homebrew/bin/cmake -E cmake_link_script CMakeFiles/cmTC_96802.dir/link.txt --verbose=1
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2  CMakeFiles/cmTC_96802.dir/src.c.o -o cmTC_96802
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:103 (CHECK_C_COMPILER_FLAG)"
+    checks:
+      - "Performing Test FLAG_SUPPORTED_Wstrictoverflow2"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-cZuFLi"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-cZuFLi"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "FLAG_SUPPORTED_Wstrictoverflow2"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-cZuFLi'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_9e1a8/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_9e1a8.dir/build.make CMakeFiles/cmTC_9e1a8.dir/build
+        Building C object CMakeFiles/cmTC_9e1a8.dir/src.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -DFLAG_SUPPORTED_Wstrictoverflow2  -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes    -Wstrict-overflow=2 -o CMakeFiles/cmTC_9e1a8.dir/src.c.o -c /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-cZuFLi/src.c
+        Linking C executable cmTC_9e1a8
+        /opt/homebrew/bin/cmake -E cmake_link_script CMakeFiles/cmTC_9e1a8.dir/link.txt --verbose=1
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes  CMakeFiles/cmTC_9e1a8.dir/src.c.o -o cmTC_9e1a8
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:103 (CHECK_C_COMPILER_FLAG)"
+    checks:
+      - "Performing Test FLAG_SUPPORTED_Wcastqual"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-eHuQXf"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-eHuQXf"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "FLAG_SUPPORTED_Wcastqual"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-eHuQXf'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_a0d54/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_a0d54.dir/build.make CMakeFiles/cmTC_a0d54.dir/build
+        Building C object CMakeFiles/cmTC_a0d54.dir/src.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -DFLAG_SUPPORTED_Wcastqual  -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2    -Wcast-qual -o CMakeFiles/cmTC_a0d54.dir/src.c.o -c /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-eHuQXf/src.c
+        Linking C executable cmTC_a0d54
+        /opt/homebrew/bin/cmake -E cmake_link_script CMakeFiles/cmTC_a0d54.dir/link.txt --verbose=1
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2  CMakeFiles/cmTC_a0d54.dir/src.c.o -o cmTC_a0d54
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:103 (CHECK_C_COMPILER_FLAG)"
+    checks:
+      - "Performing Test FLAG_SUPPORTED_Wundef"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-k2g2NB"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-k2g2NB"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "FLAG_SUPPORTED_Wundef"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-k2g2NB'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_a199d/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_a199d.dir/build.make CMakeFiles/cmTC_a199d.dir/build
+        Building C object CMakeFiles/cmTC_a199d.dir/src.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -DFLAG_SUPPORTED_Wundef  -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual    -Wundef -o CMakeFiles/cmTC_a199d.dir/src.c.o -c /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-k2g2NB/src.c
+        Linking C executable cmTC_a199d
+        /opt/homebrew/bin/cmake -E cmake_link_script CMakeFiles/cmTC_a199d.dir/link.txt --verbose=1
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual  CMakeFiles/cmTC_a199d.dir/src.c.o -o cmTC_a199d
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:103 (CHECK_C_COMPILER_FLAG)"
+    checks:
+      - "Performing Test FLAG_SUPPORTED_Wswitchdefault"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-JVWrbP"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-JVWrbP"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "FLAG_SUPPORTED_Wswitchdefault"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-JVWrbP'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_3ec7d/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_3ec7d.dir/build.make CMakeFiles/cmTC_3ec7d.dir/build
+        Building C object CMakeFiles/cmTC_3ec7d.dir/src.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -DFLAG_SUPPORTED_Wswitchdefault  -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef    -Wswitch-default -o CMakeFiles/cmTC_3ec7d.dir/src.c.o -c /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-JVWrbP/src.c
+        Linking C executable cmTC_3ec7d
+        /opt/homebrew/bin/cmake -E cmake_link_script CMakeFiles/cmTC_3ec7d.dir/link.txt --verbose=1
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef  CMakeFiles/cmTC_3ec7d.dir/src.c.o -o cmTC_3ec7d
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:103 (CHECK_C_COMPILER_FLAG)"
+    checks:
+      - "Performing Test FLAG_SUPPORTED_Wconversion"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-CpZsBM"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-CpZsBM"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "FLAG_SUPPORTED_Wconversion"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-CpZsBM'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_44630/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_44630.dir/build.make CMakeFiles/cmTC_44630.dir/build
+        Building C object CMakeFiles/cmTC_44630.dir/src.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -DFLAG_SUPPORTED_Wconversion  -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default    -Wconversion -o CMakeFiles/cmTC_44630.dir/src.c.o -c /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-CpZsBM/src.c
+        Linking C executable cmTC_44630
+        /opt/homebrew/bin/cmake -E cmake_link_script CMakeFiles/cmTC_44630.dir/link.txt --verbose=1
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default  CMakeFiles/cmTC_44630.dir/src.c.o -o cmTC_44630
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:103 (CHECK_C_COMPILER_FLAG)"
+    checks:
+      - "Performing Test FLAG_SUPPORTED_Wccompat"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-FelwX6"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-FelwX6"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "FLAG_SUPPORTED_Wccompat"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-FelwX6'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_8b600/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_8b600.dir/build.make CMakeFiles/cmTC_8b600.dir/build
+        Building C object CMakeFiles/cmTC_8b600.dir/src.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -DFLAG_SUPPORTED_Wccompat  -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion    -Wc++-compat -o CMakeFiles/cmTC_8b600.dir/src.c.o -c /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-FelwX6/src.c
+        Linking C executable cmTC_8b600
+        /opt/homebrew/bin/cmake -E cmake_link_script CMakeFiles/cmTC_8b600.dir/link.txt --verbose=1
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion  CMakeFiles/cmTC_8b600.dir/src.c.o -o cmTC_8b600
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:103 (CHECK_C_COMPILER_FLAG)"
+    checks:
+      - "Performing Test FLAG_SUPPORTED_fstackprotectorstrong"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-vZvPWo"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-vZvPWo"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion -Wc++-compat"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "FLAG_SUPPORTED_fstackprotectorstrong"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-vZvPWo'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_3b9bb/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_3b9bb.dir/build.make CMakeFiles/cmTC_3b9bb.dir/build
+        Building C object CMakeFiles/cmTC_3b9bb.dir/src.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -DFLAG_SUPPORTED_fstackprotectorstrong  -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion -Wc++-compat    -fstack-protector-strong -o CMakeFiles/cmTC_3b9bb.dir/src.c.o -c /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-vZvPWo/src.c
+        Linking C executable cmTC_3b9bb
+        /opt/homebrew/bin/cmake -E cmake_link_script CMakeFiles/cmTC_3b9bb.dir/link.txt --verbose=1
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion -Wc++-compat  CMakeFiles/cmTC_3b9bb.dir/src.c.o -o cmTC_3b9bb
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:103 (CHECK_C_COMPILER_FLAG)"
+    checks:
+      - "Performing Test FLAG_SUPPORTED_Wcomma"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-BeOXwK"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-BeOXwK"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion -Wc++-compat -fstack-protector-strong"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "FLAG_SUPPORTED_Wcomma"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-BeOXwK'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_06886/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_06886.dir/build.make CMakeFiles/cmTC_06886.dir/build
+        Building C object CMakeFiles/cmTC_06886.dir/src.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -DFLAG_SUPPORTED_Wcomma  -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion -Wc++-compat -fstack-protector-strong    -Wcomma -o CMakeFiles/cmTC_06886.dir/src.c.o -c /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-BeOXwK/src.c
+        arm-linux-musleabihf-gcc: error: unrecognized command-line option '-Wcomma'; did you mean '-Wcomment'?
+        make[1]: *** [CMakeFiles/cmTC_06886.dir/src.c.o] Error 1
+        make: *** [cmTC_06886/fast] Error 2
+        
+      exitCode: 2
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:103 (CHECK_C_COMPILER_FLAG)"
+    checks:
+      - "Performing Test FLAG_SUPPORTED_Wdoublepromotion"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-2EmjoV"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-2EmjoV"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion -Wc++-compat -fstack-protector-strong"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "FLAG_SUPPORTED_Wdoublepromotion"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-2EmjoV'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_632c3/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_632c3.dir/build.make CMakeFiles/cmTC_632c3.dir/build
+        Building C object CMakeFiles/cmTC_632c3.dir/src.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -DFLAG_SUPPORTED_Wdoublepromotion  -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion -Wc++-compat -fstack-protector-strong    -Wdouble-promotion -o CMakeFiles/cmTC_632c3.dir/src.c.o -c /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-2EmjoV/src.c
+        Linking C executable cmTC_632c3
+        /opt/homebrew/bin/cmake -E cmake_link_script CMakeFiles/cmTC_632c3.dir/link.txt --verbose=1
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion -Wc++-compat -fstack-protector-strong  CMakeFiles/cmTC_632c3.dir/src.c.o -o cmTC_632c3
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:103 (CHECK_C_COMPILER_FLAG)"
+    checks:
+      - "Performing Test FLAG_SUPPORTED_Wparentheses"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-CTF2O4"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-CTF2O4"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion -Wc++-compat -fstack-protector-strong -Wdouble-promotion"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "FLAG_SUPPORTED_Wparentheses"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-CTF2O4'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_920ee/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_920ee.dir/build.make CMakeFiles/cmTC_920ee.dir/build
+        Building C object CMakeFiles/cmTC_920ee.dir/src.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -DFLAG_SUPPORTED_Wparentheses  -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion -Wc++-compat -fstack-protector-strong -Wdouble-promotion    -Wparentheses -o CMakeFiles/cmTC_920ee.dir/src.c.o -c /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-CTF2O4/src.c
+        Linking C executable cmTC_920ee
+        /opt/homebrew/bin/cmake -E cmake_link_script CMakeFiles/cmTC_920ee.dir/link.txt --verbose=1
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion -Wc++-compat -fstack-protector-strong -Wdouble-promotion  CMakeFiles/cmTC_920ee.dir/src.c.o -o cmTC_920ee
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:103 (CHECK_C_COMPILER_FLAG)"
+    checks:
+      - "Performing Test FLAG_SUPPORTED_Wformatoverflow"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-hUF2CI"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-hUF2CI"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion -Wc++-compat -fstack-protector-strong -Wdouble-promotion -Wparentheses"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "FLAG_SUPPORTED_Wformatoverflow"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-hUF2CI'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_3e35e/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_3e35e.dir/build.make CMakeFiles/cmTC_3e35e.dir/build
+        Building C object CMakeFiles/cmTC_3e35e.dir/src.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -DFLAG_SUPPORTED_Wformatoverflow  -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion -Wc++-compat -fstack-protector-strong -Wdouble-promotion -Wparentheses    -Wformat-overflow -o CMakeFiles/cmTC_3e35e.dir/src.c.o -c /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-hUF2CI/src.c
+        Linking C executable cmTC_3e35e
+        /opt/homebrew/bin/cmake -E cmake_link_script CMakeFiles/cmTC_3e35e.dir/link.txt --verbose=1
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion -Wc++-compat -fstack-protector-strong -Wdouble-promotion -Wparentheses  CMakeFiles/cmTC_3e35e.dir/src.c.o -o cmTC_3e35e
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:103 (CHECK_C_COMPILER_FLAG)"
+    checks:
+      - "Performing Test FLAG_SUPPORTED_Wunusedmacros"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-dMXpkw"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-dMXpkw"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion -Wc++-compat -fstack-protector-strong -Wdouble-promotion -Wparentheses -Wformat-overflow"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "FLAG_SUPPORTED_Wunusedmacros"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-dMXpkw'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_3cb09/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_3cb09.dir/build.make CMakeFiles/cmTC_3cb09.dir/build
+        Building C object CMakeFiles/cmTC_3cb09.dir/src.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -DFLAG_SUPPORTED_Wunusedmacros  -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion -Wc++-compat -fstack-protector-strong -Wdouble-promotion -Wparentheses -Wformat-overflow    -Wunused-macros -o CMakeFiles/cmTC_3cb09.dir/src.c.o -c /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-dMXpkw/src.c
+        Linking C executable cmTC_3cb09
+        /opt/homebrew/bin/cmake -E cmake_link_script CMakeFiles/cmTC_3cb09.dir/link.txt --verbose=1
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion -Wc++-compat -fstack-protector-strong -Wdouble-promotion -Wparentheses -Wformat-overflow  CMakeFiles/cmTC_3cb09.dir/src.c.o -o cmTC_3cb09
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:103 (CHECK_C_COMPILER_FLAG)"
+    checks:
+      - "Performing Test FLAG_SUPPORTED_Wmissingvariabledeclarations"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-KWYzuY"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-KWYzuY"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion -Wc++-compat -fstack-protector-strong -Wdouble-promotion -Wparentheses -Wformat-overflow -Wunused-macros"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "FLAG_SUPPORTED_Wmissingvariabledeclarations"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-KWYzuY'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_1f093/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_1f093.dir/build.make CMakeFiles/cmTC_1f093.dir/build
+        Building C object CMakeFiles/cmTC_1f093.dir/src.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -DFLAG_SUPPORTED_Wmissingvariabledeclarations  -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion -Wc++-compat -fstack-protector-strong -Wdouble-promotion -Wparentheses -Wformat-overflow -Wunused-macros    -Wmissing-variable-declarations -o CMakeFiles/cmTC_1f093.dir/src.c.o -c /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-KWYzuY/src.c
+        Linking C executable cmTC_1f093
+        /opt/homebrew/bin/cmake -E cmake_link_script CMakeFiles/cmTC_1f093.dir/link.txt --verbose=1
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion -Wc++-compat -fstack-protector-strong -Wdouble-promotion -Wparentheses -Wformat-overflow -Wunused-macros  CMakeFiles/cmTC_1f093.dir/src.c.o -o cmTC_1f093
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:103 (CHECK_C_COMPILER_FLAG)"
+    checks:
+      - "Performing Test FLAG_SUPPORTED_Wusedbutmarkedunused"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-dSmgXl"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-dSmgXl"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion -Wc++-compat -fstack-protector-strong -Wdouble-promotion -Wparentheses -Wformat-overflow -Wunused-macros -Wmissing-variable-declarations"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "FLAG_SUPPORTED_Wusedbutmarkedunused"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-dSmgXl'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_3dfd7/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_3dfd7.dir/build.make CMakeFiles/cmTC_3dfd7.dir/build
+        Building C object CMakeFiles/cmTC_3dfd7.dir/src.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -DFLAG_SUPPORTED_Wusedbutmarkedunused  -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion -Wc++-compat -fstack-protector-strong -Wdouble-promotion -Wparentheses -Wformat-overflow -Wunused-macros -Wmissing-variable-declarations    -Wused-but-marked-unused -o CMakeFiles/cmTC_3dfd7.dir/src.c.o -c /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-dSmgXl/src.c
+        arm-linux-musleabihf-gcc: error: unrecognized command-line option '-Wused-but-marked-unused'
+        make[1]: *** [CMakeFiles/cmTC_3dfd7.dir/src.c.o] Error 1
+        make: *** [cmTC_3dfd7/fast] Error 2
+        
+      exitCode: 2
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:103 (CHECK_C_COMPILER_FLAG)"
+    checks:
+      - "Performing Test FLAG_SUPPORTED_Wswitchenum"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-gCTJ8q"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-gCTJ8q"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion -Wc++-compat -fstack-protector-strong -Wdouble-promotion -Wparentheses -Wformat-overflow -Wunused-macros -Wmissing-variable-declarations"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "FLAG_SUPPORTED_Wswitchenum"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-gCTJ8q'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_5beba/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_5beba.dir/build.make CMakeFiles/cmTC_5beba.dir/build
+        Building C object CMakeFiles/cmTC_5beba.dir/src.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -DFLAG_SUPPORTED_Wswitchenum  -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion -Wc++-compat -fstack-protector-strong -Wdouble-promotion -Wparentheses -Wformat-overflow -Wunused-macros -Wmissing-variable-declarations    -Wswitch-enum -o CMakeFiles/cmTC_5beba.dir/src.c.o -c /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-gCTJ8q/src.c
+        Linking C executable cmTC_5beba
+        /opt/homebrew/bin/cmake -E cmake_link_script CMakeFiles/cmTC_5beba.dir/link.txt --verbose=1
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion -Wc++-compat -fstack-protector-strong -Wdouble-promotion -Wparentheses -Wformat-overflow -Wunused-macros -Wmissing-variable-declarations  CMakeFiles/cmTC_5beba.dir/src.c.o -o cmTC_5beba
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "/opt/homebrew/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/opt/homebrew/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:103 (CHECK_C_COMPILER_FLAG)"
+    checks:
+      - "Performing Test FLAG_SUPPORTED_fvisibilityhidden"
+    directories:
+      source: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-OeJQLv"
+      binary: "/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-OeJQLv"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "-march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion -Wc++-compat -fstack-protector-strong -Wdouble-promotion -Wparentheses -Wformat-overflow -Wunused-macros -Wmissing-variable-declarations -Wswitch-enum"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "FLAG_SUPPORTED_fvisibilityhidden"
+      cached: true
+      stdout: |
+        Change Dir: '/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-OeJQLv'
+        
+        Run Build Command(s): /opt/homebrew/bin/cmake -E env VERBOSE=1 /usr/bin/make -f Makefile cmTC_e3efa/fast
+        /Library/Developer/CommandLineTools/usr/bin/make  -f CMakeFiles/cmTC_e3efa.dir/build.make CMakeFiles/cmTC_e3efa.dir/build
+        Building C object CMakeFiles/cmTC_e3efa.dir/src.c.o
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -DFLAG_SUPPORTED_fvisibilityhidden  -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion -Wc++-compat -fstack-protector-strong -Wdouble-promotion -Wparentheses -Wformat-overflow -Wunused-macros -Wmissing-variable-declarations -Wswitch-enum    -fvisibility=hidden -o CMakeFiles/cmTC_e3efa.dir/src.c.o -c /Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/CMakeFiles/CMakeScratch/TryCompile-OeJQLv/src.c
+        Linking C executable cmTC_e3efa
+        /opt/homebrew/bin/cmake -E cmake_link_script CMakeFiles/cmTC_e3efa.dir/link.txt --verbose=1
+        /opt/homebrew/bin/arm-linux-musleabihf-gcc -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -std=c89 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes -Wwrite-strings -Wshadow -Winit-self -Wcast-align -Wformat=2 -Wmissing-prototypes -Wstrict-overflow=2 -Wcast-qual -Wundef -Wswitch-default -Wconversion -Wc++-compat -fstack-protector-strong -Wdouble-promotion -Wparentheses -Wformat-overflow -Wunused-macros -Wmissing-variable-declarations -Wswitch-enum  CMakeFiles/cmTC_e3efa.dir/src.c.o -o cmTC_e3efa
+        
+      exitCode: 0
+...

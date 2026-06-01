@@ -1,0 +1,20 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/wangergou/code/github/wire-os/daima-agent/third_party/curl/build_arm/cmake_install.cmake",
+		"/Users/wangergou/code/github/wire-os/daima-agent/third_party/curl/build_arm/docs/cmake_install.cmake",
+		"/Users/wangergou/code/github/wire-os/daima-agent/third_party/curl/build_arm/docs/libcurl/cmake_install.cmake",
+		"/Users/wangergou/code/github/wire-os/daima-agent/third_party/curl/build_arm/docs/libcurl/opts/cmake_install.cmake",
+		"/Users/wangergou/code/github/wire-os/daima-agent/third_party/curl/build_arm/scripts/cmake_install.cmake",
+		"/Users/wangergou/code/github/wire-os/daima-agent/third_party/curl/build_arm/lib/cmake_install.cmake",
+		"/Users/wangergou/code/github/wire-os/daima-agent/third_party/curl/build_arm/docs/examples/cmake_install.cmake",
+		"/Users/wangergou/code/github/wire-os/daima-agent/third_party/curl/build_arm/tests/cmake_install.cmake",
+		"/Users/wangergou/code/github/wire-os/daima-agent/third_party/curl/build_arm/tests/http/cmake_install.cmake",
+		"/Users/wangergou/code/github/wire-os/daima-agent/third_party/curl/build_arm/tests/server/cmake_install.cmake",
+		"/Users/wangergou/code/github/wire-os/daima-agent/third_party/curl/build_arm/tests/libtest/cmake_install.cmake",
+		"/Users/wangergou/code/github/wire-os/daima-agent/third_party/curl/build_arm/tests/tunit/cmake_install.cmake",
+		"/Users/wangergou/code/github/wire-os/daima-agent/third_party/curl/build_arm/tests/unit/cmake_install.cmake",
+		"/Users/wangergou/code/github/wire-os/daima-agent/third_party/curl/build_arm/tests/certs/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

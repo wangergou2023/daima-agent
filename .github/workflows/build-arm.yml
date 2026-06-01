@@ -1,0 +1,39 @@
+name: Build ARM for Vector Robot
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ARM cross-compiler + deps
+        run: |
+          sudo dpkg --add-architecture armhf
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-arm-linux-gnueabihf \
+            libcurl4-openssl-dev:armhf \
+            libcjson-dev:armhf \
+            libssl-dev:armhf \
+            cmake
+
+      - name: Build daima-agent
+        run: |
+          mkdir build-arm && cd build-arm
+          cmake .. \
+            -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_FOR_MIPS=OFF
+          make -j$(nproc)
+          arm-linux-gnueabihf-strip daima
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: daima-arm-glibc
+          path: build-arm/daima

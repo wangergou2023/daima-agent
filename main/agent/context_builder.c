@@ -1,0 +1,249 @@
+/* 系统提示构建与上下文拼装。 */
+
+#include "context_builder.h"
+#include "app/daima_paths.h"
+#include "daima_config.h"
+#include "memory/memory_store.h"
+#include "skills/skill_loader.h"
+
+#include <stdio.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
+#include "daima_log.h"
+
+static const char *TAG = "context";
+
+/* Strip any orphaned multi-byte UTF-8 sequences anywhere in the buffer.
+ * vsnprintf/fread truncation can leave lead bytes without continuation bytes. */
+static void fix_truncated_utf8(char *buf, size_t len)
+{
+    if (len < 2) return;
+    size_t out = 0, pos = 0;
+    while (pos < len) {
+        unsigned char b = (unsigned char)buf[pos];
+        if (b < 0x80) {
+            buf[out++] = buf[pos++];    /* ASCII, pass through */
+        } else if (b < 0xC0) {
+            pos++;                      /* Stray continuation byte, skip */
+        } else if (b < 0xE0) {
+            if (pos + 1 < len && (buf[pos+1] & 0xC0) == 0x80) {
+                buf[out++] = buf[pos++];
+                buf[out++] = buf[pos++];
+            } else {
+                pos++;                  /* Orphaned 2-byte start, skip */
+            }
+        } else if (b < 0xF0) {
+            if (pos + 2 < len && (buf[pos+1] & 0xC0) == 0x80 && (buf[pos+2] & 0xC0) == 0x80) {
+                buf[out++] = buf[pos++];
+                buf[out++] = buf[pos++];
+                buf[out++] = buf[pos++];
+            } else {
+                pos++;                  /* Orphaned 3-byte start, skip */
+            }
+        } else if (b < 0xF5) {
+            if (pos + 3 < len && (buf[pos+1] & 0xC0) == 0x80 && (buf[pos+2] & 0xC0) == 0x80 && (buf[pos+3] & 0xC0) == 0x80) {
+                buf[out++] = buf[pos++];
+                buf[out++] = buf[pos++];
+                buf[out++] = buf[pos++];
+                buf[out++] = buf[pos++];
+            } else {
+                pos++;                  /* Orphaned 4-byte start, skip */
+            }
+        } else {
+            pos++;                      /* Invalid byte, skip */
+        }
+    }
+    buf[out] = '\0';
+}
+
+void context_fix_truncated_utf8(char *buf, size_t len)
+{
+    fix_truncated_utf8(buf, len);
+}
+
+static bool file_has_content(const char *path)
+{
+    FILE *f = fopen(path, "r");
+    if (!f) return false;
+    int ch = fgetc(f);
+    fclose(f);
+    return ch != EOF;
+}
+
+static size_t append_textf(char *buf, size_t size, size_t offset, const char *fmt, ...)
+{
+    if (!buf || size == 0 || offset >= size - 1 || !fmt) {
+        return offset;
+    }
+
+    va_list ap;
+    va_start(ap, fmt);
+    int n = vsnprintf(buf + offset, size - offset, fmt, ap);
+    va_end(ap);
+    if (n < 0) {
+        buf[size - 1] = '\0';
+        return offset;
+    }
+
+    size_t written = (size_t)n;
+    if (written >= size - offset) {
+        buf[size - 1] = '\0';
+        return size - 1;
+    }
+    return offset + written;
+}
+
+static size_t append_file(char *buf, size_t size, size_t offset, const char *path, const char *header)
+{
+    FILE *f = fopen(path, "r");
+    if (!f) return offset;
+
+    if (header && offset < size - 1) {
+        offset = append_textf(buf, size, offset, "\n## %s\n\n", header);
+    }
+
+    size_t n = fread(buf + offset, 1, size - offset - 1, f);
+    offset += n;
+    buf[offset] = '\0';
+    fclose(f);
+    return offset;
+}
+
+static size_t append_operator_guide_fallback(char *buf, size_t size, size_t offset, bool has_bootstrap)
+{
+    offset = append_textf(
+        buf, size, offset,
+        "\n## 角色与运行环境\n\n"
+        "%s"
+        "- 你通过 WebSocket、Web 宠物互动事件或飞书与用户交互。\n"
+        "- 你可以读取本地文件、调用本地工具、维护记忆与技能。\n"
+        "- 先理解当前任务，再决定是否调用工具；用完工具后给出清晰最终回答。\n",
+        has_bootstrap ? "" : "你是代马（Daima），一个运行在 Linux 本地进程中的个人 AI 助手。\n");
+
+    offset = append_textf(
+        buf, size, offset,
+        "\n## 工作方式\n\n"
+        "1. 优先理解用户真实目标，不做机械追问。\n"
+        "2. 需要行动时使用工具；需要修改已有文件时，先看上下文再改。\n"
+        "3. 分析代码时，先缩小范围：优先用 `search_files` 的 `files_only` / `count` / `file_glob` / `path` 找候选文件，再分页用 `read_file` 深读，不要一上来把很多文件整份读完。\n"
+        "4. 修改已有文件时，默认顺序是：先 `search_files` / `read_file` 看清上下文，再优先用 `patch`，其次用 `edit_file`；只有在新建文件或确实需要整文件重写时才使用 `write_file`。\n"
+        "5. `terminal` 适合安装工具、构建、运行命令、看 git 或进程；不适合替代 `read_file` / `patch` / `edit_file` 做文本修改。\n"
+        "6. 调用 `terminal` 时，安装软件、更新索引、构建大项目要主动设置更长 `timeout`；看到结构化结果后，要基于 `exit_code`、`timed_out`、`output` 判断是否真的成功。\n"
+        "7. 当使用 `cron_add` 发送到 WebSocket 或飞书时，务必设置 `channel='websocket'` 或 `channel='feishu'` 并提供有效 `chat_id`。\n");
+
+    offset = append_textf(
+        buf, size, offset,
+        "\n## 工具与参数命名约定\n\n"
+        "- 说明文字可以用中文，但真正要调用的工具名、函数名、参数名、字段名必须保持英文原样。\n"
+        "- 当你决定调用工具时，必须使用 schema 里的真实标识符，例如 `search_files`、`read_file`、`cron_add`、`channel`、`chat_id`、`exit_code`、`output_mode`。\n"
+        "- 不要把工具名或参数名翻译成中文后再调用，也不要自造不存在的中文字段。\n"
+        "- 最稳妥的表达方式是：中文解释 + 英文标识符并列出现。\n");
+
+    offset = append_textf(
+        buf, size, offset,
+        "\n## 可用工具速览\n\n"
+        "- `weather`：查询当前天气与预报。\n"
+        "- `get_current_time`：获取当前日期和时间；你没有内置时钟，需要时间时必须调用。\n"
+        "- `read_file`：分页读取文本文件；适合按 `offset` / `limit` 分段查看。\n"
+        "- `write_file`：整文件写入或新建文件；不要默认拿它覆盖已有代码文件。\n"
+        "- `edit_file`：做单点查找替换，适合小范围改动。\n"
+        "- `patch`：对同一文件做多步精确替换，是修改已有代码文件时的首选。\n"
+        "- `list_dir`：列目录。\n"
+        "- `search_files`：搜文件名或文本内容；支持 `output_mode=content/files_only/count` 和 `context`。\n"
+        "- `todo`：管理待办列表。\n"
+        "- `skills_list` / `skill_view`：查看技能总览与技能说明。\n"
+        "- `session_search`：搜索历史会话、压缩摘要和事实卡片。\n"
+        "- `terminal`：执行本地 shell 命令，返回包含 `output`、`exit_code`、`timed_out`、`workdir` 的 JSON。\n"
+        "- `cron_add` / `cron_list` / `cron_remove`：管理定时任务。\n");
+
+    return offset;
+}
+
+static size_t append_dynamic_runtime_guide_fallback(char *buf, size_t size, size_t offset)
+{
+    offset = append_textf(
+        buf, size, offset,
+        "\n## 记忆与引导文件\n\n"
+        "### 持久化记忆\n"
+        "- 长期记忆：`%s`\n"
+        "- 每日笔记：`%s/<YYYY-MM-DD>.md`\n"
+        "- 更新记忆前先 `read_file`，再优先用 `edit_file` 或 `patch` 做最小改动；写每日笔记前先 `get_current_time`。\n\n"
+        "### 可读取与按需更新的引导文件\n"
+        "- Bootstrap：`%s/BOOTSTRAP.md`\n"
+        "- Identity：`%s/IDENTITY.md`\n"
+        "- Personality：`%s`\n"
+        "- User Info：`%s`\n"
+        "- 更新这些文件时，先 `search_files` / `read_file` 看上下文，再优先用 `edit_file` 或 `patch` 做最小改动，避免直接覆盖。\n"
+        "- 若文件不存在，可用 `write_file` 创建并写入完整内容。\n",
+        daima_path_memory_dir(),
+        daima_path_memory_dir(),
+        daima_path_config_dir(),
+        daima_path_config_dir(),
+        daima_path_soul_file(),
+        daima_path_user_file());
+
+    return append_textf(
+        buf, size, offset,
+        "\n## 技能使用规则\n\n"
+        "- 技能文件位于 `%s` 下。\n"
+        "- 优先用 `skills_list` 查看总览，再用 `skill_view` 按名称读取完整说明。\n"
+        "- 你可以用 `write_file` 创建新技能到 `%s/<name>/SKILL.md`。\n"
+        "- 如果只是修改已有技能，先 `read_file`，再优先用 `patch` 或 `edit_file`。\n"
+        "- 技能文件必须包含 YAML front matter 的 `name` 和 `description`，否则无法加载。\n",
+        daima_path_skills_dir(),
+        daima_path_skills_dir());
+}
+
+daima_err_t context_build_system_prompt(char *buf, size_t size)
+{
+    size_t off = 0;
+    bool has_bootstrap = file_has_content(daima_path_bootstrap_file());
+
+    off = append_textf(
+        buf, size, off,
+        "# 代马 Daima\n\n"
+        "> 这是当前轮对话的系统说明。把它当作一份长期有效的操作手册；若与用户当前这轮的明确新指令冲突，以用户当前新指令为准。\n");
+
+    if (has_bootstrap) {
+        off = append_file(buf, size, off, daima_path_bootstrap_file(), "Bootstrap");
+    }
+
+    off = append_operator_guide_fallback(buf, size, off, has_bootstrap);
+    off = append_dynamic_runtime_guide_fallback(buf, size, off);
+
+    /* 身份与用户配置 */
+    off = append_file(buf, size, off, daima_path_identity_file(), "身份设定");
+    off = append_file(buf, size, off, daima_path_soul_file(), "个性设定");
+    off = append_file(buf, size, off, daima_path_user_file(), "用户信息");
+
+    /* 长期记忆 */
+    char mem_buf[4096];
+    if (memory_read_long_term(mem_buf, sizeof(mem_buf)) == DAIMA_OK && mem_buf[0]) {
+        off = append_textf(buf, size, off, "\n## 长期记忆\n\n%s\n", mem_buf);
+    }
+
+    /* 最近的每日笔记（最近 3 天） */
+    char recent_buf[4096];
+    if (memory_read_recent(recent_buf, sizeof(recent_buf), 3) == DAIMA_OK && recent_buf[0]) {
+        off = append_textf(buf, size, off, "\n## 最近笔记\n\n%s\n", recent_buf);
+    }
+
+    /* 技能 */
+    char skills_buf[2048];
+    size_t skills_len = skill_loader_build_summary(skills_buf, sizeof(skills_buf));
+    if (skills_len > 0) {
+        off = append_textf(
+            buf, size, off,
+            "\n## 可用技能摘要\n\n"
+            "下面是技能总览。若某个任务明显命中某项技能，请用相关工具读取对应技能文件全文后再执行。\n"
+            "若技能文件引用相对路径，应以该技能目录为基准解析后再用于工具调用。\n\n"
+            "%s\n",
+            skills_buf);
+    }
+
+    fix_truncated_utf8(buf, off);
+    DAIMA_LOGD(TAG, "System prompt built: %d bytes", (int)off);
+    return DAIMA_OK;
+}

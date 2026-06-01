@@ -1,0 +1,53 @@
+{
+  "common": {
+    "timezone": "CST-8",
+    "context_limit_tokens": 0,
+    "session_max_msgs": 96,
+    "compress_trigger_msgs": 12,
+    "compress_keep_msgs": 6,
+    "web_port": 1234,
+    "cron_check_interval_ms": 60000,
+    "heartbeat_interval_ms": 1800000
+  },
+  "web": {
+    "default_pet_package_id": "guga.codex-pet"
+  },
+  "active_provider": "ingenic_local",
+  "providers": {
+    "moonshot": {
+      "api_key": "<your-moonshot-api-key>",
+      "openai_base_url": "https://api.moonshot.cn/v1",
+      "model": "kimi-k2.6",
+      "context_limit_tokens": 256000,
+      "thinking_mode": "omit",
+      "needs_reasoning_content": true
+    },
+    "ingenic_local": {
+      "api_key": "<your-local-proxy-api-key>",
+      "openai_base_url": "http://127.0.0.1:4000/v1",
+      "model": "deepseek-v4-pro",
+      "context_limit_tokens": 128000,
+      "thinking_mode": "omit",
+      "needs_reasoning_content": true
+    }
+  },
+  "feishu": {
+    "app_id": "<your-feishu-app-id>",
+    "app_secret": "<your-feishu-app-secret>",
+    "default_chat_id": ""
+  },
+  "audio": {
+    "bigmodel_api_key": "<your-bigmodel-api-key>",
+    "ao_vol": 60,
+    "ao_gain": 20,
+    "ai_vol": 60,
+    "ai_gain": 23,
+    "voice_record_ms": 3000
+  },
+  "mips": {
+    "wake_gpio_num": 64,
+    "wake_gpio_active_low": 1,
+    "wake_gpio_poll_ms": 20,
+    "wake_gpio_debounce_ms": 200
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "id": "luo-xiaohei",
+  "displayName": "小黑",
+  "description": "A tiny black cat companion with huge curious eyes, nimble paws, and quiet mischievous coding energy.",
+  "spritesheetPath": "spritesheet.webp",
+  "kind": "creature",
+  "source": "codex-pets.net",
+  "sourceId": "luo-xiaohei"
+}
