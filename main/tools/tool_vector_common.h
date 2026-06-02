@@ -3,6 +3,13 @@
 
 #include "daima_err.h"
 #include "tools/tool_registry.h"
+#include "channels/vector/vector_channel.h"
+#include "channels/vector/mcp_client.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "cJSON.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -10,6 +17,30 @@ extern "C" {
 
 /* 初始化 Vector 工具子系统 */
 daima_err_t tool_vector_init(void);
+
+/* 公共助手：cJSON args → JSON 字符串 → MCP 调用 */
+static inline daima_err_t call_mcp_with_args(mcp_client_t *mcp, const char *tool_name, cJSON *args,
+                                             char *output, size_t output_size)
+{
+    char *args_json = cJSON_PrintUnformatted(args);
+    if (!args_json) {
+        cJSON_Delete(args);
+        snprintf(output, output_size, "错误：JSON 序列化失败");
+        return DAIMA_ERR_NO_MEM;
+    }
+    daima_err_t err = mcp_client_call_tool(mcp, tool_name, args_json, output, output_size);
+    free(args_json);
+    cJSON_Delete(args);
+    return err;
+}
+
+/* 公共助手：获取 MCP 客户端，失败时写错误输出 */
+static inline mcp_client_t *tool_get_mcp(char *output, size_t size)
+{
+    mcp_client_t *m = vector_channel_get_mcp();
+    if (!m) snprintf(output, size, "错误：Vector 机器人未连接");
+    return m;
+}
 
 /* 工具定义访问器 */
 const daima_tool_t *tool_robot_drive_straight_definition(void);

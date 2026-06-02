@@ -14,17 +14,11 @@ static const char *TAG = "tool_vector";
 
 daima_err_t tool_vector_init(void) { return DAIMA_OK; }
 
-static mcp_client_t *get_mcp(char *output, size_t size) {
-    mcp_client_t *m = vector_channel_get_mcp();
-    if (!m) snprintf(output, size, "错误：Vector 机器人未连接");
-    return m;
-}
-
 /* ---- Get Battery ---- */
 static daima_err_t tool_robot_get_battery_execute(const char *input_json, char *output, size_t output_size)
 {
     (void)input_json;
-    mcp_client_t *mcp = get_mcp(output, output_size);
+    mcp_client_t *mcp = tool_get_mcp(output, output_size);
     if (!mcp) return DAIMA_FAIL;
     return mcp_client_call_tool(mcp, "robot_get_battery", "{}", output, output_size);
 }
@@ -41,7 +35,7 @@ const daima_tool_t *tool_robot_get_battery_definition(void) { return &s_get_batt
 static daima_err_t tool_robot_drive_on_charger_execute(const char *input_json, char *output, size_t output_size)
 {
     (void)input_json;
-    mcp_client_t *mcp = get_mcp(output, output_size);
+    mcp_client_t *mcp = tool_get_mcp(output, output_size);
     if (!mcp) return DAIMA_FAIL;
     return mcp_client_call_tool(mcp, "robot_drive_on_charger", "{}", output, output_size);
 }
@@ -58,7 +52,7 @@ const daima_tool_t *tool_robot_drive_on_charger_definition(void) { return &s_dri
 static daima_err_t tool_robot_drive_off_charger_execute(const char *input_json, char *output, size_t output_size)
 {
     (void)input_json;
-    mcp_client_t *mcp = get_mcp(output, output_size);
+    mcp_client_t *mcp = tool_get_mcp(output, output_size);
     if (!mcp) return DAIMA_FAIL;
     return mcp_client_call_tool(mcp, "robot_drive_off_charger", "{}", output, output_size);
 }

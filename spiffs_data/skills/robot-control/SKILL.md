@@ -40,15 +40,17 @@ description: 控制 Vector 机器人的硬件能力（运动、动画、电源�
 - **robot_set_head_angle** — 头：angle_rad (-0.5~0.7)
 - **robot_set_lift_height** — 臂：height_mm (0~100)
 - **robot_stop** — 停
-- **robot_play_animation** — 表情：name (happy01/sad01/greeting01/weatherstars01/surprise01/sleep01/love01/goodbye01)
+- **robot_play_animation** — 表情：name (happy01/sad01/greeting01/weatherstars01等)
 - **robot_drive_on_charger** — 回充
 - **robot_drive_off_charger** — 离桩
 - **robot_get_battery** — 电量
 - **robot_set_volume** — 音量 0-4
+- **robot_app_intent** — 内置意图：intent (greeting_hello/meet_victor/global_stop)
 
 ## 注意事项
 
 1. 两个 motor 工具之间间隔 ≥1s
 2. 放烟花走 `robot_play_animation(name="weatherstars01")`
 3. 回家充电走 `robot_drive_on_charger`
-4. 机器人离开充电座才能自由移动
+4. 打招呼走 `robot_app_intent(intent="intent_greeting_hello")` 或 `robot_play_animation(name="greeting01")`
+5. 机器人离开充电座才能自由移动
