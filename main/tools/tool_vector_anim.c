@@ -4,6 +4,7 @@
 #include "channels/vector/vector_channel.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "cJSON.h"
@@ -13,6 +14,21 @@ static mcp_client_t *get_mcp(char *output, size_t size) {
     mcp_client_t *m = vector_channel_get_mcp();
     if (!m) snprintf(output, size, "错误：Vector 机器人未连接");
     return m;
+}
+
+static daima_err_t call_mcp_with_args(mcp_client_t *mcp, const char *tool_name, cJSON *args,
+                                      char *output, size_t output_size)
+{
+    char *args_json = cJSON_PrintUnformatted(args);
+    if (!args_json) {
+        cJSON_Delete(args);
+        snprintf(output, output_size, "错误：JSON 序列化失败");
+        return DAIMA_ERR_NO_MEM;
+    }
+    daima_err_t err = mcp_client_call_tool(mcp, tool_name, args_json, output, output_size);
+    free(args_json);
+    cJSON_Delete(args);
+    return err;
 }
 
 /* ---- Play Animation ---- */
@@ -30,10 +46,15 @@ static daima_err_t tool_robot_play_animation_execute(const char *input_json, cha
     if (!name[0]) { snprintf(output, output_size, "错误：缺少动画名称"); cJSON_Delete(in); return DAIMA_ERR_INVALID_ARG; }
     int loops = l && cJSON_IsNumber(l) ? (int)l->valuedouble : 1;
 
-    char args[512];
-    snprintf(args, sizeof(args), "{\"name\":\"%s\",\"loops\":%d}", name, loops);
+    cJSON *args = cJSON_CreateObject();
+    if (!args) {
+        cJSON_Delete(in);
+        return DAIMA_ERR_NO_MEM;
+    }
+    cJSON_AddStringToObject(args, "name", name);
+    cJSON_AddNumberToObject(args, "loops", loops);
     cJSON_Delete(in);
-    return mcp_client_call_tool(mcp, "robot_play_animation", args, output, output_size);
+    return call_mcp_with_args(mcp, "robot_play_animation", args, output, output_size);
 }
 
 static const daima_tool_t s_play_animation = {

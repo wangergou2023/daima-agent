@@ -1,4 +1,4 @@
-/* Vector 机器人通道实现 — 含音频缓冲 + 能量 VAD + ASR 管道 */
+/* Vector 机器人通道实现 — 含音频缓冲 + AudioDone + ASR 管道 */
 
 #include "channels/vector/vector_channel.h"
 
@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <math.h>
 #include <time.h>
 #include <pthread.h>
 #include <sys/socket.h>
@@ -21,12 +20,8 @@
 
 static const char *TAG = "vector";
 
-/* VAD 参数 */
 #define VAD_SAMPLE_RATE       16000
 #define VAD_CHUNK_SAMPLES     1920    /* 120ms @ 16kHz */
-#define VAD_SPEECH_THRESHOLD  400.0   /* RMS 阈值 */
-#define VAD_SILENCE_TIMEOUT   25      /* 连续静音帧数 (~120ms * 25 = 3s) */
-#define VAD_MAX_SAMPLES       (VAD_SAMPLE_RATE * 30)  /* 30 秒上限 */
 
 typedef struct {
     pthread_mutex_t mutex;
@@ -39,9 +34,6 @@ typedef struct {
     int16_t *pcm_buf;
     size_t   pcm_cap;
     size_t   pcm_len;
-    bool     speaking;
-    int      silence_frames;
-    uint64_t last_chunk_ts;
     bool     playing;
     uint64_t mute_ts;
     uint16_t mic_direction;
@@ -57,15 +49,16 @@ typedef struct {
 
 static vector_session_t *s = NULL;
 
-/* 计算 RMS (root mean square) */
-static double pcm_rms(const int16_t *samples, size_t count)
+static bool write_all(int fd, const void *buf, size_t len)
 {
-    if (count == 0) return 0.0;
-    double sum = 0.0;
-    for (size_t i = 0; i < count; i++) {
-        sum += (double)samples[i] * (double)samples[i];
+    const unsigned char *p = (const unsigned char *)buf;
+    while (len > 0) {
+        ssize_t n = write(fd, p, len);
+        if (n <= 0) return false;
+        p += n;
+        len -= (size_t)n;
     }
-    return sqrt(sum / (double)count);
+    return true;
 }
 
 /* 确保缓冲区容量 */
@@ -88,8 +81,6 @@ static void pcm_buf_flush_to_asr(void)
     pthread_mutex_lock(&s->mutex);
     if (s->pcm_len < 1600) {
         s->pcm_len = 0;
-        s->speaking = false;
-        s->silence_frames = 0;
         pthread_mutex_unlock(&s->mutex);
         return;
     }
@@ -99,15 +90,11 @@ static void pcm_buf_flush_to_asr(void)
     int16_t *pcm_copy = malloc(pcm_bytes);
     if (!pcm_copy) {
         s->pcm_len = 0;
-        s->speaking = false;
-        s->silence_frames = 0;
         pthread_mutex_unlock(&s->mutex);
         return;
     }
     memcpy(pcm_copy, s->pcm_buf, pcm_bytes);
     s->pcm_len = 0;
-    s->speaking = false;
-    s->silence_frames = 0;
 
     /* Shrink buffer if it grew too large */
     if (s->pcm_cap > VAD_CHUNK_SAMPLES * 64) {
@@ -179,8 +166,6 @@ static void on_audio_done(const mcp_audio_direction_t *dir, void *user_data)
         return;
     }
     s->pcm_len = 0;
-    s->speaking = false;
-    s->silence_frames = 0;
     pthread_mutex_unlock(&s->mutex);
 }
 
@@ -198,27 +183,8 @@ static void on_vector_audio(const uint8_t *pcm, size_t len, uint64_t timestamp, 
     if (playing) return;
 
     const int16_t *samples = (const int16_t *)pcm;
-    double rms = pcm_rms(samples, num_samples);
-    bool is_speech = (rms > VAD_SPEECH_THRESHOLD);
 
     pthread_mutex_lock(&s->mutex);
-    s->last_chunk_ts = (uint64_t)time(NULL);
-
-    if (is_speech) {
-        if (!s->speaking) {
-            DAIMA_LOGI(TAG, "VAD: speech start (rms=%.0f)", rms);
-        }
-        s->speaking = true;
-        s->silence_frames = 0;
-    } else if (s->speaking) {
-        s->silence_frames++;
-        if (s->silence_frames >= VAD_SILENCE_TIMEOUT) {
-            DAIMA_LOGI(TAG, "VAD: speech end (silence=%d frames)", s->silence_frames);
-            pthread_mutex_unlock(&s->mutex);
-            pcm_buf_flush_to_asr();
-            return;
-        }
-    }
 
     size_t new_len = s->pcm_len + num_samples;
     if (!pcm_buf_ensure(new_len)) {
@@ -231,7 +197,7 @@ static void on_vector_audio(const uint8_t *pcm, size_t len, uint64_t timestamp, 
     s->pcm_len = new_len;
 
     if (s->pcm_len >= (size_t)VAD_MAX_SAMPLES) {
-        DAIMA_LOGI(TAG, "VAD: max duration reached, flushing");
+        DAIMA_LOGI(TAG, "Audio buffer max duration reached, flushing");
         pthread_mutex_unlock(&s->mutex);
         pcm_buf_flush_to_asr();
         return;
@@ -276,7 +242,7 @@ static void vector_connect_task(void *arg)
         if (!mcp) return;
     }
 
-    /* 注册音频回调 - 含缓冲 + VAD */
+    /* 注册音频回调 - 只缓存音频；结束点由机器人 AudioDone 通知决定 */
     mcp_client_set_audio_callback(mcp, on_vector_audio, NULL);
 
     /* 注册 AudioDone 回调 — 机器人检测到说话结束，直接 flush */
@@ -286,8 +252,7 @@ static void vector_connect_task(void *arg)
     daima_err_t err = mcp_client_subscribe_audio(mcp);
     if (err == DAIMA_OK) {
         s->audio_subscribed = true;
-        DAIMA_LOGI(TAG, "Audio subscribed (VAD: threshold=%.0f RMS, silence=%d frames)",
-                   VAD_SPEECH_THRESHOLD, VAD_SILENCE_TIMEOUT);
+        DAIMA_LOGI(TAG, "Audio subscribed (flush on robot AudioDone)");
     } else {
         DAIMA_LOGW(TAG, "Audio subscribe failed");
     }
@@ -310,15 +275,6 @@ static void vector_poll_task(void *arg)
             int n = mcp_client_poll(s->mcp);
             if (n > 0) {
                 DAIMA_LOGD(TAG, "Processed %d MCP messages", n);
-            }
-        }
-        /* 超时保护：如果 5s 内没收到新音频 chunk，强制 flush */
-        if (s->speaking && s->pcm_len > 0 &&
-            s->last_chunk_ts > 0) {
-            uint64_t now = (uint64_t)time(NULL);
-            if (now >= s->last_chunk_ts + 5) {
-                DAIMA_LOGI(TAG, "VAD: timeout flush (no new chunks for 5s)");
-                pcm_buf_flush_to_asr();
             }
         }
         /* 超时 unmute: 如果 muted >10s 还没有回复，自动恢复 mic */
@@ -405,10 +361,10 @@ daima_err_t vector_channel_play_pcm(const unsigned char *pcm, size_t pcm_len, ui
     /* Write: seq(4) + text_len(2) + text + pcm */
     uint32_t seq_le = seq;
     uint16_t label_len = label ? (uint16_t)strlen(label) : 0;
-    if (write(fd, &seq_le, 4) != 4 ||
-        write(fd, &label_len, 2) != 2 ||
-        (label_len > 0 && write(fd, label, label_len) != (ssize_t)label_len) ||
-        write(fd, pcm, pcm_len) != (ssize_t)pcm_len) {
+    if (!write_all(fd, &seq_le, sizeof(seq_le)) ||
+        !write_all(fd, &label_len, sizeof(label_len)) ||
+        (label_len > 0 && !write_all(fd, label, label_len)) ||
+        !write_all(fd, pcm, pcm_len)) {
         DAIMA_LOGW(TAG, "PlayPCM: write failed");
         close(fd);
         return DAIMA_FAIL;
@@ -432,8 +388,6 @@ void vector_channel_mute_mic(bool mute)
     s->playing = mute;
     if (mute) {
         s->pcm_len = 0;
-        s->speaking = false;
-        s->silence_frames = 0;
         s->mute_ts = (uint64_t)time(NULL);
     }
     pthread_mutex_unlock(&s->mutex);

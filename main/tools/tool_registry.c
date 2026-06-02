@@ -99,7 +99,6 @@ daima_err_t tool_registry_init(void)
     register_tool(tool_robot_set_head_angle_definition());
     register_tool(tool_robot_set_lift_height_definition());
     register_tool(tool_robot_stop_definition());
-    register_tool(tool_robot_play_pcm_definition());
     register_tool(tool_robot_set_volume_definition());
     register_tool(tool_robot_drive_on_charger_definition());
     register_tool(tool_robot_drive_off_charger_definition());

@@ -4,12 +4,28 @@
 #include "channels/vector/vector_channel.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "cJSON.h"
 #include "daima_log.h"
 
 static const char *TAG = "tool_vector_motion";
+
+static daima_err_t call_mcp_with_args(mcp_client_t *mcp, const char *tool_name, cJSON *args,
+                                      char *output, size_t output_size)
+{
+    char *args_json = cJSON_PrintUnformatted(args);
+    if (!args_json) {
+        cJSON_Delete(args);
+        snprintf(output, output_size, "错误：JSON 序列化失败");
+        return DAIMA_ERR_NO_MEM;
+    }
+    daima_err_t err = mcp_client_call_tool(mcp, tool_name, args_json, output, output_size);
+    free(args_json);
+    cJSON_Delete(args);
+    return err;
+}
 
 /* ---- Drive Straight ---- */
 static daima_err_t tool_robot_drive_straight_execute(const char *input_json, char *output, size_t output_size)
@@ -28,9 +44,11 @@ static daima_err_t tool_robot_drive_straight_execute(const char *input_json, cha
     double dist  = d && cJSON_IsNumber(d) ? d->valuedouble : 100.0;
     cJSON_Delete(in);
 
-    char args[256];
-    snprintf(args, sizeof(args), "{\"speed_mmps\":%.1f,\"dist_mm\":%.1f}", speed, dist);
-    return mcp_client_call_tool(mcp, "robot_drive_straight", args, output, output_size);
+    cJSON *args = cJSON_CreateObject();
+    if (!args) return DAIMA_ERR_NO_MEM;
+    cJSON_AddNumberToObject(args, "speed_mmps", speed);
+    cJSON_AddNumberToObject(args, "dist_mm", dist);
+    return call_mcp_with_args(mcp, "robot_drive_straight", args, output, output_size);
 }
 
 static const daima_tool_t s_drive_straight = {
@@ -60,9 +78,12 @@ static daima_err_t tool_robot_turn_in_place_execute(const char *input_json, char
     double angle = a && cJSON_IsNumber(a) ? a->valuedouble : 1.5708;
     cJSON_Delete(in);
 
-    char args[256];
-    snprintf(args, sizeof(args), "{\"angle_rad\":%.3f,\"speed_rad_per_sec\":2.0,\"accel_rad_per_sec2\":10.0}", angle);
-    return mcp_client_call_tool(mcp, "robot_turn_in_place", args, output, output_size);
+    cJSON *args = cJSON_CreateObject();
+    if (!args) return DAIMA_ERR_NO_MEM;
+    cJSON_AddNumberToObject(args, "angle_rad", angle);
+    cJSON_AddNumberToObject(args, "speed_rad_per_sec", 2.0);
+    cJSON_AddNumberToObject(args, "accel_rad_per_sec2", 10.0);
+    return call_mcp_with_args(mcp, "robot_turn_in_place", args, output, output_size);
 }
 
 static const daima_tool_t s_turn_in_place = {
@@ -93,9 +114,11 @@ static daima_err_t tool_robot_drive_wheels_execute(const char *input_json, char 
     double right = r && cJSON_IsNumber(r) ? r->valuedouble : 50.0;
     cJSON_Delete(in);
 
-    char args[256];
-    snprintf(args, sizeof(args), "{\"left_mmps\":%.1f,\"right_mmps\":%.1f}", left, right);
-    return mcp_client_call_tool(mcp, "robot_drive_wheels", args, output, output_size);
+    cJSON *args = cJSON_CreateObject();
+    if (!args) return DAIMA_ERR_NO_MEM;
+    cJSON_AddNumberToObject(args, "left_mmps", left);
+    cJSON_AddNumberToObject(args, "right_mmps", right);
+    return call_mcp_with_args(mcp, "robot_drive_wheels", args, output, output_size);
 }
 
 static const daima_tool_t s_drive_wheels = {

@@ -18,7 +18,6 @@ const daima_tool_t *tool_robot_drive_wheels_definition(void);
 const daima_tool_t *tool_robot_set_head_angle_definition(void);
 const daima_tool_t *tool_robot_set_lift_height_definition(void);
 const daima_tool_t *tool_robot_stop_definition(void);
-const daima_tool_t *tool_robot_play_pcm_definition(void);
 const daima_tool_t *tool_robot_set_volume_definition(void);
 const daima_tool_t *tool_robot_drive_on_charger_definition(void);
 const daima_tool_t *tool_robot_drive_off_charger_definition(void);

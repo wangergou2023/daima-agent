@@ -4,6 +4,7 @@
 #include "channels/vector/vector_channel.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "cJSON.h"
@@ -17,6 +18,21 @@ static mcp_client_t *get_mcp(char *output, size_t size) {
     return m;
 }
 
+static daima_err_t call_mcp_with_args(mcp_client_t *mcp, const char *tool_name, cJSON *args,
+                                      char *output, size_t output_size)
+{
+    char *args_json = cJSON_PrintUnformatted(args);
+    if (!args_json) {
+        cJSON_Delete(args);
+        snprintf(output, output_size, "错误：JSON 序列化失败");
+        return DAIMA_ERR_NO_MEM;
+    }
+    daima_err_t err = mcp_client_call_tool(mcp, tool_name, args_json, output, output_size);
+    free(args_json);
+    cJSON_Delete(args);
+    return err;
+}
+
 /* ---- Set Head Angle ---- */
 static daima_err_t tool_robot_set_head_angle_execute(const char *input_json, char *output, size_t output_size)
 {
@@ -28,9 +44,11 @@ static daima_err_t tool_robot_set_head_angle_execute(const char *input_json, cha
     double angle = a && cJSON_IsNumber(a) ? a->valuedouble : 0.0;
     cJSON_Delete(in);
 
-    char args[256];
-    snprintf(args, sizeof(args), "{\"angle_rad\":%.3f,\"speed_rad_per_sec\":2.0}", angle);
-    return mcp_client_call_tool(mcp, "robot_set_head_angle", args, output, output_size);
+    cJSON *args = cJSON_CreateObject();
+    if (!args) return DAIMA_ERR_NO_MEM;
+    cJSON_AddNumberToObject(args, "angle_rad", angle);
+    cJSON_AddNumberToObject(args, "speed_rad_per_sec", 2.0);
+    return call_mcp_with_args(mcp, "robot_set_head_angle", args, output, output_size);
 }
 
 static const daima_tool_t s_head_angle = {
@@ -56,9 +74,11 @@ static daima_err_t tool_robot_set_lift_height_execute(const char *input_json, ch
     double height = h && cJSON_IsNumber(h) ? h->valuedouble : 50.0;
     cJSON_Delete(in);
 
-    char args[256];
-    snprintf(args, sizeof(args), "{\"height_mm\":%.1f,\"speed_rad_per_sec\":2.0}", height);
-    return mcp_client_call_tool(mcp, "robot_set_lift_height", args, output, output_size);
+    cJSON *args = cJSON_CreateObject();
+    if (!args) return DAIMA_ERR_NO_MEM;
+    cJSON_AddNumberToObject(args, "height_mm", height);
+    cJSON_AddNumberToObject(args, "speed_rad_per_sec", 2.0);
+    return call_mcp_with_args(mcp, "robot_set_lift_height", args, output, output_size);
 }
 
 static const daima_tool_t s_lift_height = {

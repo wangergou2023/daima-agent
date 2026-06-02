@@ -3,7 +3,7 @@
  * 功能:
  *   - 启动 robot-mcp 子进程
  *   - 订阅音频流，将 PCM 音频送入现有 ASR 管道 (voice_channel)
- *   - 将 LLM 回复通过 TTS/robot_play_pcm 播放到机器人扬声器
+ *   - 将 LLM 回复通过 TTS + Unix socket 播放到机器人扬声器
  */
 #pragma once
 
@@ -19,7 +19,7 @@ daima_err_t vector_channel_start(void);
 
 /**
  * 将文本回复发送到 Vector 扬声器。
- * 通过 robot-say-text (内置 TTS) 或 robot_play_pcm 播放。
+ * 实际音频播放由 TTS 管线生成 PCM 后经 /tmp/daima_spk.sock 发送给 robot-mcp。
  */
 daima_err_t vector_channel_send_reply(const char *chat_id, const char *text);
 

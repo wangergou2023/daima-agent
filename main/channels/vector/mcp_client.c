@@ -8,16 +8,19 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <pthread.h>
 #include <sys/select.h>
 #include <sys/wait.h>
 #include <signal.h>
-#include <errno.h>
 
 #include "cJSON.h"
 #include "daima_log.h"
 #include "daima_config.h"
 
-static void handle_audio_notification(mcp_client_t *c, const char *json_str);
+static bool handle_mcp_notification(mcp_client_t *c, const char *json_str);
+static daima_err_t read_json_line(mcp_client_t *c, char *buf, size_t size, int timeout_ms);
+static daima_err_t wait_for_response(mcp_client_t *c, int request_id, int timeout_ms,
+                                     char *response, size_t response_size);
 
 static const char *TAG = "mcp_client";
 
@@ -26,6 +29,7 @@ struct mcp_client {
     FILE   *out;           /* 子进程 stdout (读取) */
     pid_t   pid;
     int     request_id;
+    pthread_mutex_t io_mutex;
     char    buf[MCP_READ_BUF_SIZE];
     char    pending[MCP_READ_BUF_SIZE];
     mcp_audio_callback_t audio_cb;
@@ -91,6 +95,7 @@ mcp_client_t *mcp_client_launch(const char *bin_path, const char *robot_addr, co
     c->out = fdopen(from_child[0], "r");
     c->pid = pid;
     c->request_id = 0;
+    pthread_mutex_init(&c->io_mutex, NULL);
     if (!c->in || !c->out) {
         DAIMA_LOGE(TAG, "fdopen failed");
         mcp_client_destroy(c);
@@ -113,31 +118,22 @@ mcp_client_t *mcp_client_launch(const char *bin_path, const char *robot_addr, co
     cJSON_AddItemToObject(init_params, "clientInfo", client_info);
 
     cJSON *init_req = cJSON_CreateObject();
+    int init_id = ++c->request_id;
     cJSON_AddStringToObject(init_req, "jsonrpc", "2.0");
-    cJSON_AddNumberToObject(init_req, "id", (double)(++c->request_id));
+    cJSON_AddNumberToObject(init_req, "id", (double)init_id);
     cJSON_AddStringToObject(init_req, "method", "initialize");
     cJSON_AddItemToObject(init_req, "params", init_params);
 
     char *init_str = cJSON_PrintUnformatted(init_req);
     cJSON_Delete(init_req);
 
-    fprintf(c->in, "%s\n", init_str);
-    fflush(c->in);
+    if (!init_str || fprintf(c->in, "%s\n", init_str) < 0 || fflush(c->in) != 0) {
+        free(init_str);
+        goto fail;
+    }
     free(init_str);
 
-    /* 读取 initialize 响应 — robot-mcp 可能需要几秒连接 gRPC */
-    {
-        int retries = 0;
-        while (retries < 60) {
-            usleep(500000);
-            if (fgets(c->buf, sizeof(c->buf), c->out)) {
-                break;
-            }
-            clearerr(c->out);
-            retries++;
-        }
-    }
-    if (c->buf[0] == '\0') {
+    if (wait_for_response(c, init_id, MCP_INIT_TIMEOUT_MS, c->buf, sizeof(c->buf)) != DAIMA_OK) {
         DAIMA_LOGE(TAG, "No response to initialize");
         goto fail;
     }
@@ -169,19 +165,26 @@ fail:
 void mcp_client_destroy(mcp_client_t *c)
 {
     if (!c) return;
+    pthread_mutex_lock(&c->io_mutex);
     if (c->in) {
         /* Tell robot-mcp to unsubscribe and stop */
         fprintf(c->in, "{\"jsonrpc\":\"2.0\",\"id\":0,\"method\":\"tools/call\",\"params\":{\"name\":\"robot_unsubscribe_audio\",\"arguments\":{}}}\n");
         fflush(c->in);
         fclose(c->in);
+        c->in = NULL;
     }
-    if (c->out) fclose(c->out);
+    if (c->out) {
+        fclose(c->out);
+        c->out = NULL;
+    }
+    pthread_mutex_unlock(&c->io_mutex);
     if (c->pid > 0) {
         /* Give child a moment to exit gracefully, then kill */
         int status;
         kill(c->pid, SIGTERM);
         waitpid(c->pid, &status, 0);
     }
+    pthread_mutex_destroy(&c->io_mutex);
     free(c);
 }
 
@@ -195,78 +198,52 @@ daima_err_t mcp_client_call_tool(mcp_client_t *c, const char *tool_name,
 
     /* 构造请求参数 (lock-free, local operations) */
     cJSON *params = cJSON_CreateObject();
+    if (!params) return DAIMA_ERR_NO_MEM;
     cJSON_AddStringToObject(params, "name", tool_name);
     cJSON *args = cJSON_Parse(args_json ? args_json : "{}");
     if (!args) args = cJSON_CreateObject();
     cJSON_AddItemToObject(params, "arguments", args);
 
-    /* 加锁保护 stdin/stdout 和 request_id */
-    flockfile(c->in);
-    flockfile(c->out);
+    pthread_mutex_lock(&c->io_mutex);
+    if (!c->in || !c->out) {
+        pthread_mutex_unlock(&c->io_mutex);
+        cJSON_Delete(params);
+        return DAIMA_ERR_INVALID_ARG;
+    }
 
     cJSON *req = cJSON_CreateObject();
+    if (!req) {
+        pthread_mutex_unlock(&c->io_mutex);
+        cJSON_Delete(params);
+        return DAIMA_ERR_NO_MEM;
+    }
+    int request_id = ++c->request_id;
     cJSON_AddStringToObject(req, "jsonrpc", "2.0");
-    cJSON_AddNumberToObject(req, "id", (double)(++c->request_id));
+    cJSON_AddNumberToObject(req, "id", (double)request_id);
     cJSON_AddStringToObject(req, "method", "tools/call");
     cJSON_AddItemToObject(req, "params", params);
 
     char *req_str = cJSON_PrintUnformatted(req);
     cJSON_Delete(req);
 
-    fprintf(c->in, "%s\n", req_str);
-    fflush(c->in);
+    if (!req_str || fprintf(c->in, "%s\n", req_str) < 0 || fflush(c->in) != 0) {
+        free(req_str);
+        pthread_mutex_unlock(&c->io_mutex);
+        snprintf(response_out, response_size, "Error: write failed");
+        return DAIMA_FAIL;
+    }
     free(req_str);
 
-    /* 读取响应 */
     response_out[0] = '\0';
 
-    /* Read lines until we get a valid tools/call response */
-    while (1) {
-        if (c->pending[0] != '\0') {
-            strncpy(c->buf, c->pending, sizeof(c->buf) - 1);
-            c->buf[sizeof(c->buf) - 1] = '\0';
-            c->pending[0] = '\0';
-        } else if (!fgets(c->buf, sizeof(c->buf), c->out)) {
-            funlockfile(c->in);
-            funlockfile(c->out);
-            DAIMA_LOGE(TAG, "No response to tools/call %s", tool_name);
-            snprintf(response_out, response_size, "Error: no response");
-            return DAIMA_ERR_TIMEOUT;
-        }
-
-        /* Check if this line is a tools/call response */
-        if (strstr(c->buf, "\"result\"") || strstr(c->buf, "\"error\"")) break;
-
-        /* Not a response — process any notifications in-line so they aren't lost */
-        if (strstr(c->buf, "notifications/audio/chunk")) {
-            handle_audio_notification(c, c->buf);
-        } else if (strstr(c->buf, "notifications/audio/done")) {
-            if (c->audio_done_cb) {
-                mcp_audio_direction_t dir = {0};
-                cJSON *root = cJSON_Parse(c->buf);
-                if (root) {
-                    cJSON *params = cJSON_GetObjectItem(root, "params");
-                    if (params) {
-                        cJSON *v;
-                        #define G16(f,n) v = cJSON_GetObjectItem(params, n); if (v && cJSON_IsNumber(v)) dir.f = (uint16_t)v->valuedouble
-                        #define G32(f,n) v = cJSON_GetObjectItem(params, n); if (v && cJSON_IsNumber(v)) dir.f = (uint32_t)v->valuedouble
-                        #define GB(f,n)  v = cJSON_GetObjectItem(params, n); if (v) dir.f = cJSON_IsTrue(v)
-                        #define GF(f,n)  v = cJSON_GetObjectItem(params, n); if (v && cJSON_IsNumber(v)) dir.f = (float)v->valuedouble
-                        G16(direction,"direction");G16(selectedDirection,"selectedDirection");
-                        v=cJSON_GetObjectItem(params,"confidence");if(v&&cJSON_IsNumber(v))dir.confidence=(int16_t)v->valuedouble;
-                        G32(prox_distance_mm,"proxDistanceMm");
-                        GB(prox_found_object,"proxFoundObject");GB(prox_unobstructed,"proxUnobstructed");
-                        GB(cliff_detected,"cliffDetected");G32(robot_status,"robotStatus");GF(head_angle_deg,"headAngleDeg");
-                        #undef G16 #undef G32 #undef GB #undef GF
-                    }
-                    cJSON_Delete(root);
-                }
-                c->audio_done_cb(&dir, c->audio_done_user_data);
-            }
-        }
+    daima_err_t wait_err = wait_for_response(c, request_id, MCP_CALL_TIMEOUT_MS,
+                                             c->buf, sizeof(c->buf));
+    pthread_mutex_unlock(&c->io_mutex);
+    if (wait_err != DAIMA_OK) {
+        DAIMA_LOGE(TAG, "No response to tools/call %s (id=%d)", tool_name, request_id);
+        snprintf(response_out, response_size, "Error: no response");
+        return wait_err;
     }
-    funlockfile(c->in);
-    funlockfile(c->out);
 
     DAIMA_LOGI(TAG, "RAW response for %s: %s", tool_name, c->buf);
 
@@ -306,28 +283,42 @@ daima_err_t mcp_client_list_tools(mcp_client_t *c, char *tools_json_out, size_t 
 {
     if (!c || !tools_json_out || tools_size == 0) return DAIMA_ERR_INVALID_ARG;
 
+    pthread_mutex_lock(&c->io_mutex);
+    if (!c->in || !c->out) {
+        pthread_mutex_unlock(&c->io_mutex);
+        tools_json_out[0] = '\0';
+        return DAIMA_ERR_INVALID_ARG;
+    }
+
     cJSON *req = cJSON_CreateObject();
+    if (!req) {
+        pthread_mutex_unlock(&c->io_mutex);
+        tools_json_out[0] = '\0';
+        return DAIMA_ERR_NO_MEM;
+    }
+    int request_id = ++c->request_id;
     cJSON_AddStringToObject(req, "jsonrpc", "2.0");
-    cJSON_AddNumberToObject(req, "id", (double)(++c->request_id));
+    cJSON_AddNumberToObject(req, "id", (double)request_id);
     cJSON_AddStringToObject(req, "method", "tools/list");
 
     char *req_str = cJSON_PrintUnformatted(req);
     cJSON_Delete(req);
 
-    flockfile(c->in);
-    flockfile(c->out);
-    fprintf(c->in, "%s\n", req_str);
-    fflush(c->in);
+    if (!req_str || fprintf(c->in, "%s\n", req_str) < 0 || fflush(c->in) != 0) {
+        free(req_str);
+        pthread_mutex_unlock(&c->io_mutex);
+        tools_json_out[0] = '\0';
+        return DAIMA_FAIL;
+    }
     free(req_str);
 
-    if (!fgets(c->buf, sizeof(c->buf), c->out)) {
-        funlockfile(c->in);
-        funlockfile(c->out);
+    daima_err_t wait_err = wait_for_response(c, request_id, MCP_CALL_TIMEOUT_MS,
+                                             c->buf, sizeof(c->buf));
+    pthread_mutex_unlock(&c->io_mutex);
+    if (wait_err != DAIMA_OK) {
         tools_json_out[0] = '\0';
-        return DAIMA_ERR_TIMEOUT;
+        return wait_err;
     }
-    funlockfile(c->in);
-    funlockfile(c->out);
 
     cJSON *resp = cJSON_Parse(c->buf);
     if (!resp) {
@@ -404,6 +395,40 @@ static size_t b64_decode(const char *src, uint8_t *dst, size_t dst_max)
     return out;
 }
 
+static daima_err_t read_json_line(mcp_client_t *c, char *buf, size_t size, int timeout_ms)
+{
+    if (!c || !c->out || !buf || size == 0) return DAIMA_ERR_INVALID_ARG;
+
+    int fd = fileno(c->out);
+    if (fd < 0) return DAIMA_FAIL;
+
+    fd_set fds;
+    FD_ZERO(&fds);
+    FD_SET(fd, &fds);
+
+    struct timeval tv;
+    struct timeval *tvp = NULL;
+    if (timeout_ms >= 0) {
+        tv.tv_sec = timeout_ms / 1000;
+        tv.tv_usec = (timeout_ms % 1000) * 1000;
+        tvp = &tv;
+    }
+
+    int n = select(fd + 1, &fds, NULL, NULL, tvp);
+    if (n == 0) return DAIMA_ERR_TIMEOUT;
+    if (n < 0) {
+        if (errno == EINTR) return DAIMA_ERR_TIMEOUT;
+        DAIMA_LOGW(TAG, "select failed: %s", strerror(errno));
+        return DAIMA_FAIL;
+    }
+
+    if (!fgets(buf, size, c->out)) {
+        clearerr(c->out);
+        return DAIMA_ERR_TIMEOUT;
+    }
+    return DAIMA_OK;
+}
+
 static void handle_audio_notification(mcp_client_t *c, const char *json_str)
 {
     if (!c->audio_cb) return;
@@ -431,68 +456,130 @@ static void handle_audio_notification(mcp_client_t *c, const char *json_str)
     }
 }
 
+static void handle_audio_done_notification(mcp_client_t *c, const char *json_str)
+{
+    if (!c->audio_done_cb) return;
+
+    mcp_audio_direction_t dir = {0};
+    cJSON *root = cJSON_Parse(json_str);
+    if (root) {
+        cJSON *params = cJSON_GetObjectItem(root, "params");
+        if (params) {
+            cJSON *v;
+            v = cJSON_GetObjectItem(params, "direction");
+            if (v && cJSON_IsNumber(v)) dir.direction = (uint16_t)v->valuedouble;
+            v = cJSON_GetObjectItem(params, "selectedDirection");
+            if (v && cJSON_IsNumber(v)) dir.selectedDirection = (uint16_t)v->valuedouble;
+            v = cJSON_GetObjectItem(params, "confidence");
+            if (v && cJSON_IsNumber(v)) dir.confidence = (int16_t)v->valuedouble;
+            v = cJSON_GetObjectItem(params, "proxDistanceMm");
+            if (v && cJSON_IsNumber(v)) dir.prox_distance_mm = (uint32_t)v->valuedouble;
+            v = cJSON_GetObjectItem(params, "proxFoundObject");
+            if (v) dir.prox_found_object = cJSON_IsTrue(v);
+            v = cJSON_GetObjectItem(params, "proxUnobstructed");
+            if (v) dir.prox_unobstructed = cJSON_IsTrue(v);
+            v = cJSON_GetObjectItem(params, "cliffDetected");
+            if (v) dir.cliff_detected = cJSON_IsTrue(v);
+            v = cJSON_GetObjectItem(params, "robotStatus");
+            if (v && cJSON_IsNumber(v)) dir.robot_status = (uint32_t)v->valuedouble;
+            v = cJSON_GetObjectItem(params, "headAngleDeg");
+            if (v && cJSON_IsNumber(v)) dir.head_angle_deg = (float)v->valuedouble;
+        }
+        cJSON_Delete(root);
+    }
+
+    c->audio_done_cb(&dir, c->audio_done_user_data);
+}
+
+static bool handle_mcp_notification(mcp_client_t *c, const char *json_str)
+{
+    if (!c || !json_str) return false;
+    if (strstr(json_str, "notifications/audio/chunk")) {
+        handle_audio_notification(c, json_str);
+        return true;
+    }
+    if (strstr(json_str, "notifications/audio/done")) {
+        handle_audio_done_notification(c, json_str);
+        return true;
+    }
+    return false;
+}
+
+static int jsonrpc_response_id(const cJSON *root)
+{
+    cJSON *id = cJSON_GetObjectItem((cJSON *)root, "id");
+    if (!id || !cJSON_IsNumber(id)) return -1;
+    return (int)id->valuedouble;
+}
+
+static bool is_jsonrpc_response(const cJSON *root)
+{
+    return cJSON_GetObjectItem((cJSON *)root, "result") ||
+           cJSON_GetObjectItem((cJSON *)root, "error");
+}
+
+static daima_err_t wait_for_response(mcp_client_t *c, int request_id, int timeout_ms,
+                                     char *response, size_t response_size)
+{
+    if (!c || !response || response_size == 0) return DAIMA_ERR_INVALID_ARG;
+    response[0] = '\0';
+
+    while (1) {
+        if (c->pending[0] != '\0') {
+            snprintf(c->buf, sizeof(c->buf), "%s", c->pending);
+            c->pending[0] = '\0';
+        } else {
+            daima_err_t err = read_json_line(c, c->buf, sizeof(c->buf), timeout_ms);
+            if (err != DAIMA_OK) return err;
+        }
+
+        if (handle_mcp_notification(c, c->buf)) {
+            continue;
+        }
+
+        cJSON *root = cJSON_Parse(c->buf);
+        if (!root) {
+            DAIMA_LOGW(TAG, "Ignoring invalid MCP JSON: %.120s", c->buf);
+            continue;
+        }
+
+        if (is_jsonrpc_response(root)) {
+            int id = jsonrpc_response_id(root);
+            if (id == request_id) {
+                snprintf(response, response_size, "%s", c->buf);
+                cJSON_Delete(root);
+                return DAIMA_OK;
+            }
+            DAIMA_LOGW(TAG, "Ignoring MCP response id=%d while waiting for id=%d", id, request_id);
+        }
+
+        cJSON_Delete(root);
+    }
+}
+
 int mcp_client_poll(mcp_client_t *c)
 {
     if (!c || !c->out) return 0;
 
     int count = 0;
-    struct timeval tv = {0, 0};
-    fd_set fds;
-    FD_ZERO(&fds);
-    FD_SET(fileno(c->out), &fds);
 
-    while (select(fileno(c->out) + 1, &fds, NULL, NULL, &tv) > 0) {
-        memset(c->buf, 0, sizeof(c->buf));
-        if (!fgets(c->buf, sizeof(c->buf), c->out)) return count;
-
-        /* 检查是否是音频通知 */
-        if (strstr(c->buf, "notifications/audio/chunk")) {
-            handle_audio_notification(c, c->buf);
-        } else if (strstr(c->buf, "notifications/audio/done")) {
-            if (c->audio_done_cb) {
-                mcp_audio_direction_t dir = {0};
-                cJSON *root = cJSON_Parse(c->buf);
-                if (root) {
-                    cJSON *params = cJSON_GetObjectItem(root, "params");
-                    if (params) {
-                        cJSON *v;
-                        #define GET_U16(field, name) v = cJSON_GetObjectItem(params, name); if (v && cJSON_IsNumber(v)) dir.field = (uint16_t)v->valuedouble
-                        #define GET_U32(field, name) v = cJSON_GetObjectItem(params, name); if (v && cJSON_IsNumber(v)) dir.field = (uint32_t)v->valuedouble
-                        #define GET_BOOL(field, name) v = cJSON_GetObjectItem(params, name); if (v) dir.field = cJSON_IsTrue(v)
-                        #define GET_FLOAT(field, name) v = cJSON_GetObjectItem(params, name); if (v && cJSON_IsNumber(v)) dir.field = (float)v->valuedouble
-                        GET_U16(direction, "direction");
-                        GET_U16(selectedDirection, "selectedDirection");
-                        v = cJSON_GetObjectItem(params, "confidence");
-                        if (v && cJSON_IsNumber(v)) dir.confidence = (int16_t)v->valuedouble;
-                        GET_U32(prox_distance_mm, "proxDistanceMm");
-                        GET_BOOL(prox_found_object, "proxFoundObject");
-                        GET_BOOL(prox_unobstructed, "proxUnobstructed");
-                        GET_BOOL(cliff_detected, "cliffDetected");
-                        GET_U32(robot_status, "robotStatus");
-                        GET_FLOAT(head_angle_deg, "headAngleDeg");
-                        #undef GET_U16
-                        #undef GET_U32
-                        #undef GET_BOOL
-                        #undef GET_FLOAT
-                    }
-                    cJSON_Delete(root);
-                }
-                c->audio_done_cb(&dir, c->audio_done_user_data);
-            }
-        } else {
-            /* Might be a tools/call response — save for mcp_client_call_tool */
-            strncpy(c->pending, c->buf, sizeof(c->pending) - 1);
-            c->pending[sizeof(c->pending) - 1] = '\0';
+    pthread_mutex_lock(&c->io_mutex);
+    while (read_json_line(c, c->buf, sizeof(c->buf), 0) == DAIMA_OK) {
+        if (!handle_mcp_notification(c, c->buf)) {
+            snprintf(c->pending, sizeof(c->pending), "%s", c->buf);
         }
         count++;
     }
+    pthread_mutex_unlock(&c->io_mutex);
     return count;
 }
 
 void mcp_client_close_stdin(mcp_client_t *c)
 {
     if (c && c->in) {
+        pthread_mutex_lock(&c->io_mutex);
         fclose(c->in);
         c->in = NULL;
+        pthread_mutex_unlock(&c->io_mutex);
     }
 }

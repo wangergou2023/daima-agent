@@ -142,20 +142,14 @@
 #define MCP_BIN_DEFAULT               "./robot-mcp"
 #define MCP_READ_BUF_SIZE             (64 * 1024)   /* JSON 行最大长度 */
 #define MCP_AUDIO_BUF_SIZE            (32 * 1024)   /* 解码后音频缓冲区 */
+#define MCP_INIT_TIMEOUT_MS           30000
+#define MCP_CALL_TIMEOUT_MS           30000
 #define MCP_POLL_STACK                (12 * 1024)
 #define MCP_POLL_PRIO                 5
 
-/* Vector 音频 VAD 参数
- * - VAD_SPEECH_THRESHOLD: RMS 阈值，高于此值视为语音 (默认 400)
- * - VAD_SILENCE_TIMEOUT: 连续静音帧数后视为说话结束 (默认 8，约 960ms)
- * - VAD_MAX_SAMPLES: 最大缓冲样本数 (30 秒 @ 16kHz)
+/* Vector 音频参数
+ * 说话结束由机器人 AudioDone 通知决定；这里只保留最大缓冲样本数。
  */
-#ifndef VAD_SPEECH_THRESHOLD
-#define VAD_SPEECH_THRESHOLD  400.0
-#endif
-#ifndef VAD_SILENCE_TIMEOUT
-#define VAD_SILENCE_TIMEOUT   8
-#endif
 #ifndef VAD_MAX_SAMPLES
 #define VAD_MAX_SAMPLES       (16000 * 30)
 #endif
