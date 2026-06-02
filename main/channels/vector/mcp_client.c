@@ -546,7 +546,9 @@ static daima_err_t wait_for_response(mcp_client_t *c, int request_id, int timeou
         if (is_jsonrpc_response(root)) {
             int id = jsonrpc_response_id(root);
             if (id == request_id) {
-                snprintf(response, response_size, "%s", c->buf);
+                if (response != c->buf) {
+                    snprintf(response, response_size, "%s", c->buf);
+                }
                 cJSON_Delete(root);
                 return DAIMA_OK;
             }
