@@ -38,9 +38,11 @@ static const char *resolve_runtime_timezone(void)
 
 int main(int argc, char **argv)
 {
+#ifdef BUILD_FOR_MIPS
     /* Auto-register systemd service on boot (rootfs is RO, runtime link needed each boot) */
     mkdir("/run/systemd/system", 0755);
     symlink("/data/daima/daima.service", "/run/systemd/system/daima.service");
+#endif
 
     if (argc > 1) {
         const char *arg = argv[1];
@@ -74,10 +76,7 @@ int main(int argc, char **argv)
     DAIMA_ERROR_CHECK(feishu_bot_init());
     DAIMA_ERROR_CHECK(feishu_bot_start());
     DAIMA_ERROR_CHECK(vector_channel_init());
-    daima_err_t vec_err = vector_channel_start();
-    if (vec_err != DAIMA_OK) {
-        DAIMA_LOGW(TAG, "Vector channel failed to start: %s (robot-mcp may not be available)", daima_err_to_name(vec_err));
-    }
+    DAIMA_LOGI(TAG, "Vector channel initialized; MCP starts lazily on vector/voice use");
 #ifdef BUILD_FOR_MIPS
     daima_err_t wake_err = voice_wake_start();
     if (wake_err != DAIMA_OK) {

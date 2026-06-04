@@ -16,6 +16,7 @@ extern "C" {
 
 daima_err_t vector_channel_init(void);
 daima_err_t vector_channel_start(void);
+daima_err_t vector_channel_ensure_started(void);
 
 /**
  * 将文本回复发送到 Vector 扬声器。

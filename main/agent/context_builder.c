@@ -11,9 +11,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include "daima_log.h"
 
 static const char *TAG = "context";
+
+static size_t append_textf(char *buf, size_t size, size_t offset, const char *fmt, ...);
 
 /* Strip any orphaned multi-byte UTF-8 sequences anywhere in the buffer.
  * vsnprintf/fread truncation can leave lead bytes without continuation bytes. */
@@ -70,6 +76,162 @@ static bool file_has_content(const char *path)
     int ch = fgetc(f);
     fclose(f);
     return ch != EOF;
+}
+
+static bool file_exists(const char *path)
+{
+    return path && access(path, F_OK) == 0;
+}
+
+static bool file_exists_under(const char *root, const char *name)
+{
+    if (!root || !root[0] || !name || !name[0]) return false;
+    char path[1200];
+    if (snprintf(path, sizeof(path), "%s/%s", root, name) >= (int)sizeof(path)) {
+        return false;
+    }
+    return file_exists(path);
+}
+
+static bool read_process_output(char *out, size_t out_size, const char *program, char *const argv[])
+{
+    if (!out || out_size == 0 || !program || !argv) return false;
+    out[0] = '\0';
+
+    int pipefd[2];
+    if (pipe(pipefd) != 0) return false;
+
+    pid_t pid = fork();
+    if (pid < 0) {
+        close(pipefd[0]);
+        close(pipefd[1]);
+        return false;
+    }
+
+    if (pid == 0) {
+        close(pipefd[0]);
+        dup2(pipefd[1], STDOUT_FILENO);
+        dup2(pipefd[1], STDERR_FILENO);
+        close(pipefd[1]);
+        execvp(program, argv);
+        _exit(127);
+    }
+
+    close(pipefd[1]);
+    ssize_t n = read(pipefd[0], out, out_size - 1);
+    close(pipefd[0]);
+    int status = 0;
+    waitpid(pid, &status, 0);
+
+    if (n <= 0 || !WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+        out[0] = '\0';
+        return false;
+    }
+    out[n] = '\0';
+
+    size_t len = strlen(out);
+    while (len > 0 && (out[len - 1] == '\n' || out[len - 1] == '\r' || out[len - 1] == ' ')) {
+        out[--len] = '\0';
+    }
+    return out[0] != '\0';
+}
+
+static bool read_git_first_line(char *out, size_t out_size, char *const argv[])
+{
+    if (!read_process_output(out, out_size, "git", argv)) {
+        return false;
+    }
+    char *newline = strchr(out, '\n');
+    if (newline) {
+        *newline = '\0';
+    }
+    return out[0] != '\0';
+}
+
+static int run_process_quiet(const char *program, char *const argv[])
+{
+    if (!program || !argv) return -1;
+
+    pid_t pid = fork();
+    if (pid < 0) {
+        return -1;
+    }
+
+    if (pid == 0) {
+        int devnull = open("/dev/null", O_WRONLY);
+        if (devnull >= 0) {
+            dup2(devnull, STDOUT_FILENO);
+            dup2(devnull, STDERR_FILENO);
+            close(devnull);
+        }
+        execvp(program, argv);
+        _exit(127);
+    }
+
+    int status = 0;
+    if (waitpid(pid, &status, 0) < 0 || !WIFEXITED(status)) {
+        return -1;
+    }
+    return WEXITSTATUS(status);
+}
+
+static void append_stack_item(char *stack, size_t stack_size, const char *item)
+{
+    if (!stack || stack_size == 0 || !item || !item[0]) return;
+    if (stack[0]) {
+        strncat(stack, ", ", stack_size - strlen(stack) - 1);
+    }
+    strncat(stack, item, stack_size - strlen(stack) - 1);
+}
+
+static size_t append_workspace_context(char *buf, size_t size, size_t offset)
+{
+    char cwd[1024];
+    if (!getcwd(cwd, sizeof(cwd))) {
+        return offset;
+    }
+
+    char branch[128] = {0};
+    char repo_root[1024] = {0};
+    char commit[256] = {0};
+    char *branch_args[] = {"git", "branch", "--show-current", NULL};
+    char *root_args[] = {"git", "rev-parse", "--show-toplevel", NULL};
+    char *status_args[] = {"git", "diff-index", "--quiet", "HEAD", "--", NULL};
+    char *commit_args[] = {"git", "log", "--oneline", "-1", NULL};
+    bool has_branch = read_git_first_line(branch, sizeof(branch), branch_args);
+    bool has_repo_root = read_git_first_line(repo_root, sizeof(repo_root), root_args);
+    int status_exit = run_process_quiet("git", status_args);
+    bool has_status = status_exit == 0 || status_exit == 1;
+    bool is_dirty = status_exit == 1;
+    bool has_commit = read_git_first_line(commit, sizeof(commit), commit_args);
+    bool has_git = has_branch || has_repo_root || has_status || has_commit;
+
+    const char *project_root = has_repo_root ? repo_root : cwd;
+    char stack[256] = {0};
+    if (file_exists_under(project_root, "CMakeLists.txt")) append_stack_item(stack, sizeof(stack), "C/CMake");
+    if (file_exists_under(project_root, "package.json")) append_stack_item(stack, sizeof(stack), "Node.js");
+    if (file_exists_under(project_root, "tsconfig.json")) append_stack_item(stack, sizeof(stack), "TypeScript");
+    if (file_exists_under(project_root, "go.mod")) append_stack_item(stack, sizeof(stack), "Go");
+    if (file_exists_under(project_root, "Cargo.toml")) append_stack_item(stack, sizeof(stack), "Rust");
+    if (file_exists_under(project_root, "pyproject.toml") || file_exists_under(project_root, "requirements.txt")) append_stack_item(stack, sizeof(stack), "Python");
+    if (file_exists_under(project_root, "docker-compose.yml") || file_exists_under(project_root, "Dockerfile")) append_stack_item(stack, sizeof(stack), "Docker");
+
+    offset = append_textf(buf, size, offset, "\n## 当前工作区\n\n");
+    offset = append_textf(buf, size, offset, "- cwd: `%s`\n", cwd);
+    if (has_repo_root) {
+        offset = append_textf(buf, size, offset, "- repo root: `%s`\n", repo_root);
+    }
+    if (has_git) {
+        offset = append_textf(buf, size, offset, "- git:");
+        if (has_branch) offset = append_textf(buf, size, offset, " branch `%s`", branch);
+        if (has_status) offset = append_textf(buf, size, offset, " %s", is_dirty ? "dirty" : "clean");
+        if (has_commit) offset = append_textf(buf, size, offset, " latest `%s`", commit);
+        offset = append_textf(buf, size, offset, "\n");
+    }
+    if (stack[0]) {
+        offset = append_textf(buf, size, offset, "- stack: %s\n", stack);
+    }
+    return offset;
 }
 
 static size_t append_textf(char *buf, size_t size, size_t offset, const char *fmt, ...)
@@ -196,7 +358,7 @@ static size_t append_dynamic_runtime_guide_fallback(char *buf, size_t size, size
         daima_path_skills_dir());
 }
 
-daima_err_t context_build_system_prompt(char *buf, size_t size)
+daima_err_t context_build_system_prompt_for_channel(const char *channel, char *buf, size_t size)
 {
     size_t off = 0;
     bool has_bootstrap = file_has_content(daima_path_bootstrap_file());
@@ -212,6 +374,7 @@ daima_err_t context_build_system_prompt(char *buf, size_t size)
 
     off = append_operator_guide_fallback(buf, size, off, has_bootstrap);
     off = append_dynamic_runtime_guide_fallback(buf, size, off);
+    off = append_workspace_context(buf, size, off);
 
     /* 身份与用户配置 */
     off = append_file(buf, size, off, daima_path_identity_file(), "身份设定");
@@ -232,7 +395,7 @@ daima_err_t context_build_system_prompt(char *buf, size_t size)
 
     /* 技能 */
     char skills_buf[2048];
-    size_t skills_len = skill_loader_build_summary(skills_buf, sizeof(skills_buf));
+    size_t skills_len = skill_loader_build_summary_for_channel(channel, skills_buf, sizeof(skills_buf));
     if (skills_len > 0) {
         off = append_textf(
             buf, size, off,
@@ -246,4 +409,9 @@ daima_err_t context_build_system_prompt(char *buf, size_t size)
     fix_truncated_utf8(buf, off);
     DAIMA_LOGD(TAG, "System prompt built: %d bytes", (int)off);
     return DAIMA_OK;
+}
+
+daima_err_t context_build_system_prompt(char *buf, size_t size)
+{
+    return context_build_system_prompt_for_channel(NULL, buf, size);
 }

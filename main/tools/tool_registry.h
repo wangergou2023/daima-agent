@@ -24,6 +24,12 @@ daima_err_t tool_registry_init(void);
 const char *tool_registry_get_tools_json(void);
 
 /**
+ * 获取当前通道可见的工具数组 JSON。
+ * PC/WebSocket 等普通通道不暴露机器人控制工具；Vector/voice 通道暴露机器人工具。
+ */
+const char *tool_registry_get_tools_json_for_channel(const char *channel);
+
+/**
  * 按名称执行工具。
  *
  * @param name         工具名称（如 "weather"）
@@ -34,3 +40,13 @@ const char *tool_registry_get_tools_json(void);
  */
 daima_err_t tool_registry_execute(const char *name, const char *input_json,
                                 char *output, size_t output_size);
+
+/**
+ * 按当前消息通道执行工具。该接口用于 LLM 工具调用路径，除工具列表过滤外，
+ * 再做一次执行层权限校验。
+ */
+daima_err_t tool_registry_execute_for_channel(const char *channel,
+                                             const char *name,
+                                             const char *input_json,
+                                             char *output,
+                                             size_t output_size);

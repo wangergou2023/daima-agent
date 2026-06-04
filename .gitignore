@@ -1,4 +1,5 @@
 /build-host
+/build-deb
 /build-arm
 /build
 /test/test_tts_player

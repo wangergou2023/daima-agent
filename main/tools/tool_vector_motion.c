@@ -16,7 +16,7 @@ static const char *TAG = "tool_vector_motion";
 /* ---- Drive Straight ---- */
 static daima_err_t tool_robot_drive_straight_execute(const char *input_json, char *output, size_t output_size)
 {
-    mcp_client_t *mcp = vector_channel_get_mcp();
+    mcp_client_t *mcp = tool_get_mcp(output, output_size);
     if (!mcp) {
         snprintf(output, output_size, "错误：Vector 机器人未连接");
         return DAIMA_FAIL;
@@ -54,7 +54,7 @@ const daima_tool_t *tool_robot_drive_straight_definition(void) { return &s_drive
 /* ---- Turn In Place ---- */
 static daima_err_t tool_robot_turn_in_place_execute(const char *input_json, char *output, size_t output_size)
 {
-    mcp_client_t *mcp = vector_channel_get_mcp();
+    mcp_client_t *mcp = tool_get_mcp(output, output_size);
     if (!mcp) { snprintf(output, output_size, "错误：Vector 机器人未连接"); return DAIMA_FAIL; }
 
     cJSON *in = cJSON_Parse(input_json);
@@ -88,7 +88,7 @@ const daima_tool_t *tool_robot_turn_in_place_definition(void) { return &s_turn_i
 /* ---- Drive Wheels ---- */
 static daima_err_t tool_robot_drive_wheels_execute(const char *input_json, char *output, size_t output_size)
 {
-    mcp_client_t *mcp = vector_channel_get_mcp();
+    mcp_client_t *mcp = tool_get_mcp(output, output_size);
     if (!mcp) { snprintf(output, output_size, "错误：Vector 机器人未连接"); return DAIMA_FAIL; }
 
     cJSON *in = cJSON_Parse(input_json);

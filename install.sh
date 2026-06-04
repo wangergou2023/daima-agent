@@ -56,6 +56,9 @@ install -m644 "./spiffs_data/ca/cacert.pem" "$CA_DIR/cacert.pem"
 
 cp -a "./spiffs_data/web/." "$WEB_DIR/"
 cp -a "./spiffs_data/skills/." "$SKILLS_DIR/"
+rm -rf "$SKILLS_DIR/robot-control" \
+       "$SKILLS_DIR/feishu-card-writer" \
+       "$SKILLS_DIR/pet-director"
 
 for pet_dir in ./spiffs_data/*.codex-pet; do
     [ -d "$pet_dir" ] || continue
@@ -69,6 +72,19 @@ if [ ! -e "$CONFIG_DIR/config.json" ]; then
     else
         install -Dm644 "./spiffs_data/config/config.example.json" "$CONFIG_DIR/config.json"
     fi
+elif ! grep -q '"vector"' "$CONFIG_DIR/config.json"; then
+    python3 - "$CONFIG_DIR/config.json" <<'PY'
+import json
+import sys
+
+path = sys.argv[1]
+with open(path, "r", encoding="utf-8") as f:
+    data = json.load(f)
+data.setdefault("vector", {})["enabled"] = False
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(data, f, ensure_ascii=False, indent=2)
+    f.write("\n")
+PY
 fi
 copy_if_missing "./spiffs_data/config/BOOTSTRAP.md" "$CONFIG_DIR/BOOTSTRAP.md"
 copy_if_missing "./spiffs_data/config/IDENTITY.md" "$CONFIG_DIR/IDENTITY.md"

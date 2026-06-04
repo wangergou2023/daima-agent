@@ -1,0 +1,88 @@
+#!/bin/sh
+set -eu
+
+APP_DIR="/usr/lib/daima"
+DAIMA_SEED_DIR="${DAIMA_SEED_DIR:-/usr/share/daima-agent/spiffs_data}"
+DAIMA_HOME="${DAIMA_HOME:-$HOME/.daima}"
+
+copy_tree_missing() {
+    src="$1"
+    dst="$2"
+    [ -d "$src" ] || return 0
+    (cd "$src" && find . -type d -exec mkdir -p "$dst/{}" \; -o -type f -exec sh -c '
+        src_root="$1"
+        dst_root="$2"
+        rel="$3"
+        target="$dst_root/$rel"
+        [ -e "$target" ] || install -Dm644 "$src_root/$rel" "$target"
+    ' sh "$src" "$dst" {} \;)
+}
+
+copy_file_missing() {
+    src="$1"
+    dst="$2"
+    [ -e "$src" ] || return 0
+    [ -e "$dst" ] || install -Dm644 "$src" "$dst"
+}
+
+mkdir -p "$DAIMA_HOME/bin" \
+         "$DAIMA_HOME/spiffs_data/config" \
+         "$DAIMA_HOME/spiffs_data/web" \
+         "$DAIMA_HOME/spiffs_data/skills" \
+         "$DAIMA_HOME/spiffs_data/ca" \
+         "$DAIMA_HOME/spiffs_data/memory" \
+         "$DAIMA_HOME/spiffs_data/sessions" \
+         "$DAIMA_HOME/spiffs_data/cache"
+
+copy_tree_missing "$DAIMA_SEED_DIR/web" "$DAIMA_HOME/spiffs_data/web"
+copy_tree_missing "$DAIMA_SEED_DIR/skills" "$DAIMA_HOME/spiffs_data/skills"
+rm -rf "$DAIMA_HOME/spiffs_data/skills/robot-control" \
+       "$DAIMA_HOME/spiffs_data/skills/feishu-card-writer" \
+       "$DAIMA_HOME/spiffs_data/skills/pet-director"
+
+copy_file_missing "$DAIMA_SEED_DIR/ca/cacert.pem" "$DAIMA_HOME/spiffs_data/ca/cacert.pem"
+copy_file_missing "$DAIMA_SEED_DIR/config/config.example.json" "$DAIMA_HOME/spiffs_data/config/config.example.json"
+
+for pet_dir in "$DAIMA_SEED_DIR"/*.codex-pet; do
+    [ -d "$pet_dir" ] || continue
+    copy_tree_missing "$pet_dir" "$DAIMA_HOME/spiffs_data/$(basename "$pet_dir")"
+done
+
+created_config=0
+if [ ! -e "$DAIMA_HOME/spiffs_data/config/config.json" ]; then
+    if [ -e "$DAIMA_SEED_DIR/config/config.json" ]; then
+        install -m644 "$DAIMA_SEED_DIR/config/config.json" "$DAIMA_HOME/spiffs_data/config/config.json"
+    else
+        install -m644 "$DAIMA_SEED_DIR/config/config.example.json" "$DAIMA_HOME/spiffs_data/config/config.json"
+    fi
+    created_config=1
+fi
+
+if [ "$created_config" -eq 1 ]; then
+    python3 - "$DAIMA_HOME/spiffs_data/config/config.json" <<'PY'
+import json
+import sys
+
+path = sys.argv[1]
+with open(path, "r", encoding="utf-8") as f:
+    data = json.load(f)
+for provider in data.get("providers", {}).values():
+    if isinstance(provider, dict) and provider.get("api_key", "").startswith("<your-"):
+        provider["api_key"] = ""
+feishu = data.get("feishu")
+if isinstance(feishu, dict):
+    for key in ("app_id", "app_secret"):
+        if feishu.get(key, "").startswith("<your-"):
+            feishu[key] = ""
+audio = data.get("audio")
+if isinstance(audio, dict) and audio.get("bigmodel_api_key", "").startswith("<your-"):
+    audio["bigmodel_api_key"] = ""
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(data, f, ensure_ascii=False, indent=2)
+    f.write("\n")
+PY
+fi
+
+for name in BOOTSTRAP.md IDENTITY.md SOUL.md USER.md AGENTS.md; do
+    copy_file_missing "$DAIMA_SEED_DIR/config/$name" "$DAIMA_HOME/spiffs_data/config/$name"
+done

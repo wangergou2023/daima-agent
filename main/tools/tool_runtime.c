@@ -131,7 +131,7 @@ static void maybe_retry_terminal_with_web_sudo(const llm_tool_call_t *call,
     }
 
     tool_output[0] = '\0';
-    tool_registry_execute(call->name, retry_input, tool_output, tool_output_size);
+    tool_registry_execute_for_channel(msg->channel, call->name, retry_input, tool_output, tool_output_size);
     free(retry_input);
     cJSON_Delete(root);
 }
@@ -157,7 +157,7 @@ daima_err_t tool_runtime_execute_call(const llm_tool_call_t *call,
     struct timespec ended = {0};
     clock_gettime(CLOCK_MONOTONIC, &started);
     tool_output[0] = '\0';
-    daima_err_t exec_err = tool_registry_execute(call->name, tool_input, tool_output, tool_output_size);
+    daima_err_t exec_err = tool_registry_execute_for_channel(msg->channel, call->name, tool_input, tool_output, tool_output_size);
     maybe_retry_terminal_with_web_sudo(call, msg, tool_output, tool_output_size);
     clock_gettime(CLOCK_MONOTONIC, &ended);
 

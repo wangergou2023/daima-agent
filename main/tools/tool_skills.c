@@ -23,7 +23,8 @@ static const daima_tool_t s_skills_list_tool = {
     .input_schema_json =
         "{\"type\":\"object\","
         "\"properties\":{"
-        "\"pattern\":{\"type\":\"string\",\"description\":\"可选过滤关键词；会匹配技能目录名、name、description\"}"
+        "\"pattern\":{\"type\":\"string\",\"description\":\"可选过滤关键词；会匹配技能目录名、name、description\"},"
+        "\"channel\":{\"type\":\"string\",\"description\":\"可选通道名；填写后只列公共技能和该通道技能，例如 websocket、feishu、pet、vector\"}"
         "},"
         "\"required\":[]}",
     .execute = tool_skills_list_execute,
@@ -44,6 +45,7 @@ static const daima_tool_t s_skill_view_tool = {
 
 typedef struct {
     char slug[128];
+    char scope[32];
     char title[128];
     char description[256];
 } skill_info_t;
@@ -54,7 +56,7 @@ static bool file_exists_regular(const char *path)
     return path && stat(path, &st) == 0 && S_ISREG(st.st_mode);
 }
 
-static bool read_skill_info(const char *skill_name, skill_info_t *info)
+static bool read_skill_info(const char *skill_name, const char *scope, skill_info_t *info)
 {
     if (!skill_name || !info) return false;
 
@@ -69,6 +71,9 @@ static bool read_skill_info(const char *skill_name, skill_info_t *info)
 
     memset(info, 0, sizeof(*info));
     snprintf(info->slug, sizeof(info->slug), "%.*s", (int)sizeof(info->slug) - 1, skill_name);
+    snprintf(info->scope, sizeof(info->scope), "%.*s",
+             (int)sizeof(info->scope) - 1,
+             scope && scope[0] ? scope : "common");
     snprintf(info->title, sizeof(info->title), "%.*s",
              (int)sizeof(info->title) - 1,
              meta.title[0] ? meta.title : skill_name);
@@ -88,6 +93,114 @@ static int compare_skill_info(const void *a, const void *b)
     return strcmp(ia->slug, ib->slug);
 }
 
+static bool add_skill_info(skill_info_t *infos,
+                           int *count,
+                           int max_count,
+                           const char *skill_name,
+                           const char *scope,
+                           const char *pattern)
+{
+    if (!infos || !count || *count >= max_count || !skill_name || !skill_meta_validate_name(skill_name)) {
+        return false;
+    }
+
+    char skill_file[SKILL_PATH_SIZE];
+    if (!skill_meta_resolve_path(skill_name, NULL, skill_file, sizeof(skill_file)) ||
+        !file_exists_regular(skill_file)) {
+        return false;
+    }
+
+    skill_info_t info;
+    if (!read_skill_info(skill_name, scope, &info)) {
+        return false;
+    }
+
+    if (pattern && pattern[0]) {
+        if (!strstr(skill_name, pattern) &&
+            !strstr(info.title, pattern) &&
+            !strstr(info.description, pattern)) {
+            return false;
+        }
+    }
+
+    infos[(*count)++] = info;
+    return true;
+}
+
+static void scan_skill_dir(skill_info_t *infos,
+                           int *count,
+                           int max_count,
+                           const char *prefix,
+                           const char *dir_path,
+                           const char *scope,
+                           const char *channel_filter,
+                           const char *pattern)
+{
+    DIR *dir = opendir(dir_path);
+    if (!dir) {
+        return;
+    }
+
+    struct dirent *ent = NULL;
+    while ((ent = readdir(dir)) != NULL && *count < max_count) {
+        if (ent->d_name[0] == '.') {
+            continue;
+        }
+
+        if (prefix && strcmp(prefix, "channels") == 0 && channel_filter && channel_filter[0] &&
+            strcmp(ent->d_name, channel_filter) != 0) {
+            continue;
+        }
+
+        char next_scope[32];
+        snprintf(next_scope, sizeof(next_scope), "%s", scope ? scope : "common");
+        if (prefix && strcmp(prefix, "channels") == 0) {
+            snprintf(next_scope, sizeof(next_scope), "channel:%.*s",
+                     (int)(sizeof(next_scope) - strlen("channel:") - 1),
+                     ent->d_name);
+        }
+
+        char rel[SKILL_PATH_SIZE];
+        if (prefix && prefix[0]) {
+            snprintf(rel, sizeof(rel), "%s/%s", prefix, ent->d_name);
+        } else {
+            snprintf(rel, sizeof(rel), "%s", ent->d_name);
+        }
+
+        char entry_path[SKILL_PATH_SIZE];
+        snprintf(entry_path, sizeof(entry_path), "%s/%s", dir_path, ent->d_name);
+        if (!skill_meta_validate_name(rel)) {
+            continue;
+        }
+
+        if ((!prefix || !prefix[0]) && strcmp(ent->d_name, "channels") == 0) {
+            struct stat st;
+            if (stat(entry_path, &st) == 0 && S_ISDIR(st.st_mode)) {
+                scan_skill_dir(infos, count, max_count, rel, entry_path, "channel", channel_filter, pattern);
+            }
+            continue;
+        }
+
+        if (file_exists_regular(entry_path)) {
+            continue;
+        }
+
+        char skill_file[SKILL_PATH_SIZE + 16];
+        snprintf(skill_file, sizeof(skill_file), "%s/SKILL.md", entry_path);
+        if (file_exists_regular(skill_file)) {
+            add_skill_info(infos, count, max_count, rel, scope, pattern);
+            continue;
+        }
+
+        struct stat st;
+        if (stat(entry_path, &st) == 0 && S_ISDIR(st.st_mode)) {
+            scan_skill_dir(infos, count, max_count, rel, entry_path, next_scope, channel_filter, pattern);
+        }
+    }
+
+    closedir(dir);
+}
+
 daima_err_t tool_skills_list_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *root = cJSON_Parse(input_json);
@@ -97,6 +210,12 @@ daima_err_t tool_skills_list_execute(const char *input_json, char *output, size_
     }
 
     const char *pattern = cJSON_GetStringValue(cJSON_GetObjectItem(root, "pattern"));
+    const char *channel = cJSON_GetStringValue(cJSON_GetObjectItem(root, "channel"));
+    if (channel && channel[0] && !skill_meta_validate_name(channel)) {
+        snprintf(output, output_size, "错误：channel 非法，不能使用绝对路径或 '..'");
+        cJSON_Delete(root);
+        return DAIMA_ERR_INVALID_ARG;
+    }
     DIR *dir = opendir(daima_path_skills_dir());
     if (!dir) {
         snprintf(output, output_size, "错误：无法打开技能目录 %s", daima_path_skills_dir());
@@ -106,47 +225,25 @@ daima_err_t tool_skills_list_execute(const char *input_json, char *output, size_
 
     skill_info_t infos[128];
     int count = 0;
-    struct dirent *ent = NULL;
-    while ((ent = readdir(dir)) != NULL) {
-        if (ent->d_name[0] == '.') {
-            continue;
-        }
-        if (!skill_meta_validate_name(ent->d_name)) {
-            continue;
-        }
-
-        char skill_file[SKILL_PATH_SIZE];
-        if (!skill_meta_resolve_path(ent->d_name, NULL, skill_file, sizeof(skill_file)) ||
-            !file_exists_regular(skill_file)) {
-            continue;
-        }
-
-        skill_info_t info;
-        if (!read_skill_info(ent->d_name, &info)) {
-            continue;
-        }
-
-        if (pattern && pattern[0]) {
-            if (!strstr(ent->d_name, pattern) &&
-                !strstr(info.title, pattern) &&
-                !strstr(info.description, pattern)) {
-                continue;
-            }
-        }
-
-        infos[count++] = info;
-        if (count >= (int)(sizeof(infos) / sizeof(infos[0]))) {
-            break;
-        }
-    }
+    scan_skill_dir(infos,
+                   &count,
+                   (int)(sizeof(infos) / sizeof(infos[0])),
+                   "",
+                   daima_path_skills_dir(),
+                   "common",
+                   channel,
+                   pattern);
     closedir(dir);
 
     qsort(infos, (size_t)count, sizeof(infos[0]), compare_skill_info);
 
-    size_t off = snprintf(output, output_size, "SKILLS (%d)\n", count);
+    size_t off = snprintf(output, output_size, "SKILLS (%d)%s%s\n",
+                          count,
+                          channel && channel[0] ? " channel=" : "",
+                          channel && channel[0] ? channel : "");
     for (int i = 0; i < count && off < output_size - 1; ++i) {
-        off += snprintf(output + off, output_size - off, "- %s | %s: %s\n",
-                        infos[i].slug, infos[i].title, infos[i].description);
+        off += snprintf(output + off, output_size - off, "- [%s] %s | %s: %s\n",
+                        infos[i].scope, infos[i].slug, infos[i].title, infos[i].description);
     }
     if (count == 0) {
         snprintf(output + off, output_size - off, "（未找到技能）\n");
@@ -155,7 +252,8 @@ daima_err_t tool_skills_list_execute(const char *input_json, char *output, size_
                  "\nHint: 用 skill_view {\"name\":\"技能目录名\"} 查看完整说明。\n");
     }
 
-    DAIMA_LOGI(TAG, "skills_list: pattern=%s count=%d", pattern ? pattern : "(none)", count);
+    DAIMA_LOGI(TAG, "skills_list: channel=%s pattern=%s count=%d",
+              channel ? channel : "(all)", pattern ? pattern : "(none)", count);
     cJSON_Delete(root);
     return DAIMA_OK;
 }
@@ -171,7 +269,7 @@ daima_err_t tool_skill_view_execute(const char *input_json, char *output, size_t
     const char *name = cJSON_GetStringValue(cJSON_GetObjectItem(root, "name"));
     const char *file_path = cJSON_GetStringValue(cJSON_GetObjectItem(root, "file_path"));
     if (!skill_meta_validate_name(name)) {
-        snprintf(output, output_size, "错误：name 只能包含字母、数字、-、_");
+        snprintf(output, output_size, "错误：name 只能包含字母、数字、-、_、/，且不能使用绝对路径或 '..'");
         cJSON_Delete(root);
         return DAIMA_ERR_INVALID_ARG;
     }

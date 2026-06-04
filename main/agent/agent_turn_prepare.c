@@ -218,7 +218,7 @@ static void append_channel_policy_prompt(char *prompt, size_t size, const daima_
             "\n### 通道附加要求\n"
             "- 当前输出会被包装成固定的飞书 JSON 2.0 card；你只需要写好正文 markdown，不要假设代码会替你智能挑标题或配色。\n"
             "- 优先短段落、短列表、清晰小节；避免超长开场白、过宽表格和大段代码。\n"
-            "- 若任务明显需要飞书友好的排版风格，可先用 `skill_view` 读取 `feishu-card-writer`。\n");
+            "- 若任务明显需要飞书友好的排版风格，可先用 `skill_view` 读取 `channels/feishu/feishu-card-writer`。\n");
 
         if (n < 0 || (size_t)n >= (size - off)) {
             prompt[size - 1] = '\0';
@@ -310,7 +310,7 @@ daima_err_t agent_turn_prepare(
 
     *out_messages = NULL;
 
-    context_build_system_prompt(system_prompt, system_prompt_size);
+    context_build_system_prompt_for_channel(msg->channel, system_prompt, system_prompt_size);
     append_session_summary_prompt(system_prompt, system_prompt_size, msg->chat_id);
     append_session_facts_prompt(system_prompt, system_prompt_size, msg->chat_id);
     append_turn_context_prompt(system_prompt, system_prompt_size, msg);

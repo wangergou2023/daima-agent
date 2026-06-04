@@ -12,6 +12,8 @@
 #include "tools/tool_vector_common.h"
 
 #include <string.h>
+#include <stdio.h>
+#include "bus/message_bus.h"
 #include "daima_log.h"
 #include "cJSON.h"
 
@@ -21,7 +23,13 @@ static const char *TAG = "tools";
 
 static daima_tool_t s_tools[MAX_TOOLS];
 static int s_tool_count = 0;
-static char *s_tools_json = NULL;  /* 缓存的 JSON 数组字符串 */
+static char *s_tools_json = NULL;          /* 缓存的完整工具数组字符串 */
+static char *s_base_tools_json = NULL;     /* 缓存的不含机器人控制工具数组字符串 */
+
+static bool is_vector_tool_name(const char *name)
+{
+    return name && strncmp(name, "robot_", 6) == 0;
+}
 
 static void register_tool(const daima_tool_t *tool)
 {
@@ -33,11 +41,15 @@ static void register_tool(const daima_tool_t *tool)
     DAIMA_LOGI(TAG, "Registered tool: %s", tool->name);
 }
 
-static void build_tools_json(void)
+static char *build_tools_json_filtered(bool include_vector_tools)
 {
     cJSON *arr = cJSON_CreateArray();
 
     for (int i = 0; i < s_tool_count; i++) {
+        if (!include_vector_tools && is_vector_tool_name(s_tools[i].name)) {
+            continue;
+        }
+
         cJSON *tool = cJSON_CreateObject();
         cJSON_AddStringToObject(tool, "name", s_tools[i].name);
         cJSON_AddStringToObject(tool, "description", s_tools[i].description);
@@ -50,9 +62,17 @@ static void build_tools_json(void)
         cJSON_AddItemToArray(arr, tool);
     }
 
-    free(s_tools_json);
-    s_tools_json = cJSON_PrintUnformatted(arr);
+    char *json = cJSON_PrintUnformatted(arr);
     cJSON_Delete(arr);
+    return json;
+}
+
+static void build_tools_json(void)
+{
+    free(s_tools_json);
+    free(s_base_tools_json);
+    s_tools_json = build_tools_json_filtered(true);
+    s_base_tools_json = build_tools_json_filtered(false);
 
     DAIMA_LOGI(TAG, "Tools JSON built (%d tools)", s_tool_count);
 }
@@ -91,7 +111,7 @@ daima_err_t tool_registry_init(void)
     /* 注册 terminal */
     register_tool(tool_terminal_definition());
 
-    /* 注册 Vector 机器人工具 */
+    /* 注册 Vector 机器人工具；是否暴露给模型由当前 channel 决定 */
     tool_vector_init();
     register_tool(tool_robot_drive_straight_definition());
     register_tool(tool_robot_turn_in_place_definition());
@@ -116,6 +136,26 @@ const char *tool_registry_get_tools_json(void)
     return s_tools_json;
 }
 
+const char *tool_registry_get_tools_json_for_channel(const char *channel)
+{
+    if (channel &&
+        (strcmp(channel, DAIMA_CHAN_VECTOR) == 0 ||
+         strcmp(channel, DAIMA_CHAN_VOICE) == 0)) {
+        return s_tools_json;
+    }
+    return s_base_tools_json ? s_base_tools_json : s_tools_json;
+}
+
+static bool channel_allows_tool(const char *channel, const char *tool_name)
+{
+    if (!is_vector_tool_name(tool_name)) {
+        return true;
+    }
+    return channel &&
+           (strcmp(channel, DAIMA_CHAN_VECTOR) == 0 ||
+            strcmp(channel, DAIMA_CHAN_VOICE) == 0);
+}
+
 daima_err_t tool_registry_execute(const char *name, const char *input_json,
                                 char *output, size_t output_size)
 {
@@ -129,4 +169,24 @@ daima_err_t tool_registry_execute(const char *name, const char *input_json,
     DAIMA_LOGW(TAG, "Unknown tool: %s", name);
     snprintf(output, output_size, "错误：未知工具 '%s'", name);
     return DAIMA_ERR_NOT_FOUND;
+}
+
+daima_err_t tool_registry_execute_for_channel(const char *channel,
+                                             const char *name,
+                                             const char *input_json,
+                                             char *output,
+                                             size_t output_size)
+{
+    if (!output || output_size == 0 || !name) {
+        return DAIMA_ERR_INVALID_ARG;
+    }
+    if (!channel_allows_tool(channel, name)) {
+        DAIMA_LOGW(TAG, "Tool blocked by channel policy: channel=%s tool=%s",
+                  channel ? channel : "(none)", name);
+        snprintf(output, output_size,
+                 "错误：工具 '%s' 仅允许在 vector/voice 通道使用，当前通道为 '%s'",
+                 name, channel ? channel : "");
+        return DAIMA_ERR_INVALID_STATE;
+    }
+    return tool_registry_execute(name, input_json, output, output_size);
 }

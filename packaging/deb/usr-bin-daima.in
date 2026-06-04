@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+
+APP_DIR="/usr/lib/daima"
+DAIMA_SEED_DIR="/usr/share/daima-agent/spiffs_data"
+DAIMA_HOME="${DAIMA_HOME:-$HOME/.daima}"
+
+export DAIMA_SEED_DIR
+export DAIMA_HOME
+"$APP_DIR/init-home.sh"
+exec "$APP_DIR/bin/daima" "$@"

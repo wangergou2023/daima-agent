@@ -7,6 +7,8 @@ description: 控制 Vector 机器人的硬件能力（运动、动画、电源�
 
 ## 核心规则
 
+仅当 `config.json` 中 `vector.enabled=true` 且当前环境接入 Vector 机器人时使用本 skill。PC 本地运行、不控制机器人时不要调用这些工具。
+
 匹配动作 → 调工具 → 简短中文确认。只调用下方列出的工具。
 
 ## 决策表（中文 → 工具）
@@ -45,12 +47,11 @@ description: 控制 Vector 机器人的硬件能力（运动、动画、电源�
 - **robot_drive_off_charger** — 离桩
 - **robot_get_battery** — 电量
 - **robot_set_volume** — 音量 0-4
-- **robot_app_intent** — 内置意图：intent (greeting_hello/meet_victor/global_stop)
 
 ## 注意事项
 
 1. 两个 motor 工具之间间隔 ≥1s
 2. 放烟花走 `robot_play_animation(name="weatherstars01")`
 3. 回家充电走 `robot_drive_on_charger`
-4. 打招呼走 `robot_app_intent(intent="intent_greeting_hello")` 或 `robot_play_animation(name="greeting01")`
+4. 打招呼走 `robot_play_animation(name="greeting01")`
 5. 机器人离开充电座才能自由移动

@@ -28,6 +28,8 @@ typedef struct {
     mcp_client_t   *mcp;
     bool            audio_subscribed;
     bool            running;
+    bool            connect_started;
+    bool            poll_started;
     char            bin_path[512];
 
     /* 音频缓冲 (PCM 16-bit signed LE, 16kHz mono) */
@@ -313,23 +315,52 @@ daima_err_t vector_channel_init(void)
 
 daima_err_t vector_channel_start(void)
 {
+    if (!s) {
+        daima_err_t init_err = vector_channel_init();
+        if (init_err != DAIMA_OK) return init_err;
+    }
+
+    pthread_mutex_lock(&s->mutex);
+    bool start_connect = !s->connect_started;
+    bool start_poll = !s->poll_started;
+    s->running = true;
+    s->connect_started = true;
+    s->poll_started = true;
+    pthread_mutex_unlock(&s->mutex);
+
+    if (!start_connect && !start_poll) {
+        return DAIMA_OK;
+    }
+
     DAIMA_LOGI(TAG, "Vector channel starting (async connect)...");
 
-    /* 启动后台连接任务（不阻塞） */
-    s->running = true;
-    daima_task_create(vector_connect_task, "vector_conn",
-                      MCP_POLL_STACK, NULL, MCP_POLL_PRIO, NULL);
+    if (start_connect) {
+        /* 启动后台连接任务（不阻塞） */
+        daima_task_create(vector_connect_task, "vector_conn",
+                          MCP_POLL_STACK, NULL, MCP_POLL_PRIO, NULL);
+    }
 
-    /* 启动后台轮询任务 */
-    daima_task_create(vector_poll_task, "vector_poll",
-                      MCP_POLL_STACK, NULL, MCP_POLL_PRIO, NULL);
+    if (start_poll) {
+        /* 启动后台轮询任务 */
+        daima_task_create(vector_poll_task, "vector_poll",
+                          MCP_POLL_STACK, NULL, MCP_POLL_PRIO, NULL);
+    }
 
     return DAIMA_OK;
+}
+
+daima_err_t vector_channel_ensure_started(void)
+{
+    return vector_channel_start();
 }
 
 daima_err_t vector_channel_send_reply(const char *chat_id, const char *text)
 {
     (void)chat_id;
+    daima_err_t start_err = vector_channel_ensure_started();
+    if (start_err != DAIMA_OK) {
+        return start_err;
+    }
     /* TTS is handled by the voice channel (BigModel → PCM → socket).
      * robot_say_text (built-in TTS) is not registered in robot-mcp. */
     DAIMA_LOGD(TAG, "Reply text: %.60s", text ? text : "");
@@ -340,6 +371,10 @@ daima_err_t vector_channel_play_pcm(const unsigned char *pcm, size_t pcm_len, ui
 {
     (void)sample_rate;
     if (!pcm || pcm_len == 0) return DAIMA_ERR_INVALID_ARG;
+    daima_err_t start_err = vector_channel_ensure_started();
+    if (start_err != DAIMA_OK) {
+        return start_err;
+    }
 
     int fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (fd < 0) {
@@ -376,6 +411,9 @@ daima_err_t vector_channel_play_pcm(const unsigned char *pcm, size_t pcm_len, ui
 
 mcp_client_t *vector_channel_get_mcp(void)
 {
+    if (!s) {
+        return NULL;
+    }
     pthread_mutex_lock(&s->mutex);
     mcp_client_t *m = s->mcp;
     pthread_mutex_unlock(&s->mutex);
@@ -384,6 +422,9 @@ mcp_client_t *vector_channel_get_mcp(void)
 
 void vector_channel_mute_mic(bool mute)
 {
+    if (!s) {
+        return;
+    }
     pthread_mutex_lock(&s->mutex);
     s->playing = mute;
     if (mute) {

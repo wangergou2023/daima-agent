@@ -11,6 +11,19 @@ static bool contains_dotdot(const char *s)
     return s && strstr(s, "..") != NULL;
 }
 
+static bool is_safe_relative_path(const char *s)
+{
+    if (!s || !s[0] || s[0] == '/' || contains_dotdot(s)) {
+        return false;
+    }
+    for (const char *p = s; *p; ++p) {
+        if (!isalnum((unsigned char)*p) && *p != '-' && *p != '_' && *p != '/') {
+            return false;
+        }
+    }
+    return true;
+}
+
 static bool is_front_matter_delim(const char *line)
 {
     if (!line) return false;
@@ -138,13 +151,7 @@ static void extract_description_with_first(FILE *f,
 
 bool skill_meta_validate_name(const char *name)
 {
-    if (!name || !name[0]) return false;
-    for (const char *p = name; *p; ++p) {
-        if (!isalnum((unsigned char)*p) && *p != '-' && *p != '_') {
-            return false;
-        }
-    }
-    return true;
+    return is_safe_relative_path(name);
 }
 
 bool skill_meta_resolve_path(const char *name,

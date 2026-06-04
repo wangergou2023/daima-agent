@@ -37,6 +37,11 @@ static inline daima_err_t call_mcp_with_args(mcp_client_t *mcp, const char *tool
 /* 公共助手：获取 MCP 客户端，失败时写错误输出 */
 static inline mcp_client_t *tool_get_mcp(char *output, size_t size)
 {
+    daima_err_t start_err = vector_channel_ensure_started();
+    if (start_err != DAIMA_OK) {
+        snprintf(output, size, "错误：Vector 机器人启动失败：%s", daima_err_to_name(start_err));
+        return NULL;
+    }
     mcp_client_t *m = vector_channel_get_mcp();
     if (!m) snprintf(output, size, "错误：Vector 机器人未连接");
     return m;

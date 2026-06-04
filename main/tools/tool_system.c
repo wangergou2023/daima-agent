@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
@@ -42,6 +43,107 @@ static int json_get_int_or_default(cJSON *root, const char *key, int fallback)
     return item->valueint;
 }
 
+static bool command_contains_any(const char *command, const char *const *needles, size_t count)
+{
+    if (!command) return false;
+    for (size_t i = 0; i < count; ++i) {
+        if (strstr(command, needles[i])) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool command_contains_sensitive_path(const char *command)
+{
+    static const char *const sensitive[] = {
+        "~/.ssh",
+        "/.ssh/",
+        ".env",
+        "id_rsa",
+        "id_ed25519",
+        "/etc/shadow",
+        "/etc/sudoers",
+        "config/config.json",
+    };
+    return command_contains_any(command, sensitive, sizeof(sensitive) / sizeof(sensitive[0]));
+}
+
+static bool command_is_dangerous(const char *command)
+{
+    if (!command) return false;
+    static const char *const dangerous[] = {
+        "rm -rf /",
+        "rm -fr /",
+        "mkfs.",
+        "dd if=",
+        "dd of=",
+        ":(){",
+        "chmod -R 777 /",
+        "chown -R ",
+        "nc ",
+        "ncat ",
+        "telnet ",
+        "ssh ",
+        "scp ",
+        "node -e",
+        "node --eval",
+        "python -c",
+        "python3 -c",
+        "perl -e",
+        "ruby -e",
+    };
+    if (command_contains_any(command, dangerous, sizeof(dangerous) / sizeof(dangerous[0]))) {
+        return true;
+    }
+    return (strstr(command, "curl ") || strstr(command, "wget ")) &&
+           (strstr(command, "| sh") || strstr(command, "| bash") || strstr(command, "| sudo sh") || strstr(command, "| sudo bash"));
+}
+
+static bool terminal_command_allowed(const char *command, const char **reason)
+{
+    if (!command || !command[0]) {
+        if (reason) *reason = "missing_command";
+        return false;
+    }
+    if (command_contains_sensitive_path(command)) {
+        if (reason) *reason = "sensitive_path_blocked";
+        return false;
+    }
+    if (command_is_dangerous(command)) {
+        if (reason) *reason = "dangerous_command_blocked";
+        return false;
+    }
+    if (strstr(command, "$(") || strchr(command, '`')) {
+        if (reason) *reason = "shell_expansion_blocked";
+        return false;
+    }
+    return true;
+}
+
+static void write_blocked_terminal_result(char *output,
+                                          size_t output_size,
+                                          const char *command,
+                                          const char *workdir,
+                                          const char *reason)
+{
+    terminal_exec_result_t blocked = {
+        .exit_code = 126,
+        .timed_out = false,
+        .truncated = false,
+        .signal_num = 0,
+        .output = "",
+    };
+    char *json = terminal_json_result_string(command, workdir ? workdir : "", &blocked, reason);
+    if (json) {
+        strncpy(output, json, output_size - 1);
+        output[output_size - 1] = '\0';
+        free(json);
+    } else {
+        snprintf(output, output_size, "{\"error\":\"%s\"}", reason ? reason : "command_blocked");
+    }
+}
+
 daima_err_t tool_terminal_execute(const char *input_json, char *output, size_t output_size)
 {
     if (!output || output_size == 0) {
@@ -71,6 +173,18 @@ daima_err_t tool_terminal_execute(const char *input_json, char *output, size_t o
         snprintf(output, output_size, "{\"error\":\"command_too_long\"}");
         cJSON_Delete(root);
         return DAIMA_ERR_INVALID_ARG;
+    }
+    const char *blocked_reason = NULL;
+    if (!terminal_command_allowed(command, &blocked_reason)) {
+        write_blocked_terminal_result(output,
+                                      output_size,
+                                      command,
+                                      workdir,
+                                      blocked_reason ? blocked_reason : "command_blocked");
+        DAIMA_LOGW(TAG, "terminal command blocked: reason=%s cmd=%.120s",
+                  blocked_reason ? blocked_reason : "command_blocked", command);
+        cJSON_Delete(root);
+        return DAIMA_ERR_INVALID_STATE;
     }
     if (timeout_seconds < 1) timeout_seconds = TERMINAL_DEFAULT_TIMEOUT;
     if (timeout_seconds > TERMINAL_MAX_TIMEOUT) timeout_seconds = TERMINAL_MAX_TIMEOUT;

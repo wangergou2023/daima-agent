@@ -12,6 +12,8 @@
  * @param buf   输出缓冲区（由调用方分配，建议 DAIMA_CONTEXT_BUF_SIZE）
  * @param size  缓冲区大小
  */
+daima_err_t context_build_system_prompt_for_channel(const char *channel, char *buf, size_t size);
+
 daima_err_t context_build_system_prompt(char *buf, size_t size);
 
 /**

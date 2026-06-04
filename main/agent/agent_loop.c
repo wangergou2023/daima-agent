@@ -36,8 +36,6 @@ static void agent_loop_task(void *arg)
         return;
     }
 
-    const char *tools_json = tool_registry_get_tools_json();
-
     while (1) {
         daima_msg_t msg;
         daima_err_t err = message_bus_pop_inbound(&msg, UINT32_MAX);
@@ -63,6 +61,7 @@ static void agent_loop_task(void *arg)
         int iteration = 0;
         bool tool_budget_exhausted = false;
         if (err == DAIMA_OK) {
+            const char *tools_json = tool_registry_get_tools_json_for_channel(msg.channel);
             err = agent_turn_run(system_prompt, messages, tools_json, &msg,
                                  &final_text, &iteration, &tool_budget_exhausted);
         }
