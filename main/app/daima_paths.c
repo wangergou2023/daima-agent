@@ -33,6 +33,7 @@ typedef struct {
     char memory_file[PATH_MAX];
     char skill_review_queue_file[PATH_MAX];
     char todo_file[PATH_MAX];
+    char work_items_file[PATH_MAX];
     char web_index_file[PATH_MAX];
     char web_css_file[PATH_MAX];
     char web_js_file[PATH_MAX];
@@ -168,6 +169,7 @@ static void build_paths(void)
     join_path2(s_paths.memory_file, sizeof(s_paths.memory_file), s_paths.memory_dir, "MEMORY.md");
     join_path2(s_paths.skill_review_queue_file, sizeof(s_paths.skill_review_queue_file), s_paths.memory_dir, "SKILL_REVIEW_QUEUE.md");
     join_path2(s_paths.todo_file, sizeof(s_paths.todo_file), s_paths.memory_dir, "TODO.json");
+    join_path2(s_paths.work_items_file, sizeof(s_paths.work_items_file), s_paths.memory_dir, "work_items.jsonl");
     join_path2(s_paths.web_index_file, sizeof(s_paths.web_index_file), s_paths.web_dir, "index.html");
     join_path2(s_paths.web_css_file, sizeof(s_paths.web_css_file), s_paths.web_dir, "app.css");
     join_path2(s_paths.web_js_file, sizeof(s_paths.web_js_file), s_paths.web_dir, "app.js");
@@ -219,6 +221,7 @@ PATH_GETTER(daima_path_user_file, user_file)
 PATH_GETTER(daima_path_memory_file, memory_file)
 PATH_GETTER(daima_path_skill_review_queue_file, skill_review_queue_file)
 PATH_GETTER(daima_path_todo_file, todo_file)
+PATH_GETTER(daima_path_work_items_file, work_items_file)
 PATH_GETTER(daima_path_web_index_file, web_index_file)
 PATH_GETTER(daima_path_web_css_file, web_css_file)
 PATH_GETTER(daima_path_web_js_file, web_js_file)

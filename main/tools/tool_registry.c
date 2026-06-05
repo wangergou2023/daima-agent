@@ -7,6 +7,7 @@
 #include "tools/tool_cron.h"
 #include "tools/tool_system.h"
 #include "tools/tool_todo.h"
+#include "tools/tool_work_item.h"
 #include "tools/tool_skills.h"
 #include "tools/tool_session_search.h"
 #include "tools/tool_vector_common.h"
@@ -97,6 +98,7 @@ daima_err_t tool_registry_init(void)
 
     /* 注册 todo */
     register_tool(tool_todo_definition());
+    register_tool(tool_work_item_definition());
 
     register_tool(tool_skills_list_definition());
     register_tool(tool_skill_view_definition());

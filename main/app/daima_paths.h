@@ -24,6 +24,7 @@ const char *daima_path_user_file(void);
 const char *daima_path_memory_file(void);
 const char *daima_path_skill_review_queue_file(void);
 const char *daima_path_todo_file(void);
+const char *daima_path_work_items_file(void);
 const char *daima_path_web_index_file(void);
 const char *daima_path_web_css_file(void);
 const char *daima_path_web_js_file(void);

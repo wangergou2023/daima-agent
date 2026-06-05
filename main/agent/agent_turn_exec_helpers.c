@@ -11,6 +11,7 @@
 #include "tools/tool_file_ops.h"
 #include "tools/tool_runtime.h"
 #include "tools/tool_terminal_exec.h"
+#include "work_items/work_item_store.h"
 
 static const char *TAG = "agent_run";
 
@@ -323,6 +324,14 @@ void agent_turn_maybe_run_auto_verification(const turn_exec_stats_t *stats, char
 
     DAIMA_LOGI(TAG, "Auto verification: cmd=%s exit=%d timed_out=%d",
               command, result.exit_code, result.timed_out ? 1 : 0);
+
+    if (result.exit_code != 0 || result.timed_out) {
+        char title[256];
+        snprintf(title, sizeof(title), "自动构建验证失败: %s", command);
+        work_item_store_collect("defect", "test", title,
+                                result.output ? result.output : "");
+    }
+
     append_verification_note(io_final_text, command, &result, stats->last_modified_path, stats->last_checkpoint_path);
     free(result.output);
 }
@@ -345,6 +354,24 @@ cJSON *agent_turn_build_tool_results(const llm_response_t *resp,
         }
         record_turn_side_effects(stats, call->name, tool_input);
         agent_tool_feedback_send_activity(msg, call->name, tool_input, tool_output, tool_err, rt.elapsed_ms);
+
+        if (strcmp(call->name, "terminal") == 0 && tool_input) {
+            if (terminal_command_is_verification(tool_input)) {
+                cJSON *term_result = cJSON_Parse(tool_output);
+                if (term_result) {
+                    cJSON *ec = cJSON_GetObjectItem(term_result, "exit_code");
+                    cJSON *to = cJSON_GetObjectItem(term_result, "timed_out");
+                    bool failed = (ec && cJSON_IsNumber(ec) && ec->valueint != 0) ||
+                                  (to && cJSON_IsBool(to) && cJSON_IsTrue(to));
+                    cJSON_Delete(term_result);
+                    if (failed) {
+                        char title[256];
+                        snprintf(title, sizeof(title), "验证命令失败: %.200s", tool_input);
+                        work_item_store_collect("defect", "test", title, tool_output);
+                    }
+                }
+            }
+        }
 
         DAIMA_LOGI(TAG, "Tool %s result: %d bytes", call->name, (int)strlen(tool_output));
 
