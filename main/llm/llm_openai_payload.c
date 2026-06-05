@@ -254,6 +254,7 @@ cJSON *llm_openai_build_tools_body(const char *system_prompt,
                                    const char *tools_json,
                                    const char *model,
                                    int max_completion_tokens,
+                                   bool use_max_tokens_field,
                                    bool disable_thinking,
                                    bool add_reasoning_content)
 {
@@ -263,7 +264,10 @@ cJSON *llm_openai_build_tools_body(const char *system_prompt,
     }
 
     cJSON_AddStringToObject(body, "model", model ? model : "");
-    cJSON_AddNumberToObject(body, "max_completion_tokens", max_completion_tokens);
+    cJSON_AddNumberToObject(
+        body,
+        use_max_tokens_field ? "max_tokens" : "max_completion_tokens",
+        max_completion_tokens);
     if (disable_thinking) {
         cJSON *thinking = cJSON_CreateObject();
         cJSON_AddStringToObject(thinking, "type", "disabled");
@@ -342,6 +346,7 @@ cJSON *llm_openai_build_image_body(const char *system_prompt,
                                    int image_count,
                                    const char *model,
                                    int max_completion_tokens,
+                                   bool use_max_tokens_field,
                                    bool disable_thinking)
 {
     cJSON *body = cJSON_CreateObject();
@@ -350,7 +355,10 @@ cJSON *llm_openai_build_image_body(const char *system_prompt,
     }
 
     cJSON_AddStringToObject(body, "model", model ? model : "");
-    cJSON_AddNumberToObject(body, "max_completion_tokens", max_completion_tokens);
+    cJSON_AddNumberToObject(
+        body,
+        use_max_tokens_field ? "max_tokens" : "max_completion_tokens",
+        max_completion_tokens);
     if (disable_thinking) {
         cJSON *thinking = cJSON_CreateObject();
         cJSON_AddStringToObject(thinking, "type", "disabled");

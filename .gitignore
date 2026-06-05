@@ -2,6 +2,7 @@
 /build-deb
 /build-arm
 /build
+/dist
 /test/test_tts_player
 /test/test_tts_player.dSYM/
 .DS_Store

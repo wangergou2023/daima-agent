@@ -77,7 +77,12 @@ daima_err_t llm_http_post_json(const char *url,
     struct curl_slist *headers = NULL;
     headers = curl_slist_append(headers, "Content-Type: application/json");
 
-    if (api_key && api_key[0]) {
+    if (api_key && api_key[0] && url && strstr(url, "/anthropic/")) {
+        char key_header[LLM_HTTP_AUTH_HEADER_MAX];
+        snprintf(key_header, sizeof(key_header), "x-api-key: %s", api_key);
+        headers = curl_slist_append(headers, key_header);
+        headers = curl_slist_append(headers, "anthropic-version: 2023-06-01");
+    } else if (api_key && api_key[0]) {
         char auth[LLM_HTTP_AUTH_HEADER_MAX];
         snprintf(auth, sizeof(auth), "Authorization: Bearer %s", api_key);
         headers = curl_slist_append(headers, auth);

@@ -5,7 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "app/channel_runtime.h"
+#include "agent/tool_feedback.h"
 #include "daima_log.h"
 #include "daima_text.h"
 #include "tools/tool_file_ops.h"
@@ -13,32 +13,6 @@
 #include "tools/tool_terminal_exec.h"
 
 static const char *TAG = "agent_run";
-
-static const char *tool_display_icon(const char *tool_name)
-{
-    if (!tool_name) return "⚙";
-    if (strcmp(tool_name, "terminal") == 0) return "💻";
-    if (strcmp(tool_name, "read_file") == 0) return "📖";
-    if (strcmp(tool_name, "write_file") == 0 || strcmp(tool_name, "edit_file") == 0) return "✏️";
-    if (strcmp(tool_name, "list_dir") == 0) return "🗂️";
-    if (strcmp(tool_name, "weather") == 0) return "🌤️";
-    if (strcmp(tool_name, "get_current_time") == 0) return "🕒";
-    if (strcmp(tool_name, "cron_add") == 0 || strcmp(tool_name, "cron_list") == 0 || strcmp(tool_name, "cron_remove") == 0) return "⏰";
-    return "⚙";
-}
-
-static const char *tool_display_name(const char *tool_name)
-{
-    if (!tool_name) return "tool";
-    return tool_name;
-}
-
-static const char *path_tail(const char *path)
-{
-    if (!path || !path[0]) return "";
-    const char *slash = strrchr(path, '/');
-    return (slash && slash[1]) ? slash + 1 : path;
-}
 
 static void shorten_text(const char *src, char *dst, size_t dst_size, size_t max_len)
 {
@@ -353,162 +327,6 @@ void agent_turn_maybe_run_auto_verification(const turn_exec_stats_t *stats, char
     free(result.output);
 }
 
-static void summarize_tool_target(const char *tool_name, const char *tool_input, char *buf, size_t size)
-{
-    if (!buf || size == 0) return;
-    buf[0] = '\0';
-
-    cJSON *root = cJSON_Parse(tool_input ? tool_input : "{}");
-    const char *value = NULL;
-
-    if (root && cJSON_IsObject(root)) {
-        if (tool_name && strcmp(tool_name, "terminal") == 0) {
-            value = cJSON_GetStringValue(cJSON_GetObjectItem(root, "command"));
-            if (!value || !value[0]) {
-                value = cJSON_GetStringValue(cJSON_GetObjectItem(root, "cmd"));
-            }
-        } else if (strcmp(tool_name, "read_file") == 0 ||
-                   strcmp(tool_name, "write_file") == 0 ||
-                   strcmp(tool_name, "edit_file") == 0) {
-            value = path_tail(cJSON_GetStringValue(cJSON_GetObjectItem(root, "path")));
-        } else if (strcmp(tool_name, "list_dir") == 0) {
-            value = path_tail(cJSON_GetStringValue(cJSON_GetObjectItem(root, "path")));
-            if (!value || !value[0]) {
-                value = cJSON_GetStringValue(cJSON_GetObjectItem(root, "prefix"));
-            }
-        } else if (strcmp(tool_name, "weather") == 0) {
-            value = cJSON_GetStringValue(cJSON_GetObjectItem(root, "location"));
-        } else if (strcmp(tool_name, "cron_add") == 0) {
-            value = cJSON_GetStringValue(cJSON_GetObjectItem(root, "name"));
-        } else if (strcmp(tool_name, "cron_remove") == 0) {
-            value = cJSON_GetStringValue(cJSON_GetObjectItem(root, "job_id"));
-        } else if (strcmp(tool_name, "search_files") == 0) {
-            value = cJSON_GetStringValue(cJSON_GetObjectItem(root, "pattern"));
-            if (!value || !value[0]) {
-                value = cJSON_GetStringValue(cJSON_GetObjectItem(root, "query"));
-            }
-        } else if (strcmp(tool_name, "session_search") == 0) {
-            value = cJSON_GetStringValue(cJSON_GetObjectItem(root, "query"));
-        } else if (strcmp(tool_name, "skill_view") == 0) {
-            value = cJSON_GetStringValue(cJSON_GetObjectItem(root, "name"));
-        }
-    }
-
-    if (value && value[0]) {
-        shorten_text(value, buf, size, 44);
-    }
-    cJSON_Delete(root);
-}
-
-static bool tool_result_success(const char *tool_name, daima_err_t exec_err, const char *tool_output, char *detail, size_t detail_size)
-{
-    if (detail && detail_size > 0) {
-        detail[0] = '\0';
-    }
-
-    if (tool_name && strcmp(tool_name, "terminal") == 0) {
-        cJSON *root = cJSON_Parse(tool_output ? tool_output : "{}");
-        if (!root) {
-            if (detail && detail_size > 0) snprintf(detail, detail_size, "执行失败");
-            return false;
-        }
-        int exit_code = -1;
-        cJSON *exit_j = cJSON_GetObjectItem(root, "exit_code");
-        if (exit_j && cJSON_IsNumber(exit_j)) {
-            exit_code = (int)exit_j->valuedouble;
-        }
-        cJSON *status_j = cJSON_GetObjectItem(root, "status");
-        const char *status = cJSON_IsString(status_j) ? status_j->valuestring : NULL;
-        cJSON *timed_j = cJSON_GetObjectItem(root, "timed_out");
-        bool timed_out = cJSON_IsTrue(timed_j);
-        bool ok = (exit_code == 0);
-
-        if (detail && detail_size > 0) {
-            if (timed_out) {
-                snprintf(detail, detail_size, "超时");
-            } else if (status && status[0] && strcmp(status, "ok") != 0) {
-                snprintf(detail, detail_size, "%s", status);
-            } else if (exit_code >= 0) {
-                snprintf(detail, detail_size, "exit %d", exit_code);
-            }
-        }
-        cJSON_Delete(root);
-        return ok;
-    }
-
-    if (exec_err == DAIMA_OK) {
-        return true;
-    }
-
-    if (detail && detail_size > 0) {
-        snprintf(detail, detail_size, "%s", daima_err_to_name(exec_err));
-    }
-    return false;
-}
-
-static void maybe_send_tool_activity(const daima_msg_t *msg,
-                                     const char *tool_name,
-                                     const char *tool_input,
-                                     const char *tool_output,
-                                     daima_err_t exec_err,
-                                     long elapsed_ms)
-{
-    if (!msg) {
-        return;
-    }
-
-    char target[96];
-    char detail[64];
-    char line[256];
-    summarize_tool_target(tool_name, tool_input, target, sizeof(target));
-
-    bool ok = tool_result_success(tool_name, exec_err, tool_output, detail, sizeof(detail));
-    if (target[0]) {
-        if (ok) {
-            snprintf(line, sizeof(line), "%s %s · %s · %.1fs",
-                     tool_display_icon(tool_name),
-                     tool_display_name(tool_name),
-                     target,
-                     (double)elapsed_ms / 1000.0);
-        } else {
-            snprintf(line, sizeof(line), "%s %s · %s · 失败%s%s",
-                     tool_display_icon(tool_name),
-                     tool_display_name(tool_name),
-                     target,
-                     detail[0] ? "：" : "",
-                     detail);
-        }
-    } else {
-        if (ok) {
-            snprintf(line, sizeof(line), "%s %s · %.1fs",
-                     tool_display_icon(tool_name),
-                     tool_display_name(tool_name),
-                     (double)elapsed_ms / 1000.0);
-        } else {
-            snprintf(line, sizeof(line), "%s %s · 失败%s%s",
-                     tool_display_icon(tool_name),
-                     tool_display_name(tool_name),
-                     detail[0] ? "：" : "",
-                     detail);
-        }
-    }
-
-    daima_tool_activity_event_t event = {
-        .tool_name = tool_name,
-        .tool_input = tool_input,
-        .target = target,
-        .detail = detail,
-        .default_text = line,
-        .ok = ok,
-        .elapsed_ms = elapsed_ms,
-    };
-    daima_err_t send_err = channel_runtime_send_tool_activity(msg, &event);
-    if (send_err != DAIMA_OK) {
-        DAIMA_LOGW(TAG, "Tool activity send failed for %s:%s: %s",
-                  msg->channel, msg->chat_id, daima_err_to_name(send_err));
-    }
-}
-
 cJSON *agent_turn_build_tool_results(const llm_response_t *resp,
                                      const daima_msg_t *msg,
                                      char *tool_output,
@@ -526,7 +344,7 @@ cJSON *agent_turn_build_tool_results(const llm_response_t *resp,
             tool_input = rt.effective_input;
         }
         record_turn_side_effects(stats, call->name, tool_input);
-        maybe_send_tool_activity(msg, call->name, tool_input, tool_output, tool_err, rt.elapsed_ms);
+        agent_tool_feedback_send_activity(msg, call->name, tool_input, tool_output, tool_err, rt.elapsed_ms);
 
         DAIMA_LOGI(TAG, "Tool %s result: %d bytes", call->name, (int)strlen(tool_output));
 

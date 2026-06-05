@@ -18,6 +18,7 @@
       "api_key": "<your-moonshot-api-key>",
       "openai_base_url": "https://api.moonshot.cn/v1",
       "model": "kimi-k2.6",
+      "api_mode": "chat_completions",
       "context_limit_tokens": 256000,
       "thinking_mode": "omit",
       "needs_reasoning_content": true
@@ -25,10 +26,29 @@
     "ingenic_local": {
       "api_key": "<your-local-proxy-api-key>",
       "openai_base_url": "http://127.0.0.1:4000/v1",
-      "model": "deepseek-v4-pro",
+      "model": "deepseek-v4-pro-hermes",
+      "api_mode": "chat_completions",
       "context_limit_tokens": 128000,
       "thinking_mode": "omit",
       "needs_reasoning_content": true
+    },
+    "ingenic_local_deepseek": {
+      "api_key": "<your-local-proxy-api-key>",
+      "openai_base_url": "http://10.3.20.46:4000",
+      "model": "deepseek-v4-pro",
+      "api_mode": "anthropic_messages",
+      "context_limit_tokens": 128000,
+      "thinking_mode": "omit",
+      "needs_reasoning_content": false
+    },
+    "deepseek_anthropic": {
+      "api_key": "<your-deepseek-api-key>",
+      "openai_base_url": "https://api.deepseek.com/anthropic",
+      "model": "deepseek-v4-pro",
+      "api_mode": "anthropic_messages",
+      "context_limit_tokens": 128000,
+      "thinking_mode": "omit",
+      "needs_reasoning_content": false
     }
   },
   "feishu": {

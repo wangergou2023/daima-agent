@@ -1,6 +1,7 @@
 /* Host 侧 LLM 代理实现：基于 libcurl 的 HTTP 请求 */
 #include "llm/llm_proxy.h"
 #include "app/runtime_config.h"
+#include "llm/llm_anthropic_payload.h"
 #include "llm/llm_openai_payload.h"
 #include "llm/llm_http_client_host.h"
 #include "daima_base64.h"
@@ -37,6 +38,7 @@ static char s_api_key[LLM_API_KEY_MAX_LEN] = {0};
 static char s_model[LLM_MODEL_MAX_LEN] = "kimi-k2.5";
 static char s_openai_base_url[256] = {0};
 static char s_openai_api_url[512] = {0};
+static bool s_use_anthropic_api = false;
 static bool s_api_key_set = false;
 static bool s_model_set = false;
 
@@ -81,6 +83,31 @@ static bool url_tail_is_version_root(const char *url)
     return has_digit;
 }
 
+static bool base_url_is_deepseek_official(const char *url)
+{
+    return url && strstr(url, "api.deepseek.com") != NULL;
+}
+
+static bool api_mode_is_anthropic_messages(const char *api_mode)
+{
+    return api_mode &&
+           (strcasecmp(api_mode, "anthropic_messages") == 0 ||
+            strcasecmp(api_mode, "anthropic") == 0);
+}
+
+static bool should_use_anthropic_messages(const char *model,
+                                          const char *base_url,
+                                          const char *api_mode)
+{
+    (void)model;
+    (void)base_url;
+
+    if (api_mode_is_anthropic_messages(api_mode)) {
+        return true;
+    }
+    return false;
+}
+
 /* 规范化 OpenAI base URL，构造完整 chat/completions 路径 */
 static void build_openai_api_url(void)
 {
@@ -92,6 +119,26 @@ static void build_openai_api_url(void)
     const char *base = s_openai_base_url;
     if (strstr(base, "/chat/completions")) {
         daima_safe_copy(s_openai_api_url, sizeof(s_openai_api_url), base);
+        return;
+    }
+
+    if (s_use_anthropic_api) {
+        if (strstr(base, "/v1/messages")) {
+            daima_safe_copy(s_openai_api_url, sizeof(s_openai_api_url), base);
+        } else if (daima_str_ends_with(base, "/")) {
+            snprintf(s_openai_api_url, sizeof(s_openai_api_url), "%sv1/messages", base);
+        } else {
+            snprintf(s_openai_api_url, sizeof(s_openai_api_url), "%s/v1/messages", base);
+        }
+        return;
+    }
+
+    if (base_url_is_deepseek_official(base)) {
+        if (daima_str_ends_with(base, "/")) {
+            snprintf(s_openai_api_url, sizeof(s_openai_api_url), "%schat/completions", base);
+        } else {
+            snprintf(s_openai_api_url, sizeof(s_openai_api_url), "%s/chat/completions", base);
+        }
         return;
     }
 
@@ -132,6 +179,11 @@ static bool should_add_reasoning_content(void)
     return runtime_config_provider_needs_reasoning_content();
 }
 
+static bool should_use_max_tokens_field(void)
+{
+    return base_url_is_deepseek_official(s_openai_base_url);
+}
+
 static const char *llm_api_url(void)
 {
     if (s_openai_api_url[0]) {
@@ -145,6 +197,7 @@ daima_err_t llm_proxy_init(void)
     const char *api_key = runtime_config_get_provider_api_key();
     const char *model = runtime_config_get_provider_model();
     const char *openai_base = runtime_config_get_provider_openai_base_url();
+    const char *api_mode = runtime_config_get_provider_api_mode();
 
     if (api_key) {
         daima_safe_copy(s_api_key, sizeof(s_api_key), api_key);
@@ -158,8 +211,10 @@ daima_err_t llm_proxy_init(void)
 
     s_openai_base_url[0] = '\0';
     s_openai_api_url[0] = '\0';
+    s_use_anthropic_api = false;
     if (openai_base && openai_base[0]) {
         daima_safe_copy(s_openai_base_url, sizeof(s_openai_base_url), openai_base);
+        s_use_anthropic_api = should_use_anthropic_messages(s_model, s_openai_base_url, api_mode);
         build_openai_api_url();
     }
 
@@ -168,15 +223,18 @@ daima_err_t llm_proxy_init(void)
     }
 
     if (s_api_key[0]) {
-        DAIMA_LOGI(TAG, "LLM proxy initialized (protocol: openai-compatible, model: %s)", s_model);
+        DAIMA_LOGI(TAG, "LLM proxy initialized (protocol: %s, api_mode: %s, model: %s)",
+                  s_use_anthropic_api ? "anthropic-compatible" : "openai-compatible",
+                  (api_mode && api_mode[0]) ? api_mode : "chat_completions(default)",
+                  s_model);
     } else {
         DAIMA_LOGW(TAG, "No API key configured in %s", daima_path_runtime_config_file());
     }
 
     if (s_openai_base_url[0]) {
-        DAIMA_LOGI(TAG, "OpenAI base URL: %s", s_openai_base_url);
+        DAIMA_LOGI(TAG, "LLM base URL: %s", s_openai_base_url);
         if (s_openai_api_url[0]) {
-            DAIMA_LOGI(TAG, "OpenAI API URL: %s", s_openai_api_url);
+            DAIMA_LOGI(TAG, "LLM API URL: %s", s_openai_api_url);
         }
     }
     return DAIMA_OK;
@@ -209,14 +267,22 @@ daima_err_t llm_chat_tools(const char *system_prompt,
 
     if (s_api_key[0] == '\0') return DAIMA_ERR_INVALID_STATE;
 
-    cJSON *body = llm_openai_build_tools_body(
-        system_prompt,
-        messages,
-        tools_json,
-        s_model,
-        DAIMA_LLM_MAX_TOKENS,
-        should_disable_thinking(),
-        should_add_reasoning_content());
+    cJSON *body = s_use_anthropic_api
+        ? llm_anthropic_build_tools_body(
+            system_prompt,
+            messages,
+            tools_json,
+            s_model,
+            DAIMA_LLM_MAX_TOKENS)
+        : llm_openai_build_tools_body(
+            system_prompt,
+            messages,
+            tools_json,
+            s_model,
+            DAIMA_LLM_MAX_TOKENS,
+            should_use_max_tokens_field(),
+            should_disable_thinking(),
+            should_add_reasoning_content());
     if (!body) {
         return DAIMA_ERR_NO_MEM;
     }
@@ -225,8 +291,10 @@ daima_err_t llm_chat_tools(const char *system_prompt,
     cJSON_Delete(body);
     if (!post_data) return DAIMA_ERR_NO_MEM;
 
-    DAIMA_LOGI(TAG, "Calling LLM API with tools (protocol: openai-compatible, model: %s, body: %d bytes)",
-             s_model, (int)strlen(post_data));
+    DAIMA_LOGI(TAG, "Calling LLM API with tools (protocol: %s, model: %s, body: %d bytes)",
+             s_use_anthropic_api ? "anthropic-compatible" : "openai-compatible",
+             s_model,
+             (int)strlen(post_data));
     llm_http_log_payload(TAG, "LLM tools request", post_data);
 
     char *raw_resp = NULL;
@@ -249,7 +317,9 @@ daima_err_t llm_chat_tools(const char *system_prompt,
         return DAIMA_FAIL;
     }
 
-    err = llm_openai_parse_response(raw_resp, resp);
+    err = s_use_anthropic_api
+        ? llm_anthropic_parse_response(raw_resp, resp)
+        : llm_openai_parse_response(raw_resp, resp);
     free(raw_resp);
     if (err != DAIMA_OK) {
         DAIMA_LOGE(TAG, "Failed to parse API response JSON");
@@ -391,14 +461,23 @@ daima_err_t llm_chat_with_images(const char *system_prompt,
     if (s_api_key[0] == '\0') return DAIMA_ERR_INVALID_STATE;
     if (!images || image_count <= 0) return DAIMA_ERR_INVALID_ARG;
     
-    cJSON *body = llm_openai_build_image_body(
-        system_prompt,
-        user_text,
-        images,
-        image_count,
-        s_model,
-        DAIMA_LLM_MAX_TOKENS,
-        should_disable_thinking());
+    cJSON *body = s_use_anthropic_api
+        ? llm_anthropic_build_image_body(
+            system_prompt,
+            user_text,
+            images,
+            image_count,
+            s_model,
+            DAIMA_LLM_MAX_TOKENS)
+        : llm_openai_build_image_body(
+            system_prompt,
+            user_text,
+            images,
+            image_count,
+            s_model,
+            DAIMA_LLM_MAX_TOKENS,
+            should_use_max_tokens_field(),
+            should_disable_thinking());
     if (!body) {
         return DAIMA_ERR_NO_MEM;
     }
@@ -408,8 +487,10 @@ daima_err_t llm_chat_with_images(const char *system_prompt,
     
     if (!post_data) return DAIMA_ERR_NO_MEM;
     
-    DAIMA_LOGI(TAG, "Calling LLM API with images (protocol: openai-compatible, model: %s, images: %d)",
-             s_model, image_count);
+    DAIMA_LOGI(TAG, "Calling LLM API with images (protocol: %s, model: %s, images: %d)",
+             s_use_anthropic_api ? "anthropic-compatible" : "openai-compatible",
+             s_model,
+             image_count);
     llm_http_log_payload(TAG, "LLM vision request", post_data);
     
     char *raw_resp = NULL;
@@ -432,7 +513,9 @@ daima_err_t llm_chat_with_images(const char *system_prompt,
         return DAIMA_FAIL;
     }
     
-    err = llm_openai_parse_response(raw_resp, resp);
+    err = s_use_anthropic_api
+        ? llm_anthropic_parse_response(raw_resp, resp)
+        : llm_openai_parse_response(raw_resp, resp);
     free(raw_resp);
     if (err != DAIMA_OK) {
         DAIMA_LOGE(TAG, "Failed to parse API response JSON");

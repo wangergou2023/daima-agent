@@ -4,6 +4,7 @@
 #include "app/daima_paths.h"
 #include "app/runtime_config.h"
 #include "daima_config.h"
+#include "memory/session_store_file_internal.h"
 
 #include <dirent.h>
 #include <stdbool.h>
@@ -18,10 +19,6 @@
 
 static const char *TAG = "session";
 
-#define SESSION_FACTS_MAX_BYTES   4096
-#define SESSION_FACTS_MAX_LINES   12
-#define SESSION_FACTS_LINE_BYTES  256
-
 static bool is_compaction_summary_content(const cJSON *content)
 {
     const char *text = cJSON_IsString((cJSON *)content) ? content->valuestring : NULL;
@@ -31,10 +28,10 @@ static bool is_compaction_summary_content(const cJSON *content)
     return strncmp(text, "[上下文压缩摘要]", strlen("[上下文压缩摘要]")) == 0;
 }
 
-static daima_err_t file_artifact_path(const char *chat_id,
-                                     daima_session_artifact_kind_t kind,
-                                     char *buf,
-                                     size_t size)
+daima_err_t session_store_file_artifact_path(const char *chat_id,
+                                             daima_session_artifact_kind_t kind,
+                                             char *buf,
+                                             size_t size)
 {
     if (!chat_id || !chat_id[0] || !buf || size == 0) {
         return DAIMA_ERR_INVALID_ARG;
@@ -51,83 +48,6 @@ static daima_err_t file_artifact_path(const char *chat_id,
     return DAIMA_OK;
 }
 
-static char *trim_ascii(char *s)
-{
-    if (!s) return s;
-    while (*s == ' ' || *s == '\t' || *s == '\r' || *s == '\n') {
-        s++;
-    }
-
-    size_t len = strlen(s);
-    while (len > 0) {
-        char ch = s[len - 1];
-        if (ch != ' ' && ch != '\t' && ch != '\r' && ch != '\n') {
-            break;
-        }
-        s[--len] = '\0';
-    }
-    return s;
-}
-
-static char *normalize_fact_line(char *line)
-{
-    char *s = trim_ascii(line);
-    if ((s[0] == '-' || s[0] == '*' || s[0] == '+') &&
-        (s[1] == ' ' || s[1] == '\t')) {
-        s = trim_ascii(s + 1);
-    }
-    return s;
-}
-
-static int append_unique_fact_lines(
-    char lines[][SESSION_FACTS_LINE_BYTES],
-    int count,
-    const char *text)
-{
-    if (!text || !text[0]) {
-        return count;
-    }
-
-    char *copy = strdup(text);
-    if (!copy) {
-        return count;
-    }
-
-    char *saveptr = NULL;
-    for (char *line = strtok_r(copy, "\n", &saveptr);
-         line;
-         line = strtok_r(NULL, "\n", &saveptr)) {
-        char *norm = normalize_fact_line(line);
-        if (!norm[0] || strncmp(norm, "##", 2) == 0) {
-            continue;
-        }
-
-        bool exists = false;
-        for (int i = 0; i < count; i++) {
-            if (strcmp(lines[i], norm) == 0) {
-                exists = true;
-                break;
-            }
-        }
-        if (exists) {
-            continue;
-        }
-
-        if (count < SESSION_FACTS_MAX_LINES) {
-            snprintf(lines[count], SESSION_FACTS_LINE_BYTES, "%s", norm);
-            count++;
-        } else {
-            for (int i = 1; i < SESSION_FACTS_MAX_LINES; i++) {
-                snprintf(lines[i - 1], SESSION_FACTS_LINE_BYTES, "%s", lines[i]);
-            }
-            snprintf(lines[SESSION_FACTS_MAX_LINES - 1], SESSION_FACTS_LINE_BYTES, "%s", norm);
-        }
-    }
-
-    free(copy);
-    return count;
-}
-
 static daima_err_t file_init(void)
 {
     DAIMA_LOGI(TAG, "Session manager initialized at %s", daima_path_session_dir());
@@ -140,7 +60,7 @@ static daima_err_t file_append_ex(const char *chat_id,
                                  const char *source)
 {
     char path[256];
-    daima_err_t path_err = file_artifact_path(chat_id, DAIMA_SESSION_ARTIFACT_HISTORY, path, sizeof(path));
+    daima_err_t path_err = session_store_file_artifact_path(chat_id, DAIMA_SESSION_ARTIFACT_HISTORY, path, sizeof(path));
     if (path_err != DAIMA_OK) {
         return path_err;
     }
@@ -174,7 +94,7 @@ static daima_err_t file_append_ex(const char *chat_id,
 static daima_err_t file_get_history_json(const char *chat_id, char *buf, size_t size, int max_msgs)
 {
     char path[256];
-    daima_err_t path_err = file_artifact_path(chat_id, DAIMA_SESSION_ARTIFACT_HISTORY, path, sizeof(path));
+    daima_err_t path_err = session_store_file_artifact_path(chat_id, DAIMA_SESSION_ARTIFACT_HISTORY, path, sizeof(path));
     if (path_err != DAIMA_OK) {
         return path_err;
     }
@@ -271,7 +191,7 @@ static daima_err_t file_rewrite_from_array(const char *chat_id, const cJSON *mes
     }
 
     char path[256];
-    daima_err_t path_err = file_artifact_path(chat_id, DAIMA_SESSION_ARTIFACT_HISTORY, path, sizeof(path));
+    daima_err_t path_err = session_store_file_artifact_path(chat_id, DAIMA_SESSION_ARTIFACT_HISTORY, path, sizeof(path));
     if (path_err != DAIMA_OK) {
         return path_err;
     }
@@ -322,142 +242,21 @@ static daima_err_t file_rewrite_from_array(const char *chat_id, const cJSON *mes
     return DAIMA_OK;
 }
 
-static daima_err_t file_read_facts(const char *chat_id, char *buf, size_t size)
-{
-    if (!chat_id || !buf || size == 0) {
-        return DAIMA_ERR_INVALID_ARG;
-    }
-
-    char path[256];
-    daima_err_t path_err = file_artifact_path(chat_id, DAIMA_SESSION_ARTIFACT_FACTS, path, sizeof(path));
-    if (path_err != DAIMA_OK) {
-        return path_err;
-    }
-
-    FILE *f = fopen(path, "r");
-    if (!f) {
-        buf[0] = '\0';
-        return DAIMA_OK;
-    }
-
-    size_t n = fread(buf, 1, size - 1, f);
-    fclose(f);
-    buf[n] = '\0';
-    return DAIMA_OK;
-}
-
-static daima_err_t file_merge_facts(const char *chat_id, const char *facts_text)
-{
-    if (!chat_id || !facts_text) {
-        return DAIMA_ERR_INVALID_ARG;
-    }
-
-    char existing[SESSION_FACTS_MAX_BYTES];
-    existing[0] = '\0';
-    file_read_facts(chat_id, existing, sizeof(existing));
-
-    char lines[SESSION_FACTS_MAX_LINES][SESSION_FACTS_LINE_BYTES];
-    memset(lines, 0, sizeof(lines));
-
-    int count = 0;
-    count = append_unique_fact_lines(lines, count, existing);
-    count = append_unique_fact_lines(lines, count, facts_text);
-    if (count <= 0) {
-        return DAIMA_OK;
-    }
-
-    char path[256];
-    daima_err_t path_err = file_artifact_path(chat_id, DAIMA_SESSION_ARTIFACT_FACTS, path, sizeof(path));
-    if (path_err != DAIMA_OK) {
-        return path_err;
-    }
-
-    FILE *f = fopen(path, "w");
-    if (!f) {
-        DAIMA_LOGE(TAG, "Cannot write session facts %s", path);
-        return DAIMA_FAIL;
-    }
-
-    fprintf(f, "## 会话事实卡片\n");
-    for (int i = 0; i < count; i++) {
-        fprintf(f, "- %s\n", lines[i]);
-    }
-    fclose(f);
-    DAIMA_LOGI(TAG, "Session %s facts merged: %d lines", chat_id, count);
-    return DAIMA_OK;
-}
-
-static daima_err_t file_read_summary(const char *chat_id, char *buf, size_t size)
-{
-    if (!chat_id || !buf || size == 0) {
-        return DAIMA_ERR_INVALID_ARG;
-    }
-
-    char path[256];
-    daima_err_t path_err = file_artifact_path(chat_id, DAIMA_SESSION_ARTIFACT_SUMMARY, path, sizeof(path));
-    if (path_err != DAIMA_OK) {
-        return path_err;
-    }
-
-    FILE *f = fopen(path, "r");
-    if (!f) {
-        buf[0] = '\0';
-        return DAIMA_OK;
-    }
-
-    size_t n = fread(buf, 1, size - 1, f);
-    fclose(f);
-    buf[n] = '\0';
-    return DAIMA_OK;
-}
-
-static daima_err_t file_write_summary(const char *chat_id, const char *summary_text)
-{
-    if (!chat_id || !summary_text) {
-        return DAIMA_ERR_INVALID_ARG;
-    }
-
-    char path[256];
-    daima_err_t path_err = file_artifact_path(chat_id, DAIMA_SESSION_ARTIFACT_SUMMARY, path, sizeof(path));
-    if (path_err != DAIMA_OK) {
-        return path_err;
-    }
-
-    FILE *f = fopen(path, "w");
-    if (!f) {
-        DAIMA_LOGE(TAG, "Cannot write session summary %s", path);
-        return DAIMA_FAIL;
-    }
-
-    time_t now = time(NULL);
-    struct tm tm_info;
-    localtime_r(&now, &tm_info);
-    char time_buf[64];
-    strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S %Z", &tm_info);
-
-    fprintf(f, "## 最近一次上下文压缩摘要\n");
-    fprintf(f, "更新时间：%s\n\n", time_buf);
-    fprintf(f, "%s\n", summary_text);
-    fclose(f);
-    DAIMA_LOGI(TAG, "Session %s summary updated", chat_id);
-    return DAIMA_OK;
-}
-
 static daima_err_t file_clear(const char *chat_id)
 {
     char path[256];
     char facts[256];
     char summary[256];
 
-    daima_err_t path_err = file_artifact_path(chat_id, DAIMA_SESSION_ARTIFACT_HISTORY, path, sizeof(path));
+    daima_err_t path_err = session_store_file_artifact_path(chat_id, DAIMA_SESSION_ARTIFACT_HISTORY, path, sizeof(path));
     if (path_err != DAIMA_OK) {
         return path_err;
     }
-    path_err = file_artifact_path(chat_id, DAIMA_SESSION_ARTIFACT_FACTS, facts, sizeof(facts));
+    path_err = session_store_file_artifact_path(chat_id, DAIMA_SESSION_ARTIFACT_FACTS, facts, sizeof(facts));
     if (path_err != DAIMA_OK) {
         return path_err;
     }
-    path_err = file_artifact_path(chat_id, DAIMA_SESSION_ARTIFACT_SUMMARY, summary, sizeof(summary));
+    path_err = session_store_file_artifact_path(chat_id, DAIMA_SESSION_ARTIFACT_SUMMARY, summary, sizeof(summary));
     if (path_err != DAIMA_OK) {
         return path_err;
     }
@@ -564,7 +363,7 @@ static daima_err_t file_list_records(daima_session_record_t *records, size_t cap
         }
 
         char path[256];
-        if (file_artifact_path(chat_id, kind, path, sizeof(path)) != DAIMA_OK) {
+        if (session_store_file_artifact_path(chat_id, kind, path, sizeof(path)) != DAIMA_OK) {
             continue;
         }
 
@@ -591,13 +390,13 @@ static const daima_session_store_ops_t s_file_backend = {
     .append_ex = file_append_ex,
     .get_history_json = file_get_history_json,
     .rewrite_from_array = file_rewrite_from_array,
-    .read_facts = file_read_facts,
-    .merge_facts = file_merge_facts,
-    .read_summary = file_read_summary,
-    .write_summary = file_write_summary,
+    .read_facts = session_store_file_read_facts,
+    .merge_facts = session_store_file_merge_facts,
+    .read_summary = session_store_file_read_summary,
+    .write_summary = session_store_file_write_summary,
     .clear = file_clear,
     .list_records = file_list_records,
-    .artifact_path = file_artifact_path,
+    .artifact_path = session_store_file_artifact_path,
 };
 
 const daima_session_store_ops_t *session_store_file_backend(void)

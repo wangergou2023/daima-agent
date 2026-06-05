@@ -1,5 +1,6 @@
 #include "app/runtime_config.h"
 #include "app/daima_paths.h"
+#include "app/runtime_config_internal.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,17 +12,6 @@
 #include "daima_log.h"
 
 static const char *TAG = "runtime_config";
-
-#define PROVIDER_NAME_MAX 64
-#define STRING_SMALL_MAX  32
-#define API_KEY_MAX       320
-#define URL_MAX           256
-#define MODEL_MAX         64
-#define PET_PACKAGE_ID_MAX 128
-#define FEISHU_APP_ID_MAX 64
-#define FEISHU_SECRET_MAX 128
-#define FEISHU_CHAT_ID_MAX 64
-#define BIGMODEL_KEY_MAX  128
 
 static const char *DEFAULT_TIMEZONE = "CST-8";
 static const char *DEFAULT_LLM_MODEL = "kimi-k2.5";
@@ -43,43 +33,6 @@ enum {
     DEFAULT_WAKE_GPIO_POLL_MS = 20,
     DEFAULT_WAKE_GPIO_DEBOUNCE_MS = 200,
 };
-
-typedef struct {
-    int loaded;
-    int web_port;
-    int session_max_msgs;
-    int common_context_limit_tokens;
-    int compress_trigger_msgs;
-    int compress_keep_msgs;
-    int cron_check_interval_ms;
-    int heartbeat_interval_ms;
-    char timezone[STRING_SMALL_MAX];
-    char web_default_pet_package_id[PET_PACKAGE_ID_MAX];
-
-    char active_provider[PROVIDER_NAME_MAX];
-    char provider_api_key[API_KEY_MAX];
-    char provider_model[MODEL_MAX];
-    char provider_openai_base_url[URL_MAX];
-    char provider_thinking_mode[STRING_SMALL_MAX];
-    int provider_context_limit_tokens;
-    bool provider_needs_reasoning_content;
-
-    char feishu_app_id[FEISHU_APP_ID_MAX];
-    char feishu_app_secret[FEISHU_SECRET_MAX];
-    char feishu_default_chat_id[FEISHU_CHAT_ID_MAX];
-
-    char bigmodel_api_key[BIGMODEL_KEY_MAX];
-    int audio_ai_vol;
-    int audio_ai_gain;
-    int audio_ao_vol;
-    int audio_ao_gain;
-    int voice_record_ms;
-
-    int wake_gpio_num;
-    int wake_gpio_active_low;
-    int wake_gpio_poll_ms;
-    int wake_gpio_debounce_ms;
-} runtime_config_state_t;
 
 static runtime_config_state_t s_cfg;
 
@@ -107,7 +60,7 @@ static void reset_defaults(void)
     snprintf(s_cfg.provider_model, sizeof(s_cfg.provider_model), "%s", DEFAULT_LLM_MODEL);
 }
 
-static int clamp_int(int value, int min_value, int max_value, int fallback)
+int runtime_config_clamp_int(int value, int min_value, int max_value, int fallback)
 {
     if (value < min_value || value > max_value) {
         return fallback;
@@ -148,7 +101,7 @@ static char *read_config_text(void)
     return buf;
 }
 
-static const cJSON *get_object_item(const cJSON *root, const char *key)
+const cJSON *runtime_config_get_object_item(const cJSON *root, const char *key)
 {
     if (!root || !cJSON_IsObject(root)) {
         return NULL;
@@ -156,9 +109,9 @@ static const cJSON *get_object_item(const cJSON *root, const char *key)
     return cJSON_GetObjectItemCaseSensitive((cJSON *)root, key);
 }
 
-static bool json_copy_string(const cJSON *root, const char *key, char *out, size_t out_size)
+bool runtime_config_json_copy_string(const cJSON *root, const char *key, char *out, size_t out_size)
 {
-    const cJSON *item = get_object_item(root, key);
+    const cJSON *item = runtime_config_get_object_item(root, key);
     if (!item || !cJSON_IsString(item) || !item->valuestring || !item->valuestring[0]) {
         return false;
     }
@@ -166,9 +119,9 @@ static bool json_copy_string(const cJSON *root, const char *key, char *out, size
     return true;
 }
 
-static bool json_read_int(const cJSON *root, const char *key, int *out)
+bool runtime_config_json_read_int(const cJSON *root, const char *key, int *out)
 {
-    const cJSON *item = get_object_item(root, key);
+    const cJSON *item = runtime_config_get_object_item(root, key);
     if (!item || !cJSON_IsNumber(item) || !out) {
         return false;
     }
@@ -176,9 +129,9 @@ static bool json_read_int(const cJSON *root, const char *key, int *out)
     return true;
 }
 
-static bool json_read_bool(const cJSON *root, const char *key, bool *out)
+bool runtime_config_json_read_bool(const cJSON *root, const char *key, bool *out)
 {
-    const cJSON *item = get_object_item(root, key);
+    const cJSON *item = runtime_config_get_object_item(root, key);
     if (!item || !out) {
         return false;
     }
@@ -191,183 +144,6 @@ static bool json_read_bool(const cJSON *root, const char *key, bool *out)
         return true;
     }
     return false;
-}
-
-static void apply_common_values(const cJSON *common)
-{
-    int value = 0;
-
-    if (!common || !cJSON_IsObject(common)) {
-        return;
-    }
-
-    if (json_read_int(common, "web_port", &value)) {
-        s_cfg.web_port = clamp_int(value, 1, 65535, s_cfg.web_port);
-    }
-    if (json_read_int(common, "session_max_msgs", &value)) {
-        s_cfg.session_max_msgs = clamp_int(value, 8, DAIMA_SESSION_MAX_MSGS, s_cfg.session_max_msgs);
-    }
-    if (json_read_int(common, "context_limit_tokens", &value) && value >= 1 && value <= 2000000) {
-        s_cfg.common_context_limit_tokens = value;
-    }
-    if (json_read_int(common, "compress_trigger_msgs", &value)) {
-        s_cfg.compress_trigger_msgs = clamp_int(value, 4, 10000, s_cfg.compress_trigger_msgs);
-    }
-    if (json_read_int(common, "compress_keep_msgs", &value)) {
-        s_cfg.compress_keep_msgs = clamp_int(value, 2, 1000, s_cfg.compress_keep_msgs);
-    }
-    if (json_read_int(common, "cron_check_interval_ms", &value)) {
-        s_cfg.cron_check_interval_ms = clamp_int(value, 1000, 86400000, s_cfg.cron_check_interval_ms);
-    }
-    if (json_read_int(common, "heartbeat_interval_ms", &value)) {
-        s_cfg.heartbeat_interval_ms = clamp_int(value, 1000, 86400000, s_cfg.heartbeat_interval_ms);
-    }
-    json_copy_string(common, "timezone", s_cfg.timezone, sizeof(s_cfg.timezone));
-}
-
-static void apply_web_values(const cJSON *root)
-{
-    if (!root || !cJSON_IsObject(root)) {
-        return;
-    }
-
-    json_copy_string(root,
-                     "default_pet_package_id",
-                     s_cfg.web_default_pet_package_id,
-                     sizeof(s_cfg.web_default_pet_package_id));
-}
-
-static void apply_provider_values(const char *provider_name, const cJSON *provider)
-{
-    bool bool_value = false;
-    int int_value = 0;
-
-    if (!provider_name || !provider_name[0] || !provider || !cJSON_IsObject(provider)) {
-        return;
-    }
-
-    snprintf(s_cfg.active_provider, sizeof(s_cfg.active_provider), "%s", provider_name);
-    json_copy_string(provider, "api_key", s_cfg.provider_api_key, sizeof(s_cfg.provider_api_key));
-    json_copy_string(provider, "model", s_cfg.provider_model, sizeof(s_cfg.provider_model));
-    json_copy_string(provider, "openai_base_url", s_cfg.provider_openai_base_url, sizeof(s_cfg.provider_openai_base_url));
-    json_copy_string(provider, "thinking_mode", s_cfg.provider_thinking_mode, sizeof(s_cfg.provider_thinking_mode));
-    if (json_read_int(provider, "context_limit_tokens", &int_value) && int_value >= 1 && int_value <= 2000000) {
-        s_cfg.provider_context_limit_tokens = int_value;
-    }
-    if (json_read_bool(provider, "needs_reasoning_content", &bool_value)) {
-        s_cfg.provider_needs_reasoning_content = bool_value;
-    }
-
-    DAIMA_LOGI(TAG, "Runtime config applied provider: %s", provider_name);
-}
-
-static void apply_feishu_values(const cJSON *root)
-{
-    if (!root || !cJSON_IsObject(root)) {
-        return;
-    }
-    json_copy_string(root, "app_id", s_cfg.feishu_app_id, sizeof(s_cfg.feishu_app_id));
-    json_copy_string(root, "app_secret", s_cfg.feishu_app_secret, sizeof(s_cfg.feishu_app_secret));
-    json_copy_string(root, "default_chat_id", s_cfg.feishu_default_chat_id, sizeof(s_cfg.feishu_default_chat_id));
-}
-
-static void apply_audio_values(const cJSON *root)
-{
-    int value = 0;
-
-    if (!root || !cJSON_IsObject(root)) {
-        return;
-    }
-
-    json_copy_string(root, "bigmodel_api_key", s_cfg.bigmodel_api_key, sizeof(s_cfg.bigmodel_api_key));
-    if (json_read_int(root, "ai_vol", &value)) {
-        s_cfg.audio_ai_vol = clamp_int(value, 0, 120, s_cfg.audio_ai_vol);
-    }
-    if (json_read_int(root, "ai_gain", &value)) {
-        s_cfg.audio_ai_gain = clamp_int(value, 0, 120, s_cfg.audio_ai_gain);
-    }
-    if (json_read_int(root, "ao_vol", &value)) {
-        s_cfg.audio_ao_vol = clamp_int(value, 0, 120, s_cfg.audio_ao_vol);
-    }
-    if (json_read_int(root, "ao_gain", &value)) {
-        s_cfg.audio_ao_gain = clamp_int(value, 0, 120, s_cfg.audio_ao_gain);
-    }
-    if (json_read_int(root, "voice_record_ms", &value)) {
-        s_cfg.voice_record_ms = clamp_int(value, 500, 600000, s_cfg.voice_record_ms);
-    }
-}
-
-static void apply_mips_values(const cJSON *root)
-{
-    int value = 0;
-
-    if (!root || !cJSON_IsObject(root)) {
-        return;
-    }
-
-    if (json_read_int(root, "wake_gpio_num", &value)) {
-        s_cfg.wake_gpio_num = clamp_int(value, 0, 1024, s_cfg.wake_gpio_num);
-    }
-    if (json_read_int(root, "wake_gpio_active_low", &value)) {
-        s_cfg.wake_gpio_active_low = clamp_int(value, 0, 1, s_cfg.wake_gpio_active_low);
-    }
-    if (json_read_int(root, "wake_gpio_poll_ms", &value)) {
-        s_cfg.wake_gpio_poll_ms = clamp_int(value, 1, 60000, s_cfg.wake_gpio_poll_ms);
-    }
-    if (json_read_int(root, "wake_gpio_debounce_ms", &value)) {
-        s_cfg.wake_gpio_debounce_ms = clamp_int(value, 0, 60000, s_cfg.wake_gpio_debounce_ms);
-    }
-}
-
-static void apply_active_provider(const cJSON *providers, const char *active_provider)
-{
-    const cJSON *selected = NULL;
-
-    if (!providers || !cJSON_IsObject(providers) || !active_provider || !active_provider[0]) {
-        DAIMA_LOGW(TAG, "Runtime config missing active_provider");
-        return;
-    }
-
-    selected = get_object_item(providers, active_provider);
-    if (!selected || !cJSON_IsObject(selected)) {
-        DAIMA_LOGW(TAG, "Runtime config provider not found: %s", active_provider);
-        return;
-    }
-
-    apply_provider_values(active_provider, selected);
-}
-
-static void apply_runtime_values(const cJSON *root)
-{
-    const cJSON *common = NULL;
-    const cJSON *providers = NULL;
-    const cJSON *feishu = NULL;
-    const cJSON *audio = NULL;
-    const cJSON *mips = NULL;
-    const cJSON *web = NULL;
-    const char *active_provider = NULL;
-
-    if (!root || !cJSON_IsObject(root)) {
-        return;
-    }
-
-    common = get_object_item(root, "common");
-    providers = get_object_item(root, "providers");
-    feishu = get_object_item(root, "feishu");
-    audio = get_object_item(root, "audio");
-    mips = get_object_item(root, "mips");
-    web = get_object_item(root, "web");
-    active_provider = cJSON_GetStringValue((cJSON *)get_object_item(root, "active_provider"));
-
-    apply_feishu_values(feishu);
-    apply_audio_values(audio);
-    apply_mips_values(mips);
-    apply_web_values(web);
-    apply_common_values(common);
-
-    if (providers && cJSON_IsObject(providers)) {
-        apply_active_provider(providers, active_provider);
-    }
 }
 
 daima_err_t runtime_config_init(void)
@@ -400,7 +176,7 @@ daima_err_t runtime_config_init(void)
         return DAIMA_OK;
     }
 
-    apply_runtime_values(root);
+    runtime_config_apply_values(&s_cfg, root);
     cJSON_Delete(root);
     s_cfg.loaded = 1;
 
@@ -451,6 +227,11 @@ const char *runtime_config_get_provider_model(void)
 const char *runtime_config_get_provider_openai_base_url(void)
 {
     return s_cfg.provider_openai_base_url;
+}
+
+const char *runtime_config_get_provider_api_mode(void)
+{
+    return s_cfg.provider_api_mode;
 }
 
 const char *runtime_config_get_provider_thinking_mode(void)

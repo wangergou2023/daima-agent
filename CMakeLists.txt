@@ -52,13 +52,17 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/main/app/daima_fs.c
     ${CMAKE_CURRENT_LIST_DIR}/main/app/daima_paths.c
     ${CMAKE_CURRENT_LIST_DIR}/main/app/runtime_config.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/app/runtime_config_sections.c
     ${CMAKE_CURRENT_LIST_DIR}/main/app/channel_router.c
     ${CMAKE_CURRENT_LIST_DIR}/main/app/channel_runtime.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/app/tool_activity_notifier.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/app/interactive_requests.c
     ${CMAKE_CURRENT_LIST_DIR}/main/host_http.c
     ${CMAKE_CURRENT_LIST_DIR}/main/host_tls.c
     ${CMAKE_CURRENT_LIST_DIR}/main/proxy/http_proxy_host.c
     ${CMAKE_CURRENT_LIST_DIR}/main/llm/llm_proxy_host.c
     ${CMAKE_CURRENT_LIST_DIR}/main/llm/llm_http_client_host.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/llm/llm_anthropic_payload.c
     ${CMAKE_CURRENT_LIST_DIR}/main/llm/llm_openai_payload.c
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_weather_host.c
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_get_time_host.c
@@ -72,12 +76,14 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/main/daima_base64.c
     ${CMAKE_CURRENT_LIST_DIR}/main/daima_env.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_loop.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/agent/channel_policy.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_turn_common.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_prompt_debug.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_turn_persist.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_turn_prepare.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_turn_run.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_turn_exec_helpers.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/agent/tool_feedback.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_turn_finish.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/context_compressor.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/context_compress_ops.c
@@ -89,7 +95,10 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/main/memory/memory_store.c
     ${CMAKE_CURRENT_LIST_DIR}/main/memory/session_store.c
     ${CMAKE_CURRENT_LIST_DIR}/main/memory/session_store_file.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/memory/session_store_file_facts.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/memory/session_store_file_summary.c
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_registry.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_invocation_context.c
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_runtime.c
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_file_list.c
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_file_ops.c
