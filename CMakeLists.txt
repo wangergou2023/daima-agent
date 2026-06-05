@@ -66,6 +66,10 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/main/llm/llm_openai_payload.c
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_weather_host.c
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_get_time_host.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_webfetch.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_daima_log.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/app/daima_log_file.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_daima_log.c
     ${CMAKE_CURRENT_LIST_DIR}/main/gateway/ws_server_host.c
     ${CMAKE_CURRENT_LIST_DIR}/main/gateway/ws_http_helpers.c
     ${CMAKE_CURRENT_LIST_DIR}/main/gateway/ws_client_session.c

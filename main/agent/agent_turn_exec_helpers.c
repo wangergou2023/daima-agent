@@ -371,6 +371,18 @@ cJSON *agent_turn_build_tool_results(const llm_response_t *resp,
                     }
                 }
             }
+        } else if (strcmp(call->name, "webfetch") == 0 && tool_err != DAIMA_OK) {
+            cJSON *wf_input = cJSON_Parse(tool_input);
+            const char *wf_url = NULL;
+            if (wf_input) {
+                wf_url = cJSON_GetStringValue(cJSON_GetObjectItem(wf_input, "url"));
+            }
+            if (wf_url && wf_url[0]) {
+                char title[256];
+                snprintf(title, sizeof(title), "webfetch 失败: %.200s", wf_url);
+                work_item_store_collect("defect", "test", title, tool_output);
+            }
+            cJSON_Delete(wf_input);
         }
 
         DAIMA_LOGI(TAG, "Tool %s result: %d bytes", call->name, (int)strlen(tool_output));

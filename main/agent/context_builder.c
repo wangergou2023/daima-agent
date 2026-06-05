@@ -293,9 +293,8 @@ static size_t append_operator_guide_fallback(char *buf, size_t size, size_t offs
         "4. 修改已有文件时，默认顺序是：先 `search_files` / `read_file` 看清上下文，再优先用 `patch`，其次用 `edit_file`；只有在新建文件或确实需要整文件重写时才使用 `write_file`。\n"
         "5. `terminal` 适合安装工具、构建、运行命令、看 git 或进程；不适合替代 `read_file` / `patch` / `edit_file` 做文本修改。\n"
         "6. 调用 `terminal` 时，安装软件、更新索引、构建大项目要主动设置更长 `timeout`；看到结构化结果后，要基于 `exit_code`、`timed_out`、`output` 判断是否真的成功。\n"
-        "7. 当用户表达 bug、功能缺失、体验不好、技术债、测试缺口或文档缺口时，先补齐现象/诉求、期望结果、证据/复现方式；信息足够时用 `work_item` 记录，信息不足但值得跟踪时记录为 `needs_info`。\n"
-        "8. 第一阶段不要因为 work item 直接进入修复；只有 `accepted` 或 `planned` 且验收标准清楚的事项，后续才进入实现。\n"
-        "9. 当使用 `cron_add` 发送到 WebSocket 或飞书时，务必设置 `channel='websocket'` 或 `channel='feishu'` 并提供有效 `chat_id`。\n");
+        "7. 遇到 bug、功能缺失、体验问题时，先加载 `Work Item 收集` 技能，用 `work_item` 工具记录而非直接修复。\n"
+        "8. 当使用 `cron_add` 发送到 WebSocket 或飞书时，务必设置 `channel='websocket'` 或 `channel='feishu'` 并提供有效 `chat_id`。\n");
 
     offset = append_textf(
         buf, size, offset,
@@ -318,6 +317,8 @@ static size_t append_operator_guide_fallback(char *buf, size_t size, size_t offs
         "- `search_files`：搜文件名或文本内容；支持 `output_mode=content/files_only/count` 和 `context`。\n"
         "- `todo`：管理待办列表。\n"
         "- `work_item`：收集和管理结构化事项，覆盖 defect / missing / improvement / tech_debt / docs / test_gap。\n"
+        "- `webfetch`：获取网页内容（text/html），用于搜索信息、阅读文档。\n"
+        "- `daima_log`：读取 daima 自身运行日志（tail/search/errors），用于诊断工具失败和系统异常。\n"
         "- `skills_list` / `skill_view`：查看技能总览与技能说明。\n"
         "- `session_search`：搜索历史会话、压缩摘要和事实卡片。\n"
         "- `terminal`：执行本地 shell 命令，返回包含 `output`、`exit_code`、`timed_out`、`workdir` 的 JSON。\n"

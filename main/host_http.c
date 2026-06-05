@@ -128,6 +128,7 @@ daima_err_t host_http_request(const char *method,
 
     if (res != CURLE_OK) {
         DAIMA_LOGW(TAG, "HTTP request failed: %s", curl_easy_strerror(res));
+        out->error = strdup(curl_easy_strerror(res));
         free(resp.data);
         free(hdrs.data);
         return DAIMA_FAIL;
@@ -146,8 +147,10 @@ void host_http_response_free(host_http_response_t *resp)
     if (!resp) return;
     free(resp->body);
     free(resp->headers);
+    free(resp->error);
     resp->body = NULL;
     resp->headers = NULL;
+    resp->error = NULL;
     resp->body_len = 0;
     resp->headers_len = 0;
     resp->status = 0;

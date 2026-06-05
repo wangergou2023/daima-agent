@@ -1,6 +1,7 @@
 #include "daima_err.h"
 #include "daima_log.h"
 #include "daima_platform.h"
+#include "app/daima_log_file.h"
 
 #include <stdarg.h>
 #include <stdbool.h>
@@ -83,10 +84,15 @@ void daima_log_write(int level, const char *tag, const char *fmt, ...)
 
     va_list ap;
     va_start(ap, fmt);
-    vfprintf(stderr, fmt, ap);
-    va_end(ap);
 
-    fputc('\n', stderr);
+    char msg_buf[1024];
+    vsnprintf(msg_buf, sizeof(msg_buf), fmt, ap);
+    fprintf(stderr, "%s\n", msg_buf);
+    fflush(stderr);
+
+    daima_log_file_write(level, tag, msg_buf);
+
+    va_end(ap);
 
     if (s_log_hook) s_log_hook(DAIMA_LOG_HOOK_POST, &hook_state);
 }

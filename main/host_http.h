@@ -15,6 +15,7 @@ typedef struct {
     size_t body_len;
     char *headers;
     size_t headers_len;
+    char *error;
 } host_http_response_t;
 
 daima_err_t host_http_request(const char *method,
