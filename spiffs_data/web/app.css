@@ -11,7 +11,7 @@
   --border-strong: rgba(18, 24, 35, 0.12);
   --shadow-soft: 0 18px 45px rgba(16, 24, 40, 0.08);
   --shadow-strong: 0 28px 80px rgba(15, 23, 42, 0.12);
-  --user-fill: #20242d;
+  --user-fill: #1f2933;
   --user-fill-hover: #111827;
   --user-ink: #f8fafc;
   --accent: #5f87c9;
@@ -63,9 +63,9 @@ body {
   color: var(--foreground);
   font-family: "Segoe UI", "PingFang SC", "Noto Sans SC", "Helvetica Neue", sans-serif;
   background:
-    radial-gradient(1200px 700px at 10% -10%, rgba(255, 255, 255, 0.96), transparent 55%),
-    radial-gradient(900px 580px at 92% 8%, rgba(225, 232, 242, 0.7), transparent 50%),
-    radial-gradient(760px 540px at 20% 100%, rgba(241, 237, 231, 0.72), transparent 52%),
+    radial-gradient(1200px 700px at 10% -10%, rgba(255, 255, 255, 0.98), transparent 55%),
+    radial-gradient(900px 580px at 92% 8%, rgba(222, 231, 244, 0.76), transparent 50%),
+    radial-gradient(760px 540px at 18% 100%, rgba(240, 235, 228, 0.68), transparent 52%),
     linear-gradient(180deg, var(--background) 0%, var(--background-soft) 100%);
 }
 
@@ -109,14 +109,19 @@ button {
 .app-shell {
   position: relative;
   z-index: 1;
-  width: min(1080px, calc(100vw - 24px));
+  width: 100%;
   min-height: 100vh;
-  margin: 0 auto;
-  padding: 28px 0 32px;
+  margin: 0;
+  padding: 24px 28px 28px;
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 28px;
+  align-items: stretch;
 }
 
 .ai-disclaimer {
-  margin: 18px 0 0;
+  width: min(100%, var(--content-width));
+  margin: -8px auto 0;
   color: rgba(71, 84, 103, 0.62);
   font-size: 12px;
   line-height: 1.5;
@@ -127,6 +132,7 @@ button {
 .chat-shell {
   display: grid;
   gap: 18px;
+  min-width: 0;
 }
 
 .chat-shell.empty-state {
@@ -144,6 +150,165 @@ button {
   animation: fade-up 0.45s ease both;
 }
 
+.session-sidebar {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  height: calc(100vh - 52px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 18px 46px rgba(15, 23, 42, 0.06);
+  backdrop-filter: blur(18px);
+  animation: fade-up 0.45s ease both;
+}
+
+.session-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.session-kicker {
+  margin-bottom: 3px;
+  color: rgba(102, 112, 133, 0.7);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.session-head h1 {
+  margin: 0;
+  color: rgba(22, 24, 29, 0.94);
+  font-size: 20px;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+  font-weight: 680;
+}
+
+.new-session-btn {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-strong);
+  color: var(--foreground);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.new-session-btn:hover {
+  transform: translateY(-1px);
+}
+
+.session-list {
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  overflow-y: auto;
+  padding-right: 2px;
+  scrollbar-width: none;
+}
+
+.session-list::-webkit-scrollbar {
+  display: none;
+}
+
+.session-row {
+  width: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  background: transparent;
+}
+
+.session-open {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: grid;
+  gap: 4px;
+  padding: 11px 34px 11px 12px;
+  border: 0;
+  border-radius: 15px;
+  background: transparent;
+  color: var(--foreground);
+  text-align: left;
+}
+
+.session-row:hover,
+.session-row:focus-within {
+  background: rgba(255, 255, 255, 0.52);
+}
+
+.session-row.active {
+  border-color: rgba(95, 135, 201, 0.18);
+  background: rgba(224, 233, 246, 0.68);
+}
+
+.session-delete {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.72);
+  color: rgba(71, 84, 103, 0.62);
+  font-size: 17px;
+  line-height: 1;
+  opacity: 0;
+  transform: translateY(-50%) scale(0.94);
+  transition: opacity 0.16s ease, transform 0.16s ease, background 0.16s ease, color 0.16s ease;
+}
+
+.session-row:hover .session-delete,
+.session-row:focus-within .session-delete {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+}
+
+.session-delete:hover {
+  background: rgba(255, 239, 239, 0.95);
+  color: #b42318;
+}
+
+.session-title {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(22, 24, 29, 0.92);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-meta {
+  color: rgba(102, 112, 133, 0.8);
+  font-family: "SFMono-Regular", "Menlo", "Consolas", monospace;
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.session-empty {
+  padding: 12px 4px;
+  color: rgba(102, 112, 133, 0.74);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .topbar-actions {
   display: flex;
   align-items: center;
@@ -158,7 +323,7 @@ button {
   gap: 8px;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.58);
-  border-radius: 999px;
+  border-radius: 14px;
   padding: 6px 8px 6px 12px;
   color: var(--muted-strong);
   font-size: 12px;
@@ -186,7 +351,7 @@ button {
   min-height: 40px;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.58);
-  border-radius: 999px;
+  border-radius: 14px;
   padding: 0 14px;
   color: var(--muted-strong);
   font-size: 12px;
@@ -215,7 +380,6 @@ button {
   animation: fade-up 0.55s ease both;
 }
 
-.chat-shell.empty-state .topbar,
 .chat-shell.empty-state .viewport {
   display: none;
 }
@@ -224,7 +388,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: calc(100vh - 100px);
+  min-height: calc(100vh - 152px);
 }
 
 .chat-shell.empty-state .composer {
@@ -247,11 +411,11 @@ button {
 
 .empty-title {
   margin: 0;
-  color: rgba(22, 24, 29, 0.92);
-  font-size: clamp(28px, 4vw, 38px);
-  line-height: 1.12;
-  letter-spacing: -0.05em;
-  font-weight: 500;
+  color: rgba(22, 24, 29, 0.94);
+  font-size: clamp(34px, 5vw, 54px);
+  line-height: 1;
+  letter-spacing: -0.06em;
+  font-weight: 560;
 }
 
 .chat-shell.empty-state .composer-frame {
@@ -271,11 +435,11 @@ button {
 
 .chat-shell.empty-state textarea {
   min-height: 72px;
-  padding: 24px 92px 24px 20px;
+  padding: 24px 96px 24px 22px;
   border: 1px solid var(--border);
-  border-radius: 30px;
+  border-radius: 28px;
   background: var(--surface-strong);
-  box-shadow: var(--shadow-strong);
+  box-shadow: 0 26px 74px rgba(15, 23, 42, 0.13);
   font-size: 16px;
   line-height: 1.5;
 }
@@ -349,8 +513,8 @@ button {
 
 .message-card.user {
   max-width: min(88%, var(--user-width));
-  border-radius: 16px;
-  background: rgba(224, 233, 246, 0.66);
+  border-radius: 15px;
+  background: rgba(224, 233, 246, 0.72);
   border: 1px solid rgba(95, 135, 201, 0.1);
   color: var(--foreground);
   padding: 9px 13px;
@@ -753,7 +917,7 @@ button {
   margin: 0 auto;
   padding: 12px 12px 10px;
   border: 1px solid var(--border);
-  border-radius: 24px;
+  border-radius: 22px;
   background: var(--surface-strong);
   box-shadow: 0 14px 34px rgba(16, 24, 40, 0.08);
 }
@@ -812,7 +976,7 @@ button {
   align-items: center;
   justify-content: center;
   width: auto;
-  min-width: 68px;
+  min-width: 64px;
   height: 32px;
   padding: 0 13px;
   background: var(--user-fill);
@@ -1227,8 +1391,39 @@ button:disabled {
 
 @media (max-width: 900px) {
   .app-shell {
-    width: min(100vw, calc(100vw - 16px));
-    padding: 14px 0 18px;
+    width: 100vw;
+    padding: 12px 12px 18px;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .ai-disclaimer {
+    width: 100%;
+  }
+
+  .session-sidebar {
+    position: static;
+    height: auto;
+    padding: 10px;
+    border-radius: 20px;
+  }
+
+  .session-head {
+    display: none;
+  }
+
+  .session-list {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0;
+  }
+
+  .session-row {
+    width: 172px;
+    flex: 0 0 172px;
+    border-radius: 14px;
   }
 
   .thread-card {
@@ -1278,6 +1473,19 @@ button:disabled {
   .app-shell {
     width: 100vw;
     padding: 0;
+    gap: 0;
+  }
+
+  .session-sidebar {
+    border-width: 0 0 1px;
+    border-radius: 0;
+    box-shadow: none;
+    background: rgba(255, 255, 255, 0.58);
+  }
+
+  .session-row {
+    width: 154px;
+    flex-basis: 154px;
   }
 
   .chat-shell {
@@ -1380,7 +1588,7 @@ button:disabled {
   }
 
   .ai-disclaimer {
-    margin: 12px 0 16px;
+    margin: 8px 0 0;
     padding: 0 16px;
   }
 

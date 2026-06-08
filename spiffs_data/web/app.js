@@ -13,6 +13,9 @@ const sudoCancel = document.getElementById('sudoCancel');
 const sudoSubmit = document.getElementById('sudoSubmit');
 const sendBtn = document.getElementById('sendBtn');
 const scrollToBottomBtn = document.getElementById('scrollToBottom');
+const sessionSidebar = document.getElementById('sessionSidebar');
+const sessionList = document.getElementById('sessionList');
+const newSessionBtn = document.getElementById('newSessionBtn');
 const petDock = document.getElementById('petDock');
 const petChooser = document.getElementById('petChooser');
 const petChooserButton = document.getElementById('petChooserButton');
@@ -35,14 +38,9 @@ const DEFAULT_UI_CONFIG = Object.freeze({
   },
 });
 
-const storedId = localStorage.getItem(CHAT_ID_KEY);
 const storedTheme = localStorage.getItem(THEME_KEY) || 'warm';
-const chatId = storedId || `web_${Math.random().toString(36).slice(2, 8)}`;
-if (!storedId) {
-  localStorage.setItem(CHAT_ID_KEY, chatId);
-} else {
-  localStorage.setItem(CHAT_ID_KEY, storedId);
-}
+let chatId = createChatId();
+localStorage.setItem(CHAT_ID_KEY, chatId);
 
 let ws;
 let reconnectTimer;
@@ -59,6 +57,213 @@ let petController = null;
 let availablePetPackages = normalizePetPackages(DEFAULT_UI_CONFIG);
 let activePetPackageId = '';
 let petChooserOpen = false;
+let sessions = [];
+let selectedSessionId = '';
+let localSessions = [];
+
+function createChatId() {
+  return `web_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function setActiveChatId(nextChatId) {
+  if (!nextChatId || nextChatId === chatId) return;
+  chatId = nextChatId;
+  localStorage.setItem(CHAT_ID_KEY, chatId);
+  if (petController) {
+    attachPetController();
+  }
+}
+
+function formatSessionTime(ts) {
+  const value = Number(ts) || 0;
+  if (!value) return '新会话';
+  const date = new Date(value * 1000);
+  const now = new Date();
+  const sameDay = date.toDateString() === now.toDateString();
+  if (sameDay) {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  return date.toLocaleDateString([], { month: '2-digit', day: '2-digit' });
+}
+
+function sessionTitle(item) {
+  const id = item?.chat_id || '';
+  if (item?.is_placeholder) return '当前新会话';
+  if (id.startsWith('web_')) return id.replace(/^web_/, 'Web ');
+  if (id.startsWith('pet_web_')) return id.replace(/^pet_web_/, '宠物 ');
+  if (id.startsWith('ou_')) return id.replace(/^ou_/, '历史 ');
+  return id;
+}
+
+function mergeSessionLists(remoteSessions, draftSessions) {
+  const merged = [];
+  const seen = new Set();
+
+  for (const item of [...draftSessions, ...remoteSessions]) {
+    const id = item?.chat_id;
+    if (typeof id !== 'string' || !id.trim() || seen.has(id)) continue;
+    seen.add(id);
+    merged.push(item);
+  }
+
+  merged.sort((a, b) => {
+    const at = Number(a?.latest_ts) || 0;
+    const bt = Number(b?.latest_ts) || 0;
+    if (at !== bt) return bt - at;
+    return String(a?.chat_id || '').localeCompare(String(b?.chat_id || ''));
+  });
+  return merged;
+}
+
+function upsertLocalSession(chat_id, latest_ts = Math.floor(Date.now() / 1000)) {
+  if (!chat_id) return;
+  const next = {
+    chat_id,
+    latest_ts,
+    has_history: true,
+    is_local: true,
+  };
+  localSessions = [next, ...localSessions.filter((item) => item.chat_id !== chat_id)];
+}
+
+function renderSessions() {
+  if (!sessionList) return;
+  sessionList.innerHTML = '';
+
+  const displayBase = mergeSessionLists(sessions, localSessions);
+  const hasCurrent = displayBase.some((item) => item.chat_id === chatId);
+  const shouldShowCurrentDraft = !hasCurrent && messages.childElementCount > 0;
+  const displaySessions = hasCurrent || !shouldShowCurrentDraft
+    ? displayBase
+    : [{ chat_id: chatId, latest_ts: 0, has_history: false, is_placeholder: true }, ...displayBase];
+
+  if (!displaySessions.length) {
+    const empty = document.createElement('div');
+    empty.className = 'session-empty';
+    empty.textContent = '暂无会话';
+    sessionList.appendChild(empty);
+    return;
+  }
+
+  for (const item of displaySessions) {
+    const row = document.createElement('div');
+    row.className = 'session-row';
+    if (item.chat_id === selectedSessionId) row.classList.add('active');
+    row.dataset.chatId = item.chat_id;
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'session-open';
+    button.dataset.chatId = item.chat_id;
+    button.innerHTML = `
+      <span class="session-title"></span>
+      <span class="session-meta"></span>
+    `;
+    button.querySelector('.session-title').textContent = sessionTitle(item);
+    button.querySelector('.session-meta').textContent = formatSessionTime(item.latest_ts);
+    row.appendChild(button);
+
+    if (!item.is_placeholder) {
+      const deleteButton = document.createElement('button');
+      deleteButton.type = 'button';
+      deleteButton.className = 'session-delete';
+      deleteButton.dataset.chatId = item.chat_id;
+      deleteButton.setAttribute('aria-label', `删除会话 ${sessionTitle(item)}`);
+      deleteButton.title = '删除会话';
+      deleteButton.textContent = '×';
+      row.appendChild(deleteButton);
+    }
+
+    sessionList.appendChild(row);
+  }
+}
+
+async function loadSessions() {
+  if (!sessionList) return;
+  try {
+    const resp = await fetch('/api/sessions', { cache: 'no-store' });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    sessions = Array.isArray(data?.sessions)
+      ? data.sessions.filter((item) => typeof item?.chat_id === 'string' && item.chat_id.trim() && item.has_history !== false)
+      : [];
+    const remoteIds = new Set(sessions.map((item) => item.chat_id));
+    localSessions = localSessions.filter((item) => !remoteIds.has(item.chat_id));
+    renderSessions();
+  } catch (_) {
+    renderSessions();
+  }
+}
+
+function renderHistoryMessages(history) {
+  messages.innerHTML = '';
+  currentToolGroup = null;
+  for (const item of history) {
+    const role = item?.role;
+    const content = item?.content;
+    if (!content || (role !== 'user' && role !== 'assistant')) continue;
+    messages.appendChild(makeMessageNode(role, content));
+  }
+  syncEmptyState();
+  syncEmptyComposerLayout();
+  stickToBottom = true;
+  scrollToBottom(false);
+  syncScrollButton();
+}
+
+async function switchSession(nextChatId) {
+  if (!nextChatId || nextChatId === chatId) return;
+  setActiveChatId(nextChatId);
+  selectedSessionId = nextChatId;
+  renderSessions();
+  try {
+    const resp = await fetch(`/api/session_history?chat_id=${encodeURIComponent(chatId)}`, { cache: 'no-store' });
+    if (resp.ok) {
+      const data = await resp.json();
+      renderHistoryMessages(Array.isArray(data?.messages) ? data.messages : []);
+    } else {
+      renderHistoryMessages([]);
+    }
+  } catch (_) {
+    renderHistoryMessages([]);
+  }
+  refreshContextStats();
+}
+
+async function deleteSession(targetChatId) {
+  if (!targetChatId) return;
+
+  sessions = sessions.filter((item) => item.chat_id !== targetChatId);
+  localSessions = localSessions.filter((item) => item.chat_id !== targetChatId);
+
+  const deletedCurrent = targetChatId === chatId || targetChatId === selectedSessionId;
+  if (deletedCurrent) {
+    setActiveChatId(createChatId());
+    selectedSessionId = '';
+    renderHistoryMessages([]);
+  }
+  renderSessions();
+
+  try {
+    const resp = await fetch(`/api/session_delete?chat_id=${encodeURIComponent(targetChatId)}`, {
+      method: 'POST',
+      cache: 'no-store',
+    });
+    if (!resp.ok) {
+      await loadSessions();
+    }
+  } catch (_) {
+    await loadSessions();
+  }
+}
+
+function startNewSession() {
+  setActiveChatId(createChatId());
+  selectedSessionId = '';
+  renderHistoryMessages([]);
+  renderSessions();
+  refreshContextStats();
+}
 
 function resolvePetPackageId(config) {
   const packageId = config?.pet?.default_package_id;
@@ -756,11 +961,15 @@ form.addEventListener('submit', (e) => {
     petController.markAssistantPending();
   }
   addMessage('user', text);
+  selectedSessionId = chatId;
+  upsertLocalSession(chatId);
+  renderSessions();
   ws.send(JSON.stringify({ type: 'message', content: text, chat_id: chatId }));
   input.value = '';
   currentToolGroup = null;
   autoResize();
   renderContextBadge();
+  setTimeout(loadSessions, 600);
 });
 
 input.addEventListener('keydown', (e) => {
@@ -787,6 +996,24 @@ scrollToBottomBtn.addEventListener('click', () => {
 });
 if (themeSelect) {
   themeSelect.addEventListener('change', (e) => applyTheme(e.target.value));
+}
+if (newSessionBtn) {
+  newSessionBtn.addEventListener('click', () => startNewSession());
+}
+if (sessionList) {
+  sessionList.addEventListener('click', (e) => {
+    const deleteButton = e.target.closest('.session-delete');
+    if (deleteButton) {
+      e.stopPropagation();
+      deleteSession(deleteButton.dataset.chatId);
+      return;
+    }
+
+    const item = e.target.closest('.session-open');
+    if (item) {
+      switchSession(item.dataset.chatId);
+    }
+  });
 }
 if (petChooserButton) {
   petChooserButton.addEventListener('click', () => togglePetChooser());
@@ -836,6 +1063,7 @@ async function initApp() {
   syncEmptyComposerLayout();
   syncScrollButton();
   syncSendState();
+  await loadSessions();
   connect();
 }
 

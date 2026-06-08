@@ -16,6 +16,7 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/socket.h>
+#include <time.h>
 
 static const char *TAG = "ws";
 
@@ -270,6 +271,19 @@ static void query_get_value(const char *query, const char *key, char *out, size_
     }
 }
 
+static bool is_safe_chat_id(const char *chat_id)
+{
+    if (!chat_id || !chat_id[0]) {
+        return false;
+    }
+    for (const char *p = chat_id; *p; ++p) {
+        if (!(isalnum((unsigned char)*p) || *p == '_' || *p == '-')) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static int estimate_prompt_tokens_rough(const char *system_prompt, const cJSON *messages)
 {
     size_t chars = system_prompt ? strlen(system_prompt) : 0;
@@ -410,6 +424,83 @@ static char *build_ui_config_json(void)
     return json;
 }
 
+static int compare_session_records_recent(const void *a, const void *b)
+{
+    const daima_session_record_t *ra = (const daima_session_record_t *)a;
+    const daima_session_record_t *rb = (const daima_session_record_t *)b;
+    if (ra->latest_ts < rb->latest_ts) return 1;
+    if (ra->latest_ts > rb->latest_ts) return -1;
+    return strcmp(ra->chat_id, rb->chat_id);
+}
+
+static char *build_sessions_json(void)
+{
+    daima_session_record_t records[128];
+    int count = 0;
+    if (session_store_list_records(records, sizeof(records) / sizeof(records[0]), &count) != DAIMA_OK) {
+        return NULL;
+    }
+
+    qsort(records, (size_t)count, sizeof(records[0]), compare_session_records_recent);
+
+    cJSON *root = cJSON_CreateObject();
+    cJSON *items = cJSON_AddArrayToObject(root, "sessions");
+    if (!root || !items) {
+        cJSON_Delete(root);
+        return NULL;
+    }
+
+    for (int i = 0; i < count; i++) {
+        cJSON *item = cJSON_CreateObject();
+        if (!item) {
+            continue;
+        }
+        cJSON_AddStringToObject(item, "chat_id", records[i].chat_id);
+        cJSON_AddNumberToObject(item, "latest_ts", (double)records[i].latest_ts);
+        cJSON_AddBoolToObject(item, "has_history", records[i].has_history);
+        cJSON_AddBoolToObject(item, "has_facts", records[i].has_facts);
+        cJSON_AddBoolToObject(item, "has_summary", records[i].has_summary);
+        cJSON_AddItemToArray(items, item);
+    }
+
+    char *json = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+    return json;
+}
+
+static char *build_session_history_json(const char *chat_id)
+{
+    if (!chat_id || !chat_id[0]) {
+        return NULL;
+    }
+
+    char history_json[DAIMA_LLM_STREAM_BUF_SIZE];
+    history_json[0] = '\0';
+    if (session_store_get_history_json(chat_id, history_json, sizeof(history_json), DAIMA_AGENT_MAX_HISTORY) != DAIMA_OK) {
+        return NULL;
+    }
+
+    cJSON *messages = cJSON_Parse(history_json);
+    if (!messages) {
+        messages = cJSON_CreateArray();
+    }
+    if (!messages) {
+        return NULL;
+    }
+
+    cJSON *root = cJSON_CreateObject();
+    if (!root) {
+        cJSON_Delete(messages);
+        return NULL;
+    }
+    cJSON_AddStringToObject(root, "chat_id", chat_id);
+    cJSON_AddItemToObject(root, "messages", messages);
+
+    char *json = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+    return json;
+}
+
 int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallback_html)
 {
     char method[8] = {0};
@@ -417,6 +508,29 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
     parse_request_line(req, method, sizeof(method), path, sizeof(path));
     char *query = NULL;
     split_path_and_query(path, &query);
+
+    if (strcmp(method, "POST") == 0 && strcmp(path, "/api/session_delete") == 0) {
+        char chat_id[64] = {0};
+        query_get_value(query, "chat_id", chat_id, sizeof(chat_id));
+        if (!is_safe_chat_id(chat_id)) {
+            http_send_response(client_fd, "400 Bad Request",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"invalid_chat_id\"}");
+            return 0;
+        }
+
+        daima_err_t err = session_store_clear(chat_id);
+        if (err != DAIMA_OK && err != DAIMA_ERR_NOT_FOUND) {
+            http_send_response(client_fd, "500 Internal Server Error",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"delete_failed\"}");
+            return 0;
+        }
+        http_send_response(client_fd, "200 OK",
+                           "application/json; charset=utf-8",
+                           "{\"ok\":true}");
+        return 0;
+    }
 
     if (strcmp(method, "GET") != 0) {
         http_send_response(client_fd, "405 Method Not Allowed",
@@ -494,6 +608,43 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
             http_send_response(client_fd, "500 Internal Server Error",
                                "application/json; charset=utf-8",
                                "{\"error\":\"stats_unavailable\"}");
+            return 0;
+        }
+        http_send_response(client_fd, "200 OK",
+                           "application/json; charset=utf-8", json);
+        free(json);
+        return 0;
+    }
+
+    if (strcmp(path, "/api/sessions") == 0) {
+        char *json = build_sessions_json();
+        if (!json) {
+            http_send_response(client_fd, "500 Internal Server Error",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"sessions_unavailable\"}");
+            return 0;
+        }
+        http_send_response(client_fd, "200 OK",
+                           "application/json; charset=utf-8", json);
+        free(json);
+        return 0;
+    }
+
+    if (strcmp(path, "/api/session_history") == 0) {
+        char chat_id[64] = {0};
+        query_get_value(query, "chat_id", chat_id, sizeof(chat_id));
+        if (!chat_id[0]) {
+            http_send_response(client_fd, "400 Bad Request",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"missing_chat_id\"}");
+            return 0;
+        }
+
+        char *json = build_session_history_json(chat_id);
+        if (!json) {
+            http_send_response(client_fd, "500 Internal Server Error",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"history_unavailable\"}");
             return 0;
         }
         http_send_response(client_fd, "200 OK",

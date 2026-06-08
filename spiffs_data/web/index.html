@@ -3,11 +3,21 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>DAIMA</title>
+  <title>Daima</title>
   <link rel="stylesheet" href="/app.css" />
 </head>
 <body>
   <main class="app-shell">
+    <aside id="sessionSidebar" class="session-sidebar" aria-label="会话列表">
+      <div class="session-head">
+        <div>
+          <div class="session-kicker">DAIMA</div>
+          <h1>会话</h1>
+        </div>
+        <button id="newSessionBtn" class="new-session-btn" type="button" aria-label="新建会话">+</button>
+      </div>
+      <div id="sessionList" class="session-list" aria-live="polite"></div>
+    </aside>
     <section class="chat-shell">
       <header class="topbar">
         <div class="topbar-actions">
@@ -18,9 +28,9 @@
           <label class="theme-control" aria-label="Theme">
             <span>主题</span>
             <select id="themeSelect" class="theme-switch" aria-label="Theme">
-              <option value="warm">Warm Light</option>
-              <option value="mist">Mist Blue</option>
-              <option value="plain">Soft Plain</option>
+              <option value="warm">暖光</option>
+              <option value="mist">雾蓝</option>
+              <option value="plain">素白</option>
             </select>
           </label>
         </div>
@@ -59,30 +69,30 @@
                 type="submit"
                 aria-label="Send message"
                 title="Send message"
-              >Send</button>
+              >发送</button>
             </div>
             <div class="actions">
               <span id="ctxBadge" class="context-badge">
                 <strong>加载中</strong>
                 <span>上下文统计...</span>
               </span>
-              <span class="hint">回车发送，Shift + 回车换行</span>
+              <span class="hint">Enter 发送，Shift + Enter 换行</span>
             </div>
           </div>
         </form>
       </section>
+      <p class="ai-disclaimer">内容由AI生成，请仔细甄别</p>
     </section>
-    <p class="ai-disclaimer">内容由AI生成，请仔细甄别</p>
   </main>
 
   <div id="sudoModal" class="sudo-modal">
     <div class="sudo-card">
-      <div class="sudo-title">Sudo password required</div>
-      <div id="sudoPrompt" class="sudo-body">A command needs elevated privileges.</div>
-      <input id="sudoInput" class="sudo-input" type="password" placeholder="Enter sudo password" />
+      <div class="sudo-title">需要授权</div>
+      <div id="sudoPrompt" class="sudo-body">命令需要提升权限。</div>
+      <input id="sudoInput" class="sudo-input" type="password" placeholder="输入 sudo 密码" />
       <div class="sudo-actions">
-        <button id="sudoCancel" type="button" class="ghost-btn">Cancel</button>
-        <button id="sudoSubmit" type="button">Continue</button>
+        <button id="sudoCancel" type="button" class="ghost-btn">取消</button>
+        <button id="sudoSubmit" type="button">继续</button>
       </div>
     </div>
   </div>

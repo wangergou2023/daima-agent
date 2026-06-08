@@ -36,8 +36,14 @@ char *pet_build_action_prompt(const char *action, const char *pet_id)
 
 bool pet_build_chat_id(const char *chat_id, char *out, size_t out_size)
 {
+    size_t prefix_len = strlen(PET_CHAT_PREFIX);
+
     if (!chat_id || !chat_id[0] || !out || out_size == 0) {
         return false;
+    }
+
+    while (strncmp(chat_id, PET_CHAT_PREFIX, prefix_len) == 0 && chat_id[prefix_len]) {
+        chat_id += prefix_len;
     }
 
     return snprintf(out, out_size, "%s%s", PET_CHAT_PREFIX, chat_id) < (int)out_size;

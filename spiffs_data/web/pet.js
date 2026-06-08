@@ -9,6 +9,7 @@
   const DEFAULT_CLICK_RUN_DISTANCE_PX = 72;
   const DEFAULT_CLICK_RUN_HALF_MS = 780;
   const DEFAULT_TAP_ACTION_COOLDOWN_MS = 1600;
+  const PET_CHAT_PREFIX = 'pet_';
   const DEFAULT_STATE_CONFIG = Object.freeze({
     idle: { row: 0, fallbackFrames: 6 },
     runRight: { row: 1, fallbackFrames: 8 },
@@ -21,6 +22,14 @@
     review: { row: 8, fallbackFrames: 6 },
   });
 
+  function buildPetChatId(chatId) {
+    let base = chatId || `web_${Math.random().toString(36).slice(2, 8)}`;
+    while (base.startsWith(PET_CHAT_PREFIX) && base.length > PET_CHAT_PREFIX.length) {
+      base = base.slice(PET_CHAT_PREFIX.length);
+    }
+    return `${PET_CHAT_PREFIX}${base}`;
+  }
+
   function createPetController(options = {}) {
     const elements = options.elements || {};
     const petDock = elements.dock || null;
@@ -32,7 +41,7 @@
     const packageId = options.packageId || DEFAULT_PACKAGE_ID;
     const petId = packageId.replace(/\.codex-pet$/, '');
     const chatId = options.chatId || `web_${Math.random().toString(36).slice(2, 8)}`;
-    const petChatId = options.petChatId || `pet_${chatId}`;
+    const petChatId = buildPetChatId(options.petChatId || chatId);
     const sendJson = typeof options.sendJson === 'function' ? options.sendJson : null;
 
     const frameWidth = options.frameWidth || DEFAULT_FRAME_WIDTH;
