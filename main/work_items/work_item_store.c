@@ -110,7 +110,7 @@ static cJSON *normalized_evidence(const cJSON *input)
     cJSON_AddStringToObject(evidence, "session_id", session_id);
     cJSON_AddStringToObject(evidence, "issue_url", issue_url);
 
-    const char *array_keys[] = {"logs", "files", "commands"};
+    const char *array_keys[] = {"logs", "files", "commands", "tool_calls"};
     for (size_t i = 0; i < sizeof(array_keys) / sizeof(array_keys[0]); i++) {
         cJSON *src_arr = evidence_in && cJSON_IsObject(evidence_in)
                              ? cJSON_GetObjectItem(evidence_in, array_keys[i])
@@ -122,6 +122,14 @@ static cJSON *normalized_evidence(const cJSON *input)
         }
     }
     return evidence;
+}
+
+static void add_optional_string(cJSON *dst, const cJSON *src, const char *key)
+{
+    const char *value = json_string_or_default(src, key, "");
+    if (value && value[0]) {
+        cJSON_AddStringToObject(dst, key, value);
+    }
 }
 
 static daima_err_t normalize_new_item(const cJSON *input, const char *id, const char *now, cJSON **out_item)
@@ -161,6 +169,11 @@ static daima_err_t normalize_new_item(const cJSON *input, const char *id, const 
         cJSON_Delete(item);
         return DAIMA_ERR_INVALID_ARG;
     }
+    add_optional_string(item, input, "error_signature");
+    cJSON *occurrences = cJSON_GetObjectItem((cJSON *)input, "occurrences");
+    cJSON_AddNumberToObject(item, "occurrences", cJSON_IsNumber(occurrences) && occurrences->valueint > 0 ? occurrences->valueint : 1);
+    cJSON_AddStringToObject(item, "first_seen_at", json_string_or_default(input, "first_seen_at", now));
+    cJSON_AddStringToObject(item, "last_seen_at", json_string_or_default(input, "last_seen_at", now));
     cJSON_AddStringToObject(item, "created_at", now);
     cJSON_AddStringToObject(item, "updated_at", now);
     *out_item = item;
@@ -232,6 +245,22 @@ static const char *find_duplicate(const cJSON *items, const char *title, const c
     return NULL;
 }
 
+static cJSON *find_active_by_signature(cJSON *items, const char *signature)
+{
+    if (!items || !signature || !signature[0]) return NULL;
+    cJSON *item = NULL;
+    cJSON_ArrayForEach(item, items) {
+        const char *item_sig = cJSON_GetStringValue(cJSON_GetObjectItem(item, "error_signature"));
+        if (!item_sig || strcmp(item_sig, signature) != 0) continue;
+        const char *status = cJSON_GetStringValue(cJSON_GetObjectItem(item, "status"));
+        if (status && (strcmp(status, "done") == 0 || strcmp(status, "rejected") == 0)) {
+            continue;
+        }
+        return item;
+    }
+    return NULL;
+}
+
 static int next_sequence_for_date(const cJSON *items, const char *date)
 {
     int max_seq = 0;
@@ -296,7 +325,7 @@ daima_err_t work_item_store_add(const cJSON *input, cJSON **out_item)
 
 static daima_err_t apply_update_fields(cJSON *item, const cJSON *input, const char *now)
 {
-    const char *string_keys[] = {"title", "description", "expected", "actual"};
+    const char *string_keys[] = {"title", "description", "expected", "actual", "error_signature", "first_seen_at", "last_seen_at"};
     for (size_t i = 0; i < sizeof(string_keys) / sizeof(string_keys[0]); i++) {
         cJSON *value = cJSON_GetObjectItem((cJSON *)input, string_keys[i]);
         if (value && cJSON_IsString(value)) {
@@ -329,8 +358,76 @@ static daima_err_t apply_update_fields(cJSON *item, const cJSON *input, const ch
         if (!evidence) return DAIMA_ERR_NO_MEM;
         cJSON_ReplaceItemInObject(item, "evidence", evidence);
     }
+    cJSON *occurrences = cJSON_GetObjectItem((cJSON *)input, "occurrences");
+    if (occurrences) {
+        if (!cJSON_IsNumber(occurrences)) return DAIMA_ERR_INVALID_ARG;
+        cJSON_ReplaceItemInObject(item, "occurrences", cJSON_CreateNumber(occurrences->valueint));
+    }
     cJSON_ReplaceItemInObject(item, "updated_at", cJSON_CreateString(now));
     return DAIMA_OK;
+}
+
+static cJSON *ensure_evidence_object(cJSON *item)
+{
+    cJSON *evidence = cJSON_GetObjectItem(item, "evidence");
+    if (evidence && cJSON_IsObject(evidence)) {
+        return evidence;
+    }
+    evidence = cJSON_CreateObject();
+    if (!evidence) return NULL;
+    cJSON_ReplaceItemInObject(item, "evidence", evidence);
+    return evidence;
+}
+
+static cJSON *ensure_evidence_array(cJSON *evidence, const char *key)
+{
+    cJSON *arr = cJSON_GetObjectItem(evidence, key);
+    if (arr && cJSON_IsArray(arr)) {
+        return arr;
+    }
+    arr = cJSON_CreateArray();
+    if (!arr) return NULL;
+    cJSON_ReplaceItemInObject(evidence, key, arr);
+    return arr;
+}
+
+static void append_limited_array_items(cJSON *dst, const cJSON *src, int limit)
+{
+    if (!dst || !src || !cJSON_IsArray((cJSON *)dst) || !cJSON_IsArray((cJSON *)src)) {
+        return;
+    }
+    const cJSON *entry = NULL;
+    cJSON_ArrayForEach(entry, (cJSON *)src) {
+        if (cJSON_GetArraySize(dst) >= limit) {
+            break;
+        }
+        cJSON *dup = cJSON_Duplicate((cJSON *)entry, true);
+        if (dup) {
+            cJSON_AddItemToArray(dst, dup);
+        }
+    }
+}
+
+static void merge_evidence(cJSON *existing, const cJSON *incoming)
+{
+    if (!existing || !incoming || !cJSON_IsObject((cJSON *)incoming)) {
+        return;
+    }
+    cJSON *evidence = ensure_evidence_object(existing);
+    if (!evidence) return;
+
+    cJSON *session_in = cJSON_GetObjectItem((cJSON *)incoming, "session_id");
+    if (session_in && cJSON_IsString(session_in) && session_in->valuestring[0]) {
+        cJSON_ReplaceItemInObject(evidence, "session_id", cJSON_CreateString(session_in->valuestring));
+    }
+
+    const char *array_keys[] = {"logs", "files", "commands", "tool_calls"};
+    for (size_t i = 0; i < sizeof(array_keys) / sizeof(array_keys[0]); i++) {
+        cJSON *src_arr = cJSON_GetObjectItem((cJSON *)incoming, array_keys[i]);
+        if (!src_arr || !cJSON_IsArray(src_arr)) continue;
+        cJSON *dst_arr = ensure_evidence_array(evidence, array_keys[i]);
+        append_limited_array_items(dst_arr, src_arr, 10);
+    }
 }
 
 static daima_err_t rewrite_items(const cJSON *items)
@@ -450,5 +547,47 @@ daima_err_t work_item_store_collect(const char *type,
     daima_err_t err = work_item_store_add(input, &item);
     cJSON_Delete(item);
     cJSON_Delete(input);
+    return err;
+}
+
+daima_err_t work_item_store_collect_structured(const cJSON *input, cJSON **out_item)
+{
+    if (!input || !cJSON_IsObject((cJSON *)input) || !out_item) {
+        return DAIMA_ERR_INVALID_ARG;
+    }
+    *out_item = NULL;
+
+    const char *signature = json_string_or_default(input, "error_signature", "");
+    if (!signature[0]) {
+        return work_item_store_add(input, out_item);
+    }
+
+    work_item_list_t list = {0};
+    daima_err_t err = work_item_store_load(&list);
+    if (err != DAIMA_OK) return err;
+
+    cJSON *existing = find_active_by_signature(list.items, signature);
+    if (!existing) {
+        work_item_list_free(&list);
+        return work_item_store_add(input, out_item);
+    }
+
+    char now[32];
+    utc_now(now, sizeof(now));
+    cJSON *occ = cJSON_GetObjectItem(existing, "occurrences");
+    int next_occ = cJSON_IsNumber(occ) ? occ->valueint + 1 : 2;
+    cJSON_ReplaceItemInObject(existing, "occurrences", cJSON_CreateNumber(next_occ));
+    cJSON_ReplaceItemInObject(existing, "last_seen_at", cJSON_CreateString(now));
+    cJSON_ReplaceItemInObject(existing, "updated_at", cJSON_CreateString(now));
+
+    cJSON *incoming_evidence = cJSON_GetObjectItem((cJSON *)input, "evidence");
+    merge_evidence(existing, incoming_evidence);
+
+    err = rewrite_items(list.items);
+    if (err == DAIMA_OK) {
+        *out_item = cJSON_Duplicate(existing, true);
+        if (!*out_item) err = DAIMA_ERR_NO_MEM;
+    }
+    work_item_list_free(&list);
     return err;
 }

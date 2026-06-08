@@ -20,7 +20,7 @@ static void json_set_string(cJSON *obj, const char *key, const char *value)
     cJSON_AddStringToObject(obj, key, value);
 }
 
-static char *patch_cron_add_target(const llm_tool_call_t *call, const daima_msg_t *msg)
+static char *patch_cron_action_add_target(const llm_tool_call_t *call, const daima_msg_t *msg)
 {
     cJSON *root = cJSON_Parse(call->input ? call->input : "{}");
     if (!root || !cJSON_IsObject(root)) {
@@ -66,7 +66,7 @@ static char *patch_cron_add_target(const llm_tool_call_t *call, const daima_msg_
         if (patched) {
             const char *effective_channel = cJSON_GetStringValue(cJSON_GetObjectItem(root, "channel"));
             const char *effective_chat_id = cJSON_GetStringValue(cJSON_GetObjectItem(root, "chat_id"));
-            DAIMA_LOGI(TAG, "Patched cron_add target to %s:%s",
+            DAIMA_LOGI(TAG, "Patched cron add target to %s:%s",
                        effective_channel ? effective_channel : "",
                        effective_chat_id ? effective_chat_id : "");
         }
@@ -80,8 +80,15 @@ char *tool_invocation_context_patch_input(const llm_tool_call_t *call, const dai
     if (!call || !msg) {
         return NULL;
     }
-    if (strcmp(call->name, "cron_add") == 0) {
-        return patch_cron_add_target(call, msg);
+    if (strcmp(call->name, "cron") == 0) {
+        cJSON *root = cJSON_Parse(call->input ? call->input : "{}");
+        const char *action = root ? cJSON_GetStringValue(cJSON_GetObjectItem(root, "action")) : NULL;
+        bool should_patch = action && strcmp(action, "add") == 0;
+        cJSON_Delete(root);
+        if (!should_patch) {
+            return NULL;
+        }
+        return patch_cron_action_add_target(call, msg);
     }
     return NULL;
 }

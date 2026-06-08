@@ -6,6 +6,44 @@
 #include "agent/context_builder.h"
 #include "cJSON.h"
 #include "daima_config.h"
+#include "daima_log.h"
+
+static const char *TAG = "llm_parse";
+
+static void log_tool_call_parse(const char *protocol,
+                                int index,
+                                const char *id,
+                                const char *name,
+                                const char *input_json)
+{
+    char preview[320];
+    const char *state = "value";
+    const char *src = input_json ? input_json : "";
+    size_t n = input_json ? strlen(input_json) : 0;
+    if (!input_json) {
+        state = "null";
+    } else if (strcmp(input_json, "{}") == 0) {
+        state = "empty_object";
+    }
+    size_t shown = n > sizeof(preview) - 1 ? sizeof(preview) - 1 : n;
+    memcpy(preview, src, shown);
+    preview[shown] = '\0';
+    for (size_t i = 0; i < shown; i++) {
+        if (preview[i] == '\n' || preview[i] == '\r' || preview[i] == '\t') {
+            preview[i] = ' ';
+        }
+    }
+    DAIMA_LOGI(TAG,
+               "%s parsed tool_call[%d]: id=%s name=%s input_state=%s input_len=%u input=%s%s",
+               protocol,
+               index,
+               id && id[0] ? id : "<missing>",
+               name && name[0] ? name : "<missing>",
+               state,
+               (unsigned)n,
+               preview[0] ? preview : "<empty>",
+               n > shown ? "..." : "");
+}
 
 static void sanitize_utf8(char *s)
 {
@@ -217,6 +255,11 @@ daima_err_t llm_anthropic_parse_response(const char *json_text, llm_response_t *
                         call->input_len = strlen(call->input);
                     }
                 }
+                log_tool_call_parse("anthropic",
+                                    resp->call_count,
+                                    call->id,
+                                    call->name,
+                                    call->input);
                 resp->call_count++;
                 resp->tool_use = true;
             }

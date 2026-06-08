@@ -15,6 +15,7 @@ const char *daima_path_checkpoint_dir(void);
 const char *daima_path_web_dir(void);
 const char *daima_path_feishu_image_dir(void);
 const char *daima_path_skills_dir(void);
+const char *daima_path_workspace_dir(void);
 
 const char *daima_path_runtime_config_file(void);
 const char *daima_path_bootstrap_file(void);

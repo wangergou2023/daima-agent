@@ -12,9 +12,88 @@ license: Proprietary. LICENSE.txt has complete terms
 |------|-------|
 | Read/analyze content | `python -m markitdown presentation.pptx` |
 | Edit or create from template | Read [editing.md](editing.md) |
-| Create from scratch | Read [pptxgenjs.md](pptxgenjs.md) |
+| Create from scratch | Use `scripts/generate_deck.js` workflow below |
 
 ---
+
+## Daima Tool Rules
+
+For ordinary create-from-scratch requests such as "帮我生成一个ppt,内容是关于三角函数的", do not read the entire `pptxgenjs.md` tutorial and do not write a large custom `make_pptx.js`. Use the fixed generator workflow first:
+
+1. Create a small `deck_spec.json` with `apply_patch`.
+2. Run `node /home/wangergou/.daima/spiffs_data/skills/pptx/scripts/generate_deck.js deck_spec.json output.pptx`.
+3. Verify the `.pptx` exists, has non-zero size, and can be opened as a zip.
+4. Return the generated file path.
+
+Only read `pptxgenjs.md` or write custom JavaScript when you need advanced features not covered here, such as template editing, complex charts, tables, speaker notes, highly custom layouts, or debugging a PptxGenJS API error.
+
+The model is responsible for content structure only. The fixed generator is responsible for layout, PptxGenJS compatibility, visual elements, and writing the `.pptx`.
+
+Recommended `deck_spec.json` shape:
+
+```json
+{
+  "title": "三角函数入门",
+  "topic": "三角函数",
+  "audience": "高中学生",
+  "language": "zh-CN",
+  "slides": [
+    {
+      "title": "三角函数是什么",
+      "body": ["用角度描述直角三角形边长比例", "把几何问题转化为可计算关系"],
+      "visual": "unit-circle"
+    },
+    {
+      "title": "三个基本函数",
+      "body": ["sin = 对边 / 斜边", "cos = 邻边 / 斜边", "tan = 对边 / 邻边"],
+      "visual": "formula-cards"
+    }
+  ]
+}
+```
+
+Include 3-6 content slide entries when the user gives only a topic. The generator automatically expands to at least 5 content slides and caps at 8 content slides. Each generated slide has a title, body text, and a visual/formula/process element.
+
+Run:
+
+```json
+{"command":"node /home/wangergou/.daima/spiffs_data/skills/pptx/scripts/generate_deck.js deck_spec.json output.pptx","timeout":120}
+```
+
+Then verify:
+
+```json
+{"command":"test -s output.pptx && unzip -t output.pptx","timeout":30}
+```
+
+Return the generated path only after verification succeeds.
+
+When creating helper files, use `apply_patch` with `*** Add File` to create real files first.
+
+Before any dependency check, create a script file instead of using inline execution:
+
+```json
+{"patch":"*** Begin Patch\n*** Add File: check_deps.js\n+const mods = ['pptxgenjs', 'sharp', 'react', 'react-dom/server', 'react-icons/fa'];\n+for (const name of mods) {\n+  try { require(name); console.log(`${name}: OK`); }\n+  catch (err) { console.log(`${name}: MISSING`); process.exitCode = 1; }\n+}\n*** End Patch\n"}
+```
+
+Then run:
+
+```json
+{"command":"node check_deps.js","timeout":30}
+```
+
+If dependencies are missing, install them in Daima workspace:
+
+```json
+{"command":"npm install pptxgenjs react react-dom react-icons sharp","timeout":300}
+```
+
+Do not use:
+
+- Calling tools with `{}` or placeholder paths such as `/path/to/file`.
+- `terminal` commands using `node -e`, `node --eval`, `python -c`, `python3 -c`, `perl -e`, or `ruby -e`; Daima blocks inline code execution. Put code in a script file, then run the file.
+- `cd ... && node ...`; prefer `terminal`'s `workdir` field.
+- Project repo paths as dependency install targets unless the user explicitly asks to modify that project. Use Daima workspace for generated PPT helper dependencies.
 
 ## Reading Content
 
@@ -42,9 +121,9 @@ python scripts/office/unpack.py presentation.pptx unpacked/
 
 ## Creating from Scratch
 
-**Read [pptxgenjs.md](pptxgenjs.md) for full details.**
+For ordinary no-template decks, create `deck_spec.json` and run `scripts/generate_deck.js` as described in Daima Tool Rules.
 
-Use when no template or reference presentation is available.
+Read [pptxgenjs.md](pptxgenjs.md) only for advanced custom generation that the fixed generator cannot handle.
 
 ---
 
@@ -227,6 +306,6 @@ pdftoppm -jpeg -r 150 -f N -l N output.pdf slide-fixed
 
 - `pip install "markitdown[pptx]"` - text extraction
 - `pip install Pillow` - thumbnail grids
-- `npm install -g pptxgenjs` - creating from scratch
+- `npm install pptxgenjs react react-dom react-icons sharp` - creating from scratch in Daima workspace
 - LibreOffice (`soffice`) - PDF conversion (auto-configured for sandboxed environments via `scripts/office/soffice.py`)
 - Poppler (`pdftoppm`) - PDF to images

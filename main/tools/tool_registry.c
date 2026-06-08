@@ -90,13 +90,9 @@ daima_err_t tool_registry_init(void)
     register_tool(tool_get_time_definition());
 
     /* 注册文件工具 */
-    register_tool(tool_read_file_definition());
-    register_tool(tool_write_file_definition());
-    register_tool(tool_edit_file_definition());
-    register_tool(tool_patch_definition());
+    register_tool(tool_files_definition());
+    register_tool(tool_apply_patch_definition());
     register_tool(tool_restore_file_definition());
-    register_tool(tool_list_dir_definition());
-    register_tool(tool_search_files_definition());
 
     /* 注册 todo */
     register_tool(tool_todo_definition());
@@ -104,15 +100,12 @@ daima_err_t tool_registry_init(void)
     register_tool(tool_webfetch_definition());
     register_tool(tool_daima_log_definition());
 
-    register_tool(tool_skills_list_definition());
-    register_tool(tool_skill_view_definition());
+    register_tool(tool_skills_definition());
 
     /* 注册 session_search */
     register_tool(tool_session_search_definition());
 
-    register_tool(tool_cron_add_definition());
-    register_tool(tool_cron_list_definition());
-    register_tool(tool_cron_remove_definition());
+    register_tool(tool_cron_definition());
 
     /* 注册 terminal */
     register_tool(tool_terminal_definition());

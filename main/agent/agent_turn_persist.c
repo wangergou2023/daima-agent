@@ -7,6 +7,7 @@
 #include "agent/agent_turn_common.h"
 #include "agent/context_compressor.h"
 #include "agent/learning_review.h"
+#include "app/runtime_config.h"
 #include "bus/message_bus.h"
 #include "memory/session_store.h"
 #include "daima_log.h"
@@ -93,7 +94,7 @@ void agent_turn_save_session(const daima_msg_t *msg, const char *final_text, int
     DAIMA_LOGI(TAG, "Session saved for chat %s (source=%s)",
               msg->chat_id, agent_msg_source_or_default(msg));
     context_compressor_schedule_if_needed(msg->chat_id);
-    if (iteration >= 1) {
+    if (iteration >= 1 && runtime_config_get_learning_review_enabled()) {
         learning_review_schedule(msg->chat_id);
     }
 }

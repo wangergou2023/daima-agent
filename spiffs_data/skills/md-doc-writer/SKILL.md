@@ -23,7 +23,7 @@ description: 当用户要求编写 README、中文 Markdown 文档、架构说�
 
 ## 工具与路径
 
-- 常用工具：`terminal`、`read_file`、`write_file`。
+- 常用工具：`terminal`、`files action=read`、`apply_patch`。
 - 常见输出：`README.md`、`docs/*.md`、迁移说明或调试说明。
 
 ## 输出要求

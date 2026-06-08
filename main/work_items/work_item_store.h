@@ -24,3 +24,4 @@ daima_err_t work_item_store_add(const cJSON *input, cJSON **out_item);
 daima_err_t work_item_store_update(const char *id, const cJSON *input, cJSON **out_item);
 daima_err_t work_item_store_batch_update(const cJSON *ids, const char *status, int *out_count);
 daima_err_t work_item_store_collect(const char *type, const char *source, const char *title, const char *description);
+daima_err_t work_item_store_collect_structured(const cJSON *input, cJSON **out_item);

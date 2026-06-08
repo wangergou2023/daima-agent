@@ -1,5 +1,7 @@
 # Daima 项目代码分析
 
+> 状态：当前实现说明。适用读者：需要理解后端框架、模块边界、主流程的开发者。相关代码：`main/`、`spiffs_data/`、`CMakeLists.txt`
+
 > 更新时间：基于当前工作树重新整理。
 > 这份文档重点描述当前代码结构、主流程、模块边界，以及最近几轮重构后的实际状态。
 
@@ -89,17 +91,16 @@ main/
 │   ├── tool_registry.c             # 工具注册表
 │   ├── tool_runtime.c              # 工具调用运行时适配
 │   ├── tool_files.c                # 文件工具定义（schema / definition）
-│   ├── tool_file_read.c            # read_file
-│   ├── tool_file_write.c           # write_file
-│   ├── tool_file_query.c           # list_dir / search_files
-│   ├── tool_file_mutations.c       # edit_file / patch / restore_file
+│   ├── tool_file_read.c            # files action=read
+│   ├── tool_file_query.c           # files action=list/search
+│   ├── tool_file_mutations.c       # apply_patch / restore_file
 │   ├── tool_file_paths.c           # 文件路径约束与解析
 │   ├── tool_file_checkpoint.c      # 文件 checkpoint
 │   ├── tool_system.c               # terminal 工具定义
 │   ├── tool_terminal_exec.c        # 本地 shell 执行
-│   ├── tool_cron.c                 # cron_add/list/remove
+│   ├── tool_cron.c                 # cron action=add/list/remove
 │   ├── tool_todo.c                 # todo 工具
-│   ├── tool_skills.c               # skills_list / skill_view
+│   ├── tool_skills.c               # skills action=list/view
 │   ├── tool_session_search.c       # session_search 入口
 │   ├── tool_session_search_scan.c  # session_search 扫描
 │   └── tool_session_search_render.c# session_search 渲染
@@ -223,13 +224,13 @@ channel_router / channel_runtime
 运行时数据目录由 `main/app/daima_paths.c` 统一解析，优先级是：
 
 1. `DAIMA_HOME`
-2. 可执行文件附近是否存在 `spiffs_data/`
-3. 默认回退到 `~/.daima`
+2. `$HOME/.daima`
+3. 无法取得 `HOME` 时，才兜底检查可执行文件附近是否存在 `spiffs_data/`
 
 这意味着：
 
-- 从源码目录外直接运行 `build-host/daima` 也能找到仓库里的 `spiffs_data`
-- 安装到 `~/.daima/bin/daima` 后，可以从任意目录直接执行
+- 默认从任意目录运行 `daima` 都会使用同一份 `~/.daima/spiffs_data`
+- 开发时如果需要临时使用仓库内数据目录，应显式设置 `DAIMA_HOME=/path/to/repo`
 - Web 资源、sessions、memory、config、skills、cron 等路径都不再依赖 cwd
 
 ### 5.2 运行时配置：统一走 `config.json`
@@ -429,41 +430,37 @@ facts 的定位不是聊天全文摘要，而是：
 - HTTP POST、鉴权 header、payload 日志被下沉到了 `llm_http_client_host.c`
 - 通用字符串与 base64 helper 已外提，避免 LLM / Feishu / Vision 各写一份
 
-## 9. 工具系统：当前 17 个工具
+## 9. 工具系统：当前 13 个普通通道工具
 
 工具注册表在 `main/tools/tool_registry.c`。
 
-当前共注册 17 个工具：
+普通通道当前共注册 13 个工具；Vector/voice 通道另行暴露 `robot_*` 控制工具：
 
 | 工具 | 作用 |
 | :-- | :-- |
 | `weather` | 查询天气 |
 | `get_current_time` | 获取当前时间 |
-| `read_file` | 分页读取文件 |
-| `write_file` | 整文件覆盖写入 |
-| `edit_file` | 小范围查找替换 |
-| `patch` | 多步精确修改 |
+| `files` | 统一文件查看：`action=read/list/search` |
+| `apply_patch` | Codex 风格补丁，用于新建、修改、删除文件 |
 | `restore_file` | 从 checkpoint 恢复文件 |
-| `list_dir` | 列目录 |
-| `search_files` | 搜索文件名 / 内容 |
 | `todo` | 待办列表 |
-| `skills_list` | 查看技能列表 |
-| `skill_view` | 查看技能内容 |
+| `work_item` | 结构化事项收集 |
+| `webfetch` | 获取网页内容 |
+| `daima_log` | 读取 Daima 运行日志 |
+| `skills` | 技能浏览：`action=list/view` |
 | `session_search` | 搜索历史会话 / facts / summary |
-| `cron_add` | 添加定时任务 |
-| `cron_list` | 列出定时任务 |
-| `cron_remove` | 删除定时任务 |
+| `cron` | 定时任务管理：`action=add/list/remove` |
 | `terminal` | 执行本地命令 |
 
-> 当前注册表里实际就是 17 个工具定义，`terminal` 已包含在内。
+> `restore_file` 保持独立，因为它是失败回滚能力，不是常规修改入口。
 
 ### 9.1 文件工具的现状
 
 文件工具最近做了较明显的瘦身：
 
 - `tool_files.c` 只保留 schema / definition
-- `tool_file_read.c`、`tool_file_write.c`、`tool_file_query.c` 分担执行逻辑
-- `tool_file_mutations.c` 负责 edit / patch / restore
+- `tool_file_read.c`、`tool_file_query.c` 分担读取和查询逻辑
+- `tool_file_mutations.c` 负责 apply_patch / restore
 - `tool_file_paths.c` 负责路径安全约束
 - `tool_file_checkpoint.c` 负责自动 checkpoint
 
@@ -478,9 +475,12 @@ facts 的定位不是聊天全文摘要，而是：
 - 支持输出捕获
 - 支持 sudo 场景
 - 支持 Web 侧密码交互
+- 支持 Web 顶栏切换 Plan / Build 安全模式
 - 返回结构化结果，便于 LLM 二次判断
 
 这已经不是简单 `system()`，而是接近一个简化版 terminal runtime。
+
+Terminal 的安全策略、运行时配置和 Web API 见：[Terminal 安全模式](../features/terminal-security-modes.md)。
 
 ### 9.3 session_search
 

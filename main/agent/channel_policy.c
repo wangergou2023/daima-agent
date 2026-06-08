@@ -75,7 +75,7 @@ static void append_feishu_policy(char *prompt, size_t size, size_t off)
         "\n### 通道附加要求\n"
         "- 当前输出会被包装成固定的飞书 JSON 2.0 card；你只需要写好正文 markdown，不要假设代码会替你智能挑标题或配色。\n"
         "- 优先短段落、短列表、清晰小节；避免超长开场白、过宽表格和大段代码。\n"
-        "- 若任务明显需要飞书友好的排版风格，可先用 `skill_view` 读取 `channels/feishu/feishu-card-writer`。\n");
+        "- 若任务明显需要飞书友好的排版风格，可先用 `skills` 的 `action=view` 读取 `channels/feishu/feishu-card-writer`。\n");
 
     if (n < 0 || (size_t)n >= (size - off)) {
         prompt[size - 1] = '\0';

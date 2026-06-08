@@ -37,6 +37,7 @@ static void ensure_spiffs_layout(void)
     daima_fs_ensure_dir(daima_path_web_dir());
     daima_fs_ensure_dir(daima_path_feishu_image_dir());
     daima_fs_ensure_dir(daima_path_skills_dir());
+    daima_fs_ensure_dir(daima_path_workspace_dir());
 }
 
 void daima_bootstrap_prepare_runtime(void)

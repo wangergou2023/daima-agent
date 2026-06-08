@@ -3,6 +3,10 @@
 #include "tools/tool_system.h"
 #include "tools/tool_terminal_exec.h"
 
+#include "app/daima_fs.h"
+#include "app/daima_paths.h"
+#include "app/runtime_config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -21,14 +25,14 @@ static const char *TAG = "tool_terminal";
 
 static const daima_tool_t s_terminal_tool = {
     .name = "terminal",
-    .description = "执行本地 shell 命令并返回结构化结果。适合安装软件、运行构建、包管理、git、查看进程。返回 JSON 字符串，包含 output、exit_code、timed_out、workdir。对于 apt-get/apt/yum/dnf/pip install/npm install 等安装、更新命令，请显式设置更长 timeout（如 300 或 600 秒），避免默认 120 秒超时。",
+    .description = "执行本地 shell 命令并返回结构化结果。默认 workdir 是 Daima 自己的 workspace，不是启动目录；临时脚本、生成文件和 npm install 等依赖安装默认应留在该 workspace。只有需要操作明确项目时才传入项目 workdir。返回 JSON 字符串，包含 output、exit_code、timed_out、workdir。对于 apt-get/apt/yum/dnf/pip install/npm install 等安装、更新命令，请显式设置更长 timeout（如 300 或 600 秒），避免默认 120 秒超时。",
     .input_schema_json =
         "{\"type\":\"object\","
         "\"properties\":{"
         "\"command\":{\"type\":\"string\",\"description\":\"要执行的 shell 命令\"},"
         "\"cmd\":{\"type\":\"string\",\"description\":\"兼容字段（同 command）\"},"
         "\"timeout\":{\"type\":\"integer\",\"description\":\"超时秒数，默认 120。安装软件、更新包索引、构建大项目时建议设置为 300 或 600\"},"
-        "\"workdir\":{\"type\":\"string\",\"description\":\"可选工作目录；为空则使用进程当前目录\"}"
+        "\"workdir\":{\"type\":\"string\",\"description\":\"可选工作目录；为空则使用 Daima workspace。只有明确要操作某个项目时才传项目路径\"}"
         "},"
         "\"required\":[\"command\"]}",
     .execute = tool_terminal_execute,
@@ -69,7 +73,7 @@ static bool command_contains_sensitive_path(const char *command)
     return command_contains_any(command, sensitive, sizeof(sensitive) / sizeof(sensitive[0]));
 }
 
-static bool command_is_dangerous(const char *command)
+static bool command_is_destructive(const char *command)
 {
     if (!command) return false;
     static const char *const dangerous[] = {
@@ -81,11 +85,27 @@ static bool command_is_dangerous(const char *command)
         ":(){",
         "chmod -R 777 /",
         "chown -R ",
+    };
+    return command_contains_any(command, dangerous, sizeof(dangerous) / sizeof(dangerous[0]));
+}
+
+static bool command_uses_blocked_network_tool(const char *command)
+{
+    if (!command) return false;
+    static const char *const network_tools[] = {
         "nc ",
         "ncat ",
         "telnet ",
         "ssh ",
         "scp ",
+    };
+    return command_contains_any(command, network_tools, sizeof(network_tools) / sizeof(network_tools[0]));
+}
+
+static bool command_uses_inline_code(const char *command)
+{
+    if (!command) return false;
+    static const char *const inline_code[] = {
         "node -e",
         "node --eval",
         "python -c",
@@ -93,9 +113,12 @@ static bool command_is_dangerous(const char *command)
         "perl -e",
         "ruby -e",
     };
-    if (command_contains_any(command, dangerous, sizeof(dangerous) / sizeof(dangerous[0]))) {
-        return true;
-    }
+    return command_contains_any(command, inline_code, sizeof(inline_code) / sizeof(inline_code[0]));
+}
+
+static bool command_pipes_remote_shell(const char *command)
+{
+    if (!command) return false;
     return (strstr(command, "curl ") || strstr(command, "wget ")) &&
            (strstr(command, "| sh") || strstr(command, "| bash") || strstr(command, "| sudo sh") || strstr(command, "| sudo bash"));
 }
@@ -106,16 +129,32 @@ static bool terminal_command_allowed(const char *command, const char **reason)
         if (reason) *reason = "missing_command";
         return false;
     }
+
+    const char *level = runtime_config_get_terminal_security_level();
+    bool build_mode = strcmp(level, "build") == 0;
+
+    if (command_is_destructive(command)) {
+        if (reason) *reason = "dangerous_command_blocked";
+        return false;
+    }
     if (command_contains_sensitive_path(command)) {
         if (reason) *reason = "sensitive_path_blocked";
         return false;
     }
-    if (command_is_dangerous(command)) {
-        if (reason) *reason = "dangerous_command_blocked";
+    if (command_uses_blocked_network_tool(command)) {
+        if (reason) *reason = "network_command_blocked";
         return false;
     }
-    if (strstr(command, "$(") || strchr(command, '`')) {
+    if (!build_mode && command_uses_inline_code(command)) {
+        if (reason) *reason = "inline_code_blocked";
+        return false;
+    }
+    if (!build_mode && (strstr(command, "$(") || strchr(command, '`'))) {
         if (reason) *reason = "shell_expansion_blocked";
+        return false;
+    }
+    if (command_pipes_remote_shell(command)) {
+        if (reason) *reason = "remote_shell_pipe_blocked";
         return false;
     }
     return true;
@@ -136,8 +175,26 @@ static void write_blocked_terminal_result(char *output,
     };
     char *json = terminal_json_result_string(command, workdir ? workdir : "", &blocked, reason);
     if (json) {
-        strncpy(output, json, output_size - 1);
-        output[output_size - 1] = '\0';
+        cJSON *root = cJSON_Parse(json);
+        if (root) {
+            cJSON_AddStringToObject(
+                root,
+                "message",
+                "命令被安全策略拦截。下一步不要使用 node -e/python -c/内联代码；请先用 apply_patch 新建真实脚本文件，再用 terminal 执行 {\"command\":\"node script.js\"}。");
+            char *with_message = cJSON_PrintUnformatted(root);
+            if (with_message) {
+                strncpy(output, with_message, output_size - 1);
+                output[output_size - 1] = '\0';
+                free(with_message);
+            } else {
+                strncpy(output, json, output_size - 1);
+                output[output_size - 1] = '\0';
+            }
+            cJSON_Delete(root);
+        } else {
+            strncpy(output, json, output_size - 1);
+            output[output_size - 1] = '\0';
+        }
         free(json);
     } else {
         snprintf(output, output_size, "{\"error\":\"%s\"}", reason ? reason : "command_blocked");
@@ -161,6 +218,7 @@ daima_err_t tool_terminal_execute(const char *input_json, char *output, size_t o
         command = cJSON_GetStringValue(cJSON_GetObjectItem(root, "cmd"));
     }
     const char *workdir = cJSON_GetStringValue(cJSON_GetObjectItem(root, "workdir"));
+    const char *effective_workdir = (workdir && workdir[0]) ? workdir : daima_path_workspace_dir();
     const char *inline_sudo_password = cJSON_GetStringValue(cJSON_GetObjectItem(root, "sudo_password"));
     int timeout_seconds = json_get_int_or_default(root, "timeout", TERMINAL_DEFAULT_TIMEOUT);
 
@@ -179,7 +237,7 @@ daima_err_t tool_terminal_execute(const char *input_json, char *output, size_t o
         write_blocked_terminal_result(output,
                                       output_size,
                                       command,
-                                      workdir,
+                                      effective_workdir,
                                       blocked_reason ? blocked_reason : "command_blocked");
         DAIMA_LOGW(TAG, "terminal command blocked: reason=%s cmd=%.120s",
                   blocked_reason ? blocked_reason : "command_blocked", command);
@@ -200,7 +258,7 @@ daima_err_t tool_terminal_execute(const char *input_json, char *output, size_t o
             snprintf(request_id, sizeof(request_id), "sudo_%ld_%d", (long)time(NULL), (int)getpid());
             char message[192];
             snprintf(message, sizeof(message), "command uses sudo and needs a password; set %s or provide it interactively", SUDO_ENV_NAME);
-            char *json = terminal_json_status_string(command, workdir ? workdir : "", "sudo_password_required", message, request_id);
+            char *json = terminal_json_status_string(command, effective_workdir, "sudo_password_required", message, request_id);
             if (json) {
                 strncpy(output, json, output_size - 1);
                 output[output_size - 1] = '\0';
@@ -231,9 +289,10 @@ daima_err_t tool_terminal_execute(const char *input_json, char *output, size_t o
 
     terminal_exec_result_t result;
     memset(&result, 0, sizeof(result));
+    daima_fs_ensure_dir(effective_workdir);
     daima_err_t err = terminal_execute_local_shell(
         effective_command ? effective_command : command,
-        workdir,
+        effective_workdir,
         timeout_seconds,
         stdin_payload ? stdin_payload : NULL,
         output_size > 4096 ? (output_size / 2) : output_size,
@@ -241,10 +300,10 @@ daima_err_t tool_terminal_execute(const char *input_json, char *output, size_t o
 
     char *json = NULL;
     if (err == DAIMA_OK) {
-        json = terminal_json_result_string(command, workdir ? workdir : "", &result, "");
+        json = terminal_json_result_string(command, effective_workdir, &result, "");
     } else {
         terminal_exec_result_t empty = { .exit_code = -1, .timed_out = false, .truncated = false, .signal_num = 0, .output = "" };
-        json = terminal_json_result_string(command, workdir ? workdir : "", &empty, "execution_failed");
+        json = terminal_json_result_string(command, effective_workdir, &empty, "execution_failed");
     }
 
     if (json) {
@@ -263,7 +322,7 @@ daima_err_t tool_terminal_execute(const char *input_json, char *output, size_t o
             command,
             result.exit_code,
             timeout_seconds,
-            (workdir && workdir[0]) ? workdir : "(default)");
+            effective_workdir);
     }
 
     free(stdin_payload);

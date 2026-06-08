@@ -16,6 +16,7 @@ static const char *TAG = "runtime_config";
 static const char *DEFAULT_TIMEZONE = "CST-8";
 static const char *DEFAULT_LLM_MODEL = "kimi-k2.5";
 static const char *DEFAULT_WEB_PET_PACKAGE_ID = "guga.codex-pet";
+static const char *DEFAULT_TERMINAL_SECURITY_LEVEL = "build";
 
 enum {
     DEFAULT_WEB_PORT = 1234,
@@ -32,6 +33,7 @@ enum {
     DEFAULT_WAKE_GPIO_ACTIVE_LOW = 1,
     DEFAULT_WAKE_GPIO_POLL_MS = 20,
     DEFAULT_WAKE_GPIO_DEBOUNCE_MS = 200,
+    DEFAULT_LLM_REQUEST_TIMEOUT_MS = 300 * 1000,
 };
 
 static runtime_config_state_t s_cfg;
@@ -43,6 +45,7 @@ static void reset_defaults(void)
     s_cfg.session_max_msgs = DAIMA_SESSION_MAX_MSGS;
     s_cfg.compress_trigger_msgs = DEFAULT_COMPRESS_TRIGGER_MSGS;
     s_cfg.compress_keep_msgs = DEFAULT_COMPRESS_KEEP_MSGS;
+    s_cfg.learning_review_enabled = false;
     s_cfg.cron_check_interval_ms = DEFAULT_CRON_CHECK_INTERVAL_MS;
     s_cfg.heartbeat_interval_ms = DEFAULT_HEARTBEAT_INTERVAL_MS;
     s_cfg.audio_ai_vol = DEFAULT_AUDIO_AI_VOL;
@@ -55,6 +58,8 @@ static void reset_defaults(void)
     s_cfg.wake_gpio_poll_ms = DEFAULT_WAKE_GPIO_POLL_MS;
     s_cfg.wake_gpio_debounce_ms = DEFAULT_WAKE_GPIO_DEBOUNCE_MS;
     snprintf(s_cfg.timezone, sizeof(s_cfg.timezone), "%s", DEFAULT_TIMEZONE);
+    snprintf(s_cfg.terminal_security_level, sizeof(s_cfg.terminal_security_level),
+             "%s", DEFAULT_TERMINAL_SECURITY_LEVEL);
     snprintf(s_cfg.web_default_pet_package_id, sizeof(s_cfg.web_default_pet_package_id),
              "%s", DEFAULT_WEB_PET_PACKAGE_ID);
     snprintf(s_cfg.provider_model, sizeof(s_cfg.provider_model), "%s", DEFAULT_LLM_MODEL);
@@ -209,6 +214,96 @@ const char *runtime_config_get_web_default_pet_package_id(void)
         : DEFAULT_WEB_PET_PACKAGE_ID;
 }
 
+static bool terminal_security_level_valid(const char *level)
+{
+    return level &&
+           (strcmp(level, "plan") == 0 ||
+            strcmp(level, "build") == 0);
+}
+
+const char *runtime_config_get_terminal_security_level(void)
+{
+    return terminal_security_level_valid(s_cfg.terminal_security_level)
+        ? s_cfg.terminal_security_level
+        : DEFAULT_TERMINAL_SECURITY_LEVEL;
+}
+
+static daima_err_t write_config_json_atomic(cJSON *root)
+{
+    if (!root) {
+        return DAIMA_ERR_INVALID_ARG;
+    }
+
+    char *text = cJSON_Print(root);
+    if (!text) {
+        return DAIMA_ERR_NO_MEM;
+    }
+
+    char tmp_path[1024];
+    snprintf(tmp_path, sizeof(tmp_path), "%s.tmp", daima_path_runtime_config_file());
+    FILE *f = fopen(tmp_path, "wb");
+    if (!f) {
+        free(text);
+        return DAIMA_FAIL;
+    }
+
+    size_t len = strlen(text);
+    bool ok = fwrite(text, 1, len, f) == len && fwrite("\n", 1, 1, f) == 1;
+    if (fclose(f) != 0) {
+        ok = false;
+    }
+    free(text);
+    if (!ok) {
+        unlink(tmp_path);
+        return DAIMA_FAIL;
+    }
+    if (rename(tmp_path, daima_path_runtime_config_file()) != 0) {
+        unlink(tmp_path);
+        return DAIMA_FAIL;
+    }
+    return DAIMA_OK;
+}
+
+daima_err_t runtime_config_set_terminal_security_level(const char *level)
+{
+    if (!terminal_security_level_valid(level)) {
+        return DAIMA_ERR_INVALID_ARG;
+    }
+
+    char *text = read_config_text();
+    cJSON *root = text ? cJSON_Parse(text) : NULL;
+    free(text);
+    if (!root || !cJSON_IsObject(root)) {
+        cJSON_Delete(root);
+        root = cJSON_CreateObject();
+    }
+    if (!root) {
+        return DAIMA_ERR_NO_MEM;
+    }
+
+    cJSON *common = cJSON_GetObjectItemCaseSensitive(root, "common");
+    if (!common || !cJSON_IsObject(common)) {
+        cJSON_DeleteItemFromObjectCaseSensitive(root, "common");
+        common = cJSON_AddObjectToObject(root, "common");
+    }
+    if (!common) {
+        cJSON_Delete(root);
+        return DAIMA_ERR_NO_MEM;
+    }
+    cJSON_DeleteItemFromObjectCaseSensitive(common, "terminal_security_level");
+    cJSON_AddStringToObject(common, "terminal_security_level", level);
+
+    daima_err_t err = write_config_json_atomic(root);
+    cJSON_Delete(root);
+    if (err != DAIMA_OK) {
+        return err;
+    }
+
+    snprintf(s_cfg.terminal_security_level, sizeof(s_cfg.terminal_security_level), "%s", level);
+    DAIMA_LOGI(TAG, "Terminal security level set to %s", level);
+    return DAIMA_OK;
+}
+
 const char *runtime_config_get_active_provider(void)
 {
     return s_cfg.active_provider;
@@ -250,6 +345,25 @@ int runtime_config_get_context_limit_tokens(void)
         return s_cfg.provider_context_limit_tokens;
     }
     return s_cfg.common_context_limit_tokens;
+}
+
+int runtime_config_get_max_output_tokens(void)
+{
+    if (s_cfg.provider_max_output_tokens > 0) {
+        return s_cfg.provider_max_output_tokens;
+    }
+    if (s_cfg.common_max_output_tokens > 0) {
+        return s_cfg.common_max_output_tokens;
+    }
+    return DAIMA_LLM_MAX_TOKENS;
+}
+
+int runtime_config_get_request_timeout_ms(void)
+{
+    if (s_cfg.provider_request_timeout_ms > 0) {
+        return s_cfg.provider_request_timeout_ms;
+    }
+    return DEFAULT_LLM_REQUEST_TIMEOUT_MS;
 }
 
 const char *runtime_config_get_feishu_app_id(void)
@@ -305,6 +419,11 @@ int runtime_config_get_compress_trigger_msgs(void)
 int runtime_config_get_compress_keep_msgs(void)
 {
     return s_cfg.compress_keep_msgs;
+}
+
+bool runtime_config_get_learning_review_enabled(void)
+{
+    return s_cfg.learning_review_enabled;
 }
 
 int runtime_config_get_cron_check_interval_ms(void)

@@ -15,12 +15,12 @@ static const char *tool_display_icon(const char *tool_name)
 {
     if (!tool_name) return "⚙";
     if (strcmp(tool_name, "terminal") == 0) return "💻";
-    if (strcmp(tool_name, "read_file") == 0) return "📖";
-    if (strcmp(tool_name, "write_file") == 0 || strcmp(tool_name, "edit_file") == 0) return "✏️";
-    if (strcmp(tool_name, "list_dir") == 0) return "🗂️";
+    if (strcmp(tool_name, "files") == 0) return "📖";
+    if (strcmp(tool_name, "apply_patch") == 0) return "✏️";
     if (strcmp(tool_name, "weather") == 0) return "🌤️";
     if (strcmp(tool_name, "get_current_time") == 0) return "🕒";
-    if (strcmp(tool_name, "cron_add") == 0 || strcmp(tool_name, "cron_list") == 0 || strcmp(tool_name, "cron_remove") == 0) return "⏰";
+    if (strcmp(tool_name, "cron") == 0) return "⏰";
+    if (strcmp(tool_name, "skills") == 0) return "🧩";
     return "⚙";
 }
 
@@ -83,9 +83,7 @@ static bool tool_activity_should_send_feishu(const daima_tool_activity_event_t *
     if (!event->ok) {
         return true;
     }
-    if (strcmp(event->tool_name, "cron_add") == 0 ||
-        strcmp(event->tool_name, "cron_list") == 0 ||
-        strcmp(event->tool_name, "cron_remove") == 0) {
+    if (strcmp(event->tool_name, "cron") == 0) {
         return true;
     }
     if (strcmp(event->tool_name, "terminal") == 0) {
@@ -138,7 +136,14 @@ static void format_feishu_tool_activity_line(const daima_tool_activity_event_t *
         return;
     }
 
-    if (event->tool_name && strcmp(event->tool_name, "cron_add") == 0) {
+    if (event->tool_name && strcmp(event->tool_name, "cron") == 0) {
+        cJSON *root = cJSON_Parse(event->tool_input ? event->tool_input : "{}");
+        const char *action = root ? cJSON_GetStringValue(cJSON_GetObjectItem(root, "action")) : NULL;
+        bool is_add = action && strcmp(action, "add") == 0;
+        cJSON_Delete(root);
+        if (!is_add) {
+            goto generic_success;
+        }
         if (event->target && event->target[0]) {
             snprintf(buf, size, "%s 已设置提醒：%s", icon, event->target);
         } else {
@@ -147,6 +152,7 @@ static void format_feishu_tool_activity_line(const daima_tool_activity_event_t *
         return;
     }
 
+generic_success:
     if (event->target && event->target[0]) {
         snprintf(buf, size, "%s %s：%s（%.1fs）", icon, name, event->target, seconds);
     } else {

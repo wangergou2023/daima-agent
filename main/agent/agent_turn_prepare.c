@@ -138,7 +138,7 @@ static void append_turn_context_prompt(char *prompt, size_t size, const daima_ms
         "- 来源 chat_id: %s\n"
         "- 消息来源类型: %s\n"
         "- 当前消息性质: %s\n"
-        "- 若本轮使用 cron_add 发回当前会话，请设置 channel 与 chat_id 为来源值。\n",
+        "- 若本轮使用 cron action=add 发回当前会话，请设置 channel 与 chat_id 为来源值。\n",
         msg->channel[0] ? msg->channel : "(unknown)",
         msg->chat_id[0] ? msg->chat_id : "(empty)",
         source,

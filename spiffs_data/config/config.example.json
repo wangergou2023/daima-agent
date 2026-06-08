@@ -3,9 +3,12 @@
     "timezone": "CST-8",
     "context_limit_tokens": 0,
     "session_max_msgs": 96,
+    "max_output_tokens": 4096,
     "compress_trigger_msgs": 12,
     "compress_keep_msgs": 6,
+    "learning_review_enabled": false,
     "web_port": 1234,
+    "terminal_security_level": "build",
     "cron_check_interval_ms": 60000,
     "heartbeat_interval_ms": 1800000
   },
@@ -21,7 +24,9 @@
       "api_mode": "chat_completions",
       "context_limit_tokens": 256000,
       "thinking_mode": "omit",
-      "needs_reasoning_content": true
+      "needs_reasoning_content": true,
+      "max_output_tokens": 8192,
+      "request_timeout_ms": 300000
     },
     "ingenic_local": {
       "api_key": "<your-local-proxy-api-key>",
@@ -30,7 +35,9 @@
       "api_mode": "chat_completions",
       "context_limit_tokens": 128000,
       "thinking_mode": "omit",
-      "needs_reasoning_content": true
+      "needs_reasoning_content": true,
+      "max_output_tokens": 16384,
+      "request_timeout_ms": 300000
     },
     "ingenic_local_deepseek": {
       "api_key": "<your-local-proxy-api-key>",
@@ -39,7 +46,9 @@
       "api_mode": "anthropic_messages",
       "context_limit_tokens": 128000,
       "thinking_mode": "omit",
-      "needs_reasoning_content": false
+      "needs_reasoning_content": false,
+      "max_output_tokens": 16384,
+      "request_timeout_ms": 300000
     },
     "deepseek_anthropic": {
       "api_key": "<your-deepseek-api-key>",
@@ -48,7 +57,9 @@
       "api_mode": "anthropic_messages",
       "context_limit_tokens": 128000,
       "thinking_mode": "omit",
-      "needs_reasoning_content": false
+      "needs_reasoning_content": false,
+      "max_output_tokens": 16384,
+      "request_timeout_ms": 300000
     }
   },
   "feishu": {

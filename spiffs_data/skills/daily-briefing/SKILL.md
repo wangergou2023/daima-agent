@@ -19,13 +19,13 @@ description: 当用户要求每日简报、早报、今日安排、提醒汇总�
 2. 读取 `/spiffs/memory/MEMORY.md` 获取用户偏好与稳定上下文。
 3. 读取今日笔记；不存在则跳过。
 4. 若用户资料或上下文中有地点，用 `weather` 获取天气。
-5. 调用 `cron_list` 获取定时任务。
+5. 调用 `cron action=list` 获取定时任务。
 6. 如果涉及项目进展，读取 `/spiffs/memory/PROGRESS.md` 并按 `progress-tracker` 口径整理。
 7. 汇总成 5-10 条以内的简报。
 
 ## 工具与路径
 
-- 常用工具：`get_current_time`、`read_file`、`weather`、`cron_list`。
+- 常用工具：`get_current_time`、`files action=read`、`weather`、`cron action=list`。
 - 常用路径：`/spiffs/memory/MEMORY.md`、`/spiffs/memory/PROGRESS.md`。
 
 ## 输出要求

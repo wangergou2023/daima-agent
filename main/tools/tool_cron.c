@@ -123,12 +123,13 @@ static void format_weekdays(uint8_t weekdays, char *buf, size_t buf_size)
     if (off == 0) snprintf(buf, buf_size, "-");
 }
 
-static const daima_tool_t s_cron_add_tool = {
-    .name = "cron_add",
-    .description = "创建周期、每日/每周或一次性任务。任务触发时会注入消息并触发一次 agent 处理。",
+static const daima_tool_t s_cron_tool = {
+    .name = "cron",
+    .description = "统一定时任务工具。action=add 创建周期、每日/每周或一次性任务；action=list 列出任务；action=remove 按 ID 删除任务。",
     .input_schema_json =
         "{\"type\":\"object\","
         "\"properties\":{"
+        "\"action\":{\"type\":\"string\",\"description\":\"add、list 或 remove\"},"
         "\"name\":{\"type\":\"string\",\"description\":\"任务名称\"},"
         "\"schedule_type\":{\"type\":\"string\",\"description\":\"'every' 固定间隔；'at' 指定 unix 时间戳；'daily'/'weekly' 按本地时钟触发\"},"
         "\"interval_s\":{\"type\":\"integer\",\"description\":\"间隔秒数（'every' 必填）\"},"
@@ -138,35 +139,16 @@ static const daima_tool_t s_cron_add_tool = {
         "\"weekdays\":{\"description\":\"星期列表或位图，0=Sun..6=Sat；工作日用 [1,2,3,4,5]\"},"
         "\"message\":{\"type\":\"string\",\"description\":\"任务触发时注入的消息\"},"
         "\"channel\":{\"type\":\"string\",\"description\":\"可选回复通道（'websocket' / 'feishu' / 'system'）。未填时优先使用当前通道\"},"
-        "\"chat_id\":{\"type\":\"string\",\"description\":\"可选回复 chat_id。websocket 未填时使用当前会话；feishu 未填时优先使用配置或最近飞书会话\"}"
+        "\"chat_id\":{\"type\":\"string\",\"description\":\"可选回复 chat_id。websocket 未填时使用当前会话；feishu 未填时优先使用配置或最近飞书会话\"},"
+        "\"job_id\":{\"type\":\"string\",\"description\":\"remove 时要删除的 8 位任务 ID\"}"
         "},"
-        "\"required\":[\"name\",\"schedule_type\",\"message\"]}",
-    .execute = tool_cron_add_execute,
+        "\"required\":[\"action\"]}",
+    .execute = tool_cron_execute,
 };
 
-static const daima_tool_t s_cron_list_tool = {
-    .name = "cron_list",
-    .description = "列出所有定时任务及其状态、计划与 ID。",
-    .input_schema_json =
-        "{\"type\":\"object\","
-        "\"properties\":{},"
-        "\"required\":[]}",
-    .execute = tool_cron_list_execute,
-};
+/* ── action=add ───────────────────────────────────────────────── */
 
-static const daima_tool_t s_cron_remove_tool = {
-    .name = "cron_remove",
-    .description = "按 ID 删除定时任务。",
-    .input_schema_json =
-        "{\"type\":\"object\","
-        "\"properties\":{\"job_id\":{\"type\":\"string\",\"description\":\"要删除的 8 位任务 ID\"}},"
-        "\"required\":[\"job_id\"]}",
-    .execute = tool_cron_remove_execute,
-};
-
-/* ── cron_add ─────────────────────────────────────────────────── */
-
-daima_err_t tool_cron_add_execute(const char *input_json, char *output, size_t output_size)
+static daima_err_t cron_action_add_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *root = cJSON_Parse(input_json);
     if (!root) {
@@ -212,14 +194,14 @@ daima_err_t tool_cron_add_execute(const char *input_json, char *output, size_t o
     if (strcmp(job.channel, DAIMA_CHAN_WEBSOCKET) == 0 &&
         (job.chat_id[0] == '\0' || strcmp(job.chat_id, "cron") == 0)) {
         snprintf(output, output_size,
-                 "错误：cron_add 使用 channel='websocket' 时必须提供有效 chat_id");
+                 "错误：cron action=add 使用 channel='websocket' 时必须提供有效 chat_id");
         cJSON_Delete(root);
         return DAIMA_ERR_INVALID_ARG;
     }
     if (strcmp(job.channel, DAIMA_CHAN_FEISHU) == 0 &&
         (job.chat_id[0] == '\0' || strcmp(job.chat_id, "cron") == 0)) {
         snprintf(output, output_size,
-                 "错误：cron_add 使用 channel='feishu' 时必须提供有效 chat_id，或在 config.json 的 feishu.default_chat_id 中配置默认接收人/群");
+                 "错误：cron action=add 使用 channel='feishu' 时必须提供有效 chat_id，或在 config.json 的 feishu.default_chat_id 中配置默认接收人/群");
         cJSON_Delete(root);
         return DAIMA_ERR_INVALID_ARG;
     }
@@ -338,13 +320,13 @@ daima_err_t tool_cron_add_execute(const char *input_json, char *output, size_t o
                  next_run_text, (long long)job.next_run);
     }
 
-    DAIMA_LOGI(TAG, "cron_add: %s", output);
+    DAIMA_LOGI(TAG, "cron add: %s", output);
     return DAIMA_OK;
 }
 
-/* ── cron_list ────────────────────────────────────────────────── */
+/* ── action=list ───────────────────────────────────────────────── */
 
-daima_err_t tool_cron_list_execute(const char *input_json, char *output, size_t output_size)
+static daima_err_t cron_action_list_execute(const char *input_json, char *output, size_t output_size)
 {
     (void)input_json;
 
@@ -390,13 +372,13 @@ daima_err_t tool_cron_list_execute(const char *input_json, char *output, size_t 
         }
     }
 
-    DAIMA_LOGI(TAG, "cron_list: %d jobs", count);
+    DAIMA_LOGI(TAG, "cron list: %d jobs", count);
     return DAIMA_OK;
 }
 
-/* ── cron_remove ──────────────────────────────────────────────── */
+/* ── action=remove ─────────────────────────────────────────────── */
 
-daima_err_t tool_cron_remove_execute(const char *input_json, char *output, size_t output_size)
+static daima_err_t cron_action_remove_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *root = cJSON_Parse(input_json);
     if (!root) {
@@ -425,21 +407,43 @@ daima_err_t tool_cron_remove_execute(const char *input_json, char *output, size_
         snprintf(output, output_size, "错误：移除任务失败（%s）", daima_err_to_name(err));
     }
 
-    DAIMA_LOGI(TAG, "cron_remove: %s -> %s", job_id_copy, daima_err_to_name(err));
+    DAIMA_LOGI(TAG, "cron remove: %s -> %s", job_id_copy, daima_err_to_name(err));
     return err;
 }
 
-const daima_tool_t *tool_cron_add_definition(void)
+daima_err_t tool_cron_execute(const char *input_json, char *output, size_t output_size)
 {
-    return &s_cron_add_tool;
+    cJSON *root = cJSON_Parse(input_json);
+    if (!root || !cJSON_IsObject(root)) {
+        snprintf(output, output_size, "错误：输入 JSON 无效");
+        cJSON_Delete(root);
+        return DAIMA_ERR_INVALID_ARG;
+    }
+
+    const char *action = cJSON_GetStringValue(cJSON_GetObjectItem(root, "action"));
+    if (!action || !action[0]) {
+        snprintf(output, output_size, "错误：缺少 action 字段（add/list/remove）");
+        cJSON_Delete(root);
+        return DAIMA_ERR_INVALID_ARG;
+    }
+
+    daima_err_t err;
+    if (strcmp(action, "add") == 0) {
+        err = cron_action_add_execute(input_json, output, output_size);
+    } else if (strcmp(action, "list") == 0) {
+        err = cron_action_list_execute(input_json, output, output_size);
+    } else if (strcmp(action, "remove") == 0) {
+        err = cron_action_remove_execute(input_json, output, output_size);
+    } else {
+        snprintf(output, output_size, "错误：action 必须是 add、list 或 remove");
+        err = DAIMA_ERR_INVALID_ARG;
+    }
+
+    cJSON_Delete(root);
+    return err;
 }
 
-const daima_tool_t *tool_cron_list_definition(void)
+const daima_tool_t *tool_cron_definition(void)
 {
-    return &s_cron_list_tool;
-}
-
-const daima_tool_t *tool_cron_remove_definition(void)
-{
-    return &s_cron_remove_tool;
+    return &s_cron_tool;
 }

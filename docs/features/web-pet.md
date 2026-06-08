@@ -1,5 +1,7 @@
 # Web 宠物系统说明
 
+> 状态：当前实现说明。适用读者：维护 Web UI、宠物互动、宠物资源包和宠物通道的开发者。相关代码：`spiffs_data/web/pet.js`、`spiffs_data/web/app.js`、`main/pet/`、`main/gateway/ws_http_helpers.c`
+
 ## 这是什么
 
 这是 Daima Web 聊天页右下角的宠物系统。当前已经接入 `guga` 宠物包，并支持：

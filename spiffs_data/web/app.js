@@ -6,6 +6,7 @@ const statusEl = document.getElementById('status');
 const dot = document.getElementById('dot');
 const ctxBadge = document.getElementById('ctxBadge');
 const themeSelect = document.getElementById('themeSelect');
+const terminalSecuritySelect = document.getElementById('terminalSecuritySelect');
 const sudoModal = document.getElementById('sudoModal');
 const sudoPrompt = document.getElementById('sudoPrompt');
 const sudoInput = document.getElementById('sudoInput');
@@ -35,6 +36,9 @@ const DEFAULT_UI_CONFIG = Object.freeze({
   pet: {
     default_package_id: 'guga.codex-pet',
     packages: [],
+  },
+  terminal: {
+    security_level: 'build',
   },
 });
 
@@ -350,10 +354,15 @@ async function refreshUiConfig() {
             ...DEFAULT_UI_CONFIG.pet,
             ...(data.pet || {}),
           },
+          terminal: {
+            ...DEFAULT_UI_CONFIG.terminal,
+            ...(data.terminal || {}),
+          },
         };
       }
     }
   } catch (_) {}
+  syncTerminalSecurityControl();
   availablePetPackages = normalizePetPackages(uiConfig);
 }
 
@@ -432,6 +441,41 @@ function applyTheme(theme) {
   document.body.dataset.theme = next;
   if (themeSelect) themeSelect.value = next;
   localStorage.setItem(THEME_KEY, next);
+}
+
+function normalizeTerminalSecurityLevel(level) {
+  return ['plan', 'build'].includes(level) ? level : 'build';
+}
+
+function syncTerminalSecurityControl() {
+  if (!terminalSecuritySelect) return;
+  terminalSecuritySelect.value = normalizeTerminalSecurityLevel(uiConfig?.terminal?.security_level);
+}
+
+async function setTerminalSecurityLevel(level) {
+  if (!terminalSecuritySelect) return;
+  const next = normalizeTerminalSecurityLevel(level);
+  const prev = normalizeTerminalSecurityLevel(uiConfig?.terminal?.security_level);
+  terminalSecuritySelect.disabled = true;
+  terminalSecuritySelect.value = next;
+  try {
+    const resp = await fetch(`/api/terminal_security?level=${encodeURIComponent(next)}`, {
+      method: 'POST',
+      cache: 'no-store',
+    });
+    if (!resp.ok) throw new Error('save failed');
+    uiConfig = {
+      ...uiConfig,
+      terminal: {
+        ...(uiConfig.terminal || {}),
+        security_level: next,
+      },
+    };
+  } catch (_) {
+    terminalSecuritySelect.value = prev;
+  } finally {
+    terminalSecuritySelect.disabled = false;
+  }
 }
 
 function autoResize() {
@@ -996,6 +1040,9 @@ scrollToBottomBtn.addEventListener('click', () => {
 });
 if (themeSelect) {
   themeSelect.addEventListener('change', (e) => applyTheme(e.target.value));
+}
+if (terminalSecuritySelect) {
+  terminalSecuritySelect.addEventListener('change', (e) => setTerminalSecurityLevel(e.target.value));
 }
 if (newSessionBtn) {
   newSessionBtn.addEventListener('click', () => startNewSession());

@@ -218,6 +218,8 @@ static size_t append_workspace_context(char *buf, size_t size, size_t offset)
 
     offset = append_textf(buf, size, offset, "\n## 当前工作区\n\n");
     offset = append_textf(buf, size, offset, "- cwd: `%s`\n", cwd);
+    offset = append_textf(buf, size, offset, "- daima workspace: `%s`\n", daima_path_workspace_dir());
+    offset = append_textf(buf, size, offset, "- 工具默认工作目录是 daima workspace；安装依赖、生成临时脚本和未指定路径的新文件应放在 daima workspace，不要污染 cwd 或 repo。\n");
     if (has_repo_root) {
         offset = append_textf(buf, size, offset, "- repo root: `%s`\n", repo_root);
     }
@@ -289,19 +291,20 @@ static size_t append_operator_guide_fallback(char *buf, size_t size, size_t offs
         "\n## 工作方式\n\n"
         "1. 优先理解用户真实目标，不做机械追问。\n"
         "2. 需要行动时使用工具；需要修改已有文件时，先看上下文再改。\n"
-        "3. 分析代码时，先缩小范围：优先用 `search_files` 的 `files_only` / `count` / `file_glob` / `path` 找候选文件，再分页用 `read_file` 深读，不要一上来把很多文件整份读完。\n"
-        "4. 修改已有文件时，默认顺序是：先 `search_files` / `read_file` 看清上下文，再优先用 `patch`，其次用 `edit_file`；只有在新建文件或确实需要整文件重写时才使用 `write_file`。\n"
-        "5. `terminal` 适合安装工具、构建、运行命令、看 git 或进程；不适合替代 `read_file` / `patch` / `edit_file` 做文本修改。\n"
+        "3. 分析代码时，先缩小范围：优先用 `files` 的 `action=search`（`output_mode=files_only/count`、`file_glob`、`path`）找候选文件，再用 `files action=read` 分页深读，不要一上来把很多文件整份读完。\n"
+        "4. 新建、修改、删除文本文件时，默认顺序是：先用 `files action=search/read` 看清上下文，再用 `apply_patch`。\n"
+        "5. `terminal` 适合安装工具、构建、运行命令、看 git 或进程；不适合替代 `files` / `apply_patch` 做文件查看或文本修改。\n"
         "6. 调用 `terminal` 时，安装软件、更新索引、构建大项目要主动设置更长 `timeout`；看到结构化结果后，要基于 `exit_code`、`timed_out`、`output` 判断是否真的成功。\n"
         "7. 遇到 bug、功能缺失、体验问题时，先加载 `Work Item 收集` 技能，用 `work_item` 工具记录而非直接修复。\n"
-        "8. 当使用 `cron_add` 发送到 WebSocket 或飞书时，务必设置 `channel='websocket'` 或 `channel='feishu'` 并提供有效 `chat_id`。\n");
+        "8. 当使用 `cron action=add` 发送到 WebSocket 或飞书时，务必设置 `channel='websocket'` 或 `channel='feishu'` 并提供有效 `chat_id`。\n");
 
     offset = append_textf(
         buf, size, offset,
         "\n## 工具与参数命名约定\n\n"
         "- 说明文字可以用中文，但真正要调用的工具名、函数名、参数名、字段名必须保持英文原样。\n"
-        "- 当你决定调用工具时，必须使用 schema 里的真实标识符，例如 `search_files`、`read_file`、`cron_add`、`channel`、`chat_id`、`exit_code`、`output_mode`。\n"
+        "- 当你决定调用工具时，必须使用 schema 里的真实标识符，例如 `files`、`action`、`cron`、`channel`、`chat_id`、`exit_code`、`output_mode`。\n"
         "- 不要把工具名或参数名翻译成中文后再调用，也不要自造不存在的中文字段。\n"
+        "- 不要调用外部或其他 Agent 的工具名，例如 `todolist__add`、`todo_write`、`apply_patch_file`；待办只能用 `todo`，文件修改只能用 `apply_patch`。\n"
         "- 最稳妥的表达方式是：中文解释 + 英文标识符并列出现。\n");
 
     offset = append_textf(
@@ -309,20 +312,16 @@ static size_t append_operator_guide_fallback(char *buf, size_t size, size_t offs
         "\n## 可用工具速览\n\n"
         "- `weather`：查询当前天气与预报。\n"
         "- `get_current_time`：获取当前日期和时间；你没有内置时钟，需要时间时必须调用。\n"
-        "- `read_file`：分页读取文本文件；适合按 `offset` / `limit` 分段查看。\n"
-        "- `write_file`：整文件写入或新建文件；不要默认拿它覆盖已有代码文件。\n"
-        "- `edit_file`：做单点查找替换，适合小范围改动。\n"
-        "- `patch`：对同一文件做多步精确替换，是修改已有代码文件时的首选。\n"
-        "- `list_dir`：列目录。\n"
-        "- `search_files`：搜文件名或文本内容；支持 `output_mode=content/files_only/count` 和 `context`。\n"
+        "- `files`：统一文件查看工具；`action=read` 分页读文件，`action=list` 列目录，`action=search` 搜文件名或文本内容。\n"
+        "- `apply_patch`：Codex 风格补丁，新建、修改、删除文本文件的唯一文件修改工具。\n"
         "- `todo`：管理待办列表。\n"
         "- `work_item`：收集和管理结构化事项，覆盖 defect / missing / improvement / tech_debt / docs / test_gap。\n"
         "- `webfetch`：获取网页内容（text/html），用于搜索信息、阅读文档。\n"
         "- `daima_log`：读取 daima 自身运行日志（tail/search/errors），用于诊断工具失败和系统异常。\n"
-        "- `skills_list` / `skill_view`：查看技能总览与技能说明。\n"
+        "- `skills`：查看技能；`action=list` 看总览，`action=view` 读技能说明。\n"
         "- `session_search`：搜索历史会话、压缩摘要和事实卡片。\n"
         "- `terminal`：执行本地 shell 命令，返回包含 `output`、`exit_code`、`timed_out`、`workdir` 的 JSON。\n"
-        "- `cron_add` / `cron_list` / `cron_remove`：管理定时任务。\n");
+        "- `cron`：管理定时任务；`action=add/list/remove`。\n");
 
     return offset;
 }
@@ -335,14 +334,14 @@ static size_t append_dynamic_runtime_guide_fallback(char *buf, size_t size, size
         "### 持久化记忆\n"
         "- 长期记忆：`%s`\n"
         "- 每日笔记：`%s/<YYYY-MM-DD>.md`\n"
-        "- 更新记忆前先 `read_file`，再优先用 `edit_file` 或 `patch` 做最小改动；写每日笔记前先 `get_current_time`。\n\n"
+        "- 更新记忆前先用 `files action=read`，再用 `apply_patch` 做最小改动；写每日笔记前先 `get_current_time`。\n\n"
         "### 可读取与按需更新的引导文件\n"
         "- Bootstrap：`%s/BOOTSTRAP.md`\n"
         "- Identity：`%s/IDENTITY.md`\n"
         "- Personality：`%s`\n"
         "- User Info：`%s`\n"
-        "- 更新这些文件时，先 `search_files` / `read_file` 看上下文，再优先用 `edit_file` 或 `patch` 做最小改动，避免直接覆盖。\n"
-        "- 若文件不存在，可用 `write_file` 创建并写入完整内容。\n",
+        "- 更新这些文件时，先用 `files action=search/read` 看上下文，再用 `apply_patch` 做最小改动，避免直接覆盖。\n"
+        "- 若文件不存在，用 `apply_patch` 的 `*** Add File` 创建。\n",
         daima_path_memory_dir(),
         daima_path_memory_dir(),
         daima_path_config_dir(),
@@ -354,9 +353,9 @@ static size_t append_dynamic_runtime_guide_fallback(char *buf, size_t size, size
         buf, size, offset,
         "\n## 技能使用规则\n\n"
         "- 技能文件位于 `%s` 下。\n"
-        "- 优先用 `skills_list` 查看总览，再用 `skill_view` 按名称读取完整说明。\n"
-        "- 你可以用 `write_file` 创建新技能到 `%s/<name>/SKILL.md`。\n"
-        "- 如果只是修改已有技能，先 `read_file`，再优先用 `patch` 或 `edit_file`。\n"
+        "- 优先用 `skills action=list` 查看总览，再用 `skills action=view` 按名称读取完整说明。\n"
+        "- 你可以用 `apply_patch` 创建新技能到 `%s/<name>/SKILL.md`。\n"
+        "- 如果只是修改已有技能，先用 `files action=read`，再用 `apply_patch`。\n"
         "- 技能文件必须包含 YAML front matter 的 `name` 和 `description`，否则无法加载。\n",
         daima_path_skills_dir(),
         daima_path_skills_dir());

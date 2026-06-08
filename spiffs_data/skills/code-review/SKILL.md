@@ -16,15 +16,15 @@ description: 当用户要求 review、审查当前改动、评估回归风险或
 ## 使用步骤
 
 1. 先确认变更范围；必要时用 `terminal` 查看 git diff 或文件列表。
-2. 用 `read_file` 定点读取相关文件和调用方。
+2. 用 `files action=read` 定点读取相关文件和调用方。
 3. 优先检查输入校验、路径处理、内存生命周期、边界条件、默认值、错误兜底和日志。
 4. 检查测试是否覆盖关键行为和失败路径。
 5. 发现问题时给出触发条件、风险后果和最短修复建议。
 
 ## 工具与路径
 
-- 常用工具：`terminal`、`read_file`、`daima_log`。
-- 如果涉及 skill 行为，也用 `skills_list` 和 `skill_view` 确认实际加载内容。
+- 常用工具：`terminal`、`files action=read`、`daima_log`。
+- 如果涉及 skill 行为，也用 `skills action=list` 和 `skills action=view` 确认实际加载内容。
 
 ## 输出要求
 

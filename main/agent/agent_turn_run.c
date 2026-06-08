@@ -75,13 +75,28 @@ daima_err_t agent_turn_run(
 
         llm_response_free(&resp);
         iteration++;
+
+        if (stats.unrecoverable_tool_protocol_error) {
+            DAIMA_LOGW(TAG, "Unrecoverable tool protocol error for chat %s: %s",
+                       msg->chat_id,
+                       stats.tool_protocol_error_reason);
+            final_text = agent_turn_generate_forced_final_response(
+                system_prompt,
+                messages,
+                "工具调用协议出现不可恢复错误。");
+            err = DAIMA_OK;
+            break;
+        }
     }
 
     if (!final_text && iteration >= DAIMA_AGENT_MAX_TOOL_ITER) {
         *out_tool_budget_exhausted = true;
         DAIMA_LOGW(TAG, "Tool iteration budget exhausted for chat %s, forcing final response",
                  msg->chat_id);
-        final_text = agent_turn_generate_forced_final_response(system_prompt, messages);
+        final_text = agent_turn_generate_forced_final_response(
+            system_prompt,
+            messages,
+            "工具调用轮次已达上限。");
         err = DAIMA_OK;
     }
 

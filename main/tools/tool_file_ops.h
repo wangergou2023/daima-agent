@@ -11,7 +11,6 @@
 
 int tool_files_clamp_int(int value, int min_value, int max_value);
 int tool_files_json_get_int_default(cJSON *obj, const char *key, int default_value);
-bool tool_files_json_get_bool_default(cJSON *obj, const char *key, bool default_value);
 
 void tool_files_trim_line_end(char *line);
 int tool_files_count_total_lines(FILE *f);
@@ -66,10 +65,3 @@ daima_err_t tool_files_apply_replace(const char *input,
                                     size_t *result_len_out,
                                     int *replaced_count_out,
                                     size_t *first_match_offset_out);
-
-void tool_files_build_patch_preview_snippet(const char *text,
-                                            size_t text_len,
-                                            size_t match_offset,
-                                            size_t token_len,
-                                            char *out,
-                                            size_t out_size);

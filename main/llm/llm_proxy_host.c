@@ -11,6 +11,10 @@
 #include "host_http.h"
 
 #include <string.h>
+#include <stdio.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <time.h>
 
 /* macOS lacks memrchr (GNU extension) */
 #ifndef __linux__
@@ -41,6 +45,185 @@ static char s_openai_api_url[512] = {0};
 static bool s_use_anthropic_api = false;
 static bool s_api_key_set = false;
 static bool s_model_set = false;
+static unsigned s_llm_debug_seq = 0;
+
+static void ensure_dir_path(const char *path)
+{
+    if (!path || !path[0]) {
+        return;
+    }
+    char tmp[512];
+    snprintf(tmp, sizeof(tmp), "%s", path);
+    for (char *p = tmp + 1; *p; p++) {
+        if (*p == '/') {
+            *p = '\0';
+            mkdir(tmp, 0755);
+            *p = '/';
+        }
+    }
+    mkdir(tmp, 0755);
+}
+
+static const char *json_string(cJSON *obj, const char *key)
+{
+    cJSON *item = cJSON_GetObjectItem(obj, key);
+    return cJSON_IsString(item) ? item->valuestring : NULL;
+}
+
+static int json_number(cJSON *obj, const char *key)
+{
+    cJSON *item = cJSON_GetObjectItem(obj, key);
+    return cJSON_IsNumber(item) ? item->valueint : -1;
+}
+
+static bool object_is_empty(cJSON *obj)
+{
+    return cJSON_IsObject(obj) && obj->child == NULL;
+}
+
+static void log_llm_response_diagnostics(const char *protocol,
+                                         const char *raw_resp,
+                                         cJSON *root)
+{
+    if (!root) {
+        return;
+    }
+
+    const char *id = json_string(root, "id");
+    const char *model = json_string(root, "model");
+    const char *stop = json_string(root, "stop_reason");
+    if (!stop) {
+        stop = json_string(root, "finish_reason");
+    }
+
+    cJSON *usage = cJSON_GetObjectItem(root, "usage");
+    int input_tokens = usage ? json_number(usage, "input_tokens") : -1;
+    int output_tokens = usage ? json_number(usage, "output_tokens") : -1;
+    int total_tokens = usage ? json_number(usage, "total_tokens") : -1;
+    if (input_tokens < 0 && usage) input_tokens = json_number(usage, "prompt_tokens");
+    if (output_tokens < 0 && usage) output_tokens = json_number(usage, "completion_tokens");
+
+    int text_blocks = 0;
+    int thinking_blocks = 0;
+    int tool_blocks = 0;
+    int empty_tool_inputs = 0;
+    int max_tool_input_len = 0;
+    char empty_tool_name[96] = "";
+
+    cJSON *content = cJSON_GetObjectItem(root, "content");
+    if (content && cJSON_IsArray(content)) {
+        cJSON *block = NULL;
+        cJSON_ArrayForEach(block, content) {
+            const char *type = json_string(block, "type");
+            if (!type) {
+                continue;
+            }
+            if (strcmp(type, "text") == 0) {
+                text_blocks++;
+            } else if (strcmp(type, "thinking") == 0 || strcmp(type, "reasoning") == 0) {
+                thinking_blocks++;
+            } else if (strcmp(type, "tool_use") == 0) {
+                tool_blocks++;
+                cJSON *input = cJSON_GetObjectItem(block, "input");
+                char *input_json = input ? cJSON_PrintUnformatted(input) : NULL;
+                int input_len = input_json ? (int)strlen(input_json) : -1;
+                if (input_len > max_tool_input_len) {
+                    max_tool_input_len = input_len;
+                }
+                if (object_is_empty(input)) {
+                    empty_tool_inputs++;
+                    const char *name = json_string(block, "name");
+                    if (name && !empty_tool_name[0]) {
+                        snprintf(empty_tool_name, sizeof(empty_tool_name), "%s", name);
+                    }
+                }
+                free(input_json);
+            }
+        }
+    }
+
+    cJSON *choices = cJSON_GetObjectItem(root, "choices");
+    if (choices && cJSON_IsArray(choices)) {
+        cJSON *choice = NULL;
+        cJSON_ArrayForEach(choice, choices) {
+            const char *finish = json_string(choice, "finish_reason");
+            if (finish) {
+                stop = finish;
+            }
+            cJSON *msg = cJSON_GetObjectItem(choice, "message");
+            cJSON *tool_calls = msg ? cJSON_GetObjectItem(msg, "tool_calls") : NULL;
+            if (tool_calls && cJSON_IsArray(tool_calls)) {
+                cJSON *tc = NULL;
+                cJSON_ArrayForEach(tc, tool_calls) {
+                    tool_blocks++;
+                    cJSON *func = cJSON_GetObjectItem(tc, "function");
+                    const char *args = func ? json_string(func, "arguments") : NULL;
+                    int input_len = args ? (int)strlen(args) : -1;
+                    if (input_len > max_tool_input_len) {
+                        max_tool_input_len = input_len;
+                    }
+                    if (args && strcmp(args, "{}") == 0) {
+                        empty_tool_inputs++;
+                        const char *name = func ? json_string(func, "name") : NULL;
+                        if (name && !empty_tool_name[0]) {
+                            snprintf(empty_tool_name, sizeof(empty_tool_name), "%s", name);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    DAIMA_LOGI(TAG,
+               "LLM diagnostics: protocol=%s id=%s model=%s stop=%s usage_in=%d usage_out=%d usage_total=%d raw_bytes=%d blocks{text=%d thinking=%d tool=%d} max_tool_input_len=%d empty_tool_inputs=%d%s%s",
+               protocol ? protocol : "-",
+               id ? id : "-",
+               model ? model : "-",
+               stop ? stop : "-",
+               input_tokens,
+               output_tokens,
+               total_tokens,
+               raw_resp ? (int)strlen(raw_resp) : 0,
+               text_blocks,
+               thinking_blocks,
+               tool_blocks,
+               max_tool_input_len,
+               empty_tool_inputs,
+               empty_tool_name[0] ? " first_empty_tool=" : "",
+               empty_tool_name[0] ? empty_tool_name : "");
+
+    if (empty_tool_inputs <= 0 || !raw_resp) {
+        return;
+    }
+
+    char dir[512];
+    snprintf(dir, sizeof(dir), "%s/llm_debug", daima_path_cache_dir());
+    ensure_dir_path(dir);
+
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    struct tm tm;
+    localtime_r(&tv.tv_sec, &tm);
+    char ts[64];
+    strftime(ts, sizeof(ts), "%Y%m%d-%H%M%S", &tm);
+
+    char path[768];
+    snprintf(path, sizeof(path),
+             "%s/empty-tool-input-%s-%03ld-%u.json",
+             dir,
+             ts,
+             tv.tv_usec / 1000,
+             ++s_llm_debug_seq);
+
+    FILE *f = fopen(path, "w");
+    if (!f) {
+        DAIMA_LOGW(TAG, "Failed to write LLM empty tool debug file: %s", path);
+        return;
+    }
+    fwrite(raw_resp, 1, strlen(raw_resp), f);
+    fclose(f);
+    DAIMA_LOGW(TAG, "LLM empty tool input raw response saved: %s", path);
+}
 
 static bool url_tail_is_version_root(const char *url)
 {
@@ -243,15 +426,26 @@ daima_err_t llm_proxy_init(void)
 /* 释放响应中堆内存字段 */
 void llm_response_free(llm_response_t *resp)
 {
+    if (!resp) {
+        return;
+    }
     free(resp->text);
     resp->text = NULL;
     resp->text_len = 0;
     free(resp->reasoning_content);
     resp->reasoning_content = NULL;
     resp->reasoning_content_len = 0;
-    for (int i = 0; i < resp->call_count; i++) {
+    int call_count = resp->call_count;
+    if (call_count < 0) {
+        call_count = 0;
+    }
+    if (call_count > DAIMA_MAX_TOOL_CALLS) {
+        call_count = DAIMA_MAX_TOOL_CALLS;
+    }
+    for (int i = 0; i < call_count; i++) {
         free(resp->calls[i].input);
         resp->calls[i].input = NULL;
+        resp->calls[i].input_len = 0;
     }
     resp->call_count = 0;
     resp->tool_use = false;
@@ -266,6 +460,8 @@ daima_err_t llm_chat_tools(const char *system_prompt,
     memset(resp, 0, sizeof(*resp));
 
     if (s_api_key[0] == '\0') return DAIMA_ERR_INVALID_STATE;
+    int max_output_tokens = runtime_config_get_max_output_tokens();
+    int request_timeout_ms = runtime_config_get_request_timeout_ms();
 
     cJSON *body = s_use_anthropic_api
         ? llm_anthropic_build_tools_body(
@@ -273,13 +469,13 @@ daima_err_t llm_chat_tools(const char *system_prompt,
             messages,
             tools_json,
             s_model,
-            DAIMA_LLM_MAX_TOKENS)
+            max_output_tokens)
         : llm_openai_build_tools_body(
             system_prompt,
             messages,
             tools_json,
             s_model,
-            DAIMA_LLM_MAX_TOKENS,
+            max_output_tokens,
             should_use_max_tokens_field(),
             should_disable_thinking(),
             should_add_reasoning_content());
@@ -291,19 +487,21 @@ daima_err_t llm_chat_tools(const char *system_prompt,
     cJSON_Delete(body);
     if (!post_data) return DAIMA_ERR_NO_MEM;
 
-    DAIMA_LOGI(TAG, "Calling LLM API with tools (protocol: %s, model: %s, body: %d bytes)",
+    DAIMA_LOGI(TAG, "Calling LLM API with tools (protocol: %s, model: %s, max_output_tokens: %d, timeout_ms: %d, body: %d bytes)",
              s_use_anthropic_api ? "anthropic-compatible" : "openai-compatible",
              s_model,
+             max_output_tokens,
+             request_timeout_ms,
              (int)strlen(post_data));
     llm_http_log_payload(TAG, "LLM tools request", post_data);
 
     char *raw_resp = NULL;
     int status = 0;
-    daima_err_t err = llm_http_post_json(llm_api_url(), s_api_key, post_data, 120 * 1000, &raw_resp, &status);
+    daima_err_t err = llm_http_post_json(llm_api_url(), s_api_key, post_data, request_timeout_ms, &raw_resp, &status);
     free(post_data);
 
     if (err != DAIMA_OK) {
-        DAIMA_LOGE(TAG, "HTTP request failed: %s", daima_err_to_name(err));
+        DAIMA_LOGE(TAG, "HTTP request failed: %s timeout_ms=%d", daima_err_to_name(err), request_timeout_ms);
         llm_http_log_payload(TAG, "LLM tools partial response", raw_resp);
         free(raw_resp);
         return err;
@@ -315,6 +513,17 @@ daima_err_t llm_chat_tools(const char *system_prompt,
         DAIMA_LOGE(TAG, "API error %d: %.500s", status, raw_resp ? raw_resp : "");
         free(raw_resp);
         return DAIMA_FAIL;
+    }
+
+    cJSON *diag_root = cJSON_Parse(raw_resp);
+    if (diag_root) {
+        log_llm_response_diagnostics(
+            s_use_anthropic_api ? "anthropic-compatible" : "openai-compatible",
+            raw_resp,
+            diag_root);
+        cJSON_Delete(diag_root);
+    } else {
+        DAIMA_LOGW(TAG, "LLM diagnostics skipped: raw response JSON parse failed");
     }
 
     err = s_use_anthropic_api
@@ -460,6 +669,8 @@ daima_err_t llm_chat_with_images(const char *system_prompt,
     
     if (s_api_key[0] == '\0') return DAIMA_ERR_INVALID_STATE;
     if (!images || image_count <= 0) return DAIMA_ERR_INVALID_ARG;
+    int max_output_tokens = runtime_config_get_max_output_tokens();
+    int request_timeout_ms = runtime_config_get_request_timeout_ms();
     
     cJSON *body = s_use_anthropic_api
         ? llm_anthropic_build_image_body(
@@ -468,14 +679,14 @@ daima_err_t llm_chat_with_images(const char *system_prompt,
             images,
             image_count,
             s_model,
-            DAIMA_LLM_MAX_TOKENS)
+            max_output_tokens)
         : llm_openai_build_image_body(
             system_prompt,
             user_text,
             images,
             image_count,
             s_model,
-            DAIMA_LLM_MAX_TOKENS,
+            max_output_tokens,
             should_use_max_tokens_field(),
             should_disable_thinking());
     if (!body) {
@@ -487,19 +698,21 @@ daima_err_t llm_chat_with_images(const char *system_prompt,
     
     if (!post_data) return DAIMA_ERR_NO_MEM;
     
-    DAIMA_LOGI(TAG, "Calling LLM API with images (protocol: %s, model: %s, images: %d)",
+    DAIMA_LOGI(TAG, "Calling LLM API with images (protocol: %s, model: %s, max_output_tokens: %d, timeout_ms: %d, images: %d)",
              s_use_anthropic_api ? "anthropic-compatible" : "openai-compatible",
              s_model,
+             max_output_tokens,
+             request_timeout_ms,
              image_count);
     llm_http_log_payload(TAG, "LLM vision request", post_data);
     
     char *raw_resp = NULL;
     int status = 0;
-    daima_err_t err = llm_http_post_json(llm_api_url(), s_api_key, post_data, 120 * 1000, &raw_resp, &status);
+    daima_err_t err = llm_http_post_json(llm_api_url(), s_api_key, post_data, request_timeout_ms, &raw_resp, &status);
     free(post_data);
     
     if (err != DAIMA_OK) {
-        DAIMA_LOGE(TAG, "HTTP request failed: %s", daima_err_to_name(err));
+        DAIMA_LOGE(TAG, "HTTP request failed: %s timeout_ms=%d", daima_err_to_name(err), request_timeout_ms);
         llm_http_log_payload(TAG, "LLM vision partial response", raw_resp);
         free(raw_resp);
         return err;

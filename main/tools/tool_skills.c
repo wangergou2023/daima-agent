@@ -1,4 +1,4 @@
-/* 技能浏览工具实现，参考 Hermes 的 skills_list / skill_view。 */
+/* 技能浏览工具实现。 */
 
 #include "tools/tool_skills.h"
 #include "skills/skill_meta.h"
@@ -17,30 +17,20 @@
 static const char *TAG = "tool_skills";
 
 #define SKILL_PATH_SIZE 1024
-static const daima_tool_t s_skills_list_tool = {
-    .name = "skills_list",
-    .description = "列出当前已安装的技能。适合先看有哪些技能，再决定是否深入查看。",
+static const daima_tool_t s_skills_tool = {
+    .name = "skills",
+    .description = "统一技能浏览工具。action=list 列出当前已安装技能；action=view 查看某个技能的主说明或关联文件。",
     .input_schema_json =
         "{\"type\":\"object\","
         "\"properties\":{"
+        "\"action\":{\"type\":\"string\",\"description\":\"list 或 view\"},"
         "\"pattern\":{\"type\":\"string\",\"description\":\"可选过滤关键词；会匹配技能目录名、name、description\"},"
-        "\"channel\":{\"type\":\"string\",\"description\":\"可选通道名；填写后只列公共技能和该通道技能，例如 websocket、feishu、pet、vector\"}"
-        "},"
-        "\"required\":[]}",
-    .execute = tool_skills_list_execute,
-};
-
-static const daima_tool_t s_skill_view_tool = {
-    .name = "skill_view",
-    .description = "查看某个技能的主说明或关联文件。适合在任务命中技能后按名称精确读取。",
-    .input_schema_json =
-        "{\"type\":\"object\","
-        "\"properties\":{"
+        "\"channel\":{\"type\":\"string\",\"description\":\"可选通道名；填写后只列公共技能和该通道技能，例如 websocket、feishu、pet、vector\"},"
         "\"name\":{\"type\":\"string\",\"description\":\"技能目录名，例如 code-review 或 weather\"},"
         "\"file_path\":{\"type\":\"string\",\"description\":\"可选：技能目录内的相对文件路径；省略时读取 SKILL.md\"}"
         "},"
-        "\"required\":[\"name\"]}",
-    .execute = tool_skill_view_execute,
+        "\"required\":[\"action\"]}",
+    .execute = tool_skills_execute,
 };
 
 typedef struct {
@@ -201,7 +191,7 @@ static void scan_skill_dir(skill_info_t *infos,
     closedir(dir);
 }
 
-daima_err_t tool_skills_list_execute(const char *input_json, char *output, size_t output_size)
+static daima_err_t skills_action_list_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *root = cJSON_Parse(input_json);
     if (!root) {
@@ -249,16 +239,16 @@ daima_err_t tool_skills_list_execute(const char *input_json, char *output, size_
         snprintf(output + off, output_size - off, "（未找到技能）\n");
     } else {
         snprintf(output + strlen(output), output_size - strlen(output),
-                 "\nHint: 用 skill_view {\"name\":\"技能目录名\"} 查看完整说明。\n");
+                 "\nHint: 用 skills {\"action\":\"view\",\"name\":\"技能目录名\"} 查看完整说明。\n");
     }
 
-    DAIMA_LOGI(TAG, "skills_list: channel=%s pattern=%s count=%d",
+    DAIMA_LOGI(TAG, "skills list: channel=%s pattern=%s count=%d",
               channel ? channel : "(all)", pattern ? pattern : "(none)", count);
     cJSON_Delete(root);
     return DAIMA_OK;
 }
 
-daima_err_t tool_skill_view_execute(const char *input_json, char *output, size_t output_size)
+static daima_err_t skills_action_view_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *root = cJSON_Parse(input_json);
     if (!root) {
@@ -305,17 +295,42 @@ daima_err_t tool_skill_view_execute(const char *input_json, char *output, size_t
         snprintf(output + off, output_size - off, "\n\n[Hint] 内容过长，已截断。");
     }
 
-    DAIMA_LOGI(TAG, "skill_view: name=%s file=%s", name, file_path ? file_path : "SKILL.md");
+    DAIMA_LOGI(TAG, "skills view: name=%s file=%s", name, file_path ? file_path : "SKILL.md");
     cJSON_Delete(root);
     return DAIMA_OK;
 }
 
-const daima_tool_t *tool_skills_list_definition(void)
+daima_err_t tool_skills_execute(const char *input_json, char *output, size_t output_size)
 {
-    return &s_skills_list_tool;
+    cJSON *root = cJSON_Parse(input_json);
+    if (!root || !cJSON_IsObject(root)) {
+        snprintf(output, output_size, "错误：输入 JSON 无效");
+        cJSON_Delete(root);
+        return DAIMA_ERR_INVALID_ARG;
+    }
+
+    const char *action = cJSON_GetStringValue(cJSON_GetObjectItem(root, "action"));
+    if (!action || !action[0]) {
+        snprintf(output, output_size, "错误：缺少 action 字段（list/view）");
+        cJSON_Delete(root);
+        return DAIMA_ERR_INVALID_ARG;
+    }
+
+    daima_err_t err;
+    if (strcmp(action, "list") == 0) {
+        err = skills_action_list_execute(input_json, output, output_size);
+    } else if (strcmp(action, "view") == 0) {
+        err = skills_action_view_execute(input_json, output, output_size);
+    } else {
+        snprintf(output, output_size, "错误：action 必须是 list 或 view");
+        err = DAIMA_ERR_INVALID_ARG;
+    }
+
+    cJSON_Delete(root);
+    return err;
 }
 
-const daima_tool_t *tool_skill_view_definition(void)
+const daima_tool_t *tool_skills_definition(void)
 {
-    return &s_skill_view_tool;
+    return &s_skills_tool;
 }

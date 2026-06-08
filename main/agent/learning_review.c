@@ -288,7 +288,9 @@ static void run_review_for_chat(const char *chat_id)
         goto cleanup;
     }
 
-    char *raw = strdup(resp.text);
+    char *raw = resp.text;
+    resp.text = NULL;
+    resp.text_len = 0;
     llm_response_free(&resp);
     if (!raw) goto cleanup;
     char *json_text = extract_json_object(raw);

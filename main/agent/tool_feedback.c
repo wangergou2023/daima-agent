@@ -14,12 +14,12 @@ static const char *tool_display_icon(const char *tool_name)
 {
     if (!tool_name) return "⚙";
     if (strcmp(tool_name, "terminal") == 0) return "💻";
-    if (strcmp(tool_name, "read_file") == 0) return "📖";
-    if (strcmp(tool_name, "write_file") == 0 || strcmp(tool_name, "edit_file") == 0) return "✏️";
-    if (strcmp(tool_name, "list_dir") == 0) return "🗂️";
+    if (strcmp(tool_name, "files") == 0) return "📖";
+    if (strcmp(tool_name, "apply_patch") == 0) return "✏️";
     if (strcmp(tool_name, "weather") == 0) return "🌤️";
     if (strcmp(tool_name, "get_current_time") == 0) return "🕒";
-    if (strcmp(tool_name, "cron_add") == 0 || strcmp(tool_name, "cron_list") == 0 || strcmp(tool_name, "cron_remove") == 0) return "⏰";
+    if (strcmp(tool_name, "cron") == 0) return "⏰";
+    if (strcmp(tool_name, "skills") == 0) return "🧩";
     return "⚙";
 }
 
@@ -51,6 +51,13 @@ static void shorten_text(const char *src, char *dst, size_t dst_size, size_t max
     snprintf(dst, dst_size, "%.*s...", (int)max_len, src);
 }
 
+static bool output_is_human_error(const char *tool_output)
+{
+    return tool_output &&
+           (strncmp(tool_output, "错误：", strlen("错误：")) == 0 ||
+            strncmp(tool_output, "Error:", strlen("Error:")) == 0);
+}
+
 static void summarize_tool_target(const char *tool_name, const char *tool_input, char *buf, size_t size)
 {
     if (!buf || size == 0) return;
@@ -65,30 +72,31 @@ static void summarize_tool_target(const char *tool_name, const char *tool_input,
             if (!value || !value[0]) {
                 value = cJSON_GetStringValue(cJSON_GetObjectItem(root, "cmd"));
             }
-        } else if (strcmp(tool_name, "read_file") == 0 ||
-                   strcmp(tool_name, "write_file") == 0 ||
-                   strcmp(tool_name, "edit_file") == 0) {
-            value = path_tail(cJSON_GetStringValue(cJSON_GetObjectItem(root, "path")));
-        } else if (strcmp(tool_name, "list_dir") == 0) {
+        } else if (strcmp(tool_name, "files") == 0 ||
+                   strcmp(tool_name, "apply_patch") == 0) {
             value = path_tail(cJSON_GetStringValue(cJSON_GetObjectItem(root, "path")));
             if (!value || !value[0]) {
-                value = cJSON_GetStringValue(cJSON_GetObjectItem(root, "prefix"));
+                value = path_tail(cJSON_GetStringValue(cJSON_GetObjectItem(root, "file_path")));
+            }
+            if (!value || !value[0]) {
+                value = path_tail(cJSON_GetStringValue(cJSON_GetObjectItem(root, "filename")));
             }
         } else if (strcmp(tool_name, "weather") == 0) {
             value = cJSON_GetStringValue(cJSON_GetObjectItem(root, "location"));
-        } else if (strcmp(tool_name, "cron_add") == 0) {
-            value = cJSON_GetStringValue(cJSON_GetObjectItem(root, "name"));
-        } else if (strcmp(tool_name, "cron_remove") == 0) {
-            value = cJSON_GetStringValue(cJSON_GetObjectItem(root, "job_id"));
-        } else if (strcmp(tool_name, "search_files") == 0) {
-            value = cJSON_GetStringValue(cJSON_GetObjectItem(root, "pattern"));
-            if (!value || !value[0]) {
-                value = cJSON_GetStringValue(cJSON_GetObjectItem(root, "query"));
+        } else if (strcmp(tool_name, "cron") == 0) {
+            const char *action = cJSON_GetStringValue(cJSON_GetObjectItem(root, "action"));
+            if (action && strcmp(action, "remove") == 0) {
+                value = cJSON_GetStringValue(cJSON_GetObjectItem(root, "job_id"));
+            } else {
+                value = cJSON_GetStringValue(cJSON_GetObjectItem(root, "name"));
             }
         } else if (strcmp(tool_name, "session_search") == 0) {
             value = cJSON_GetStringValue(cJSON_GetObjectItem(root, "query"));
-        } else if (strcmp(tool_name, "skill_view") == 0) {
+        } else if (strcmp(tool_name, "skills") == 0) {
             value = cJSON_GetStringValue(cJSON_GetObjectItem(root, "name"));
+            if (!value || !value[0]) {
+                value = cJSON_GetStringValue(cJSON_GetObjectItem(root, "pattern"));
+            }
         }
     }
 
@@ -139,7 +147,11 @@ static bool tool_result_success(const char *tool_name, daima_err_t exec_err, con
     }
 
     if (detail && detail_size > 0) {
-        snprintf(detail, detail_size, "%s", daima_err_to_name(exec_err));
+        if (output_is_human_error(tool_output)) {
+            shorten_text(tool_output, detail, detail_size, detail_size > 1 ? detail_size - 1 : 0);
+        } else {
+            snprintf(detail, detail_size, "%s", daima_err_to_name(exec_err));
+        }
     }
     return false;
 }

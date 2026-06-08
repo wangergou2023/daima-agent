@@ -7,6 +7,7 @@
 #include "agent/agent_turn_finish.h"
 #include "agent/agent_turn_prepare.h"
 #include "agent/agent_turn_run.h"
+#include "app/runtime_config.h"
 #include "bus/message_bus.h"
 #include "daima_config.h"
 #include "daima_log.h"
@@ -77,9 +78,13 @@ daima_err_t agent_loop_init(void)
     if (err != DAIMA_OK) {
         return err;
     }
-    err = learning_review_init();
-    if (err != DAIMA_OK) {
-        return err;
+    if (runtime_config_get_learning_review_enabled()) {
+        err = learning_review_init();
+        if (err != DAIMA_OK) {
+            return err;
+        }
+    } else {
+        DAIMA_LOGI(TAG, "Learning review disabled");
     }
     DAIMA_LOGI(TAG, "Agent loop initialized");
     return DAIMA_OK;

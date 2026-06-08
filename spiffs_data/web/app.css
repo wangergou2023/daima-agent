@@ -317,7 +317,8 @@ button {
   justify-content: flex-end;
 }
 
-.theme-control {
+.theme-control,
+.security-control {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -330,7 +331,8 @@ button {
   font-weight: 600;
 }
 
-.theme-switch {
+.theme-switch,
+.security-switch {
   appearance: none;
   border: none;
   background: transparent;
@@ -340,7 +342,12 @@ button {
   text-align-last: center;
 }
 
-.theme-switch:focus {
+.security-switch {
+  min-width: 82px;
+}
+
+.theme-switch:focus,
+.security-switch:focus {
   outline: none;
 }
 

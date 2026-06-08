@@ -27,7 +27,7 @@ description: 当用户口头汇报项目进展、更新状态、要求项目汇�
 
 ## 工具与路径
 
-- 常用工具：`get_current_time`、`read_file`、`write_file`、`cron_list`、`cron_add`。
+- 常用工具：`get_current_time`、`files action=read`、`apply_patch`、`cron action=list`、`cron action=add`。
 - 主记录：`/spiffs/memory/PROGRESS.md`。
 - 长期偏好：`/spiffs/memory/MEMORY.md`。
 

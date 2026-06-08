@@ -17,13 +17,13 @@ description: 当用户要求分析当前工程、某个仓库、模块结构、�
 
 1. 先用 `terminal` 查看目录结构和构建文件。
 2. 再按关键词搜索入口、注册表、主循环、工具名、配置名和外部接口。
-3. 用 `read_file` 分页读取最相关文件。
+3. 用 `files action=read` 分页读取最相关文件。
 4. 优先识别构建入口、进程入口、调度主链路、能力注册、外部接口、状态存储。
 5. 如果用户只要概览，读到足够支撑结论时停止扩大范围。
 
 ## 工具与路径
 
-- 常用工具：`terminal`、`read_file`、`skills_list`、`skill_view`。
+- 常用工具：`terminal`、`files action=read`、`skills action=list`、`skills action=view`。
 - 常见搜索目标：`main`、`init`、`agent`、`registry`、`router`、`tool`、`config`。
 
 ## 输出要求

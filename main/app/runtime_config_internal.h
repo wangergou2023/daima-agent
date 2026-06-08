@@ -21,11 +21,14 @@ typedef struct {
     int web_port;
     int session_max_msgs;
     int common_context_limit_tokens;
+    int common_max_output_tokens;
     int compress_trigger_msgs;
     int compress_keep_msgs;
+    bool learning_review_enabled;
     int cron_check_interval_ms;
     int heartbeat_interval_ms;
     char timezone[RUNTIME_STRING_SMALL_MAX];
+    char terminal_security_level[RUNTIME_STRING_SMALL_MAX];
     char web_default_pet_package_id[RUNTIME_PET_PACKAGE_ID_MAX];
 
     char active_provider[RUNTIME_PROVIDER_NAME_MAX];
@@ -35,6 +38,8 @@ typedef struct {
     char provider_api_mode[RUNTIME_STRING_SMALL_MAX];
     char provider_thinking_mode[RUNTIME_STRING_SMALL_MAX];
     int provider_context_limit_tokens;
+    int provider_max_output_tokens;
+    int provider_request_timeout_ms;
     bool provider_needs_reasoning_content;
 
     char feishu_app_id[RUNTIME_FEISHU_APP_ID_MAX];

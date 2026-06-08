@@ -26,7 +26,7 @@ static bool get_workspace_root(char *root, size_t root_size)
     if (!root || root_size == 0) {
         return false;
     }
-    return getcwd(root, root_size) != NULL;
+    return snprintf(root, root_size, "%s", daima_path_workspace_dir()) < (int)root_size;
 }
 
 static bool path_is_under_root(const char *path, const char *root)
@@ -116,19 +116,13 @@ bool tool_files_resolve_read_path(const char *path, char *resolved, size_t resol
         return true;
     }
 
+    if (path[0] != '/') {
+        return resolve_workspace_path(path, resolved, resolved_size, false);
+    }
+
     char candidate[TOOL_FILES_PATH_SIZE];
-    if (path[0] == '/') {
-        if (snprintf(candidate, sizeof(candidate), "%s", path) >= (int)sizeof(candidate)) {
-            return false;
-        }
-    } else {
-        char cwd[TOOL_FILES_PATH_SIZE];
-        if (!getcwd(cwd, sizeof(cwd))) {
-            return false;
-        }
-        if (snprintf(candidate, sizeof(candidate), "%s/%s", cwd, path) >= (int)sizeof(candidate)) {
-            return false;
-        }
+    if (snprintf(candidate, sizeof(candidate), "%s", path) >= (int)sizeof(candidate)) {
+        return false;
     }
 
     char real_buf[TOOL_FILES_PATH_SIZE];

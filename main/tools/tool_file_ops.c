@@ -5,16 +5,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void sanitize_snippet(char *text)
-{
-    if (!text) return;
-    for (char *p = text; *p; ++p) {
-        if (*p == '\n' || *p == '\r' || *p == '\t') {
-            *p = ' ';
-        }
-    }
-}
-
 int tool_files_clamp_int(int value, int min_value, int max_value)
 {
     if (value < min_value) return min_value;
@@ -29,21 +19,6 @@ int tool_files_json_get_int_default(cJSON *obj, const char *key, int default_val
         return default_value;
     }
     return item->valueint;
-}
-
-bool tool_files_json_get_bool_default(cJSON *obj, const char *key, bool default_value)
-{
-    cJSON *item = cJSON_GetObjectItem(obj, key);
-    if (!item) {
-        return default_value;
-    }
-    if (cJSON_IsBool(item)) {
-        return cJSON_IsTrue(item);
-    }
-    if (cJSON_IsNumber(item)) {
-        return item->valueint != 0;
-    }
-    return default_value;
 }
 
 void tool_files_trim_line_end(char *line)
@@ -218,42 +193,4 @@ daima_err_t tool_files_apply_replace(const char *input,
         *first_match_offset_out = first_match_offset;
     }
     return DAIMA_OK;
-}
-
-void tool_files_build_patch_preview_snippet(const char *text,
-                                            size_t text_len,
-                                            size_t match_offset,
-                                            size_t token_len,
-                                            char *out,
-                                            size_t out_size)
-{
-    if (!out || out_size == 0) return;
-    out[0] = '\0';
-    if (!text || match_offset == (size_t)-1 || match_offset >= text_len) {
-        return;
-    }
-
-    size_t start = match_offset > 40 ? match_offset - 40 : 0;
-    size_t end = match_offset + token_len + 40;
-    if (end > text_len) {
-        end = text_len;
-    }
-
-    size_t off = 0;
-    if (start > 0) {
-        off += snprintf(out + off, out_size - off, "...");
-    }
-
-    size_t copy = end > start ? (end - start) : 0;
-    if (copy > out_size - off - 1) {
-        copy = out_size - off - 1;
-    }
-    memcpy(out + off, text + start, copy);
-    off += copy;
-    out[off] = '\0';
-
-    if (end < text_len && off < out_size - 1) {
-        snprintf(out + off, out_size - off, "...");
-    }
-    sanitize_snippet(out);
 }

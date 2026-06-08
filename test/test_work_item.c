@@ -1,6 +1,7 @@
 #include "app/daima_paths.h"
 #include "cJSON.h"
 #include "tools/tool_work_item.h"
+#include "work_items/work_item_store.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -35,6 +36,58 @@ static void read_first_line(char *buf, size_t size)
     assert(f);
     assert(fgets(buf, (int)size, f));
     fclose(f);
+}
+
+static int count_valid_work_items(void)
+{
+    FILE *f = fopen(daima_path_work_items_file(), "r");
+    assert(f);
+    int count = 0;
+    char buf[16384];
+    while (fgets(buf, sizeof(buf), f)) {
+        cJSON *item = cJSON_Parse(buf);
+        if (item && cJSON_IsObject(item)) {
+            count++;
+        }
+        cJSON_Delete(item);
+    }
+    fclose(f);
+    return count;
+}
+
+static void collect_tool_failure_once(const char *signature)
+{
+    cJSON *input = cJSON_CreateObject();
+    assert(input);
+    cJSON_AddStringToObject(input, "type", "defect");
+    cJSON_AddStringToObject(input, "source", "log");
+    cJSON_AddStringToObject(input, "title", "apply_patch 连续收到空参数导致工具调用失败");
+    cJSON_AddStringToObject(input, "description", "apply_patch 收到 input={}，工具返回缺少 patch 字段。");
+    cJSON_AddStringToObject(input, "expected", "apply_patch 调用必须提供 patch。");
+    cJSON_AddStringToObject(input, "actual", "apply_patch 收到空参数。");
+    cJSON_AddStringToObject(input, "status", "triaged");
+    cJSON_AddStringToObject(input, "priority", "P1");
+    cJSON_AddStringToObject(input, "error_signature", signature);
+
+    cJSON *evidence = cJSON_CreateObject();
+    cJSON_AddStringToObject(evidence, "session_id", "web_test");
+    cJSON *logs = cJSON_CreateArray();
+    cJSON_AddItemToArray(logs, cJSON_CreateString("Tool apply_patch failed: DAIMA_ERR_INVALID_ARG input={}"));
+    cJSON_AddItemToObject(evidence, "logs", logs);
+    cJSON *tool_calls = cJSON_CreateArray();
+    cJSON *call = cJSON_CreateObject();
+    cJSON_AddStringToObject(call, "tool", "apply_patch");
+    cJSON_AddStringToObject(call, "input", "{}");
+    cJSON_AddStringToObject(call, "error", "DAIMA_ERR_INVALID_ARG");
+    cJSON_AddStringToObject(call, "output", "错误：缺少 'patch' 字段");
+    cJSON_AddItemToArray(tool_calls, call);
+    cJSON_AddItemToObject(evidence, "tool_calls", tool_calls);
+    cJSON_AddItemToObject(input, "evidence", evidence);
+
+    cJSON *item = NULL;
+    assert(work_item_store_collect_structured(input, &item) == 0);
+    cJSON_Delete(item);
+    cJSON_Delete(input);
 }
 
 int main(void)
@@ -116,5 +169,35 @@ int main(void)
     assert(strstr(out, "可进入实现事项"));
 
     assert(tool_work_item_execute("{\"action\":\"add\",\"type\":\"bad\",\"title\":\"bad\"}", out, sizeof(out)) != 0);
+
+    int before_structured = count_valid_work_items();
+    const char *sig = "tool:apply_patch|err:DAIMA_ERR_INVALID_ARG|output:empty_input";
+    collect_tool_failure_once(sig);
+    assert(count_valid_work_items() == before_structured + 1);
+    collect_tool_failure_once(sig);
+    assert(count_valid_work_items() == before_structured + 1);
+
+    run_tool("{\"action\":\"list\",\"status\":\"triaged\"}", out, sizeof(out));
+    assert(strstr(out, "apply_patch 连续收到空参数"));
+
+    FILE *wf = fopen(daima_path_work_items_file(), "r");
+    assert(wf);
+    bool saw_signature = false;
+    bool saw_occurrences = false;
+    char item_line[16384];
+    while (fgets(item_line, sizeof(item_line), wf)) {
+        cJSON *parsed = cJSON_Parse(item_line);
+        if (!parsed) continue;
+        const char *parsed_sig = cJSON_GetStringValue(cJSON_GetObjectItem(parsed, "error_signature"));
+        if (parsed_sig && strcmp(parsed_sig, sig) == 0) {
+            saw_signature = true;
+            cJSON *occ = cJSON_GetObjectItem(parsed, "occurrences");
+            saw_occurrences = cJSON_IsNumber(occ) && occ->valueint == 2;
+        }
+        cJSON_Delete(parsed);
+    }
+    fclose(wf);
+    assert(saw_signature);
+    assert(saw_occurrences);
     return 0;
 }

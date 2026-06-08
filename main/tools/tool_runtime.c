@@ -13,6 +13,65 @@
 
 static const char *TAG = "tool_runtime";
 
+static void log_tool_runtime_input(const char *phase,
+                                   const char *tool_name,
+                                   const char *input_json)
+{
+    char preview[320];
+    const char *src = input_json ? input_json : "<null>";
+    size_t n = strlen(src);
+    size_t shown = n > sizeof(preview) - 1 ? sizeof(preview) - 1 : n;
+    memcpy(preview, src, shown);
+    preview[shown] = '\0';
+    for (size_t i = 0; i < shown; i++) {
+        if (preview[i] == '\n' || preview[i] == '\r' || preview[i] == '\t') {
+            preview[i] = ' ';
+        }
+    }
+    DAIMA_LOGI(TAG,
+               "%s tool=%s input_len=%u input=%s%s",
+               phase,
+               tool_name && tool_name[0] ? tool_name : "<missing>",
+               (unsigned)n,
+               preview,
+               n > shown ? "..." : "");
+}
+
+static void log_tool_runtime_result(const char *tool_name,
+                                    const char *input_json,
+                                    const char *output,
+                                    daima_err_t err,
+                                    long elapsed_ms)
+{
+    char input_preview[240];
+    char output_preview[240];
+    const char *in = input_json ? input_json : "";
+    const char *out = output ? output : "";
+    size_t in_len = strlen(in);
+    size_t out_len = strlen(out);
+    size_t in_shown = in_len > sizeof(input_preview) - 1 ? sizeof(input_preview) - 1 : in_len;
+    size_t out_shown = out_len > sizeof(output_preview) - 1 ? sizeof(output_preview) - 1 : out_len;
+    memcpy(input_preview, in, in_shown);
+    input_preview[in_shown] = '\0';
+    memcpy(output_preview, out, out_shown);
+    output_preview[out_shown] = '\0';
+    for (size_t i = 0; i < in_shown; i++) {
+        if (input_preview[i] == '\n' || input_preview[i] == '\r' || input_preview[i] == '\t') input_preview[i] = ' ';
+    }
+    for (size_t i = 0; i < out_shown; i++) {
+        if (output_preview[i] == '\n' || output_preview[i] == '\r' || output_preview[i] == '\t') output_preview[i] = ' ';
+    }
+    DAIMA_LOGI(TAG,
+               "execute result tool=%s err=%s elapsed_ms=%ld input_len=%u input=%s output_len=%u output=%s",
+               tool_name && tool_name[0] ? tool_name : "<missing>",
+               daima_err_to_name(err),
+               elapsed_ms,
+               (unsigned)in_len,
+               input_preview[0] ? input_preview : "<empty>",
+               (unsigned)out_len,
+               output_preview[0] ? output_preview : "<empty>");
+}
+
 static void maybe_retry_terminal_with_web_sudo(const llm_tool_call_t *call,
                                                const daima_msg_t *msg,
                                                char *tool_output,
@@ -79,9 +138,13 @@ daima_err_t tool_runtime_execute_call(const llm_tool_call_t *call,
 
     memset(out_result, 0, sizeof(*out_result));
     const char *tool_input = call->input ? call->input : "{}";
+    log_tool_runtime_input("execute original input",
+                           call->name,
+                           call->input ? call->input : "<null>");
     char *patched_input = tool_invocation_context_patch_input(call, msg);
     if (patched_input) {
         tool_input = patched_input;
+        log_tool_runtime_input("execute patched input", call->name, tool_input);
     }
 
     struct timespec started = {0};
@@ -95,5 +158,6 @@ daima_err_t tool_runtime_execute_call(const llm_tool_call_t *call,
     out_result->elapsed_ms = (ended.tv_sec - started.tv_sec) * 1000L
                            + (ended.tv_nsec - started.tv_nsec) / 1000000L;
     out_result->effective_input = patched_input;
+    log_tool_runtime_result(call->name, tool_input, tool_output, exec_err, out_result->elapsed_ms);
     return exec_err;
 }

@@ -89,6 +89,7 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_turn_exec_helpers.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/tool_feedback.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_turn_finish.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/agent/tool_protocol_guard.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/context_compressor.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/context_compress_ops.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/context_builder.c
@@ -110,7 +111,6 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_file_paths.c
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_file_checkpoint.c
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_file_read.c
-    ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_file_write.c
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_file_query.c
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_file_mutations.c
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_file_search.c

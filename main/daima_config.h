@@ -24,7 +24,7 @@
 #define DAIMA_AGENT_PRIO              6
 #define DAIMA_AGENT_CORE              1
 #define DAIMA_AGENT_MAX_HISTORY       64
-#define DAIMA_AGENT_MAX_TOOL_ITER     10
+#define DAIMA_AGENT_MAX_TOOL_ITER     20
 #define DAIMA_MAX_TOOL_CALLS          4
 
 /* 大模型（固定 OpenAI 兼容协议）

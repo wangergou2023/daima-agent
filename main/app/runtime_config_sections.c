@@ -11,6 +11,7 @@ static const char *TAG = "runtime_config_sections";
 static void apply_common_values(runtime_config_state_t *cfg, const cJSON *common)
 {
     int value = 0;
+    bool bool_value = false;
 
     if (!cfg || !common || !cJSON_IsObject(common)) {
         return;
@@ -25,11 +26,17 @@ static void apply_common_values(runtime_config_state_t *cfg, const cJSON *common
     if (runtime_config_json_read_int(common, "context_limit_tokens", &value) && value >= 1 && value <= 2000000) {
         cfg->common_context_limit_tokens = value;
     }
+    if (runtime_config_json_read_int(common, "max_output_tokens", &value)) {
+        cfg->common_max_output_tokens = runtime_config_clamp_int(value, 256, 131072, cfg->common_max_output_tokens);
+    }
     if (runtime_config_json_read_int(common, "compress_trigger_msgs", &value)) {
         cfg->compress_trigger_msgs = runtime_config_clamp_int(value, 4, 10000, cfg->compress_trigger_msgs);
     }
     if (runtime_config_json_read_int(common, "compress_keep_msgs", &value)) {
         cfg->compress_keep_msgs = runtime_config_clamp_int(value, 2, 1000, cfg->compress_keep_msgs);
+    }
+    if (runtime_config_json_read_bool(common, "learning_review_enabled", &bool_value)) {
+        cfg->learning_review_enabled = bool_value;
     }
     if (runtime_config_json_read_int(common, "cron_check_interval_ms", &value)) {
         cfg->cron_check_interval_ms = runtime_config_clamp_int(value, 1000, 86400000, cfg->cron_check_interval_ms);
@@ -38,6 +45,10 @@ static void apply_common_values(runtime_config_state_t *cfg, const cJSON *common
         cfg->heartbeat_interval_ms = runtime_config_clamp_int(value, 1000, 86400000, cfg->heartbeat_interval_ms);
     }
     runtime_config_json_copy_string(common, "timezone", cfg->timezone, sizeof(cfg->timezone));
+    runtime_config_json_copy_string(common,
+                                    "terminal_security_level",
+                                    cfg->terminal_security_level,
+                                    sizeof(cfg->terminal_security_level));
 }
 
 static void apply_web_values(runtime_config_state_t *cfg, const cJSON *root)
@@ -71,6 +82,12 @@ static void apply_provider_values(runtime_config_state_t *cfg,
     runtime_config_json_copy_string(provider, "thinking_mode", cfg->provider_thinking_mode, sizeof(cfg->provider_thinking_mode));
     if (runtime_config_json_read_int(provider, "context_limit_tokens", &int_value) && int_value >= 1 && int_value <= 2000000) {
         cfg->provider_context_limit_tokens = int_value;
+    }
+    if (runtime_config_json_read_int(provider, "max_output_tokens", &int_value)) {
+        cfg->provider_max_output_tokens = runtime_config_clamp_int(int_value, 256, 131072, cfg->provider_max_output_tokens);
+    }
+    if (runtime_config_json_read_int(provider, "request_timeout_ms", &int_value)) {
+        cfg->provider_request_timeout_ms = runtime_config_clamp_int(int_value, 1000, 900000, cfg->provider_request_timeout_ms);
     }
     if (runtime_config_json_read_bool(provider, "needs_reasoning_content", &bool_value)) {
         cfg->provider_needs_reasoning_content = bool_value;

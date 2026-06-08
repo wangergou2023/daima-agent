@@ -284,6 +284,13 @@ static bool is_safe_chat_id(const char *chat_id)
     return true;
 }
 
+static bool is_valid_terminal_security_level(const char *level)
+{
+    return level &&
+           (strcmp(level, "plan") == 0 ||
+            strcmp(level, "build") == 0);
+}
+
 static int estimate_prompt_tokens_rough(const char *system_prompt, const cJSON *messages)
 {
     size_t chars = system_prompt ? strlen(system_prompt) : 0;
@@ -364,6 +371,11 @@ static char *build_ui_config_json(void)
         default_pet_package_id && default_pet_package_id[0]
             ? default_pet_package_id
             : "guga.codex-pet");
+
+    cJSON *terminal = cJSON_AddObjectToObject(root, "terminal");
+    if (terminal) {
+        cJSON_AddStringToObject(terminal, "security_level", runtime_config_get_terminal_security_level());
+    }
 
     dir = opendir(daima_path_spiffs_base());
     if (dir) {
@@ -524,6 +536,29 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
             http_send_response(client_fd, "500 Internal Server Error",
                                "application/json; charset=utf-8",
                                "{\"error\":\"delete_failed\"}");
+            return 0;
+        }
+        http_send_response(client_fd, "200 OK",
+                           "application/json; charset=utf-8",
+                           "{\"ok\":true}");
+        return 0;
+    }
+
+    if (strcmp(method, "POST") == 0 && strcmp(path, "/api/terminal_security") == 0) {
+        char level[32] = {0};
+        query_get_value(query, "level", level, sizeof(level));
+        if (!is_valid_terminal_security_level(level)) {
+            http_send_response(client_fd, "400 Bad Request",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"invalid_level\"}");
+            return 0;
+        }
+
+        daima_err_t err = runtime_config_set_terminal_security_level(level);
+        if (err != DAIMA_OK) {
+            http_send_response(client_fd, "500 Internal Server Error",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"save_failed\"}");
             return 0;
         }
         http_send_response(client_fd, "200 OK",

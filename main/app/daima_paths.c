@@ -25,6 +25,7 @@ typedef struct {
     char web_dir[PATH_MAX];
     char feishu_image_dir[PATH_MAX];
     char skills_dir[PATH_MAX];
+    char workspace_dir[PATH_MAX];
     char runtime_config_file[PATH_MAX];
     char bootstrap_file[PATH_MAX];
     char identity_file[PATH_MAX];
@@ -123,6 +124,12 @@ static void detect_home_dir(char *out, size_t out_size)
         return;
     }
 
+    const char *home_env = getenv("HOME");
+    if (home_env && home_env[0]) {
+        snprintf(out, out_size, "%s/%s", home_env, DAIMA_DEFAULT_HOME_NAME);
+        return;
+    }
+
     char exe_dir[PATH_MAX];
     if (get_executable_dir(exe_dir, sizeof(exe_dir))) {
         if (dir_has_spiffs_data(exe_dir)) {
@@ -137,12 +144,6 @@ static void detect_home_dir(char *out, size_t out_size)
             safe_copy(out, out_size, parent_dir);
             return;
         }
-    }
-
-    const char *home_env = getenv("HOME");
-    if (home_env && home_env[0]) {
-        snprintf(out, out_size, "%s/%s", home_env, DAIMA_DEFAULT_HOME_NAME);
-        return;
     }
 
     safe_copy(out, out_size, ".daima");
@@ -161,6 +162,7 @@ static void build_paths(void)
     join_path2(s_paths.web_dir, sizeof(s_paths.web_dir), s_paths.spiffs_base, "web");
     join_path2(s_paths.feishu_image_dir, sizeof(s_paths.feishu_image_dir), s_paths.cache_dir, "feishu_images");
     join_path2(s_paths.skills_dir, sizeof(s_paths.skills_dir), s_paths.spiffs_base, "skills");
+    join_path2(s_paths.workspace_dir, sizeof(s_paths.workspace_dir), s_paths.spiffs_base, "workspace");
 
     join_path2(s_paths.runtime_config_file, sizeof(s_paths.runtime_config_file), s_paths.config_dir, "config.json");
     join_path2(s_paths.bootstrap_file, sizeof(s_paths.bootstrap_file), s_paths.config_dir, "BOOTSTRAP.md");
@@ -215,6 +217,7 @@ PATH_GETTER(daima_path_checkpoint_dir, checkpoint_dir)
 PATH_GETTER(daima_path_web_dir, web_dir)
 PATH_GETTER(daima_path_feishu_image_dir, feishu_image_dir)
 PATH_GETTER(daima_path_skills_dir, skills_dir)
+PATH_GETTER(daima_path_workspace_dir, workspace_dir)
 PATH_GETTER(daima_path_runtime_config_file, runtime_config_file)
 PATH_GETTER(daima_path_bootstrap_file, bootstrap_file)
 PATH_GETTER(daima_path_identity_file, identity_file)

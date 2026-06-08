@@ -17,14 +17,14 @@ description: 当用户要求创建、改写、评估、优化或测试 Daima 技
 
 1. 选择模式：默认 Create；检查/评估用 Eval；优化/修复用 Improve；测试/验证用 Benchmark。
 2. Create：明确目标、触发条件、输入输出、可用工具和保存位置。
-3. Eval：用 `skill_view` 读取目标技能，检查触发条件、front matter、真实工具和路径。
+3. Eval：用 `skills action=view` 读取目标技能，检查触发条件、front matter、真实工具和路径。
 4. Improve：先评估问题，再只改导致失败的触发条件、步骤、工具名、路径或示例。
 5. Benchmark：生成 3-5 条测试提示，覆盖正常触发、边界表达和不应触发场景。
-6. 保存技能到 `/spiffs/skills/<name>/SKILL.md`。
+6. 用 `apply_patch` 保存技能到 `/spiffs/skills/<name>/SKILL.md`。
 
 ## 工具与路径
 
-- 常用工具：`skills_list`、`skill_view`、`read_file`、`write_file`、`terminal`。
+- 常用工具：`skills action=list`、`skills action=view`、`files action=read`、`apply_patch`、`terminal`。
 - 技能路径：`/spiffs/skills/<name>/SKILL.md`。
 - `SKILL.md` 必须包含 front matter：`name` 和 `description`。
 
