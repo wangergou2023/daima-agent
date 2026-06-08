@@ -3,8 +3,9 @@
 /build-arm
 /build
 /dist
-/test/test_tts_player
-/test/test_tts_player.dSYM/
+/node_modules
+/test
+/docs/superpowers
+/spiffs_data/config/config.json
 .DS_Store
 Thumbs.db
-spiffs_data/config/config.json

@@ -81,40 +81,71 @@ static skill_summary_cache_entry_t s_summary_cache[SKILL_SUMMARY_CACHE_MAX];
 #define BUILTIN_SKILL_CREATOR \
     "# 技能创建器\n" \
     "\n" \
-    "为代马 Daima 创建新技能。\n" \
+    "这是 Claude Skill Creator 插件工作流在 Daima 中的本地适配版。Daima 不能直接执行 Claude Code 的 `/skill-creator` 插件命令；遇到创建或维护技能的请求时，按下面四种模式工作，并输出适合 Daima 的技能文件。\n" \
     "\n" \
     "## 何时使用\n" \
-    "当用户要求创建新技能、教会新的能力或扩展功能时。\n" \
     "\n" \
-    "## 如何创建技能\n" \
-    "1. 选择简短、清晰的名称（小写，可用连字符）\n" \
-    "2. SKILL.md 须包含固定的 YAML front matter（必须有 name 和 description）：\n" \
+    "当用户要求创建新技能、改写现有技能、评估技能质量、扩展能力、沉淀任务套路，或提到 Claude Skill Creator、`/skill-creator`、Create、Eval、Improve、Benchmark 时使用。\n" \
+    "\n" \
+    "## 模式选择\n" \
+    "\n" \
+    "- Create：从用户目标设计并写入新技能。\n" \
+    "- Eval：评估现有技能是否会在正确场景触发、是否引用真实工具、是否足够具体。\n" \
+    "- Improve：根据失败案例、反馈或新约束改进现有技能。\n" \
+    "- Benchmark：生成可重复的测试提示和预期行为，用来验证技能是否生效。\n" \
+    "\n" \
+    "如果用户没有指定模式，默认使用 Create。若用户说“检查”“评估”“好不好”，使用 Eval；说“优化”“改进”“修复”，使用 Improve；说“测试”“验证”“benchmark”，使用 Benchmark。\n" \
+    "\n" \
+    "## Create\n" \
+    "\n" \
+    "1. 明确技能目标、触发条件、输入输出、可用工具和保存位置。\n" \
+    "2. 选择简短、清晰的目录名：小写英文，可用连字符，例如 `code-review`。\n" \
+    "3. 写出 Daima 技能文件，路径固定为 `/spiffs/skills/<name>/SKILL.md`。\n" \
+    "4. `SKILL.md` 必须包含 YAML front matter：\n" \
     "   - `---`\n" \
     "   - `name: <技能名>`\n" \
     "   - `description: <一句话描述>`\n" \
     "   - `---`\n" \
-    "3. front matter 之后按以下结构编写：\n" \
+    "5. 正文保持简洁，优先包含：\n" \
     "   - `# 标题` —— 清晰的名称\n" \
-    "   - 简短描述段落\n" \
-    "   - `## 何时使用` —— 触发条件\n" \
-    "   - `## 使用步骤` —— 操作说明\n" \
-    "   - `## 示例` —— 具体示例（可选但推荐）\n" \
-    "4. 使用 write_file 保存到技能目录下的 `<name>/SKILL.md`\n" \
-    "5. 下一次对话开始后技能会自动生效\n" \
+    "   - `## 何时使用`\n" \
+    "   - `## 使用步骤`\n" \
+    "   - `## 工具与路径`\n" \
+    "   - `## 示例`（可选）\n" \
+    "6. 使用 `write_file` 保存技能。保存前确认路径在 `/spiffs/skills/<name>/SKILL.md`。\n" \
+    "7. 告诉用户下一次对话开始后技能会自动生效；如需立即检查，可用 `skills_list` 和 `skill_view` 查看。\n" \
     "\n" \
-    "## 最佳实践\n" \
-    "- 技能要简洁，避免过长（上下文有限）\n" \
-    "- 重点写“做什么”，而不是“怎么做”\n" \
-    "- 明确指出需要调用的工具\n" \
-    "- 通过提问测试新技能是否生效\n" \
+    "## Eval\n" \
     "\n" \
-    "## 示例\n" \
-    "创建 \"translate\" 技能：\n" \
-    "write_file path=\"spiffs_data/skills/translate/SKILL.md\" content=\"---\\nname: 翻译\\n" \
-    "description: 在语言之间翻译文本。\\n---\\n\\n# 翻译\\n\\n在语言之间翻译文本。\\n\\n" \
-    "## 何时使用\\n当用户要求翻译文本时。\\n\\n" \
-    "## 使用步骤\\n1. 识别源语言与目标语言\\n" \
-    "2. 直接翻译\\n\"\n"
+    "1. 使用 `skill_view` 读取目标技能；必要时用 `read_file` 查看关联文件。\n" \
+    "2. 检查 front matter 是否包含可解析的 `name` 和 `description`。\n" \
+    "3. 检查触发条件是否具体：既不能宽到抢占无关任务，也不能窄到常见表达无法触发。\n" \
+    "4. 检查步骤是否引用 Daima 中真实可用的工具，例如 `read_file`、`write_file`、`terminal`、`skills_list`、`skill_view`。\n" \
+    "5. 检查路径是否符合当前环境，技能应保存到 `/spiffs/skills/<name>/SKILL.md`。\n" \
+    "6. 输出结论：通过、需要改进，或不建议使用；列出具体问题和修改建议。\n" \
+    "\n" \
+    "## Improve\n" \
+    "\n" \
+    "1. 先用 Eval 找出问题，不要盲目重写。\n" \
+    "2. 保留技能原本目标，只改触发条件、步骤、工具名、路径或示例中会导致失败的部分。\n" \
+    "3. 删除过度泛化、重复、和 Daima 环境不匹配的内容。\n" \
+    "4. 用 `write_file` 写回原路径，或在用户要求时另存为新技能。\n" \
+    "5. 给出改动摘要和建议的 Benchmark 提示。\n" \
+    "\n" \
+    "## Benchmark\n" \
+    "\n" \
+    "1. 为技能设计 3-5 条测试提示，覆盖正常触发、边界表达和不应触发的场景。\n" \
+    "2. 每条测试写清楚预期行为：是否应使用该技能、应调用哪些工具、应生成或修改哪些文件。\n" \
+    "3. 对创建类技能，至少包含一条检查 `/spiffs/skills/<name>/SKILL.md` 是否存在且 front matter 可解析的测试。\n" \
+    "4. 如果测试失败，切换到 Improve 模式修正。\n" \
+    "\n" \
+    "## 质量标准\n" \
+    "\n" \
+    "- 技能描述必须能帮助系统判断“何时使用”。\n" \
+    "- 技能正文写操作规则，不写泛泛的能力宣传。\n" \
+    "- 工具名和路径必须真实可用；优先使用 `skills_list`、`skill_view`、`read_file`、`write_file`、`terminal`。\n" \
+    "- 不要把 Claude Code 专属命令写成 Daima 可执行命令；`/skill-creator` 只作为参考工作流名称。\n" \
+    "- 技能要短而具体，避免把完整项目计划塞进单个技能。\n"
 
 /* 内置技能注册表 */
 typedef struct {
