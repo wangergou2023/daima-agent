@@ -397,7 +397,7 @@ daima_err_t context_build_system_prompt_for_channel(const char *channel, char *b
     }
 
     /* 技能 */
-    char skills_buf[2048];
+    char skills_buf[16 * 1024];
     size_t skills_len = skill_loader_build_summary_for_channel(channel, skills_buf, sizeof(skills_buf));
     if (skills_len > 0) {
         off = append_textf(
