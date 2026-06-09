@@ -13,6 +13,10 @@ const sudoInput = document.getElementById('sudoInput');
 const sudoCancel = document.getElementById('sudoCancel');
 const sudoSubmit = document.getElementById('sudoSubmit');
 const sendBtn = document.getElementById('sendBtn');
+const attachmentPreview = document.getElementById('attachmentPreview');
+const attachmentImage = document.getElementById('attachmentImage');
+const attachmentName = document.getElementById('attachmentName');
+const attachmentRemove = document.getElementById('attachmentRemove');
 const scrollToBottomBtn = document.getElementById('scrollToBottom');
 const sessionSidebar = document.getElementById('sessionSidebar');
 const sessionList = document.getElementById('sessionList');
@@ -32,6 +36,7 @@ const THEME_KEY = 'daima_theme';
 const PET_PACKAGE_KEY = 'daima_pet_package_id';
 const NEAR_BOTTOM_PX = 72;
 const EMPTY_MULTILINE_HEIGHT = 84;
+const MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024;
 const DEFAULT_UI_CONFIG = Object.freeze({
   pet: {
     default_package_id: 'guga.codex-pet',
@@ -57,6 +62,10 @@ let currentToolGroup = null;
 let isConnected = false;
 let pendingAssistantResponse = false;
 let stopRequested = false;
+let pendingImagePath = '';
+let pendingImageName = '';
+let pendingImagePreviewUrl = '';
+let imageUploadBusy = false;
 let uiConfig = DEFAULT_UI_CONFIG;
 let petController = null;
 let availablePetPackages = normalizePetPackages(DEFAULT_UI_CONFIG);
@@ -218,6 +227,7 @@ function renderHistoryMessages(history) {
 
 async function switchSession(nextChatId) {
   if (!nextChatId || nextChatId === chatId) return;
+  clearPendingImage();
   setActiveChatId(nextChatId);
   selectedSessionId = nextChatId;
   renderSessions();
@@ -263,6 +273,7 @@ async function deleteSession(targetChatId) {
 }
 
 function startNewSession() {
+  clearPendingImage();
   setActiveChatId(createChatId());
   selectedSessionId = '';
   renderHistoryMessages([]);
@@ -509,6 +520,117 @@ function renderContextBadge() {
   ctxBadge.innerHTML = `<strong>${model}</strong><span>${usageText}</span>`;
 }
 
+function syncAttachmentPreview() {
+  if (!attachmentPreview || !attachmentImage || !attachmentName) return;
+  const hasImage = !!pendingImagePreviewUrl || !!pendingImagePath || imageUploadBusy;
+  attachmentPreview.hidden = !hasImage;
+  attachmentImage.hidden = !pendingImagePreviewUrl;
+  if (pendingImagePreviewUrl) {
+    attachmentImage.src = pendingImagePreviewUrl;
+    attachmentImage.alt = pendingImageName || '已粘贴的图片';
+  } else {
+    attachmentImage.removeAttribute('src');
+  }
+  attachmentName.textContent = imageUploadBusy ? '图片上传中...' : pendingImageName;
+}
+
+function clearPendingImage() {
+  if (pendingImagePreviewUrl) {
+    URL.revokeObjectURL(pendingImagePreviewUrl);
+  }
+  pendingImagePath = '';
+  pendingImageName = '';
+  pendingImagePreviewUrl = '';
+  imageUploadBusy = false;
+  syncAttachmentPreview();
+  syncSendState();
+}
+
+function isSupportedImageFile(file) {
+  if (!file) return false;
+  if (file.size <= 0 || file.size > MAX_IMAGE_UPLOAD_BYTES) return false;
+  const type = String(file.type || '').toLowerCase();
+  return ['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(type);
+}
+
+function imageExtensionForType(type) {
+  if (type === 'image/jpeg') return 'jpg';
+  if (type === 'image/webp') return 'webp';
+  if (type === 'image/gif') return 'gif';
+  return 'png';
+}
+
+function normalizeImageFilename(file) {
+  const name = String(file?.name || '').trim();
+  if (/\.(png|jpe?g|webp|gif)$/i.test(name)) return name;
+  return `image_${Date.now()}.${imageExtensionForType(String(file?.type || '').toLowerCase())}`;
+}
+
+function dataUrlToFile(dataUrl) {
+  const match = /^data:(image\/(?:png|jpeg|webp|gif));base64,([a-z0-9+/=]+)$/i.exec(String(dataUrl || ''));
+  if (!match) return null;
+
+  const mimeType = match[1].toLowerCase();
+  const raw = atob(match[2]);
+  const bytes = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) {
+    bytes[i] = raw.charCodeAt(i);
+  }
+  return new File([bytes], `image_${Date.now()}.${imageExtensionForType(mimeType)}`, { type: mimeType });
+}
+
+function findPastedImageFile(clipboardData) {
+  if (!clipboardData) return null;
+
+  const files = Array.from(clipboardData.files || []);
+  for (const file of files) {
+    if (isSupportedImageFile(file)) return file;
+  }
+
+  const items = Array.from(clipboardData.items || []);
+  for (const item of items) {
+    if (!item.type || !item.type.startsWith('image/')) continue;
+    const file = item.getAsFile();
+    if (isSupportedImageFile(file)) return file;
+  }
+
+  const html = clipboardData.getData ? clipboardData.getData('text/html') : '';
+  const dataUrlMatch = /src=["'](data:image\/(?:png|jpeg|webp|gif);base64,[^"']+)["']/i.exec(html);
+  return dataUrlToFile(dataUrlMatch?.[1]);
+}
+
+async function uploadImageFile(file) {
+  if (!isSupportedImageFile(file) || !ws || ws.readyState !== WebSocket.OPEN) {
+    return false;
+  }
+
+  imageUploadBusy = true;
+  pendingImagePath = '';
+  pendingImageName = normalizeImageFilename(file);
+  if (pendingImagePreviewUrl) {
+    URL.revokeObjectURL(pendingImagePreviewUrl);
+  }
+  pendingImagePreviewUrl = URL.createObjectURL(file);
+  syncAttachmentPreview();
+  syncSendState();
+
+  try {
+    const bytes = await file.arrayBuffer();
+    ws.send(JSON.stringify({
+      type: 'upload_image',
+      chat_id: chatId,
+      filename: pendingImageName,
+      mime_type: file.type || 'application/octet-stream',
+      size: file.size,
+    }));
+    ws.send(bytes);
+    return true;
+  } catch (_) {
+    clearPendingImage();
+    return false;
+  }
+}
+
 async function refreshContextStats() {
   try {
     const resp = await fetch(`/api/context_stats?chat_id=${encodeURIComponent(chatId)}`, { cache: 'no-store' });
@@ -559,8 +681,9 @@ function syncEmptyComposerLayout() {
 function syncSendState() {
   if (!sendBtn) return;
   const generating = pendingAssistantResponse;
+  const hasDraft = !!input.value.trim() || !!pendingImagePath;
   sendBtn.classList.toggle('is-generating', generating);
-  sendBtn.disabled = !isConnected || (generating && stopRequested) || (!generating && !input.value.trim());
+  sendBtn.disabled = !isConnected || imageUploadBusy || (generating && stopRequested) || (!generating && !hasDraft);
   if (generating) {
     sendBtn.textContent = '';
     sendBtn.title = '停止生成';
@@ -972,6 +1095,20 @@ function connect() {
     try {
       const data = JSON.parse(evt.data);
       if (data.type === 'pong') return;
+      if (data.type === 'upload_done') {
+        if (data.chat_id === chatId) {
+          pendingImagePath = data.image_path || '';
+          pendingImageName = data.filename || pendingImageName || '图片';
+          imageUploadBusy = false;
+          syncAttachmentPreview();
+          syncSendState();
+        }
+        return;
+      }
+      if (data.type === 'upload_error') {
+        clearPendingImage();
+        return;
+      }
       if (data.type === 'stopped') {
         if (data.chat_id === chatId && stopRequested) {
           pendingAssistantResponse = false;
@@ -1024,7 +1161,9 @@ function connect() {
 }
 
 function sendUserMessage(text, cancelCurrent) {
-  if (!text || !ws || ws.readyState !== WebSocket.OPEN) return false;
+  const imagePath = pendingImagePath;
+  const displayText = text || (imagePath ? '请看这张图片' : '');
+  if (!displayText || imageUploadBusy || !ws || ws.readyState !== WebSocket.OPEN) return false;
   if (cancelCurrent) {
     ws.send(JSON.stringify({ type: 'stop', chat_id: chatId }));
   }
@@ -1033,12 +1172,18 @@ function sendUserMessage(text, cancelCurrent) {
   if (petController) {
     petController.markAssistantPending();
   }
-  addMessage('user', text);
+  addMessage('user', displayText);
   selectedSessionId = chatId;
   upsertLocalSession(chatId);
   renderSessions();
-  ws.send(JSON.stringify({ type: 'message', content: text, chat_id: chatId }));
+  ws.send(JSON.stringify({
+    type: 'message',
+    content: displayText,
+    chat_id: chatId,
+    image_path: imagePath || undefined,
+  }));
   input.value = '';
+  clearPendingImage();
   currentToolGroup = null;
   autoResize();
   renderContextBadge();
@@ -1078,6 +1223,14 @@ input.addEventListener('input', () => {
     petController.noteDraftActivity();
   }
 });
+input.addEventListener('paste', (e) => {
+  if (imageUploadBusy) return;
+  const file = findPastedImageFile(e.clipboardData);
+  if (file) {
+    e.preventDefault();
+    uploadImageFile(file);
+  }
+});
 messages.addEventListener('scroll', () => {
   stickToBottom = isNearBottom();
   syncScrollButton();
@@ -1092,6 +1245,9 @@ if (themeSelect) {
 }
 if (terminalSecuritySelect) {
   terminalSecuritySelect.addEventListener('change', (e) => setTerminalSecurityLevel(e.target.value));
+}
+if (attachmentRemove) {
+  attachmentRemove.addEventListener('click', () => clearPendingImage());
 }
 if (newSessionBtn) {
   newSessionBtn.addEventListener('click', () => startNewSession());
