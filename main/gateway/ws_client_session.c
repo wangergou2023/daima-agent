@@ -11,6 +11,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "agent/agent_cancel.h"
 #include "bus/message_bus.h"
 #include "gateway/ws_server.h"
 #include "pet/pet_event.h"
@@ -177,6 +178,20 @@ static void drop_duplicate_chat_id(const char *chat_id, int keep_fd)
         }
     }
     pthread_mutex_unlock(&s_clients_mutex);
+}
+
+static const char *resolve_client_chat_id(ws_client_t *client, cJSON *root, int fd)
+{
+    const char *chat_id = client ? client->chat_id : "ws_unknown";
+    cJSON *cid = cJSON_GetObjectItem(root, "chat_id");
+    if (cid && cJSON_IsString(cid) && cid->valuestring[0]) {
+        chat_id = cid->valuestring;
+        drop_duplicate_chat_id(chat_id, fd);
+        if (client) {
+            snprintf(client->chat_id, sizeof(client->chat_id), "%s", chat_id);
+        }
+    }
+    return chat_id;
 }
 
 daima_err_t ws_client_session_send_json(const char *chat_id, cJSON *obj)
@@ -361,17 +376,10 @@ static void handle_message(int fd)
     if (type && cJSON_IsString(type) && strcmp(type->valuestring, "message") == 0
         && content && cJSON_IsString(content)) {
 
-        const char *chat_id = client ? client->chat_id : "ws_unknown";
-        cJSON *cid = cJSON_GetObjectItem(root, "chat_id");
-        if (cid && cJSON_IsString(cid)) {
-            chat_id = cid->valuestring;
-            drop_duplicate_chat_id(chat_id, fd);
-            if (client) {
-                strncpy(client->chat_id, chat_id, sizeof(client->chat_id) - 1);
-            }
-        }
+        const char *chat_id = resolve_client_chat_id(client, root, fd);
 
         DAIMA_LOGI(TAG, "WS message from %s: %.40s...", chat_id, content->valuestring);
+        agent_cancel_request(chat_id, "new_web_message");
 
         daima_msg_t msg = {0};
         strncpy(msg.channel, DAIMA_CHAN_WEBSOCKET, sizeof(msg.channel) - 1);
@@ -381,26 +389,40 @@ static void handle_message(int fd)
         if (msg.content) {
             message_bus_push_inbound(&msg);
         }
+        cJSON_Delete(root);
+        return;
+    }
+
+    if (type && cJSON_IsString(type) && strcmp(type->valuestring, "stop") == 0) {
+        const char *chat_id = resolve_client_chat_id(client, root, fd);
+
+        DAIMA_LOGI(TAG, "WS stop from %s", chat_id);
+        agent_cancel_request(chat_id, "web_stop");
+
+        cJSON *resp = cJSON_CreateObject();
+        if (resp) {
+            cJSON_AddStringToObject(resp, "type", "stopped");
+            cJSON_AddStringToObject(resp, "chat_id", chat_id);
+            char *text = cJSON_PrintUnformatted(resp);
+            if (text) {
+                ws_send_text(fd, text);
+                free(text);
+            }
+            cJSON_Delete(resp);
+        }
+        cJSON_Delete(root);
+        return;
     }
 
     if (type && cJSON_IsString(type) && strcmp(type->valuestring, PET_WS_TYPE_ACTION) == 0) {
-        const char *chat_id = client ? client->chat_id : "ws_unknown";
+        const char *chat_id = resolve_client_chat_id(client, root, fd);
         const char *action = NULL;
         const char *pet_id = NULL;
         char pet_chat_id[64] = {0};
 
-        cJSON *cid = cJSON_GetObjectItem(root, "chat_id");
         cJSON *pet_cid = cJSON_GetObjectItem(root, "pet_chat_id");
         cJSON *action_json = cJSON_GetObjectItem(root, "action");
         cJSON *pet_id_json = cJSON_GetObjectItem(root, "pet_id");
-
-        if (cid && cJSON_IsString(cid) && cid->valuestring[0]) {
-            chat_id = cid->valuestring;
-            drop_duplicate_chat_id(chat_id, fd);
-            if (client) {
-                strncpy(client->chat_id, chat_id, sizeof(client->chat_id) - 1);
-            }
-        }
 
         if (pet_cid && cJSON_IsString(pet_cid) && pet_cid->valuestring[0]) {
             snprintf(pet_chat_id, sizeof(pet_chat_id), "%s", pet_cid->valuestring);

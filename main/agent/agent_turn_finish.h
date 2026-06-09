@@ -10,4 +10,5 @@ void agent_turn_finish(
     char **io_final_text,
     daima_err_t turn_err,
     int iteration,
-    bool tool_budget_exhausted);
+    bool tool_budget_exhausted,
+    bool cancelled);

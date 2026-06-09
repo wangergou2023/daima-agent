@@ -993,6 +993,22 @@ button {
   line-height: 1;
 }
 
+.send-btn.is-generating {
+  color: transparent;
+}
+
+.send-btn.is-generating::before {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  color: var(--user-ink);
+  animation: send-spin 0.8s linear infinite;
+}
+
 .send-btn:hover:not(:disabled) {
   transform: translateY(-1px);
   background: var(--user-fill-hover);
@@ -1002,6 +1018,12 @@ button {
   background: rgba(148, 163, 184, 0.38);
   color: rgba(255, 255, 255, 0.88);
   box-shadow: none;
+}
+
+@keyframes send-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .actions {

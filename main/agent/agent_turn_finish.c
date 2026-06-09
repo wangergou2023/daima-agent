@@ -15,9 +15,23 @@ void agent_turn_finish(
     char **io_final_text,
     daima_err_t turn_err,
     int iteration,
-    bool tool_budget_exhausted)
+    bool tool_budget_exhausted,
+    bool cancelled)
 {
     char *final_text = io_final_text ? *io_final_text : NULL;
+
+    if (cancelled) {
+        free(final_text);
+        final_text = NULL;
+        if (io_final_text) {
+            *io_final_text = NULL;
+        }
+        DAIMA_LOGI(TAG, "Skip final response for cancelled turn %s:%s",
+                   msg ? msg->channel : "-",
+                   msg ? msg->chat_id : "-");
+        agent_cleanup_inbound_msg(msg);
+        return;
+    }
 
     if (final_text && final_text[0]) {
         agent_turn_save_session(msg, final_text, iteration);

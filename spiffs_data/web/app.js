@@ -56,6 +56,7 @@ let stickToBottom = true;
 let currentToolGroup = null;
 let isConnected = false;
 let pendingAssistantResponse = false;
+let stopRequested = false;
 let uiConfig = DEFAULT_UI_CONFIG;
 let petController = null;
 let availablePetPackages = normalizePetPackages(DEFAULT_UI_CONFIG);
@@ -557,7 +558,18 @@ function syncEmptyComposerLayout() {
 
 function syncSendState() {
   if (!sendBtn) return;
-  sendBtn.disabled = !isConnected || !input.value.trim();
+  const generating = pendingAssistantResponse;
+  sendBtn.classList.toggle('is-generating', generating);
+  sendBtn.disabled = !isConnected || (generating && stopRequested) || (!generating && !input.value.trim());
+  if (generating) {
+    sendBtn.textContent = '';
+    sendBtn.title = '停止生成';
+    sendBtn.setAttribute('aria-label', '停止生成');
+  } else {
+    sendBtn.textContent = '发送';
+    sendBtn.title = 'Send message';
+    sendBtn.setAttribute('aria-label', 'Send message');
+  }
 }
 
 function appendNode(node) {
@@ -960,6 +972,17 @@ function connect() {
     try {
       const data = JSON.parse(evt.data);
       if (data.type === 'pong') return;
+      if (data.type === 'stopped') {
+        if (data.chat_id === chatId && stopRequested) {
+          pendingAssistantResponse = false;
+          stopRequested = false;
+          if (petController) {
+            petController.handleSocketOpen();
+          }
+          syncSendState();
+        }
+        return;
+      }
       if (data.type === 'sudo_request') {
         openSudoPrompt(data.request_id, data.prompt || 'Please enter your sudo password to continue this command.');
         return;
@@ -979,28 +1002,34 @@ function connect() {
       }
       if (data.type === 'response' && data.content) {
         pendingAssistantResponse = false;
+        stopRequested = false;
         const assistantText = petController
           ? petController.consumeAssistantText(data.content)
           : data.content;
         addMessage('assistant', assistantText);
+        syncSendState();
         refreshContextStats();
         return;
       }
     } catch (_) {
       pendingAssistantResponse = false;
+      stopRequested = false;
       const assistantText = petController
         ? petController.consumeAssistantText(evt.data)
         : evt.data;
       addMessage('assistant', assistantText);
+      syncSendState();
     }
   };
 }
 
-form.addEventListener('submit', (e) => {
-  e.preventDefault();
-  const text = input.value.trim();
-  if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+function sendUserMessage(text, cancelCurrent) {
+  if (!text || !ws || ws.readyState !== WebSocket.OPEN) return false;
+  if (cancelCurrent) {
+    ws.send(JSON.stringify({ type: 'stop', chat_id: chatId }));
+  }
   pendingAssistantResponse = true;
+  stopRequested = false;
   if (petController) {
     petController.markAssistantPending();
   }
@@ -1013,12 +1042,32 @@ form.addEventListener('submit', (e) => {
   currentToolGroup = null;
   autoResize();
   renderContextBadge();
+  syncSendState();
   setTimeout(loadSessions, 600);
+  return true;
+}
+
+form.addEventListener('submit', (e) => {
+  e.preventDefault();
+  if (pendingAssistantResponse) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    stopRequested = true;
+    ws.send(JSON.stringify({ type: 'stop', chat_id: chatId }));
+    syncSendState();
+    return;
+  }
+  const text = input.value.trim();
+  sendUserMessage(text, false);
 });
 
 input.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
+    const text = input.value.trim();
+    if (pendingAssistantResponse && text) {
+      sendUserMessage(text, true);
+      return;
+    }
     form.requestSubmit();
   }
 });

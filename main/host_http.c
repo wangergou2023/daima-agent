@@ -1,4 +1,5 @@
 #include "host_http.h"
+#include "agent/agent_cancel.h"
 #include "host_tls.h"
 #include "proxy/http_proxy.h"
 #include "daima_config.h"
@@ -48,6 +49,20 @@ static size_t header_cb(char *buffer, size_t size, size_t nitems, void *userp)
     buf->len += realsize;
     buf->data[buf->len] = '\0';
     return realsize;
+}
+
+static int cancel_progress_cb(void *clientp,
+                              curl_off_t dltotal,
+                              curl_off_t dlnow,
+                              curl_off_t ultotal,
+                              curl_off_t ulnow)
+{
+    (void)clientp;
+    (void)dltotal;
+    (void)dlnow;
+    (void)ultotal;
+    (void)ulnow;
+    return agent_cancel_current_thread_cancelled() ? 1 : 0;
 }
 
 static void apply_proxy(CURL *curl)
@@ -104,6 +119,8 @@ daima_err_t host_http_request(const char *method,
     curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, header_cb);
     curl_easy_setopt(curl, CURLOPT_HEADERDATA, &hdrs);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "daima-host/0.1");
+    curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
+    curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, cancel_progress_cb);
 
     if (headers) {
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
@@ -127,7 +144,11 @@ daima_err_t host_http_request(const char *method,
     curl_easy_cleanup(curl);
 
     if (res != CURLE_OK) {
-        DAIMA_LOGW(TAG, "HTTP request failed: %s", curl_easy_strerror(res));
+        if (res == CURLE_ABORTED_BY_CALLBACK && agent_cancel_current_thread_cancelled()) {
+            DAIMA_LOGI(TAG, "HTTP request aborted by agent cancellation");
+        } else {
+            DAIMA_LOGW(TAG, "HTTP request failed: %s", curl_easy_strerror(res));
+        }
         out->error = strdup(curl_easy_strerror(res));
         free(resp.data);
         free(hdrs.data);

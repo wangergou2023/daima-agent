@@ -1,6 +1,7 @@
 /* 智能体主循环：处理消息、调用大模型、执行工具并回写结果。 */
 
 #include "agent/agent_loop.h"
+#include "agent/agent_cancel.h"
 #include "agent/agent_turn_common.h"
 #include "agent/context_compressor.h"
 #include "agent/learning_review.h"
@@ -52,6 +53,7 @@ static void agent_loop_task(void *arg)
                   msg.channel, msg.chat_id,
                   agent_msg_source_or_default(&msg));
 
+        uint64_t cancel_token = agent_cancel_begin_turn(msg.chat_id);
         cJSON *messages = NULL;
         err = agent_turn_prepare(&msg,
                                  system_prompt, DAIMA_CONTEXT_BUF_SIZE,
@@ -61,14 +63,16 @@ static void agent_loop_task(void *arg)
         char *final_text = NULL;
         int iteration = 0;
         bool tool_budget_exhausted = false;
+        bool cancelled = false;
         if (err == DAIMA_OK) {
             const char *tools_json = tool_registry_get_tools_json_for_channel(msg.channel);
             err = agent_turn_run(system_prompt, messages, tools_json, &msg,
-                                 &final_text, &iteration, &tool_budget_exhausted);
+                                 cancel_token,
+                                 &final_text, &iteration, &tool_budget_exhausted, &cancelled);
         }
 
         cJSON_Delete(messages);
-        agent_turn_finish(&msg, &final_text, err, iteration, tool_budget_exhausted);
+        agent_turn_finish(&msg, &final_text, err, iteration, tool_budget_exhausted, cancelled);
     }
 }
 

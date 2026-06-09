@@ -80,6 +80,7 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/main/daima_base64.c
     ${CMAKE_CURRENT_LIST_DIR}/main/daima_env.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_loop.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_cancel.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/channel_policy.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_turn_common.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_prompt_debug.c
