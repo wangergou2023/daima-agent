@@ -62,6 +62,7 @@ let currentToolGroup = null;
 let isConnected = false;
 let pendingAssistantResponse = false;
 let stopRequested = false;
+let pendingReasoningCard = null;
 let pendingImagePath = '';
 let pendingImageName = '';
 let pendingImagePreviewUrl = '';
@@ -215,8 +216,9 @@ function renderHistoryMessages(history) {
   for (const item of history) {
     const role = item?.role;
     const content = item?.content;
+    const reasoning = item?.reasoning || '';
     if (!content || (role !== 'user' && role !== 'assistant')) continue;
-    messages.appendChild(makeMessageNode(role, content));
+    messages.appendChild(makeMessageNode(role, content, reasoning));
   }
   syncEmptyState();
   syncEmptyComposerLayout();
@@ -924,7 +926,23 @@ function renderAssistantMarkdown(target, text) {
   target.appendChild(fragment);
 }
 
-function makeMessageNode(role, text) {
+function makeReasoningNode(reasoning) {
+  if (!reasoning) return null;
+  const details = document.createElement('details');
+  details.className = 'reasoning-block';
+
+  const summary = document.createElement('summary');
+  summary.textContent = '思考过程';
+  details.appendChild(summary);
+
+  const body = document.createElement('div');
+  body.className = 'reasoning-copy';
+  renderAssistantMarkdown(body, reasoning);
+  details.appendChild(body);
+  return details;
+}
+
+function makeMessageNode(role, text, reasoning = '') {
   const row = document.createElement('article');
   row.className = `message-row ${role}`;
 
@@ -936,6 +954,13 @@ function makeMessageNode(role, text) {
     label.className = 'message-label';
     label.textContent = 'Daima';
     card.appendChild(label);
+  }
+
+  if (role === 'assistant' && reasoning) {
+    const reasoningNode = makeReasoningNode(reasoning);
+    if (reasoningNode) {
+      card.appendChild(reasoningNode);
+    }
   }
 
   const copy = document.createElement('div');
@@ -1016,9 +1041,11 @@ function addMessage(role, text) {
   if (!text) return;
   if (role === 'tool') {
     addToolMessage(text);
+    pendingReasoningCard = null;
     return;
   }
   currentToolGroup = null;
+  pendingReasoningCard = null;
   appendNode(makeMessageNode(role, text));
 }
 
@@ -1113,6 +1140,7 @@ function connect() {
         if (data.chat_id === chatId && stopRequested) {
           pendingAssistantResponse = false;
           stopRequested = false;
+          pendingReasoningCard = null;
           if (petController) {
             petController.handleSocketOpen();
           }
@@ -1129,6 +1157,7 @@ function connect() {
           petController.handleToolMessage();
         }
         addMessage('tool', data.content);
+        pendingReasoningCard = null;
         return;
       }
       if (data.type === 'pet_response') {
@@ -1137,13 +1166,32 @@ function connect() {
         }
         return;
       }
+      if (data.type === 'reasoning' && data.content) {
+        if (petController) {
+          petController.handleToolMessage();
+        }
+        currentToolGroup = null;
+        pendingReasoningCard = makeMessageNode('assistant', '', data.content);
+        appendNode(pendingReasoningCard);
+        syncSendState();
+        return;
+      }
       if (data.type === 'response' && data.content) {
         pendingAssistantResponse = false;
         stopRequested = false;
         const assistantText = petController
           ? petController.consumeAssistantText(data.content)
           : data.content;
-        addMessage('assistant', assistantText);
+        if (pendingReasoningCard) {
+          const copy = pendingReasoningCard.querySelector('.message-copy');
+          if (copy) {
+            renderAssistantMarkdown(copy, assistantText);
+          }
+          pendingReasoningCard = null;
+        } else {
+          currentToolGroup = null;
+          appendNode(makeMessageNode('assistant', assistantText));
+        }
         syncSendState();
         refreshContextStats();
         return;
@@ -1151,6 +1199,7 @@ function connect() {
     } catch (_) {
       pendingAssistantResponse = false;
       stopRequested = false;
+      pendingReasoningCard = null;
       const assistantText = petController
         ? petController.consumeAssistantText(evt.data)
         : evt.data;

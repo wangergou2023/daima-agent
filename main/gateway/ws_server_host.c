@@ -225,6 +225,20 @@ daima_err_t ws_server_start(void)
 
 daima_err_t ws_server_send(const char *chat_id, const char *text)
 {
+    return ws_server_send_with_reasoning(chat_id, text, NULL);
+}
+
+daima_err_t ws_server_send_with_reasoning(const char *chat_id, const char *text, const char *reasoning)
+{
+    if (reasoning && reasoning[0]) {
+        cJSON *reas = cJSON_CreateObject();
+        cJSON_AddStringToObject(reas, "type", "reasoning");
+        cJSON_AddStringToObject(reas, "content", reasoning);
+        cJSON_AddStringToObject(reas, "chat_id", chat_id);
+        ws_client_session_send_json(chat_id, reas);
+        cJSON_Delete(reas);
+    }
+
     cJSON *resp = cJSON_CreateObject();
     cJSON_AddStringToObject(resp, "type", "response");
     cJSON_AddStringToObject(resp, "content", text);

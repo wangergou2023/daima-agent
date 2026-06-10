@@ -61,15 +61,17 @@ daima_err_t agent_turn_run(
     const daima_msg_t *msg,
     uint64_t cancel_token,
     char **out_final_text,
+    char **out_reasoning_text,
     int *out_iteration,
     bool *out_tool_budget_exhausted,
     bool *out_cancelled)
 {
-    if (!system_prompt || !messages || !msg || !out_final_text || !out_iteration || !out_tool_budget_exhausted || !out_cancelled) {
+    if (!system_prompt || !messages || !msg || !out_final_text || !out_reasoning_text || !out_iteration || !out_tool_budget_exhausted || !out_cancelled) {
         return DAIMA_ERR_INVALID_ARG;
     }
 
     *out_final_text = NULL;
+    *out_reasoning_text = NULL;
     *out_iteration = 0;
     *out_tool_budget_exhausted = false;
     *out_cancelled = false;
@@ -82,6 +84,7 @@ daima_err_t agent_turn_run(
     daima_err_t err = DAIMA_OK;
     int iteration = 0;
     char *final_text = NULL;
+    char *final_reasoning_text = NULL;
     turn_exec_stats_t stats;
     memset(&stats, 0, sizeof(stats));
 
@@ -111,6 +114,9 @@ daima_err_t agent_turn_run(
         if (!resp.tool_use) {
             if (resp.text && resp.text_len > 0) {
                 final_text = strdup(resp.text);
+            }
+            if (resp.reasoning_content && resp.reasoning_content_len > 0) {
+                final_reasoning_text = strdup(resp.reasoning_content);
             }
             llm_response_free(&resp);
             err = DAIMA_OK;
@@ -168,6 +174,7 @@ daima_err_t agent_turn_run(
 
     free(tool_output);
     *out_final_text = final_text;
+    *out_reasoning_text = final_reasoning_text;
     *out_iteration = iteration;
     return err;
 }

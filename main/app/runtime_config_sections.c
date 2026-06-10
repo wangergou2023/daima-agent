@@ -80,6 +80,7 @@ static void apply_provider_values(runtime_config_state_t *cfg,
     runtime_config_json_copy_string(provider, "openai_base_url", cfg->provider_openai_base_url, sizeof(cfg->provider_openai_base_url));
     runtime_config_json_copy_string(provider, "api_mode", cfg->provider_api_mode, sizeof(cfg->provider_api_mode));
     runtime_config_json_copy_string(provider, "thinking_mode", cfg->provider_thinking_mode, sizeof(cfg->provider_thinking_mode));
+    runtime_config_json_copy_string(provider, "reasoning_effort", cfg->provider_reasoning_effort, sizeof(cfg->provider_reasoning_effort));
     if (runtime_config_json_read_int(provider, "context_limit_tokens", &int_value) && int_value >= 1 && int_value <= 2000000) {
         cfg->provider_context_limit_tokens = int_value;
     }

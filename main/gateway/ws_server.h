@@ -22,6 +22,7 @@ daima_err_t ws_server_start(void);
  * @param text     消息文本
  */
 daima_err_t ws_server_send(const char *chat_id, const char *text);
+daima_err_t ws_server_send_with_reasoning(const char *chat_id, const char *text, const char *reasoning);
 
 /**
  * 发送轻量工具活动消息，用于 Web 对话流中的过程提示。

@@ -37,6 +37,7 @@ typedef struct {
     char provider_openai_base_url[RUNTIME_URL_MAX];
     char provider_api_mode[RUNTIME_STRING_SMALL_MAX];
     char provider_thinking_mode[RUNTIME_STRING_SMALL_MAX];
+    char provider_reasoning_effort[RUNTIME_STRING_SMALL_MAX];
     int provider_context_limit_tokens;
     int provider_max_output_tokens;
     int provider_request_timeout_ms;

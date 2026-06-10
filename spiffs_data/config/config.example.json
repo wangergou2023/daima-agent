@@ -24,6 +24,7 @@
       "api_mode": "chat_completions",
       "context_limit_tokens": 256000,
       "thinking_mode": "omit",
+      "reasoning_effort": "medium",
       "needs_reasoning_content": true,
       "max_output_tokens": 8192,
       "request_timeout_ms": 300000
@@ -34,7 +35,8 @@
       "model": "deepseek-v4-pro-hermes",
       "api_mode": "chat_completions",
       "context_limit_tokens": 128000,
-      "thinking_mode": "omit",
+      "thinking_mode": "enabled",
+      "reasoning_effort": "high",
       "needs_reasoning_content": true,
       "max_output_tokens": 16384,
       "request_timeout_ms": 300000
@@ -46,6 +48,7 @@
       "api_mode": "anthropic_messages",
       "context_limit_tokens": 128000,
       "thinking_mode": "omit",
+      "reasoning_effort": "medium",
       "needs_reasoning_content": false,
       "max_output_tokens": 16384,
       "request_timeout_ms": 300000
@@ -57,6 +60,7 @@
       "api_mode": "anthropic_messages",
       "context_limit_tokens": 128000,
       "thinking_mode": "omit",
+      "reasoning_effort": "medium",
       "needs_reasoning_content": false,
       "max_output_tokens": 16384,
       "request_timeout_ms": 300000

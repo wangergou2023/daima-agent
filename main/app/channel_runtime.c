@@ -11,14 +11,17 @@
 
 static const char *TAG = "channel_runtime";
 
-static daima_err_t channel_runtime_send_text(const char *channel, const char *chat_id, const char *text)
+static daima_err_t channel_runtime_send_text(const char *channel,
+                                             const char *chat_id,
+                                             const char *text,
+                                             const char *reasoning)
 {
     if (!channel || !chat_id || !text) {
         return DAIMA_ERR_INVALID_ARG;
     }
 
     if (strcmp(channel, DAIMA_CHAN_WEBSOCKET) == 0) {
-        return ws_server_send(chat_id, text);
+        return ws_server_send_with_reasoning(chat_id, text, reasoning);
     }
     if (strcmp(channel, DAIMA_CHAN_PET) == 0) {
         return ws_server_send_pet_response(chat_id, text);
@@ -45,5 +48,5 @@ daima_err_t channel_runtime_dispatch_outbound(const daima_msg_t *msg)
     if (!msg || !msg->content) {
         return DAIMA_ERR_INVALID_ARG;
     }
-    return channel_runtime_send_text(msg->channel, msg->chat_id, msg->content);
+    return channel_runtime_send_text(msg->channel, msg->chat_id, msg->content, msg->reasoning);
 }

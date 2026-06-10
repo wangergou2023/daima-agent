@@ -14,6 +14,7 @@ daima_err_t agent_turn_run(
     const daima_msg_t *msg,
     uint64_t cancel_token,
     char **out_final_text,
+    char **out_reasoning_text,
     int *out_iteration,
     bool *out_tool_budget_exhausted,
     bool *out_cancelled);

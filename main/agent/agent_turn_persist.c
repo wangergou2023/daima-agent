@@ -11,6 +11,7 @@
 #include "bus/message_bus.h"
 #include "memory/session_store.h"
 #include "daima_log.h"
+#include "cJSON.h"
 
 static const char *TAG = "agent_finish";
 
@@ -19,7 +20,22 @@ static bool should_save_assistant_reply(const daima_msg_t *msg, const char *fina
     return msg && final_text && final_text[0] && !agent_msg_is_internal_control(msg);
 }
 
-void agent_turn_queue_outbound_text(const daima_msg_t *msg, char *text, bool free_on_fail)
+static char *build_assistant_session_content_json(const char *text, const char *reasoning)
+{
+    cJSON *root = cJSON_CreateObject();
+    if (!root) {
+        return NULL;
+    }
+    cJSON_AddStringToObject(root, "text", text ? text : "");
+    if (reasoning && reasoning[0]) {
+        cJSON_AddStringToObject(root, "reasoning", reasoning);
+    }
+    char *json = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+    return json;
+}
+
+void agent_turn_queue_outbound_text(const daima_msg_t *msg, char *text, const char *reasoning, bool free_on_fail)
 {
     if (!msg || !text) {
         free(text);
@@ -35,6 +51,7 @@ void agent_turn_queue_outbound_text(const daima_msg_t *msg, char *text, bool fre
     strncpy(out.channel, msg->channel, sizeof(out.channel) - 1);
     strncpy(out.chat_id, msg->chat_id, sizeof(out.chat_id) - 1);
     out.content = text;
+    out.reasoning = reasoning && reasoning[0] ? strdup(reasoning) : NULL;
 
     DAIMA_LOGI(TAG, "Queue final response to %s:%s (%d bytes)",
               out.channel, out.chat_id, (int)strlen(text));
@@ -43,10 +60,11 @@ void agent_turn_queue_outbound_text(const daima_msg_t *msg, char *text, bool fre
         if (free_on_fail) {
             free(text);
         }
+        free(out.reasoning);
     }
 }
 
-void agent_turn_save_session(const daima_msg_t *msg, const char *final_text, int iteration)
+void agent_turn_save_session(const daima_msg_t *msg, const char *final_text, const char *reasoning, int iteration)
 {
     if (!msg || !msg->chat_id[0] || !final_text || !final_text[0]) {
         return;
@@ -70,7 +88,13 @@ void agent_turn_save_session(const daima_msg_t *msg, const char *final_text, int
     }
 
     if (should_save_assistant_reply(msg, final_text)) {
-        save_asst = session_store_append(msg->chat_id, "assistant", final_text);
+        char *assistant_payload = build_assistant_session_content_json(final_text, reasoning);
+        if (assistant_payload) {
+            save_asst = session_store_append(msg->chat_id, "assistant", assistant_payload);
+            free(assistant_payload);
+        } else {
+            save_asst = DAIMA_ERR_NO_MEM;
+        }
         if (save_asst == DAIMA_OK) {
             saved_any = true;
         }

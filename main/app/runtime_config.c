@@ -334,6 +334,11 @@ const char *runtime_config_get_provider_thinking_mode(void)
     return s_cfg.provider_thinking_mode;
 }
 
+const char *runtime_config_get_provider_reasoning_effort(void)
+{
+    return s_cfg.provider_reasoning_effort;
+}
+
 bool runtime_config_provider_needs_reasoning_content(void)
 {
     return s_cfg.provider_needs_reasoning_content;

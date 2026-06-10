@@ -1,5 +1,6 @@
 #include "app/channel_router.h"
 #include "app/channel_runtime.h"
+#include "agent/agent_turn_common.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -29,7 +30,7 @@ static void dispatch_outbound_task(void *arg)
                       msg.channel, msg.chat_id, daima_err_to_name(send_err));
         }
 
-        free(msg.content);
+        agent_cleanup_outbound_msg(&msg);
         free(msg.image_path);
     }
 }

@@ -295,6 +295,7 @@ cJSON *llm_openai_build_tools_body(const char *system_prompt,
                                    int max_completion_tokens,
                                    bool use_max_tokens_field,
                                    bool disable_thinking,
+                                   const char *reasoning_effort,
                                    bool add_reasoning_content)
 {
     cJSON *body = cJSON_CreateObject();
@@ -311,6 +312,11 @@ cJSON *llm_openai_build_tools_body(const char *system_prompt,
         cJSON *thinking = cJSON_CreateObject();
         cJSON_AddStringToObject(thinking, "type", "disabled");
         cJSON_AddItemToObject(body, "thinking", thinking);
+    } else if (reasoning_effort && reasoning_effort[0]) {
+        cJSON *thinking = cJSON_CreateObject();
+        cJSON_AddStringToObject(thinking, "type", "enabled");
+        cJSON_AddItemToObject(body, "thinking", thinking);
+        cJSON_AddStringToObject(body, "reasoning_effort", reasoning_effort);
     }
 
     cJSON_AddItemToObject(body, "messages",
@@ -386,7 +392,8 @@ cJSON *llm_openai_build_image_body(const char *system_prompt,
                                    const char *model,
                                    int max_completion_tokens,
                                    bool use_max_tokens_field,
-                                   bool disable_thinking)
+                                   bool disable_thinking,
+                                   const char *reasoning_effort)
 {
     cJSON *body = cJSON_CreateObject();
     if (!body) {
@@ -402,6 +409,11 @@ cJSON *llm_openai_build_image_body(const char *system_prompt,
         cJSON *thinking = cJSON_CreateObject();
         cJSON_AddStringToObject(thinking, "type", "disabled");
         cJSON_AddItemToObject(body, "thinking", thinking);
+    } else if (reasoning_effort && reasoning_effort[0]) {
+        cJSON *thinking = cJSON_CreateObject();
+        cJSON_AddStringToObject(thinking, "type", "enabled");
+        cJSON_AddItemToObject(body, "thinking", thinking);
+        cJSON_AddStringToObject(body, "reasoning_effort", reasoning_effort);
     }
 
     cJSON *messages = cJSON_CreateArray();

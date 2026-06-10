@@ -16,3 +16,4 @@ const char *agent_session_role_for_inbound_msg(const daima_msg_t *msg);
 
 void agent_chat_id_to_slug(const char *chat_id, char *buf, size_t size);
 void agent_cleanup_inbound_msg(daima_msg_t *msg);
+void agent_cleanup_outbound_msg(daima_msg_t *msg);

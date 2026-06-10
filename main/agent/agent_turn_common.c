@@ -131,3 +131,15 @@ void agent_cleanup_inbound_msg(daima_msg_t *msg)
     free(msg->image_path);
     msg->image_path = NULL;
 }
+
+void agent_cleanup_outbound_msg(daima_msg_t *msg)
+{
+    if (!msg) {
+        return;
+    }
+
+    free(msg->content);
+    msg->content = NULL;
+    free(msg->reasoning);
+    msg->reasoning = NULL;
+}

@@ -112,9 +112,31 @@ static cJSON *convert_messages_anthropic(cJSON *messages)
             }
 
             if (strcmp(btype->valuestring, "text") == 0 ||
+                strcmp(btype->valuestring, "reasoning") == 0 ||
+                strcmp(btype->valuestring, "thinking") == 0 ||
                 strcmp(btype->valuestring, "tool_use") == 0 ||
                 strcmp(btype->valuestring, "tool_result") == 0) {
                 cJSON *dup = cJSON_Duplicate(block, 1);
+                if (dup && (strcmp(btype->valuestring, "reasoning") == 0 ||
+                            strcmp(btype->valuestring, "thinking") == 0)) {
+                    cJSON *text = cJSON_GetObjectItemCaseSensitive(dup, "text");
+                    cJSON *thinking = cJSON_GetObjectItemCaseSensitive(dup, "thinking");
+                    char *value_copy = NULL;
+                    if (thinking && cJSON_IsString(thinking)) {
+                        value_copy = strdup(thinking->valuestring);
+                    } else if (text && cJSON_IsString(text)) {
+                        value_copy = strdup(text->valuestring);
+                    }
+                    cJSON_ReplaceItemInObjectCaseSensitive(dup,
+                                                           "type",
+                                                           cJSON_CreateString("thinking"));
+                    cJSON_DeleteItemFromObjectCaseSensitive(dup, "text");
+                    cJSON_DeleteItemFromObjectCaseSensitive(dup, "thinking");
+                    if (value_copy && value_copy[0]) {
+                        cJSON_AddStringToObject(dup, "thinking", value_copy);
+                    }
+                    free(value_copy);
+                }
                 if (dup) {
                     cJSON_AddItemToArray(blocks, dup);
                 }
@@ -131,7 +153,9 @@ cJSON *llm_anthropic_build_tools_body(const char *system_prompt,
                                       cJSON *messages,
                                       const char *tools_json,
                                       const char *model,
-                                      int max_tokens)
+                                      int max_tokens,
+                                      bool disable_thinking,
+                                      const char *reasoning_effort)
 {
     cJSON *body = cJSON_CreateObject();
     if (!body) {
@@ -140,6 +164,19 @@ cJSON *llm_anthropic_build_tools_body(const char *system_prompt,
 
     cJSON_AddStringToObject(body, "model", model ? model : "");
     cJSON_AddNumberToObject(body, "max_tokens", max_tokens);
+    if (disable_thinking) {
+        cJSON *thinking = cJSON_CreateObject();
+        cJSON_AddStringToObject(thinking, "type", "disabled");
+        cJSON_AddItemToObject(body, "thinking", thinking);
+    } else if (reasoning_effort && reasoning_effort[0]) {
+        cJSON *thinking = cJSON_CreateObject();
+        cJSON_AddStringToObject(thinking, "type", "enabled");
+        cJSON_AddItemToObject(body, "thinking", thinking);
+
+        cJSON *output_config = cJSON_CreateObject();
+        cJSON_AddStringToObject(output_config, "effort", reasoning_effort);
+        cJSON_AddItemToObject(body, "output_config", output_config);
+    }
     if (system_prompt && system_prompt[0]) {
         cJSON_AddStringToObject(body, "system", system_prompt);
     }
@@ -165,7 +202,9 @@ cJSON *llm_anthropic_build_image_body(const char *system_prompt,
                                       const llm_image_content_t *images,
                                       int image_count,
                                       const char *model,
-                                      int max_tokens)
+                                      int max_tokens,
+                                      bool disable_thinking,
+                                      const char *reasoning_effort)
 {
     (void)images;
     (void)image_count;
@@ -175,6 +214,19 @@ cJSON *llm_anthropic_build_image_body(const char *system_prompt,
     }
     cJSON_AddStringToObject(body, "model", model ? model : "");
     cJSON_AddNumberToObject(body, "max_tokens", max_tokens);
+    if (disable_thinking) {
+        cJSON *thinking = cJSON_CreateObject();
+        cJSON_AddStringToObject(thinking, "type", "disabled");
+        cJSON_AddItemToObject(body, "thinking", thinking);
+    } else if (reasoning_effort && reasoning_effort[0]) {
+        cJSON *thinking = cJSON_CreateObject();
+        cJSON_AddStringToObject(thinking, "type", "enabled");
+        cJSON_AddItemToObject(body, "thinking", thinking);
+
+        cJSON *output_config = cJSON_CreateObject();
+        cJSON_AddStringToObject(output_config, "effort", reasoning_effort);
+        cJSON_AddItemToObject(body, "output_config", output_config);
+    }
     if (system_prompt && system_prompt[0]) {
         cJSON_AddStringToObject(body, "system", system_prompt);
     }
@@ -232,6 +284,24 @@ daima_err_t llm_anthropic_parse_response(const char *json_text, llm_response_t *
                         memcpy(resp->text + old_len, text->valuestring, add_len);
                         resp->text[old_len + add_len] = '\0';
                         resp->text_len = old_len + add_len;
+                    }
+                }
+                continue;
+            }
+
+            if (strcmp(type->valuestring, "thinking") == 0 ||
+                strcmp(type->valuestring, "reasoning") == 0) {
+                cJSON *thinking = cJSON_GetObjectItem(block, "thinking");
+                if (!thinking || !cJSON_IsString(thinking)) {
+                    thinking = cJSON_GetObjectItem(block, "text");
+                }
+                if (thinking && cJSON_IsString(thinking) && thinking->valuestring[0]) {
+                    size_t rlen = strlen(thinking->valuestring);
+                    free(resp->reasoning_content);
+                    resp->reasoning_content = calloc(1, rlen + 1);
+                    if (resp->reasoning_content) {
+                        memcpy(resp->reasoning_content, thinking->valuestring, rlen);
+                        resp->reasoning_content_len = rlen;
                     }
                 }
                 continue;

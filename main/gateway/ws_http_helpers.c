@@ -500,6 +500,34 @@ static char *build_session_history_json(const char *chat_id)
         return NULL;
     }
 
+    cJSON *msg = NULL;
+    cJSON_ArrayForEach(msg, messages) {
+        cJSON *role = cJSON_GetObjectItemCaseSensitive(msg, "role");
+        cJSON *content = cJSON_GetObjectItemCaseSensitive(msg, "content");
+        if (!role || !cJSON_IsString(role) || !content || !cJSON_IsString(content)) {
+            continue;
+        }
+        if (strcmp(role->valuestring, "assistant") != 0) {
+            continue;
+        }
+
+        cJSON *parsed = cJSON_Parse(content->valuestring);
+        if (!parsed || !cJSON_IsObject(parsed)) {
+            cJSON_Delete(parsed);
+            continue;
+        }
+
+        cJSON *text = cJSON_GetObjectItemCaseSensitive(parsed, "text");
+        if (text && cJSON_IsString(text)) {
+            cJSON_ReplaceItemInObjectCaseSensitive(msg, "content", cJSON_CreateString(text->valuestring));
+            cJSON *reasoning = cJSON_GetObjectItemCaseSensitive(parsed, "reasoning");
+            if (reasoning && cJSON_IsString(reasoning) && reasoning->valuestring[0]) {
+                cJSON_AddStringToObject(msg, "reasoning", reasoning->valuestring);
+            }
+        }
+        cJSON_Delete(parsed);
+    }
+
     cJSON *root = cJSON_CreateObject();
     if (!root) {
         cJSON_Delete(messages);

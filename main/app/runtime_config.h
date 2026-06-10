@@ -19,6 +19,7 @@ const char *runtime_config_get_provider_model(void);
 const char *runtime_config_get_provider_openai_base_url(void);
 const char *runtime_config_get_provider_api_mode(void);
 const char *runtime_config_get_provider_thinking_mode(void);
+const char *runtime_config_get_provider_reasoning_effort(void);
 bool runtime_config_provider_needs_reasoning_content(void);
 int runtime_config_get_context_limit_tokens(void);
 int runtime_config_get_max_output_tokens(void);

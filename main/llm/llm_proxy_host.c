@@ -356,6 +356,29 @@ static bool should_disable_thinking(void)
     return false;
 }
 
+static const char *reasoning_effort_for_request(void)
+{
+    const char *mode = runtime_config_get_provider_thinking_mode();
+    const char *effort = runtime_config_get_provider_reasoning_effort();
+    if (mode && mode[0] &&
+        (strcasecmp(mode, "off") == 0 || strcasecmp(mode, "disabled") == 0 ||
+         strcasecmp(mode, "omit") == 0)) {
+        return NULL;
+    }
+    if (effort && effort[0]) {
+        return effort;
+    }
+    if (mode && mode[0]) {
+        if (strcasecmp(mode, "low") == 0 || strcasecmp(mode, "medium") == 0 || strcasecmp(mode, "high") == 0) {
+            return mode;
+        }
+        if (strcasecmp(mode, "on") == 0 || strcasecmp(mode, "enabled") == 0 || strcasecmp(mode, "auto") == 0) {
+            return "medium";
+        }
+    }
+    return NULL;
+}
+
 /* 是否需要额外的 reasoning_content 字段（兼容部分 API） */
 static bool should_add_reasoning_content(void)
 {
@@ -469,7 +492,9 @@ daima_err_t llm_chat_tools(const char *system_prompt,
             messages,
             tools_json,
             s_model,
-            max_output_tokens)
+            max_output_tokens,
+            should_disable_thinking(),
+            reasoning_effort_for_request())
         : llm_openai_build_tools_body(
             system_prompt,
             messages,
@@ -478,6 +503,7 @@ daima_err_t llm_chat_tools(const char *system_prompt,
             max_output_tokens,
             should_use_max_tokens_field(),
             should_disable_thinking(),
+            reasoning_effort_for_request(),
             should_add_reasoning_content());
     if (!body) {
         return DAIMA_ERR_NO_MEM;
@@ -679,7 +705,9 @@ daima_err_t llm_chat_with_images(const char *system_prompt,
             images,
             image_count,
             s_model,
-            max_output_tokens)
+            max_output_tokens,
+            should_disable_thinking(),
+            reasoning_effort_for_request())
         : llm_openai_build_image_body(
             system_prompt,
             user_text,
@@ -688,7 +716,8 @@ daima_err_t llm_chat_with_images(const char *system_prompt,
             s_model,
             max_output_tokens,
             should_use_max_tokens_field(),
-            should_disable_thinking());
+            should_disable_thinking(),
+            reasoning_effort_for_request());
     if (!body) {
         return DAIMA_ERR_NO_MEM;
     }

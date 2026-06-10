@@ -61,6 +61,7 @@ static void agent_loop_task(void *arg)
                                  &messages);
 
         char *final_text = NULL;
+        char *reasoning_text = NULL;
         int iteration = 0;
         bool tool_budget_exhausted = false;
         bool cancelled = false;
@@ -68,11 +69,11 @@ static void agent_loop_task(void *arg)
             const char *tools_json = tool_registry_get_tools_json_for_channel(msg.channel);
             err = agent_turn_run(system_prompt, messages, tools_json, &msg,
                                  cancel_token,
-                                 &final_text, &iteration, &tool_budget_exhausted, &cancelled);
+                                 &final_text, &reasoning_text, &iteration, &tool_budget_exhausted, &cancelled);
         }
 
         cJSON_Delete(messages);
-        agent_turn_finish(&msg, &final_text, err, iteration, tool_budget_exhausted, cancelled);
+        agent_turn_finish(&msg, &final_text, &reasoning_text, err, iteration, tool_budget_exhausted, cancelled);
     }
 }
 

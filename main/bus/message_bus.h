@@ -25,6 +25,7 @@ typedef struct {
     char chat_id[64];       /* 会话 id（WS 客户端/Feishu open_id/chat_id） */
     char source[16];        /* "user", "cron", "heartbeat", "internal" */
     char *content;          /* 堆分配的消息文本（调用方需释放） */
+    char *reasoning;        /* 可选：助手思考过程（调用方需释放） */
     char *image_path;       /* 可选：入站图片的本地缓存路径（调用方需释放） */
 } daima_msg_t;
 
@@ -47,12 +48,12 @@ daima_err_t message_bus_pop_inbound(daima_msg_t *msg, uint32_t timeout_ms);
 
 /**
  * 将消息推入出站队列（指向各通道）。
- * 总线接管 msg->content 的所有权。
+ * 总线接管 msg->content / msg->reasoning 的所有权。
  */
 daima_err_t message_bus_push_outbound(const daima_msg_t *msg);
 
 /**
  * 从出站队列取出消息（阻塞）。
- * 使用完后调用方需释放 msg->content。
+ * 使用完后调用方需释放 msg->content / msg->reasoning。
  */
 daima_err_t message_bus_pop_outbound(daima_msg_t *msg, uint32_t timeout_ms);

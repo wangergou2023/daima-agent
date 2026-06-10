@@ -8,7 +8,9 @@ cJSON *llm_anthropic_build_tools_body(const char *system_prompt,
                                       cJSON *messages,
                                       const char *tools_json,
                                       const char *model,
-                                      int max_tokens);
+                                      int max_tokens,
+                                      bool disable_thinking,
+                                      const char *reasoning_effort);
 
 #ifdef DAIMA_ENABLE_VISION
 cJSON *llm_anthropic_build_image_body(const char *system_prompt,
@@ -16,7 +18,9 @@ cJSON *llm_anthropic_build_image_body(const char *system_prompt,
                                       const llm_image_content_t *images,
                                       int image_count,
                                       const char *model,
-                                      int max_tokens);
+                                      int max_tokens,
+                                      bool disable_thinking,
+                                      const char *reasoning_effort);
 #endif
 
 daima_err_t llm_anthropic_parse_response(const char *json_text, llm_response_t *resp);
