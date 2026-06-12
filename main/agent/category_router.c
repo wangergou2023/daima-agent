@@ -300,13 +300,24 @@ static void parse_categories_json(category_router_cfg_t *cfg, cJSON *json_root, 
 {
     cJSON *entry = NULL;
     cJSON_ArrayForEach(entry, categories) {
-        if (!entry->string || !entry->string[0] || !cJSON_IsObject(entry)) {
+        if (!entry->string || !entry->string[0]) {
             continue;
         }
 
         category_model_resolution_t resolved;
-        if (!resolve_category_model(json_root, entry, &resolved)) {
-            DAIMA_LOGW(TAG, "Category routing category has no available model: %s", entry->string);
+
+        if (cJSON_IsString(entry)) {
+            if (!find_provider_by_name(json_root, entry->valuestring, &resolved)) {
+                DAIMA_LOGW(TAG, "Category routing provider not found: %s → %s",
+                           entry->string, entry->valuestring);
+                continue;
+            }
+        } else if (cJSON_IsObject(entry)) {
+            if (!resolve_category_model(json_root, entry, &resolved)) {
+                DAIMA_LOGW(TAG, "Category routing category has no available model: %s", entry->string);
+                continue;
+            }
+        } else {
             continue;
         }
 
