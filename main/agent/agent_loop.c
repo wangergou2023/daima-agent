@@ -12,6 +12,7 @@
 #include "agent/ralph_loop.h"
 #include "agent/agent_turn_finish.h"
 #include "agent/agent_turn_prepare.h"
+#include "agent/agent_turn_persist.h"
 #include "agent/agent_turn_run.h"
 #include "agent/intent_gate.h"
 #include "agent/team_mode.h"
@@ -217,6 +218,21 @@ static void agent_loop_task(void *arg)
             if (coord_err == DAIMA_OK && coord.agent_count > 1) {
                 DAIMA_LOGI(TAG, "Coordinator: launching %d sub-agents for intent=%s",
                            coord.agent_count, daima_intent_name(msg.intent));
+
+                char thinking_msg[512];
+                snprintf(thinking_msg, sizeof(thinking_msg),
+                    "🤖 Coordinator 并行处理中 (%d个子Agent: %s%s%s)",
+                    coord.agent_count,
+                    agent_role_name(coord.agents[0].role),
+                    coord.agent_count > 1 ? " + " : "",
+                    coord.agent_count > 1 ? agent_role_name(coord.agents[1].role) : "");
+                if (coord.agent_count > 2) {
+                    snprintf(thinking_msg + strlen(thinking_msg),
+                             sizeof(thinking_msg) - strlen(thinking_msg),
+                             " + %s", agent_role_name(coord.agents[2].role));
+                }
+                agent_turn_queue_outbound_text(&msg, strdup(thinking_msg), NULL, true);
+
                 daima_err_t launch_err = coordinator_launch_all(system_prompt, messages, tools_json, &coord);
                 if (launch_err == DAIMA_OK) {
                     coordinator_wait_all(&coord, 120000);
