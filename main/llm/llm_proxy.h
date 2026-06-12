@@ -137,3 +137,24 @@ daima_err_t llm_chat_tools_with_model(const char *system_prompt,
                                       const char *tools_json,
                                       const char *model_override,
                                       llm_response_t *resp);
+
+/* ── 异步 LLM 调用（非阻塞） ──────────────────────────────── */
+
+typedef struct llm_async_chat llm_async_chat_t;
+
+// 发起异步 LLM 调用，参数和 llm_chat_tools 一致但不阻塞
+llm_async_chat_t *llm_chat_tools_async(
+    const char *system_prompt,
+    cJSON *messages,
+    const char *tools_json,
+    const char *model_override);
+
+// 检查 LLM 调用是否完成（非阻塞，0开销）
+bool llm_chat_async_is_done(llm_async_chat_t *chat);
+
+// 获取结果（已完成时立即返回，未完成时阻塞等待）
+daima_err_t llm_chat_async_get_response(
+    llm_async_chat_t *chat, llm_response_t *resp);
+
+// 释放资源（如果请求还在进行中会 cancel）
+void llm_chat_async_free(llm_async_chat_t *chat);

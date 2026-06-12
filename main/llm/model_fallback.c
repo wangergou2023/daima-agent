@@ -12,7 +12,6 @@
 static const char *TAG = "model_fallback";
 
 static bool add_model(model_fallback_cfg_t *cfg, const char *model);
-static void load_runtime_provider_cfg(model_fallback_cfg_t *cfg);
 
 static void safe_copy(char *dst, size_t dst_size, const char *src)
 {
@@ -121,6 +120,26 @@ static bool load_json_cfg(model_fallback_cfg_t *cfg, const char *json_text)
     }
 
     bool ok = parse_models_array(cfg, models);
+    if (!ok && root == json_root) {
+        cJSON *active_provider = cJSON_GetObjectItem(root, "active_provider");
+        cJSON *providers = cJSON_GetObjectItem(root, "providers");
+        if (cJSON_IsString(active_provider) && active_provider->valuestring &&
+            cJSON_IsObject(providers)) {
+            memset(cfg, 0, sizeof(*cfg));
+            cfg->enabled = true;
+            cJSON *provider = NULL;
+            cJSON_ArrayForEach(provider, providers) {
+                if (!provider->string || strcmp(provider->string, active_provider->valuestring) == 0) {
+                    continue;
+                }
+                cJSON *model = cJSON_GetObjectItem(provider, "model");
+                if (cJSON_IsString(model) && model->valuestring && model->valuestring[0]) {
+                    add_model(cfg, model->valuestring);
+                }
+            }
+            ok = cfg->model_count > 0;
+        }
+    }
     if (ok && cJSON_IsBool(enabled)) {
         cfg->enabled = cJSON_IsTrue(enabled);
     }
