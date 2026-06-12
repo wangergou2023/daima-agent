@@ -2,9 +2,12 @@
 
 #include "skills/skill_loader.h"
 #include "skills/skill_meta.h"
+#include "daima_config.h"
+#if DAIMA_SKILL_SCOPED_TOOLS_ENABLED
+#include "skills/skill_tools.h"
+#endif
 #include "app/daima_fs.h"
 #include "app/daima_paths.h"
-#include "daima_config.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -330,6 +333,9 @@ static bool append_skill_summary_for_entry(char *buf,
         snprintf(full_path, sizeof(full_path), "%s/SKILL.md", entry_path);
 
         if (append_skill_summary_from_file(buf, size, off, full_path)) {
+#if DAIMA_SKILL_SCOPED_TOOLS_ENABLED
+            skill_tools_register(entry_name, entry_path);
+#endif
             *found = true;
             return true;
         }
@@ -450,6 +456,13 @@ static size_t skill_loader_build_summary_uncached(const char *channel, char *buf
             snprintf(full_path, sizeof(full_path), "%s/%s", daima_path_spiffs_base(), name);
 
             if (append_skill_summary_from_file(buf, size, &off, full_path)) {
+#if DAIMA_SKILL_SCOPED_TOOLS_ENABLED
+                char skill_name[128];
+                snprintf(skill_name, sizeof(skill_name), "%.*s", (int)(strlen(subpath) - strlen("/SKILL.md")), subpath);
+                char skill_dir[320];
+                snprintf(skill_dir, sizeof(skill_dir), "%.*s", (int)(strlen(full_path) - strlen("/SKILL.md")), full_path);
+                skill_tools_register(skill_name, skill_dir);
+#endif
                 found = true;
             }
         }

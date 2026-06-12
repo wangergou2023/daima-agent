@@ -139,6 +139,7 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_vector_anim.c
     ${CMAKE_CURRENT_LIST_DIR}/main/skills/skill_loader.c
     ${CMAKE_CURRENT_LIST_DIR}/main/skills/skill_meta.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/skills/skill_tools.c
     ${CMAKE_CURRENT_LIST_DIR}/main/audio/audio_io_stub.c
     ${CMAKE_CURRENT_LIST_DIR}/main/voice/voice_channel.c
     ${CMAKE_CURRENT_LIST_DIR}/main/voice/tts_player.c

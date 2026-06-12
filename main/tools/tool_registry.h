@@ -12,10 +12,15 @@ typedef struct {
     daima_err_t (*execute)(const char *input_json, char *output, size_t output_size);
 } daima_tool_t;
 
+#define TOOL_REGISTRY_MAX_DYNAMIC 32
+
 /**
  * 初始化工具注册表并注册所有内置工具。
  */
 daima_err_t tool_registry_init(void);
+
+daima_err_t tool_registry_register_dynamic(const daima_tool_t *tool);
+daima_err_t tool_registry_unregister_dynamic(const char *tool_name);
 
 /**
  * 获取用于 API 请求的预构建工具数组 JSON 字符串。

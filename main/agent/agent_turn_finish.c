@@ -9,6 +9,9 @@
 #include "daima_log.h"
 #include "daima_os.h"
 #include "daima_platform.h"
+#if DAIMA_SKILL_SCOPED_TOOLS_ENABLED
+#include "skills/skill_tools.h"
+#endif
 
 static const char *TAG = "agent_finish";
 
@@ -38,6 +41,9 @@ void agent_turn_finish(
         DAIMA_LOGI(TAG, "Skip final response for cancelled turn %s:%s",
                    msg ? msg->channel : "-",
                    msg ? msg->chat_id : "-");
+#if DAIMA_SKILL_SCOPED_TOOLS_ENABLED
+        skill_tools_unregister_all();
+#endif
         agent_cleanup_inbound_msg(msg);
         return;
     }
@@ -67,6 +73,10 @@ void agent_turn_finish(
     }
 
     agent_cleanup_inbound_msg(msg);
+
+#if DAIMA_SKILL_SCOPED_TOOLS_ENABLED
+    skill_tools_unregister_all();
+#endif
 
     if (turn_err != DAIMA_OK) {
         DAIMA_LOGE(TAG, "Agent turn failed: %s", daima_err_to_name(turn_err));
