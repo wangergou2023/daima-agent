@@ -10,6 +10,8 @@
 #include "agent/agent_turn_common.h"
 #include "agent/compaction_recovery.h"
 #include "agent/context_builder.h"
+#include "agent/session_recovery.h"
+#include "agent/todo_enforcer.h"
 #include "llm/llm_proxy.h"
 #include "memory/session_store.h"
 #include "daima_config.h"
@@ -230,6 +232,16 @@ daima_err_t agent_turn_prepare(
     append_session_summary_prompt(system_prompt, system_prompt_size, msg->chat_id);
 #ifdef DAIMA_COMPACTION_RECOVERY_ENABLED
     compaction_recovery_inject(msg->chat_id, system_prompt, system_prompt_size);
+#endif
+#ifdef DAIMA_TODO_ENFORCER_ENABLED
+    todo_enforcer_inject_prompt(msg->chat_id, system_prompt, system_prompt_size);
+#endif
+#ifdef DAIMA_SESSION_RECOVERY_ENABLED
+    session_recovery_t rec = session_recovery_check(msg->chat_id);
+    if (rec.has_crash) {
+        session_recovery_inject_prompt(msg->chat_id, system_prompt, system_prompt_size);
+        session_recovery_clear(msg->chat_id);
+    }
 #endif
     append_session_facts_prompt(system_prompt, system_prompt_size, msg->chat_id);
     append_turn_context_prompt(system_prompt, system_prompt_size, msg);

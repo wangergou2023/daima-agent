@@ -61,9 +61,11 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/main/host_tls.c
     ${CMAKE_CURRENT_LIST_DIR}/main/proxy/http_proxy_host.c
     ${CMAKE_CURRENT_LIST_DIR}/main/llm/llm_proxy_host.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/llm/model_fallback.c
     ${CMAKE_CURRENT_LIST_DIR}/main/llm/llm_http_client_host.c
     ${CMAKE_CURRENT_LIST_DIR}/main/llm/llm_anthropic_payload.c
     ${CMAKE_CURRENT_LIST_DIR}/main/llm/llm_openai_payload.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/llm/model_fallback.c
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_weather_host.c
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_get_time_host.c
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_webfetch.c
@@ -93,11 +95,13 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_turn_prepare.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_turn_run.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_turn_exec_helpers.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/agent/todo_enforcer.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/tool_feedback.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_turn_finish.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/tool_protocol_guard.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/context_compressor.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/compaction_recovery.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/agent/session_recovery.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/context_compress_ops.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/context_builder.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/learning_review.c

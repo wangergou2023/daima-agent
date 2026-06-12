@@ -1,10 +1,15 @@
 #include "agent/agent_turn_finish.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "agent/agent_turn_common.h"
 #include "agent/agent_turn_persist.h"
 #include "agent/compaction_recovery.h"
+#include "agent/session_recovery.h"
+#include "agent/todo_enforcer.h"
+#include "app/daima_paths.h"
+#include "cJSON.h"
 #include "daima_config.h"
 #include "daima_log.h"
 #include "daima_os.h"
@@ -14,6 +19,57 @@
 #endif
 
 static const char *TAG = "agent_finish";
+
+#ifdef DAIMA_TODO_ENFORCER_ENABLED
+static void read_todo_counts(int *out_total, int *out_completed)
+{
+    *out_total = 0;
+    *out_completed = 0;
+
+    FILE *f = fopen(daima_path_todo_file(), "r");
+    if (!f) {
+        return;
+    }
+
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    if (size < 0 || size > 128 * 1024) {
+        fclose(f);
+        return;
+    }
+
+    char *buf = calloc(1, (size_t)size + 1);
+    if (!buf) {
+        fclose(f);
+        return;
+    }
+
+    size_t n = fread(buf, 1, (size_t)size, f);
+    fclose(f);
+    buf[n] = '\0';
+
+    cJSON *root = cJSON_Parse(buf);
+    free(buf);
+    if (!root || !cJSON_IsObject(root)) {
+        cJSON_Delete(root);
+        return;
+    }
+
+    cJSON *items = cJSON_GetObjectItem(root, "items");
+    if (items && cJSON_IsArray(items)) {
+        cJSON *item = NULL;
+        cJSON_ArrayForEach(item, items) {
+            (*out_total)++;
+            cJSON *done = cJSON_GetObjectItem(item, "done");
+            if (cJSON_IsTrue(done) || (cJSON_IsNumber(done) && done->valueint != 0)) {
+                (*out_completed)++;
+            }
+        }
+    }
+    cJSON_Delete(root);
+}
+#endif
 
 void agent_turn_finish(
     daima_msg_t *msg,
@@ -85,6 +141,19 @@ void agent_turn_finish(
 #ifdef DAIMA_COMPACTION_RECOVERY_ENABLED
     if (turn_err == DAIMA_OK && msg && msg->chat_id[0]) {
         compaction_recovery_clear(msg->chat_id);
+    }
+#endif
+#ifdef DAIMA_TODO_ENFORCER_ENABLED
+    if (turn_err == DAIMA_OK && msg && msg->chat_id[0]) {
+        int total_todos = 0;
+        int completed_todos = 0;
+        read_todo_counts(&total_todos, &completed_todos);
+        todo_enforcer_record_progress(msg->chat_id, total_todos, completed_todos);
+    }
+#endif
+#ifdef DAIMA_SESSION_RECOVERY_ENABLED
+    if (turn_err == DAIMA_OK && msg && msg->chat_id[0]) {
+        session_recovery_clear(msg->chat_id);
     }
 #endif
 

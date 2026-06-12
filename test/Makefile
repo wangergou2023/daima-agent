@@ -7,7 +7,7 @@ LDLIBS = -lm
 SAFE_EDIT_SRC = ../main/tools/tool_safe_edit.c
 HASHLINE_SRC = ../main/tools/tool_hashline.c
 
-test: test_tts_player test_work_item test_webfetch test_pet_event test_safe_edit test_hashline test_apply_patch test_terminal test_runtime_config test_llm_openai_payload test_llm_anthropic_payload test_session_history_reasoning test_paths test_tool_protocol_guard test_intent_gate test_category_router test_plan_review test_team_mode test_files_tool test_cron_tool test_skills_tool test_skill_summary test_context_skills_summary test_tool_surface test_skill_scoped_tools test_tool_invocation_context test_json_helpers test_daima_text test_session_file_common test_compaction_recovery
+test: test_tts_player test_work_item test_webfetch test_pet_event test_safe_edit test_hashline test_apply_patch test_terminal test_runtime_config test_llm_openai_payload test_llm_anthropic_payload test_model_fallback test_session_history_reasoning test_paths test_tool_protocol_guard test_intent_gate test_category_router test_plan_review test_team_mode test_files_tool test_cron_tool test_skills_tool test_skill_summary test_context_skills_summary test_tool_surface test_skill_scoped_tools test_tool_invocation_context test_json_helpers test_daima_text test_session_file_common test_compaction_recovery test_session_recovery test_todo_enforcer
 	./test_tts_player
 	./test_work_item
 	./test_webfetch
@@ -19,6 +19,7 @@ test: test_tts_player test_work_item test_webfetch test_pet_event test_safe_edit
 	./test_runtime_config
 	./test_llm_openai_payload
 	./test_llm_anthropic_payload
+	./test_model_fallback
 	./test_session_history_reasoning
 	./test_paths
 	./test_tool_protocol_guard
@@ -38,6 +39,8 @@ test: test_tts_player test_work_item test_webfetch test_pet_event test_safe_edit
 	./test_daima_text
 	./test_session_file_common
 	./test_compaction_recovery
+	./test_session_recovery
+	./test_todo_enforcer
 
 test_pptx_generator:
 	node ../spiffs_data/skills/pptx/scripts/test_generate_deck_smoke.js
@@ -76,6 +79,9 @@ test_llm_openai_payload: test_llm_openai_payload.c ../main/llm/llm_openai_payloa
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 test_llm_anthropic_payload: test_llm_anthropic_payload.c ../main/llm/llm_anthropic_payload.c ../third_party/cjson/cJSON.c
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+
+test_model_fallback: test_model_fallback.c ../main/llm/model_fallback.c ../main/app/daima_paths.c ../third_party/cjson/cJSON.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 test_session_history_reasoning: test_session_history_reasoning.c ../main/memory/session_store.c ../main/memory/session_store_file.c ../main/memory/session_store_file_facts.c ../main/memory/session_store_file_summary.c ../main/memory/session_store_file_common.c ../main/app/daima_paths.c ../main/app/daima_fs.c ../main/app/runtime_config.c ../main/app/runtime_config_sections.c ../third_party/cjson/cJSON.c
@@ -135,5 +141,11 @@ test_session_file_common: test_session_file_common.c ../main/memory/session_stor
 test_compaction_recovery: test_compaction_recovery.c ../main/agent/compaction_recovery.c ../main/memory/session_store.c ../main/memory/session_store_file.c ../main/memory/session_store_file_facts.c ../main/memory/session_store_file_summary.c ../main/memory/session_store_file_common.c ../main/app/daima_paths.c ../main/app/daima_fs.c ../main/app/runtime_config.c ../main/app/runtime_config_sections.c ../main/app/daima_log_file.c ../main/platform/daima_platform.c ../third_party/cjson/cJSON.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
+test_session_recovery: test_session_recovery.c ../main/agent/session_recovery.c ../main/memory/session_store.c ../main/memory/session_store_file.c ../main/memory/session_store_file_facts.c ../main/memory/session_store_file_summary.c ../main/memory/session_store_file_common.c ../main/app/daima_paths.c ../main/app/daima_fs.c ../main/app/runtime_config.c ../main/app/runtime_config_sections.c ../main/app/daima_log_file.c ../main/platform/daima_platform.c ../third_party/cjson/cJSON.c
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+
+test_todo_enforcer: test_todo_enforcer.c ../main/agent/todo_enforcer.c ../main/app/daima_paths.c ../third_party/cjson/cJSON.c
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+
 clean:
-	rm -f test_tts_player test_work_item test_webfetch test_pet_event test_safe_edit test_hashline test_apply_patch test_terminal test_runtime_config test_deepseek_thinking_runtime test_llm_openai_payload test_llm_anthropic_payload test_session_history_reasoning test_paths test_tool_protocol_guard test_intent_gate test_category_router test_plan_review test_team_mode test_files_tool test_cron_tool test_skills_tool test_skill_summary test_context_skills_summary test_tool_surface test_skill_scoped_tools test_tool_invocation_context test_json_helpers test_daima_text test_session_file_common test_compaction_recovery
+	rm -f test_tts_player test_work_item test_webfetch test_pet_event test_safe_edit test_hashline test_apply_patch test_terminal test_runtime_config test_deepseek_thinking_runtime test_llm_openai_payload test_llm_anthropic_payload test_model_fallback test_session_history_reasoning test_paths test_tool_protocol_guard test_intent_gate test_category_router test_plan_review test_team_mode test_files_tool test_cron_tool test_skills_tool test_skill_summary test_context_skills_summary test_tool_surface test_skill_scoped_tools test_tool_invocation_context test_json_helpers test_daima_text test_session_file_common test_compaction_recovery test_session_recovery test_todo_enforcer

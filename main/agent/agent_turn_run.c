@@ -2,11 +2,14 @@
 #include "agent/agent_turn_exec_helpers.h"
 #include "agent/agent_cancel.h"
 #include "agent/category_router.h"
+#include "agent/session_recovery.h"
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "llm/llm_proxy.h"
+#include "llm/model_fallback.h"
 #include "daima_config.h"
 #include "daima_log.h"
 #include "daima_os.h"
@@ -39,6 +42,26 @@ static daima_err_t cancellable_llm_chat_tools(const daima_msg_t *msg,
 {
     agent_cancel_enter_current_turn(msg->chat_id, cancel_token);
     daima_err_t err = llm_chat_tools_with_model(system_prompt, messages, tools_json, model_override, resp);
+    agent_cancel_leave_current_turn();
+    return err;
+}
+
+static daima_err_t cancellable_model_fallback_chat_tools(const daima_msg_t *msg,
+                                                         uint64_t cancel_token,
+                                                         const char *system_prompt,
+                                                         cJSON *messages,
+                                                         const char *tools_json,
+                                                         const char *model_override,
+                                                         llm_response_t *resp)
+{
+    agent_cancel_enter_current_turn(msg->chat_id, cancel_token);
+    char previous_model[64];
+    snprintf(previous_model, sizeof(previous_model), "%s", llm_get_model_name());
+    if (model_override && model_override[0]) {
+        llm_set_model(model_override);
+    }
+    daima_err_t err = model_fallback_chat_with_fallback(system_prompt, messages, tools_json, resp);
+    llm_set_model(previous_model);
     agent_cancel_leave_current_turn();
     return err;
 }
@@ -110,13 +133,20 @@ daima_err_t agent_turn_run(
 
         llm_response_t resp;
         memset(&resp, 0, sizeof(resp));
+#ifdef DAIMA_MODEL_FALLBACK_ENABLED
+        err = cancellable_model_fallback_chat_tools(msg, cancel_token, system_prompt, messages, tools_json, model_override, &resp);
+#else
         err = cancellable_llm_chat_tools(msg, cancel_token, system_prompt, messages, tools_json, model_override, &resp);
+#endif
 
         if (err != DAIMA_OK) {
             if (mark_cancelled_if_needed(msg, cancel_token, out_cancelled, "during LLM call")) {
                 err = DAIMA_OK;
                 break;
             }
+#ifdef DAIMA_SESSION_RECOVERY_ENABLED
+            session_recovery_save_crash(msg->chat_id, msg->content, daima_err_to_name(err));
+#endif
             DAIMA_LOGE(TAG, "LLM call failed: %s", daima_err_to_name(err));
             break;
         }
