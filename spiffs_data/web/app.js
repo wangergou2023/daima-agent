@@ -260,6 +260,8 @@ async function switchSession(nextChatId) {
   clearPendingImage();
   setActiveChatId(nextChatId);
   selectedSessionId = nextChatId;
+  lastMessageSeq = 0;
+  saveReconnectSession();
   renderSessions();
   try {
     const resp = await fetch(`/api/session_history?chat_id=${encodeURIComponent(chatId)}`, { cache: 'no-store' });
@@ -285,6 +287,8 @@ async function deleteSession(targetChatId) {
   if (deletedCurrent) {
     setActiveChatId(createChatId());
     selectedSessionId = '';
+    lastMessageSeq = 0;
+    saveReconnectSession();
     renderHistoryMessages([]);
   }
   renderSessions();
@@ -306,6 +310,8 @@ function startNewSession() {
   clearPendingImage();
   setActiveChatId(createChatId());
   selectedSessionId = '';
+  lastMessageSeq = 0;
+  saveReconnectSession();
   renderHistoryMessages([]);
   renderSessions();
   refreshContextStats();
@@ -1308,6 +1314,7 @@ function sendUserMessage(text, cancelCurrent) {
   autoResize();
   renderContextBadge();
   syncSendState();
+  saveReconnectSession();
   setTimeout(loadSessions, 600);
   return true;
 }
@@ -1605,6 +1612,7 @@ function hideReconnectToast() {
 
 async function handleReconnect() {
   hideReconnectToast();
+  lastMessageSeq = 0;
   try {
     const resp = await fetch(`/api/session_history?chat_id=${encodeURIComponent(chatId)}`, { cache: 'no-store' });
     if (resp.ok) {
@@ -1617,6 +1625,7 @@ async function handleReconnect() {
       }
     }
   } catch (_) {}
+  saveReconnectSession();
   refreshContextStats();
 }
 

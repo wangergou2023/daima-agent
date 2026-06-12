@@ -32,6 +32,9 @@ static void init_empty_cfg(category_router_cfg_t *cfg)
     for (int i = 0; i < DAIMA_INTENT_COUNT; i++) {
         cfg->intent_map[i] = -1;
     }
+    for (int i = 0; i < AGENT_ROLE_COUNT; i++) {
+        cfg->role_model_map[i] = -1;
+    }
 }
 
 static int add_profile(category_router_cfg_t *cfg,
@@ -79,6 +82,15 @@ static daima_intent_t intent_from_key(const char *key)
     return DAIMA_INTENT_COUNT;
 }
 
+static int role_from_name(const char *name)
+{
+    if (!name) return -1;
+    for (int i = 0; i < AGENT_ROLE_COUNT; i++) {
+        if (strcmp(name, agent_role_name((agent_role_t)i)) == 0) return i;
+    }
+    return -1;
+}
+
 static void set_default_intent_map(category_router_cfg_t *cfg, int deep, int quick)
 {
     if (!cfg) {
@@ -114,6 +126,11 @@ static void load_default_cfg(category_router_cfg_t *cfg)
     int quick = add_profile(cfg, "quick", quick_model, context_limit, max_tokens);
 
     set_default_intent_map(cfg, deep, quick);
+
+    cfg->role_model_map[AGENT_ROLE_FAST] = quick;
+    cfg->role_model_map[AGENT_ROLE_PLANNER] = deep;
+    cfg->role_model_map[AGENT_ROLE_EXECUTOR] = deep;
+    cfg->role_model_map[AGENT_ROLE_REVIEWER] = deep;
 
     DAIMA_LOGI(TAG, "Category routing defaults: deep=%s quick=%s",
                 active_model, quick_model);
@@ -220,6 +237,20 @@ static bool load_json_cfg(category_router_cfg_t *cfg, const char *json_text)
         }
     }
 
+    for (int i = 0; i < AGENT_ROLE_COUNT; i++) {
+        cfg->role_model_map[i] = -1;
+    }
+    cJSON *role_map = cJSON_GetObjectItem(root, "role_model_map");
+    if (cJSON_IsObject(role_map)) {
+        cJSON *entry = NULL;
+        cJSON_ArrayForEach(entry, role_map) {
+            if (!entry->string || !cJSON_IsString(entry)) continue;
+            int role_idx = role_from_name(entry->string);
+            if (role_idx < 0 || role_idx >= AGENT_ROLE_COUNT) continue;
+            cfg->role_model_map[role_idx] = find_profile_index(cfg, entry->valuestring);
+        }
+    }
+
     bool ok = cfg->profile_count > 0;
     cJSON_Delete(json_root);
     return ok;
@@ -283,6 +314,20 @@ const daima_category_profile_t *category_router_resolve(daima_intent_t intent)
     int profile_index = s_cfg.intent_map[intent];
     if (profile_index < 0 || profile_index >= s_cfg.profile_count) {
         return NULL;
+    }
+    return &s_cfg.profiles[profile_index];
+}
+
+const daima_category_profile_t *category_router_resolve_for_role(agent_role_t role)
+{
+    category_router_load_and_get_cfg();
+    if (!s_cfg.enabled || role < 0 || role >= AGENT_ROLE_COUNT) {
+        return NULL;
+    }
+
+    int profile_index = s_cfg.role_model_map[role];
+    if (profile_index < 0 || profile_index >= s_cfg.profile_count) {
+        return category_router_resolve(DAIMA_INTENT_OPEN);
     }
     return &s_cfg.profiles[profile_index];
 }

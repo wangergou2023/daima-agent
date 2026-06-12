@@ -1739,23 +1739,12 @@ button:disabled {
   background: var(--accent-soft);
 }
 
-/* Coordinator panel mobile */
 @media (max-width: 900px) {
   .coordinator-panel {
     right: 14px;
     width: min(290px, calc(100vw - 28px));
   }
-}
 
-@media (max-width: 640px) {
-  .coordinator-panel {
-    right: 6px;
-    width: min(280px, calc(100vw - 12px));
-    padding: 14px;
-  }
-}
-
-@media (max-width: 900px) {
   .app-shell {
     width: 100vw;
     padding: 12px 12px 18px;
@@ -1836,6 +1825,12 @@ button:disabled {
 }
 
 @media (max-width: 640px) {
+  .coordinator-panel {
+    right: 6px;
+    width: min(280px, calc(100vw - 12px));
+    padding: 14px;
+  }
+
   .app-shell {
     width: 100vw;
     padding: 0;
