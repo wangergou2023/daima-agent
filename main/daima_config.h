@@ -27,6 +27,8 @@
 #define DAIMA_AGENT_MAX_TOOL_ITER     20
 #define DAIMA_MAX_TOOL_CALLS          4
 #define DAIMA_INTENT_GATE_ENABLED     1
+#define DAIMA_CATEGORY_ROUTING_ENABLED 1
+#define DAIMA_PLAN_REVIEW_ENABLED     1
 
 /* 大模型（固定 OpenAI 兼容协议）
  * - STREAM_BUF_SIZE 用于 HTTP 响应缓存

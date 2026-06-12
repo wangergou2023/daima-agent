@@ -3,6 +3,7 @@
 #pragma once
 
 #include "daima_err.h"
+#include "agent/intent_gate.h"
 #include <stdint.h>
 
 /* 通道标识 */
@@ -27,6 +28,7 @@ typedef struct {
     char *content;          /* 堆分配的消息文本（调用方需释放） */
     char *reasoning;        /* 可选：助手思考过程（调用方需释放） */
     char *image_path;       /* 可选：入站图片的本地缓存路径（调用方需释放） */
+    daima_intent_t intent;
 } daima_msg_t;
 
 /**

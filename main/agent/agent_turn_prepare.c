@@ -213,6 +213,7 @@ static void append_session_summary_prompt(char *prompt, size_t size, const char 
 
 daima_err_t agent_turn_prepare(
     const daima_msg_t *msg,
+    const daima_plan_t *plan,
     char *system_prompt,
     size_t system_prompt_size,
     char *history_json,
@@ -233,6 +234,9 @@ daima_err_t agent_turn_prepare(
     append_session_facts_prompt(system_prompt, system_prompt_size, msg->chat_id);
     append_turn_context_prompt(system_prompt, system_prompt_size, msg);
     agent_channel_policy_append(system_prompt, system_prompt_size, msg);
+#ifdef DAIMA_PLAN_REVIEW_ENABLED
+    plan_review_inject_to_prompt(plan, system_prompt, system_prompt_size);
+#endif
     context_fix_truncated_utf8(system_prompt, strnlen(system_prompt, system_prompt_size));
 
     agent_prompt_dump_snapshot(msg, system_prompt);

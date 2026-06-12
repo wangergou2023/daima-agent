@@ -128,6 +128,12 @@ daima_err_t llm_chat_with_images(const char *system_prompt,
  * @return 成功返回 DAIMA_OK
  */
 daima_err_t llm_chat_tools(const char *system_prompt,
-                         cJSON *messages,
-                         const char *tools_json,
-                         llm_response_t *resp);
+                          cJSON *messages,
+                          const char *tools_json,
+                          llm_response_t *resp);
+
+daima_err_t llm_chat_tools_with_model(const char *system_prompt,
+                                      cJSON *messages,
+                                      const char *tools_json,
+                                      const char *model_override,
+                                      llm_response_t *resp);

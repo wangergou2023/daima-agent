@@ -1,6 +1,7 @@
 #include "agent/agent_turn_run.h"
 #include "agent/agent_turn_exec_helpers.h"
 #include "agent/agent_cancel.h"
+#include "agent/category_router.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -29,14 +30,15 @@ static bool mark_cancelled_if_needed(const daima_msg_t *msg,
 }
 
 static daima_err_t cancellable_llm_chat_tools(const daima_msg_t *msg,
-                                              uint64_t cancel_token,
-                                              const char *system_prompt,
-                                              cJSON *messages,
-                                              const char *tools_json,
-                                              llm_response_t *resp)
+                                               uint64_t cancel_token,
+                                               const char *system_prompt,
+                                               cJSON *messages,
+                                               const char *tools_json,
+                                               const char *model_override,
+                                               llm_response_t *resp)
 {
     agent_cancel_enter_current_turn(msg->chat_id, cancel_token);
-    daima_err_t err = llm_chat_tools(system_prompt, messages, tools_json, resp);
+    daima_err_t err = llm_chat_tools_with_model(system_prompt, messages, tools_json, model_override, resp);
     agent_cancel_leave_current_turn();
     return err;
 }
@@ -93,9 +95,22 @@ daima_err_t agent_turn_run(
             break;
         }
 
+        const char *model_override = NULL;
+#ifdef DAIMA_CATEGORY_ROUTING_ENABLED
+        category_router_cfg_t cfg = category_router_load_and_get_cfg();
+        if (cfg.enabled) {
+            const daima_category_profile_t *profile = category_router_resolve(msg->intent);
+            if (profile) {
+                model_override = profile->model;
+                DAIMA_LOGI(TAG, "Category routing: intent=%s -> model=%s",
+                           daima_intent_name(msg->intent), profile->model);
+            }
+        }
+#endif
+
         llm_response_t resp;
         memset(&resp, 0, sizeof(resp));
-        err = cancellable_llm_chat_tools(msg, cancel_token, system_prompt, messages, tools_json, &resp);
+        err = cancellable_llm_chat_tools(msg, cancel_token, system_prompt, messages, tools_json, model_override, &resp);
 
         if (err != DAIMA_OK) {
             if (mark_cancelled_if_needed(msg, cancel_token, out_cancelled, "during LLM call")) {

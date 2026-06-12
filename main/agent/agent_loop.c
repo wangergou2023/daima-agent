@@ -5,6 +5,7 @@
 #include "agent/agent_turn_common.h"
 #include "agent/context_compressor.h"
 #include "agent/learning_review.h"
+#include "agent/plan_review.h"
 #include "agent/agent_turn_finish.h"
 #include "agent/agent_turn_prepare.h"
 #include "agent/agent_turn_run.h"
@@ -44,11 +45,23 @@ static void agent_loop_task(void *arg)
         daima_err_t err = message_bus_pop_inbound(&msg, UINT32_MAX);
         if (err != DAIMA_OK) continue;
 
+        msg.intent = DAIMA_INTENT_OPEN;
+
+#ifdef DAIMA_PLAN_REVIEW_ENABLED
+        daima_plan_t plan = {0};
+#endif
+
 #ifdef DAIMA_INTENT_GATE_ENABLED
-        daima_intent_t intent = DAIMA_INTENT_OPEN;
-        intent_gate_classify(msg.content, &intent);
-        DAIMA_LOGI(TAG, "Intent classified: %s -> %s", msg.content, daima_intent_name(intent));
-        // TODO: 后续 CategoryRouting 和 PlanReview 会使用这个 intent
+        intent_gate_classify(msg.content, &msg.intent);
+        DAIMA_LOGI(TAG, "Intent classified: %s -> %s", msg.content, daima_intent_name(msg.intent));
+#ifdef DAIMA_PLAN_REVIEW_ENABLED
+        if (msg.intent == DAIMA_INTENT_IMPLEMENT || msg.intent == DAIMA_INTENT_FIX) {
+            daima_err_t plan_err = plan_review_generate(msg.intent, msg.content, system_prompt, &plan);
+            if (plan_err == DAIMA_OK && plan.has_plan && plan.reviewed) {
+                DAIMA_LOGI(TAG, "Plan generated and reviewed for intent=%s", daima_intent_name(msg.intent));
+            }
+        }
+#endif
 #endif
 
         if (agent_msg_is_internal_control(&msg)) {
@@ -64,6 +77,11 @@ static void agent_loop_task(void *arg)
         uint64_t cancel_token = agent_cancel_begin_turn(msg.chat_id);
         cJSON *messages = NULL;
         err = agent_turn_prepare(&msg,
+#ifdef DAIMA_PLAN_REVIEW_ENABLED
+                                 &plan,
+#else
+                                 NULL,
+#endif
                                  system_prompt, DAIMA_CONTEXT_BUF_SIZE,
                                  history_json, DAIMA_LLM_STREAM_BUF_SIZE,
                                  &messages);

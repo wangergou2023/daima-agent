@@ -465,9 +465,9 @@ void llm_response_free(llm_response_t *resp)
 
 /* 发送带工具的对话请求（非流式）并解析响应 */
 daima_err_t llm_chat_tools(const char *system_prompt,
-                         cJSON *messages,
-                         const char *tools_json,
-                         llm_response_t *resp)
+                          cJSON *messages,
+                          const char *tools_json,
+                          llm_response_t *resp)
 {
     memset(resp, 0, sizeof(*resp));
 
@@ -558,6 +558,24 @@ daima_err_t llm_chat_tools(const char *system_prompt,
     }
 
     return DAIMA_OK;
+}
+
+daima_err_t llm_chat_tools_with_model(const char *system_prompt,
+                                      cJSON *messages,
+                                      const char *tools_json,
+                                      const char *model_override,
+                                      llm_response_t *resp)
+{
+    if (!model_override || !model_override[0]) {
+        return llm_chat_tools(system_prompt, messages, tools_json, resp);
+    }
+
+    char previous_model[LLM_MODEL_MAX_LEN];
+    daima_safe_copy(previous_model, sizeof(previous_model), s_model);
+    daima_safe_copy(s_model, sizeof(s_model), model_override);
+    daima_err_t err = llm_chat_tools(system_prompt, messages, tools_json, resp);
+    daima_safe_copy(s_model, sizeof(s_model), previous_model);
+    return err;
 }
 
 daima_err_t llm_set_api_key(const char *api_key)

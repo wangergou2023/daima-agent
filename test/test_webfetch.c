@@ -78,6 +78,8 @@ int main(void)
             printf("FAIL (SSRF wrongly blocked)\n"); failed++;
         } else if (strstr(out, "Example Domain") || strstr(out, "example")) {
             printf("PASS (fetched content)\n"); passed++;
+        } else if (strstr(out, "HTTP 5") || strstr(out, "HTTP 429")) {
+            printf("SKIP (upstream unavailable: %.80s)\n", out);
         } else {
             printf("FAIL (unexpected: %.200s)\n", out); failed++;
         }
@@ -91,6 +93,8 @@ int main(void)
             printf("PASS\n"); passed++;
         } else if (strstr(out, "URL 不允许")) {
             printf("FAIL (SSRF wrongly blocked)\n"); failed++;
+        } else if (strstr(out, "HTTP 5") || strstr(out, "HTTP 429")) {
+            printf("SKIP (upstream unavailable: %.80s)\n", out);
         } else {
             printf("FAIL (unexpected: %.200s)\n", out); failed++;
         }
