@@ -10,6 +10,7 @@
 #include "cJSON.h"
 #include "daima_config.h"
 #include "daima_log.h"
+#include "tools/tool_hashline.h"
 #include "tools/tool_safe_edit.h"
 
 typedef struct {
@@ -176,11 +177,17 @@ daima_err_t tool_read_file_execute(const char *input_json, char *output, size_t 
         tool_files_trim_line_end(line);
 
         char rendered[DAIMA_READ_FILE_MAX_LINE_CHARS + 64];
+        char prefix[HASHLINE_PREFIX_MAX] = {0};
+#ifdef DAIMA_HASHLINE_ENABLED
+        hashline_make_prefix(current_line, line, prefix, sizeof(prefix));
+#else
+        snprintf(prefix, sizeof(prefix), "%6d|", current_line);
+#endif
         if (strlen(line) > DAIMA_READ_FILE_MAX_LINE_CHARS) {
-            snprintf(rendered, sizeof(rendered), "%6d|%.*s... [truncated]\n",
-                     current_line, DAIMA_READ_FILE_MAX_LINE_CHARS, line);
+            snprintf(rendered, sizeof(rendered), "%s%.*s... [truncated]\n",
+                     prefix, DAIMA_READ_FILE_MAX_LINE_CHARS, line);
         } else {
-            snprintf(rendered, sizeof(rendered), "%6d|%s\n", current_line, line);
+            snprintf(rendered, sizeof(rendered), "%s%s\n", prefix, line);
         }
 
         size_t rendered_len = strlen(rendered);

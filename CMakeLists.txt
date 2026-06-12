@@ -119,6 +119,7 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_file_paths.c
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_file_checkpoint.c
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_safe_edit.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_hashline.c
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_file_read.c
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_file_query.c
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_file_mutations.c

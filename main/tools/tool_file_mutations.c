@@ -3,12 +3,14 @@
 #include "tools/tool_files.h"
 
 #include "tools/tool_file_ops.h"
+#include "tools/tool_hashline.h"
 #include "tools/tool_safe_edit.h"
 #include "app/daima_paths.h"
 #include "daima_config.h"
 #include "daima_log.h"
 #include "cJSON.h"
 
+#include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -64,11 +66,175 @@ static bool path_has_prefix(const char *path, const char *prefix)
     return path[prefix_len] == '\0' || path[prefix_len] == '/';
 }
 
+static char *next_patch_line(char **cursor);
+
+#ifdef DAIMA_HASHLINE_ENABLED
+static bool parse_hashline_reference(const char *line, int *line_number, char expected_hash[5])
+{
+    if (!line || !isdigit((unsigned char)line[0]) || !line_number || !expected_hash) {
+        return false;
+    }
+
+    int parsed_line = 0;
+    const char *p = line;
+    while (isdigit((unsigned char)*p)) {
+        parsed_line = parsed_line * 10 + (*p - '0');
+        p++;
+    }
+    if (parsed_line <= 0 || *p != '#') {
+        return false;
+    }
+    p++;
+    for (int i = 0; i < 4; i++) {
+        if (!((p[i] >= '0' && p[i] <= '9') || (p[i] >= 'a' && p[i] <= 'f'))) {
+            return false;
+        }
+        expected_hash[i] = p[i];
+    }
+    expected_hash[4] = '\0';
+    if (p[4] != '|') {
+        return false;
+    }
+
+    *line_number = parsed_line;
+    return true;
+}
+
+static bool read_line_without_newline(const char *content, int wanted_line, char **line_out)
+{
+    if (!content || wanted_line <= 0 || !line_out) {
+        return false;
+    }
+
+    const char *line_start = content;
+    int current_line = 1;
+    while (current_line < wanted_line && *line_start) {
+        const char *nl = strchr(line_start, '\n');
+        if (!nl) {
+            return false;
+        }
+        line_start = nl + 1;
+        current_line++;
+    }
+    if (current_line != wanted_line || !*line_start) {
+        return false;
+    }
+
+    const char *line_end = strchr(line_start, '\n');
+    if (!line_end) {
+        line_end = line_start + strlen(line_start);
+    }
+    while (line_end > line_start && line_end[-1] == '\r') {
+        line_end--;
+    }
+
+    size_t len = (size_t)(line_end - line_start);
+    char *copy = malloc(len + 1);
+    if (!copy) {
+        return false;
+    }
+    memcpy(copy, line_start, len);
+    copy[len] = '\0';
+    *line_out = copy;
+    return true;
+}
+
+static daima_err_t verify_hashline_reference(const char *current,
+                                             const char *line,
+                                             bool *saw_hashline,
+                                             char *output,
+                                             size_t output_size)
+{
+    int line_number = 0;
+    char expected_hash[5] = {0};
+    if (!parse_hashline_reference(line, &line_number, expected_hash)) {
+        return DAIMA_OK;
+    }
+    if (saw_hashline) {
+        *saw_hashline = true;
+    }
+
+    char *actual_line = NULL;
+    if (!read_line_without_newline(current, line_number, &actual_line)) {
+        snprintf(output, output_size,
+                 "Hashline: 第%d行不存在，请重新读取文件后重试",
+                 line_number);
+        return DAIMA_ERR_INVALID_STATE;
+    }
+
+    bool matched = hashline_verify_line(line_number, actual_line, expected_hash);
+    free(actual_line);
+    if (!matched) {
+        snprintf(output, output_size,
+                 "Hashline: 第%d行已变更(hash期望%s)，请重新读取文件后重试",
+                 line_number, expected_hash);
+        return DAIMA_ERR_INVALID_STATE;
+    }
+    return DAIMA_OK;
+}
+
+static daima_err_t hashline_verify_patch_path(const char *path,
+                                              const char *patch_content,
+                                              bool *saw_hashline,
+                                              char *output,
+                                              size_t output_size)
+{
+    if (saw_hashline) {
+        *saw_hashline = false;
+    }
+
+    char resolved_path[READ_PATH_SIZE];
+    char scratch[128];
+    if (!resolve_write_path_or_fail(path, resolved_path, sizeof(resolved_path), scratch, sizeof(scratch))) {
+        return DAIMA_OK;
+    }
+
+    char *current = NULL;
+    size_t current_len = 0;
+    daima_err_t err = tool_files_read_text_file(resolved_path, MAX_FILE_SIZE, &current, &current_len);
+    if (err != DAIMA_OK) {
+        return DAIMA_OK;
+    }
+    (void)current_len;
+
+    char *copy = strdup(patch_content ? patch_content : "");
+    if (!copy) {
+        free(current);
+        snprintf(output, output_size, "错误：内存不足");
+        return DAIMA_ERR_NO_MEM;
+    }
+
+    char *cursor = copy;
+    char *line = NULL;
+    while ((line = next_patch_line(&cursor)) != NULL) {
+        if (line[0] == '-' || line[0] == ' ') {
+            err = verify_hashline_reference(current, line + 1, saw_hashline, output, output_size);
+            if (err != DAIMA_OK) {
+                free(copy);
+                free(current);
+                return err;
+            }
+        }
+    }
+
+    free(copy);
+    free(current);
+    return DAIMA_OK;
+}
+#endif
+
 static daima_err_t safe_edit_verify_patch_path(const char *path,
                                                const char *patch_content,
                                                char *output,
                                                size_t output_size)
 {
+#ifdef DAIMA_HASHLINE_ENABLED
+    bool saw_hashline = false;
+    daima_err_t hashline_err = hashline_verify_patch_path(path, patch_content, &saw_hashline, output, output_size);
+    if (hashline_err != DAIMA_OK || saw_hashline) {
+        return hashline_err;
+    }
+#endif
 #ifdef DAIMA_SAFE_EDIT_ENABLED
     char resolved_path[READ_PATH_SIZE];
     char scratch[128];
@@ -288,13 +454,13 @@ static daima_err_t apply_patch_update_file(char **cursor,
         }
 
         if (starts_with(line, "-")) {
-            err = tb_append_line(&old_text, line + 1);
+            err = tb_append_line(&old_text, hashline_strip_prefix(line + 1));
         } else if (starts_with(line, "+")) {
-            err = tb_append_line(&new_text, line + 1);
+            err = tb_append_line(&new_text, hashline_strip_prefix(line + 1));
         } else if (starts_with(line, " ")) {
-            err = tb_append_line(&old_text, line + 1);
+            err = tb_append_line(&old_text, hashline_strip_prefix(line + 1));
             if (err == DAIMA_OK) {
-                err = tb_append_line(&new_text, line + 1);
+                err = tb_append_line(&new_text, hashline_strip_prefix(line + 1));
             }
         } else {
             free(current);
