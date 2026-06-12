@@ -113,25 +113,25 @@ daima_err_t coordinator_merge_results(coordinator_t *coord,
     coord->merged_result[0] = '\0';
 
     size_t used = 0;
+    const sub_agent_t *executor = NULL;
+    const sub_agent_t *reviewer = NULL;
+
     for (int i = 0; i < coord->agent_count && i < COORDINATOR_MAX_SUB_AGENTS; i++) {
         const sub_agent_t *agent = &coord->agents[i];
-        if (!agent->done) {
-            continue;
-        }
+        if (!agent->done) continue;
+        if (agent->role == AGENT_ROLE_EXECUTOR) executor = agent;
+        if (agent->role == AGENT_ROLE_REVIEWER) reviewer = agent;
+    }
 
-        int written = snprintf(output + used,
-                               output_size - used,
-                               "## %s\n%s\n",
-                               agent_role_name(agent->role),
-                               agent->result_text);
-        if (written < 0) {
-            return DAIMA_FAIL;
-        }
-        if ((size_t)written >= output_size - used) {
-            used = output_size - 1;
-            break;
-        }
+    if (executor && executor->result_text[0]) {
+        int written = snprintf(output + used, output_size - used, "%s", executor->result_text);
+        if (written < 0) return DAIMA_FAIL;
         used += (size_t)written;
+    }
+
+    if (reviewer && reviewer->result_text[0]) {
+        snprintf(output + used, output_size - used,
+                 "\n\n---\n#### ✅ REVIEWER 审查\n%s", reviewer->result_text);
     }
 
     snprintf(coord->merged_result, sizeof(coord->merged_result), "%s", output);
