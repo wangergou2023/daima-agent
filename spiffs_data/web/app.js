@@ -70,6 +70,13 @@ const ROLE_LABELS = Object.freeze({
   fast: 'FAST',
 });
 
+const ROLE_EMOJI = Object.freeze({
+  planner: '🤖',
+  executor: '🛠️',
+  reviewer: '✅',
+  fast: '⚡',
+});
+
 const RECONNECT_SESSION_KEY = 'daima_last_session';
 
 const storedTheme = localStorage.getItem(THEME_KEY) || 'warm';
@@ -102,6 +109,9 @@ let selectedSessionId = '';
 let localSessions = [];
 let lastMessageSeq = 0;
 let coordinatorVisible = false;
+let currentAgentRole = '';
+let currentAgentModel = '';
+let agentOutputs = {};
 let reconnectToastTimer = null;
 
 function createChatId() {
@@ -988,6 +998,21 @@ function makeMessageNode(role, text, reasoning = '') {
     label.className = 'message-label';
     label.textContent = 'Daima';
     card.appendChild(label);
+
+    if (currentAgentRole && ROLE_LABELS[currentAgentRole]) {
+      const badge = document.createElement('div');
+      badge.className = 'message-agent-badge';
+      const emoji = ROLE_EMOJI[currentAgentRole] || '';
+      const roleLabel = ROLE_LABELS[currentAgentRole];
+      badge.innerHTML = `<span class="message-agent-badge-role">${emoji} ${roleLabel}</span>`;
+      if (currentAgentModel) {
+        const modelSpan = document.createElement('span');
+        modelSpan.className = 'message-agent-badge-model';
+        modelSpan.textContent = currentAgentModel;
+        badge.appendChild(modelSpan);
+      }
+      card.appendChild(badge);
+    }
   }
 
   if (role === 'assistant' && reasoning) {
@@ -1174,6 +1199,10 @@ function connect() {
       }
       if (data.type === 'coordinator_status') {
         updateCoordinatorStatus(data.agents);
+        return;
+      }
+      if (data.type === 'coordinator_output') {
+        handleCoordinatorOutput(data.agents);
         return;
       }
       if (data.type === 'session_sync') {
@@ -1468,6 +1497,9 @@ function updateAgentRole(role) {
 }
 
 function clearAgentState() {
+  currentAgentRole = '';
+  currentAgentModel = '';
+  agentOutputs = {};
   if (agentIntentTag) {
     agentIntentTag.hidden = true;
     agentIntentTag.setAttribute('aria-hidden', 'true');
@@ -1481,12 +1513,46 @@ function clearAgentState() {
 function handleAgentStateMessage(data) {
   if (!data) return;
   if (data.intent !== undefined) updateAgentIntent(data.intent);
-  if (data.role !== undefined) updateAgentRole(data.role);
+  if (data.role !== undefined) {
+    currentAgentRole = data.role || '';
+    updateAgentRole(data.role);
+  }
+  if (data.model !== undefined) {
+    currentAgentModel = data.model || '';
+  }
 }
 
-function renderCoordinatorAgent(agent) {
+function formatElapsed(ms) {
+  if (!ms || ms <= 0) return '';
+  const s = ms / 1000;
+  if (s < 1) return `${(s * 1000).toFixed(0)}ms`;
+  if (s < 60) return `${s.toFixed(1)}s`;
+  const m = Math.floor(s / 60);
+  const rem = (s % 60).toFixed(0);
+  return `${m}m ${rem}s`;
+}
+
+function resolveAgentRole(name) {
+  const lower = String(name || '').toLowerCase();
+  if (lower.includes('planner')) return 'planner';
+  if (lower.includes('executor')) return 'executor';
+  if (lower.includes('reviewer')) return 'reviewer';
+  if (lower.includes('fast')) return 'fast';
+  return '';
+}
+
+function renderCoordinatorAgent(agent, maxElapsed) {
   const row = document.createElement('div');
   row.className = 'coordinator-agent';
+
+  const outputText = agentOutputs[agent.name] || '';
+  if (outputText) {
+    row.classList.add('has-output');
+  }
+  row.dataset.agentName = agent.name;
+
+  const body = document.createElement('div');
+  body.className = 'coordinator-agent-body';
 
   const statusEl = document.createElement('span');
   statusEl.className = `coordinator-agent-status ${agent.status || 'waiting'}`;
@@ -1506,16 +1572,93 @@ function renderCoordinatorAgent(agent) {
 
   const nameEl = document.createElement('span');
   nameEl.className = 'coordinator-agent-name';
-  nameEl.textContent = agent.name || 'Agent';
+  const role = resolveAgentRole(agent.name);
+  const emoji = ROLE_EMOJI[role] || '';
+  nameEl.textContent = emoji ? `${emoji} ${agent.name || 'Agent'}` : (agent.name || 'Agent');
 
-  const detailEl = document.createElement('span');
-  detailEl.className = 'coordinator-agent-detail';
-  detailEl.textContent = agent.detail || (agent.status === 'running' ? '运行中...' : agent.status === 'done' ? '已完成' : agent.status === 'error' ? '出错' : '等待中...');
+  const metaEl = document.createElement('span');
+  metaEl.className = 'coordinator-agent-meta';
 
-  row.appendChild(statusEl);
-  row.appendChild(nameEl);
-  row.appendChild(detailEl);
+  const expandHint = document.createElement('span');
+  expandHint.className = 'coordinator-agent-expand-hint';
+  expandHint.textContent = '▼';
+
+  const elapsedEl = document.createElement('span');
+  elapsedEl.className = 'coordinator-agent-elapsed';
+  const elapsedMs = Number(agent.elapsed_ms) || 0;
+  elapsedEl.textContent = elapsedMs > 0 ? formatElapsed(elapsedMs) : '';
+
+  metaEl.appendChild(expandHint);
+  metaEl.appendChild(elapsedEl);
+
+  body.appendChild(statusEl);
+  body.appendChild(nameEl);
+  body.appendChild(metaEl);
+  row.appendChild(body);
+
+  if (elapsedMs > 0 && maxElapsed > 0) {
+    const barWrap = document.createElement('div');
+    barWrap.className = 'coordinator-agent-bar-wrap';
+
+    const bar = document.createElement('div');
+    bar.className = 'coordinator-agent-bar';
+
+    const fill = document.createElement('div');
+    fill.className = `coordinator-agent-bar-fill ${role} ${agent.status || 'waiting'}`;
+    const pct = Math.min(100, (elapsedMs / maxElapsed) * 100);
+    fill.style.width = `${pct}%`;
+
+    bar.appendChild(fill);
+    barWrap.appendChild(bar);
+    row.appendChild(barWrap);
+  }
+
+  if (outputText) {
+    const output = document.createElement('div');
+    output.className = 'coordinator-agent-output';
+    output.textContent = outputText;
+    row.appendChild(output);
+
+    row.addEventListener('click', () => {
+      row.classList.toggle('expanded');
+    });
+  }
+
   return row;
+}
+
+function handleCoordinatorOutput(agents) {
+  if (!Array.isArray(agents)) return;
+  let changed = false;
+  for (const agent of agents) {
+    if (agent.name && agent.output_text) {
+      agentOutputs[agent.name] = agent.output_text;
+      changed = true;
+    }
+  }
+  if (changed) {
+    const rows = coordinatorAgents.querySelectorAll('.coordinator-agent');
+    for (const row of rows) {
+      const name = row.dataset.agentName;
+      if (!name) continue;
+      const text = agentOutputs[name];
+      if (!text) continue;
+      row.classList.add('has-output');
+      let outputEl = row.querySelector('.coordinator-agent-output');
+      if (!outputEl) {
+        outputEl = document.createElement('div');
+        outputEl.className = 'coordinator-agent-output';
+        row.appendChild(outputEl);
+      }
+      outputEl.textContent = text;
+      if (!row.dataset.hasClick) {
+        row.addEventListener('click', () => {
+          row.classList.toggle('expanded');
+        });
+        row.dataset.hasClick = '1';
+      }
+    }
+  }
 }
 
 function updateCoordinatorStatus(agents) {
@@ -1525,9 +1668,15 @@ function updateCoordinatorStatus(agents) {
     return;
   }
 
+  let maxElapsed = 0;
+  for (const agent of agents) {
+    const ms = Number(agent.elapsed_ms) || 0;
+    if (ms > maxElapsed) maxElapsed = ms;
+  }
+
   coordinatorAgents.innerHTML = '';
   for (const agent of agents) {
-    coordinatorAgents.appendChild(renderCoordinatorAgent(agent));
+    coordinatorAgents.appendChild(renderCoordinatorAgent(agent, maxElapsed));
   }
 
   if (!coordinatorVisible) {
@@ -1541,6 +1690,7 @@ function updateCoordinatorStatus(agents) {
 function closeCoordinatorPanel() {
   if (!coordinatorPanel) return;
   if (!coordinatorVisible) return;
+  agentOutputs = {};
   coordinatorPanel.classList.add('removing');
   const onEnd = () => {
     coordinatorPanel.removeEventListener('transitionend', onEnd);

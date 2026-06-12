@@ -1674,6 +1674,187 @@ button:disabled {
   font-weight: 500;
 }
 
+/* ── Message agent badge ─────────────────────────── */
+
+.message-agent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 3px;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--muted);
+  user-select: none;
+}
+
+.message-agent-badge-role {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.message-agent-badge-model {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-muted);
+  color: var(--muted-strong);
+  font-family: "SFMono-Regular", "Menlo", "Consolas", monospace;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* ── Coordinator timeline bars ───────────────────── */
+
+.coordinator-agent {
+  flex-wrap: wrap;
+}
+
+.coordinator-agent-body {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.coordinator-agent-bar-wrap {
+  flex: 1 1 100%;
+  margin-top: 4px;
+  padding-left: 32px;
+}
+
+.coordinator-agent-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(148, 163, 184, 0.12);
+  overflow: hidden;
+}
+
+.coordinator-agent-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.35s ease;
+}
+
+.coordinator-agent-bar-fill.planner {
+  background: linear-gradient(90deg, rgba(139, 92, 246, 0.55), rgba(139, 92, 246, 0.78));
+}
+
+.coordinator-agent-bar-fill.executor {
+  background: linear-gradient(90deg, rgba(95, 135, 201, 0.55), rgba(95, 135, 201, 0.82));
+}
+
+.coordinator-agent-bar-fill.reviewer {
+  background: linear-gradient(90deg, rgba(61, 179, 127, 0.55), rgba(61, 179, 127, 0.82));
+}
+
+.coordinator-agent-bar-fill.fast {
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.55), rgba(245, 158, 11, 0.82));
+}
+
+.coordinator-agent-bar-fill.done {
+  opacity: 0.85;
+}
+
+.coordinator-agent-bar-fill.running {
+  animation: bar-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes bar-pulse {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 0.55; }
+}
+
+/* ── Coordinator timeline metadata ───────────────── */
+
+.coordinator-agent-meta {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.coordinator-agent-elapsed {
+  font-family: "SFMono-Regular", "Menlo", "Consolas", monospace;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted-strong);
+  white-space: nowrap;
+}
+
+.coordinator-agent-bar-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+
+.coordinator-agent-bar-label .coordinator-agent-elapsed {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+/* ── Coordinator expandable output ───────────────── */
+
+.coordinator-agent {
+  cursor: default;
+  transition: background 0.16s ease;
+}
+
+.coordinator-agent.has-output {
+  cursor: pointer;
+}
+
+.coordinator-agent.has-output:hover {
+  background: rgba(240, 242, 246, 0.65);
+}
+
+.coordinator-agent-output {
+  display: none;
+  flex: 1 1 100%;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  font-family: "SFMono-Regular", "Menlo", "Consolas", monospace;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--muted-strong);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 240px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.coordinator-agent-output::-webkit-scrollbar {
+  display: none;
+}
+
+.coordinator-agent.expanded .coordinator-agent-output {
+  display: block;
+}
+
+.coordinator-agent-expand-hint {
+  display: none;
+  flex: 0 0 auto;
+  font-size: 9px;
+  color: var(--muted);
+  transition: transform 0.2s ease;
+}
+
+.coordinator-agent.has-output .coordinator-agent-expand-hint {
+  display: inline;
+}
+
+.coordinator-agent.expanded .coordinator-agent-expand-hint {
+  transform: rotate(180deg);
+}
+
 /* ── Reconnect toast ─────────────────────────────── */
 
 .reconnect-toast {
@@ -1742,7 +1923,11 @@ button:disabled {
 @media (max-width: 900px) {
   .coordinator-panel {
     right: 14px;
-    width: min(290px, calc(100vw - 28px));
+    width: min(340px, calc(100vw - 28px));
+  }
+
+  .coordinator-agent-output {
+    max-height: 180px;
   }
 
   .app-shell {
@@ -1827,8 +2012,26 @@ button:disabled {
 @media (max-width: 640px) {
   .coordinator-panel {
     right: 6px;
-    width: min(280px, calc(100vw - 12px));
+    width: min(300px, calc(100vw - 12px));
     padding: 14px;
+  }
+
+  .coordinator-agent-bar-wrap {
+    padding-left: 0;
+  }
+
+  .coordinator-agent-output {
+    max-height: 150px;
+    font-size: 10px;
+  }
+
+  .coordinator-agent {
+    flex-wrap: wrap;
+  }
+
+  .coordinator-agent-meta {
+    width: 100%;
+    justify-content: flex-end;
   }
 
   .app-shell {
