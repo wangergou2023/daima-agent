@@ -162,7 +162,6 @@ static void agent_loop_task(void *arg)
         bool cancelled = false;
         if (err == DAIMA_OK) {
             const char *tools_json = tool_registry_get_tools_json_for_channel(msg.channel);
-#ifdef DAIMA_AGENT_COORDINATOR_ENABLED
             coordinator_t coord;
             memset(&coord, 0, sizeof(coord));
             daima_err_t coord_err = coordinator_decompose(msg.intent,
@@ -198,13 +197,13 @@ static void agent_loop_task(void *arg)
                 coordinator_free(&coord);
                 cJSON_Delete(messages);
                 agent_turn_finish(&msg, &final_text, &reasoning_text, err, iteration,
-                                  tool_budget_exhausted, cancelled);
+                                   tool_budget_exhausted, cancelled);
                 continue;
-            } else if (coord_err != DAIMA_OK) {
+            }
+            if (coord_err != DAIMA_OK) {
                 DAIMA_LOGW(TAG, "Coordinator skipped: %s", daima_err_to_name(coord_err));
             }
             coordinator_free(&coord);
-#endif
 #ifdef DAIMA_TEAM_MODE_ENABLED
 #ifdef DAIMA_PLAN_REVIEW_ENABLED
             team_orchestrator_t team = {0};
