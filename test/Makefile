@@ -104,7 +104,7 @@ test_tool_protocol_guard: test_tool_protocol_guard.c ../main/agent/tool_protocol
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 test_intent_gate: test_intent_gate.c ../main/agent/intent_gate.c ../main/daima_env.c
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+	$(CC) $(CFLAGS) -DDAIMA_INTENT_GATE_LLM_FALLBACK=0 -o $@ $^ $(LDLIBS)
 
 test_agent_roles: test_agent_roles.c ../main/agent/agent_roles.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)

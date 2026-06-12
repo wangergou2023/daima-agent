@@ -3,6 +3,8 @@
 #include "daima_config.h"
 #include "daima_env.h"
 #include "daima_log.h"
+#include "llm/llm_proxy.h"
+#include "cJSON.h"
 
 #include <ctype.h>
 #include <stddef.h>
@@ -13,6 +15,14 @@ static const char *TAG = "intent_gate";
 
 #ifndef DAIMA_INTENT_GATE_ENABLED
 #define DAIMA_INTENT_GATE_ENABLED 1
+#endif
+#ifndef DAIMA_INTENT_GATE_LLM_FALLBACK
+#define DAIMA_INTENT_GATE_LLM_FALLBACK 1
+#endif
+
+#if DAIMA_INTENT_GATE_LLM_FALLBACK
+static daima_err_t intent_gate_classify_llm(const char *user_message,
+                                             daima_intent_t *out_intent);
 #endif
 
 typedef struct {
@@ -122,6 +132,57 @@ daima_err_t intent_gate_classify(const char *user_message,
 done:
     free(lower_message);
     *out_intent = intent;
-    DAIMA_LOGI(TAG, "IntentGate classified: %s", daima_intent_name(intent));
+
+#if DAIMA_INTENT_GATE_LLM_FALLBACK
+    if (intent == DAIMA_INTENT_OPEN) {
+        intent_gate_classify_llm(user_message, out_intent);
+    }
+#endif
+
+    DAIMA_LOGI(TAG, "IntentGate classified: %s", daima_intent_name(*out_intent));
     return DAIMA_OK;
 }
+
+#if DAIMA_INTENT_GATE_LLM_FALLBACK
+static daima_err_t intent_gate_classify_llm(const char *user_message,
+                                             daima_intent_t *out_intent)
+{
+    char classify_prompt[1024];
+    snprintf(classify_prompt, sizeof(classify_prompt),
+        "Classify this user request into exactly one category. Reply with only the label, nothing else.\n"
+        "Categories:\n"
+        "- IMPLEMENT: building, creating, writing code, adding features\n"
+        "- FIX: debugging, fixing errors, repairing bugs\n"
+        "- INVESTIGATE: researching, analyzing, searching, exploring\n"
+        "- QA: asking what/how/why questions, requesting explanations\n"
+        "- OPEN: anything else\n"
+        "\n"
+        "Request: %s\n"
+        "\n"
+        "Label:",
+        user_message);
+
+    cJSON *messages = cJSON_CreateArray();
+    cJSON *msg_obj = cJSON_CreateObject();
+    cJSON_AddStringToObject(msg_obj, "role", "user");
+    cJSON_AddStringToObject(msg_obj, "content", classify_prompt);
+    cJSON_AddItemToArray(messages, msg_obj);
+
+    llm_response_t resp;
+    memset(&resp, 0, sizeof(resp));
+    daima_err_t err = llm_chat_tools(classify_prompt, messages, NULL, &resp);
+
+    if (err == DAIMA_OK && resp.text && resp.text[0]) {
+        if (strstr(resp.text, "IMPLEMENT"))      *out_intent = DAIMA_INTENT_IMPLEMENT;
+        else if (strstr(resp.text, "FIX"))        *out_intent = DAIMA_INTENT_FIX;
+        else if (strstr(resp.text, "INVESTIGATE")) *out_intent = DAIMA_INTENT_INVESTIGATE;
+        else if (strstr(resp.text, "QA"))          *out_intent = DAIMA_INTENT_QA;
+        DAIMA_LOGI(TAG, "IntentGate LLM reclassified: %s -> %s (raw: %.80s)",
+                   user_message, daima_intent_name(*out_intent), resp.text);
+    }
+
+    llm_response_free(&resp);
+    cJSON_Delete(messages);
+    return err;
+}
+#endif
