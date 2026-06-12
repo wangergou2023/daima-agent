@@ -219,6 +219,7 @@ daima_err_t coordinator_wait_all(coordinator_t *coord, int timeout_ms)
 
     int elapsed = 0;
     const int poll_interval_ms = 100;
+    int last_progress_sec = 0;
     while (pending > 0 && elapsed < timeout_ms) {
         for (int i = 0; i < coord->agent_count && i < COORDINATOR_MAX_SUB_AGENTS; i++) {
             sub_agent_t *agent = &coord->agents[i];
@@ -243,6 +244,11 @@ daima_err_t coordinator_wait_all(coordinator_t *coord, int timeout_ms)
         if (pending > 0) {
             daima_task_delay((uint32_t)poll_interval_ms);
             elapsed += poll_interval_ms;
+            int elapsed_sec = elapsed / 1000;
+            if (elapsed_sec > 0 && elapsed_sec % 10 == 0 && elapsed_sec != last_progress_sec) {
+                last_progress_sec = elapsed_sec;
+                DAIMA_LOGI(TAG, "Coordinator: waiting... %ds elapsed, %d sub-agents pending",
+                           elapsed_sec, pending);
         }
     }
 
