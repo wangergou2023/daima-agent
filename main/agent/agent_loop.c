@@ -4,7 +4,6 @@
 #include "agent/agent_cancel.h"
 #include "agent/agent_coordinator.h"
 #include "agent/agent_roles.h"
-#include "agent/agent_status_push.h"
 #include "agent/agent_turn_common.h"
 #include "agent/context_compressor.h"
 #include "agent/learning_review.h"
@@ -218,13 +217,9 @@ static void agent_loop_task(void *arg)
             if (coord_err == DAIMA_OK && coord.agent_count > 1) {
                 DAIMA_LOGI(TAG, "Coordinator: launching %d sub-agents for intent=%s",
                            coord.agent_count, daima_intent_name(msg.intent));
-                agent_status_push_agent_state(&msg, msg.intent, AGENT_ROLE_PLANNER);
                 daima_err_t launch_err = coordinator_launch_all(system_prompt, messages, tools_json, &coord);
                 if (launch_err == DAIMA_OK) {
-                    agent_status_push_coordinator_status(&msg, &coord);
                     coordinator_wait_all(&coord, 120000);
-                    agent_status_push_coordinator_status(&msg, &coord);
-                    agent_status_push_agent_state_clear(&msg, msg.intent);
                     char *merged = daima_calloc(1, COORDINATOR_RESULT_MAX * COORDINATOR_MAX_SUB_AGENTS);
                     if (merged) {
                         coordinator_merge_results(&coord,
@@ -240,7 +235,6 @@ static void agent_loop_task(void *arg)
                     }
                 } else {
                     DAIMA_LOGW(TAG, "Coordinator launch skipped: %s", daima_err_to_name(launch_err));
-                    agent_status_push_agent_state_clear(&msg, msg.intent);
                 }
                 coordinator_free(&coord);
                 cJSON_Delete(messages);
