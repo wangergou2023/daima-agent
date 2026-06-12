@@ -25,7 +25,7 @@ static const char *const FIX_KEYWORDS[] = {
 };
 
 static const char *const IMPLEMENT_KEYWORDS[] = {
-    "实现", "添加", "创建", "写一个", "开发", "build", "add", NULL,
+    "实现", "添加", "创建", "写一个", "写个", "帮我写", "开发", "build", "add", NULL,
 };
 
 static const char *const INVESTIGATE_KEYWORDS[] = {
