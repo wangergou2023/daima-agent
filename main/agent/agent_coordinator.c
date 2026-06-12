@@ -138,18 +138,13 @@ daima_err_t coordinator_merge_results(coordinator_t *coord,
             used += (size_t)written;
         }
     }
-    }
 
-    if (reviewer && reviewer->result_text[0]) {
-        if (strstr(reviewer->result_text, "审查通过") || 
-            strstr(reviewer->result_text, "审查通过✅") ||
-            strstr(reviewer->result_text, "已完成")) {
-            goto done;
-        }
+    if (reviewer && reviewer->result_text[0] &&
+        strstr(reviewer->result_text, "审查通过") == NULL &&
+        strstr(reviewer->result_text, "已完成") == NULL) {
         snprintf(output + used, output_size - used,
                  "\n\n---\n⚠️ REVIEWER: %s", reviewer->result_text);
     }
-done:
 
     snprintf(coord->merged_result, sizeof(coord->merged_result), "%s", output);
     return DAIMA_OK;

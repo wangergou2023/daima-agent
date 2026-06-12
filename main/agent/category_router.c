@@ -17,6 +17,13 @@ static category_router_cfg_t s_cfg;
 static bool s_loaded = false;
 static char s_loaded_home[DAIMA_BUF_PATH];
 
+typedef struct {
+    char provider_name[64];
+    char model[64];
+    int context_limit;
+    int max_tokens;
+} category_model_resolution_t;
+
 static void safe_copy(char *dst, size_t dst_size, const char *src)
 {
     if (!dst || dst_size == 0) {
