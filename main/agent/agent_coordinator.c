@@ -112,6 +112,8 @@ daima_err_t coordinator_merge_results(coordinator_t *coord,
     output[0] = '\0';
     coord->merged_result[0] = '\0';
 
+#define COORDINATOR_DISPLAY_MAX 2000
+
     size_t used = 0;
     const sub_agent_t *executor = NULL;
     const sub_agent_t *reviewer = NULL;
@@ -124,15 +126,30 @@ daima_err_t coordinator_merge_results(coordinator_t *coord,
     }
 
     if (executor && executor->result_text[0]) {
-        int written = snprintf(output + used, output_size - used, "%s", executor->result_text);
-        if (written < 0) return DAIMA_FAIL;
-        used += (size_t)written;
+        size_t elen = strlen(executor->result_text);
+        if (elen > COORDINATOR_DISPLAY_MAX) {
+            int written = snprintf(output + used, output_size - used,
+                     "%.2000s\n\n...(输出过长已截断, 查看文件获取完整内容)", executor->result_text);
+            if (written < 0) return DAIMA_FAIL;
+            used += (size_t)written;
+        } else {
+            int written = snprintf(output + used, output_size - used, "%s", executor->result_text);
+            if (written < 0) return DAIMA_FAIL;
+            used += (size_t)written;
+        }
+    }
     }
 
     if (reviewer && reviewer->result_text[0]) {
+        if (strstr(reviewer->result_text, "审查通过") || 
+            strstr(reviewer->result_text, "审查通过✅") ||
+            strstr(reviewer->result_text, "已完成")) {
+            goto done;
+        }
         snprintf(output + used, output_size - used,
-                 "\n\n---\n#### ✅ REVIEWER 审查\n%s", reviewer->result_text);
+                 "\n\n---\n⚠️ REVIEWER: %s", reviewer->result_text);
     }
+done:
 
     snprintf(coord->merged_result, sizeof(coord->merged_result), "%s", output);
     return DAIMA_OK;

@@ -118,7 +118,7 @@ test_agent_roles: test_agent_roles.c ../main/agent/agent_roles.c
 test_agent_coordinator: test_agent_coordinator.c ../main/agent/agent_coordinator.c ../main/agent/agent_roles.c ../third_party/cjson/cJSON.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
-test_category_router: test_category_router.c ../main/agent/category_router.c ../main/app/daima_paths.c ../main/app/daima_fs.c ../main/app/daima_log_file.c ../main/app/runtime_config.c ../main/app/runtime_config_sections.c ../main/platform/daima_platform.c ../third_party/cjson/cJSON.c
+test_category_router: test_category_router.c ../main/agent/category_router.c ../main/agent/agent_roles.c ../main/app/daima_paths.c ../main/app/daima_fs.c ../main/app/daima_log_file.c ../main/app/runtime_config.c ../main/app/runtime_config_sections.c ../main/platform/daima_platform.c ../third_party/cjson/cJSON.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 test_plan_review: test_plan_review.c ../main/agent/plan_review.c
