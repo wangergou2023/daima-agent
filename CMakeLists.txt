@@ -104,6 +104,7 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/main/memory/session_store_file.c
     ${CMAKE_CURRENT_LIST_DIR}/main/memory/session_store_file_facts.c
     ${CMAKE_CURRENT_LIST_DIR}/main/memory/session_store_file_summary.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/memory/session_store_file_common.c
     ${CMAKE_CURRENT_LIST_DIR}/main/work_items/work_item_store.c
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_registry.c
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_invocation_context.c

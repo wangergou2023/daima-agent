@@ -427,35 +427,299 @@ bool ws_client_session_add(int fd)
     DAIMA_LOGW(TAG, "Max clients reached, rejecting fd=%d", fd);
     return false;
 }
-
-static void handle_message(int fd)
+static bool ws_read_frame_header(int fd, unsigned char *out_opcode, uint64_t *out_len, bool *out_masked, unsigned char *out_mask)
 {
     unsigned char hdr[2];
     if (recv_all(fd, hdr, 2) != 0) {
-        remove_client(fd);
-        return;
+        return false;
     }
 
-    unsigned char opcode = hdr[0] & 0x0F;
-    bool masked = (hdr[1] & 0x80) != 0;
-    uint64_t len = hdr[1] & 0x7F;
+    *out_opcode = hdr[0] & 0x0F;
+    *out_masked = (hdr[1] & 0x80) != 0;
+    *out_len = hdr[1] & 0x7F;
 
-    if (len == 126) {
+    if (*out_len == 126) {
         unsigned char ext[2];
-        if (recv_all(fd, ext, 2) != 0) { remove_client(fd); return; }
-        len = ((uint64_t)ext[0] << 8) | ext[1];
-    } else if (len == 127) {
+        if (recv_all(fd, ext, 2) != 0) { return false; }
+        *out_len = ((uint64_t)ext[0] << 8) | ext[1];
+    } else if (*out_len == 127) {
         unsigned char ext[8];
-        if (recv_all(fd, ext, 8) != 0) { remove_client(fd); return; }
-        len = 0;
+        if (recv_all(fd, ext, 8) != 0) { return false; }
+        *out_len = 0;
         for (int i = 0; i < 8; i++) {
-            len = (len << 8) | ext[i];
+            *out_len = (*out_len << 8) | ext[i];
         }
     }
 
-    unsigned char mask[4] = {0};
+    if (*out_masked) {
+        if (recv_all(fd, out_mask, 4) != 0) { return false; }
+    }
+
+    return true;
+}
+
+static char *ws_read_frame_payload(int fd, uint64_t len, bool masked, const unsigned char *mask)
+{
+    char *payload = calloc(1, len + 1);
+    if (!payload) { return NULL; }
+
+    if (recv_all(fd, payload, len) != 0) {
+        free(payload);
+        return NULL;
+    }
+
     if (masked) {
-        if (recv_all(fd, mask, 4) != 0) { remove_client(fd); return; }
+        for (uint64_t i = 0; i < len; i++) {
+            payload[i] ^= mask[i % 4];
+        }
+    }
+    payload[len] = '\0';
+    return payload;
+}
+
+static void ws_handle_close_frame(int fd)
+{
+    remove_client(fd);
+}
+
+static void ws_handle_ping_frame(int fd, const char *payload, size_t len, time_t now)
+{
+    ws_send_pong(fd, payload, len);
+    client_touch(fd, now, true);
+}
+
+static void ws_handle_pong_frame(int fd, time_t now)
+{
+    client_touch(fd, now, true);
+}
+
+static void ws_handle_binary_frame(int fd, ws_client_t *client, const char *payload, uint64_t len, time_t now)
+{
+    client_touch(fd, now, false);
+    if (!client || !client->upload_pending) {
+        ws_send_upload_error(fd, client ? client->chat_id : NULL, "no pending upload");
+        return;
+    }
+
+    char saved_path[768];
+    bool ok = save_uploaded_image(client, payload, len, saved_path, sizeof(saved_path));
+    if (!ok) {
+        ws_send_upload_error(fd, client->upload_chat_id, "failed to save image");
+        DAIMA_LOGW(TAG, "Image upload save failed chat=%s name=%s len=%llu",
+                   client->upload_chat_id,
+                   client->upload_filename,
+                   (unsigned long long)len);
+        clear_upload_state(client);
+        return;
+    }
+
+    cJSON *resp = cJSON_CreateObject();
+    if (resp) {
+        cJSON_AddStringToObject(resp, "type", "upload_done");
+        cJSON_AddStringToObject(resp, "chat_id", client->upload_chat_id);
+        cJSON_AddStringToObject(resp, "image_path", saved_path);
+        cJSON_AddStringToObject(resp, "filename", client->upload_filename);
+        ws_send_json_text(fd, resp);
+        cJSON_Delete(resp);
+    }
+    DAIMA_LOGI(TAG, "Image upload saved chat=%s size=%llu path=%s",
+               client->upload_chat_id,
+               (unsigned long long)len,
+               saved_path);
+    clear_upload_state(client);
+}
+
+static void ws_handle_upload_request(int fd, ws_client_t *client, cJSON *root)
+{
+    const char *chat_id = resolve_client_chat_id(client, root, fd);
+    cJSON *filename = cJSON_GetObjectItem(root, "filename");
+    cJSON *mime_type = cJSON_GetObjectItem(root, "mime_type");
+    cJSON *size_json = cJSON_GetObjectItem(root, "size");
+    double size_value = size_json && cJSON_IsNumber(size_json) ? size_json->valuedouble : 0;
+    const char *name = filename && cJSON_IsString(filename) ? filename->valuestring : "";
+    const char *mime = mime_type && cJSON_IsString(mime_type) ? mime_type->valuestring : "";
+    const char *ext = file_ext(name);
+
+    if (!client || size_value <= 0 || size_value > (double)WS_MAX_UPLOAD_BYTES
+        || !is_supported_image_ext(ext) || !is_supported_image_mime(mime)) {
+        ws_send_upload_error(fd, chat_id, "unsupported image upload");
+        return;
+    }
+
+    client->upload_pending = true;
+    snprintf(client->upload_chat_id, sizeof(client->upload_chat_id), "%s", chat_id);
+    snprintf(client->upload_filename, sizeof(client->upload_filename), "%s", name);
+    snprintf(client->upload_mime_type, sizeof(client->upload_mime_type), "%s", mime);
+    client->upload_size = (size_t)size_value;
+    DAIMA_LOGI(TAG, "Image upload pending chat=%s name=%s mime=%s size=%zu",
+               client->upload_chat_id,
+               client->upload_filename,
+               client->upload_mime_type,
+               client->upload_size);
+}
+
+static void ws_handle_chat_message(int fd, ws_client_t *client, cJSON *root)
+{
+    cJSON *content = cJSON_GetObjectItem(root, "content");
+    if (!content || !cJSON_IsString(content)) {
+        return;
+    }
+
+    const char *chat_id = resolve_client_chat_id(client, root, fd);
+    cJSON *image_path = cJSON_GetObjectItem(root, "image_path");
+    const char *image_path_value = image_path && cJSON_IsString(image_path) ? image_path->valuestring : NULL;
+
+    bool valid_image_path = is_allowed_uploaded_image_path(image_path_value);
+    DAIMA_LOGI(TAG, "WS message from %s: %.40s... image=%s",
+               chat_id,
+               content->valuestring,
+               valid_image_path ? "yes" : "no");
+    agent_cancel_request(chat_id, "new_web_message");
+
+    daima_msg_t msg = {0};
+    strncpy(msg.channel, DAIMA_CHAN_WEBSOCKET, sizeof(msg.channel) - 1);
+    strncpy(msg.chat_id, chat_id, sizeof(msg.chat_id) - 1);
+    strncpy(msg.source, DAIMA_MSG_SOURCE_USER, sizeof(msg.source) - 1);
+    msg.content = strdup(content->valuestring);
+    if (valid_image_path) {
+        msg.image_path = strdup(image_path_value);
+    }
+    if (msg.content) {
+        message_bus_push_inbound(&msg);
+    } else {
+        free(msg.image_path);
+    }
+}
+
+static void ws_handle_stop(int fd, ws_client_t *client, cJSON *root)
+{
+    const char *chat_id = resolve_client_chat_id(client, root, fd);
+
+    DAIMA_LOGI(TAG, "WS stop from %s", chat_id);
+    agent_cancel_request(chat_id, "web_stop");
+
+    cJSON *resp = cJSON_CreateObject();
+    if (resp) {
+        cJSON_AddStringToObject(resp, "type", "stopped");
+        cJSON_AddStringToObject(resp, "chat_id", chat_id);
+        char *text = cJSON_PrintUnformatted(resp);
+        if (text) {
+            ws_send_text(fd, text);
+            free(text);
+        }
+        cJSON_Delete(resp);
+    }
+}
+
+static void ws_handle_pet_action(int fd, ws_client_t *client, cJSON *root)
+{
+    const char *chat_id = resolve_client_chat_id(client, root, fd);
+    const char *action = NULL;
+    const char *pet_id = NULL;
+    char pet_chat_id[64] = {0};
+
+    cJSON *pet_cid = cJSON_GetObjectItem(root, "pet_chat_id");
+    cJSON *action_json = cJSON_GetObjectItem(root, "action");
+    cJSON *pet_id_json = cJSON_GetObjectItem(root, "pet_id");
+
+    if (pet_cid && cJSON_IsString(pet_cid) && pet_cid->valuestring[0]) {
+        snprintf(pet_chat_id, sizeof(pet_chat_id), "%s", pet_cid->valuestring);
+    } else {
+        if (!pet_build_chat_id(chat_id, pet_chat_id, sizeof(pet_chat_id))) {
+            return;
+        }
+    }
+
+    if (action_json && cJSON_IsString(action_json)) {
+        action = action_json->valuestring;
+    }
+    if (pet_id_json && cJSON_IsString(pet_id_json)) {
+        pet_id = pet_id_json->valuestring;
+    }
+
+    char *pet_prompt = pet_build_action_prompt(action, pet_id);
+    if (pet_prompt) {
+        daima_msg_t msg = {0};
+        strncpy(msg.channel, DAIMA_CHAN_PET, sizeof(msg.channel) - 1);
+        strncpy(msg.chat_id, pet_chat_id, sizeof(msg.chat_id) - 1);
+        strncpy(msg.source, DAIMA_MSG_SOURCE_USER, sizeof(msg.source) - 1);
+        msg.content = pet_prompt;
+        message_bus_push_inbound(&msg);
+    }
+}
+
+static void ws_handle_sudo_password(int fd, ws_client_t *client, cJSON *root)
+{
+    const char *chat_id = client ? client->chat_id : "ws_unknown";
+    cJSON *cid = cJSON_GetObjectItem(root, "chat_id");
+    cJSON *req = cJSON_GetObjectItem(root, "request_id");
+    cJSON *pwd = cJSON_GetObjectItem(root, "password");
+    cJSON *cancelled = cJSON_GetObjectItem(root, "cancelled");
+    if (cid && cJSON_IsString(cid) && cid->valuestring[0]) {
+        chat_id = cid->valuestring;
+    }
+    if (req && cJSON_IsString(req) && pwd && cJSON_IsString(pwd)) {
+        size_t need = strlen("__sudo_password__::") + strlen(req->valuestring) + strlen(pwd->valuestring) + 8;
+        char *payload2 = calloc(1, need);
+        if (payload2) {
+            snprintf(payload2, need, "__sudo_password__:%s:%s:%d",
+                     req->valuestring,
+                     pwd->valuestring,
+                     (cancelled && cJSON_IsTrue(cancelled)) ? 1 : 0);
+            daima_msg_t msg = {0};
+            strncpy(msg.channel, DAIMA_CHAN_WEBSOCKET, sizeof(msg.channel) - 1);
+            strncpy(msg.chat_id, chat_id, sizeof(msg.chat_id) - 1);
+            strncpy(msg.source, DAIMA_MSG_SOURCE_INTERNAL, sizeof(msg.source) - 1);
+            msg.content = payload2;
+            message_bus_push_inbound(&msg);
+        }
+    }
+}
+
+static void ws_dispatch_text_frame(int fd, ws_client_t *client, const char *payload, time_t now)
+{
+    client_touch(fd, now, false);
+
+    cJSON *root = cJSON_Parse(payload);
+    if (!root) {
+        DAIMA_LOGW(TAG, "Invalid JSON from fd=%d", fd);
+        return;
+    }
+
+    cJSON *type = cJSON_GetObjectItem(root, "type");
+    if (!type || !cJSON_IsString(type)) {
+        cJSON_Delete(root);
+        return;
+    }
+    const char *type_str = type->valuestring;
+
+    if (strcmp(type_str, "ping") == 0) {
+        ws_send_text(fd, "{\"type\":\"pong\"}");
+    } else if (strcmp(type_str, "upload_image") == 0) {
+        ws_handle_upload_request(fd, client, root);
+    } else if (strcmp(type_str, "message") == 0) {
+        ws_handle_chat_message(fd, client, root);
+    } else if (strcmp(type_str, "stop") == 0) {
+        ws_handle_stop(fd, client, root);
+    } else if (strcmp(type_str, PET_WS_TYPE_ACTION) == 0) {
+        ws_handle_pet_action(fd, client, root);
+    } else if (strcmp(type_str, "sudo_password") == 0) {
+        ws_handle_sudo_password(fd, client, root);
+    }
+
+    cJSON_Delete(root);
+}
+
+static void handle_message(int fd)
+{
+    unsigned char opcode;
+    uint64_t len;
+    bool masked;
+    unsigned char mask[4] = {0};
+
+    if (!ws_read_frame_header(fd, &opcode, &len, &masked, mask)) {
+        remove_client(fd);
+        return;
     }
 
     if ((opcode == 0x1 && len > WS_MAX_TEXT_BYTES)
@@ -465,255 +729,25 @@ static void handle_message(int fd)
         return;
     }
 
-    char *payload = calloc(1, len + 1);
-    if (!payload) { remove_client(fd); return; }
-    if (recv_all(fd, payload, len) != 0) {
-        free(payload);
+    char *payload = ws_read_frame_payload(fd, len, masked, mask);
+    if (!payload) {
         remove_client(fd);
         return;
     }
-
-    if (masked) {
-        for (uint64_t i = 0; i < len; i++) {
-            payload[i] ^= mask[i % 4];
-        }
-    }
-    payload[len] = '\0';
 
     time_t now = time(NULL);
-
-    if (opcode == 0x8) {
-        free(payload);
-        remove_client(fd);
-        return;
-    }
-
-    if (opcode == 0x9) {
-        ws_send_pong(fd, payload, len);
-        client_touch(fd, now, true);
-        free(payload);
-        return;
-    }
-
-    if (opcode == 0xA) {
-        client_touch(fd, now, true);
-        free(payload);
-        return;
-    }
-
     ws_client_t *client = find_client_by_fd(fd);
 
-    if (opcode == 0x2) {
-        client_touch(fd, now, false);
-        if (!client || !client->upload_pending) {
-            ws_send_upload_error(fd, client ? client->chat_id : NULL, "no pending upload");
-            free(payload);
-            return;
-        }
-
-        char saved_path[768];
-        bool ok = save_uploaded_image(client, payload, len, saved_path, sizeof(saved_path));
-        if (!ok) {
-            ws_send_upload_error(fd, client->upload_chat_id, "failed to save image");
-            DAIMA_LOGW(TAG, "Image upload save failed chat=%s name=%s len=%llu",
-                       client->upload_chat_id,
-                       client->upload_filename,
-                       (unsigned long long)len);
-            clear_upload_state(client);
-            free(payload);
-            return;
-        }
-
-        cJSON *resp = cJSON_CreateObject();
-        if (resp) {
-            cJSON_AddStringToObject(resp, "type", "upload_done");
-            cJSON_AddStringToObject(resp, "chat_id", client->upload_chat_id);
-            cJSON_AddStringToObject(resp, "image_path", saved_path);
-            cJSON_AddStringToObject(resp, "filename", client->upload_filename);
-            ws_send_json_text(fd, resp);
-            cJSON_Delete(resp);
-        }
-        DAIMA_LOGI(TAG, "Image upload saved chat=%s size=%llu path=%s",
-                   client->upload_chat_id,
-                   (unsigned long long)len,
-                   saved_path);
-        clear_upload_state(client);
-        free(payload);
-        return;
+    switch (opcode) {
+        case 0x8: ws_handle_close_frame(fd); break;
+        case 0x9: ws_handle_ping_frame(fd, payload, len, now); break;
+        case 0xA: ws_handle_pong_frame(fd, now); break;
+        case 0x2: ws_handle_binary_frame(fd, client, payload, len, now); break;
+        case 0x1: ws_dispatch_text_frame(fd, client, payload, now); break;
+        default:  client_touch(fd, now, false); break;
     }
 
-    if (opcode != 0x1) {
-        client_touch(fd, now, false);
-        free(payload);
-        return;
-    }
-
-    client_touch(fd, now, false);
-
-    cJSON *root = cJSON_Parse(payload);
     free(payload);
-    if (!root) {
-        DAIMA_LOGW(TAG, "Invalid JSON from fd=%d", fd);
-        return;
-    }
-
-    cJSON *type = cJSON_GetObjectItem(root, "type");
-    cJSON *content = cJSON_GetObjectItem(root, "content");
-
-    if (type && cJSON_IsString(type) && strcmp(type->valuestring, "ping") == 0) {
-        ws_send_text(fd, "{\"type\":\"pong\"}");
-        cJSON_Delete(root);
-        return;
-    }
-
-    if (type && cJSON_IsString(type) && strcmp(type->valuestring, "upload_image") == 0) {
-        const char *chat_id = resolve_client_chat_id(client, root, fd);
-        cJSON *filename = cJSON_GetObjectItem(root, "filename");
-        cJSON *mime_type = cJSON_GetObjectItem(root, "mime_type");
-        cJSON *size_json = cJSON_GetObjectItem(root, "size");
-        double size_value = size_json && cJSON_IsNumber(size_json) ? size_json->valuedouble : 0;
-        const char *name = filename && cJSON_IsString(filename) ? filename->valuestring : "";
-        const char *mime = mime_type && cJSON_IsString(mime_type) ? mime_type->valuestring : "";
-        const char *ext = file_ext(name);
-
-        if (!client || size_value <= 0 || size_value > (double)WS_MAX_UPLOAD_BYTES
-            || !is_supported_image_ext(ext) || !is_supported_image_mime(mime)) {
-            ws_send_upload_error(fd, chat_id, "unsupported image upload");
-            cJSON_Delete(root);
-            return;
-        }
-
-        client->upload_pending = true;
-        snprintf(client->upload_chat_id, sizeof(client->upload_chat_id), "%s", chat_id);
-        snprintf(client->upload_filename, sizeof(client->upload_filename), "%s", name);
-        snprintf(client->upload_mime_type, sizeof(client->upload_mime_type), "%s", mime);
-        client->upload_size = (size_t)size_value;
-        DAIMA_LOGI(TAG, "Image upload pending chat=%s name=%s mime=%s size=%zu",
-                   client->upload_chat_id,
-                   client->upload_filename,
-                   client->upload_mime_type,
-                   client->upload_size);
-        cJSON_Delete(root);
-        return;
-    }
-
-    if (type && cJSON_IsString(type) && strcmp(type->valuestring, "message") == 0
-        && content && cJSON_IsString(content)) {
-
-        const char *chat_id = resolve_client_chat_id(client, root, fd);
-        cJSON *image_path = cJSON_GetObjectItem(root, "image_path");
-        const char *image_path_value = image_path && cJSON_IsString(image_path) ? image_path->valuestring : NULL;
-
-        bool valid_image_path = is_allowed_uploaded_image_path(image_path_value);
-        DAIMA_LOGI(TAG, "WS message from %s: %.40s... image=%s",
-                   chat_id,
-                   content->valuestring,
-                   valid_image_path ? "yes" : "no");
-        agent_cancel_request(chat_id, "new_web_message");
-
-        daima_msg_t msg = {0};
-        strncpy(msg.channel, DAIMA_CHAN_WEBSOCKET, sizeof(msg.channel) - 1);
-        strncpy(msg.chat_id, chat_id, sizeof(msg.chat_id) - 1);
-        strncpy(msg.source, DAIMA_MSG_SOURCE_USER, sizeof(msg.source) - 1);
-        msg.content = strdup(content->valuestring);
-        if (valid_image_path) {
-            msg.image_path = strdup(image_path_value);
-        }
-        if (msg.content) {
-            message_bus_push_inbound(&msg);
-        } else {
-            free(msg.image_path);
-        }
-        cJSON_Delete(root);
-        return;
-    }
-
-    if (type && cJSON_IsString(type) && strcmp(type->valuestring, "stop") == 0) {
-        const char *chat_id = resolve_client_chat_id(client, root, fd);
-
-        DAIMA_LOGI(TAG, "WS stop from %s", chat_id);
-        agent_cancel_request(chat_id, "web_stop");
-
-        cJSON *resp = cJSON_CreateObject();
-        if (resp) {
-            cJSON_AddStringToObject(resp, "type", "stopped");
-            cJSON_AddStringToObject(resp, "chat_id", chat_id);
-            char *text = cJSON_PrintUnformatted(resp);
-            if (text) {
-                ws_send_text(fd, text);
-                free(text);
-            }
-            cJSON_Delete(resp);
-        }
-        cJSON_Delete(root);
-        return;
-    }
-
-    if (type && cJSON_IsString(type) && strcmp(type->valuestring, PET_WS_TYPE_ACTION) == 0) {
-        const char *chat_id = resolve_client_chat_id(client, root, fd);
-        const char *action = NULL;
-        const char *pet_id = NULL;
-        char pet_chat_id[64] = {0};
-
-        cJSON *pet_cid = cJSON_GetObjectItem(root, "pet_chat_id");
-        cJSON *action_json = cJSON_GetObjectItem(root, "action");
-        cJSON *pet_id_json = cJSON_GetObjectItem(root, "pet_id");
-
-        if (pet_cid && cJSON_IsString(pet_cid) && pet_cid->valuestring[0]) {
-            snprintf(pet_chat_id, sizeof(pet_chat_id), "%s", pet_cid->valuestring);
-        } else {
-            if (!pet_build_chat_id(chat_id, pet_chat_id, sizeof(pet_chat_id))) {
-                cJSON_Delete(root);
-                return;
-            }
-        }
-
-        if (action_json && cJSON_IsString(action_json)) {
-            action = action_json->valuestring;
-        }
-        if (pet_id_json && cJSON_IsString(pet_id_json)) {
-            pet_id = pet_id_json->valuestring;
-        }
-
-        char *pet_prompt = pet_build_action_prompt(action, pet_id);
-        if (pet_prompt) {
-            daima_msg_t msg = {0};
-            strncpy(msg.channel, DAIMA_CHAN_PET, sizeof(msg.channel) - 1);
-            strncpy(msg.chat_id, pet_chat_id, sizeof(msg.chat_id) - 1);
-            strncpy(msg.source, DAIMA_MSG_SOURCE_USER, sizeof(msg.source) - 1);
-            msg.content = pet_prompt;
-            message_bus_push_inbound(&msg);
-        }
-    }
-
-    if (type && cJSON_IsString(type) && strcmp(type->valuestring, "sudo_password") == 0) {
-        const char *chat_id = client ? client->chat_id : "ws_unknown";
-        cJSON *cid = cJSON_GetObjectItem(root, "chat_id");
-        cJSON *req = cJSON_GetObjectItem(root, "request_id");
-        cJSON *pwd = cJSON_GetObjectItem(root, "password");
-        cJSON *cancelled = cJSON_GetObjectItem(root, "cancelled");
-        if (cid && cJSON_IsString(cid) && cid->valuestring[0]) {
-            chat_id = cid->valuestring;
-        }
-        if (req && cJSON_IsString(req) && pwd && cJSON_IsString(pwd)) {
-            size_t need = strlen("__sudo_password__::") + strlen(req->valuestring) + strlen(pwd->valuestring) + 8;
-            char *payload2 = calloc(1, need);
-            if (payload2) {
-                snprintf(payload2, need, "__sudo_password__:%s:%s:%d",
-                         req->valuestring,
-                         pwd->valuestring,
-                         (cancelled && cJSON_IsTrue(cancelled)) ? 1 : 0);
-                daima_msg_t msg = {0};
-                strncpy(msg.channel, DAIMA_CHAN_WEBSOCKET, sizeof(msg.channel) - 1);
-                strncpy(msg.chat_id, chat_id, sizeof(msg.chat_id) - 1);
-                strncpy(msg.source, DAIMA_MSG_SOURCE_INTERNAL, sizeof(msg.source) - 1);
-                msg.content = payload2;
-                message_bus_push_inbound(&msg);
-            }
-        }
-    }
-
-    cJSON_Delete(root);
 }
 
 void ws_client_session_init(void)

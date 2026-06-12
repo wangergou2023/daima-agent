@@ -1,4 +1,5 @@
 #include "memory/session_store_file_internal.h"
+#include "memory/session_store_file_common.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -103,15 +104,9 @@ daima_err_t session_store_file_read_facts(const char *chat_id, char *buf, size_t
         return path_err;
     }
 
-    FILE *f = fopen(path, "r");
-    if (!f) {
+    if (!session_file_read_all(path, buf, size, NULL)) {
         buf[0] = '\0';
-        return DAIMA_OK;
     }
-
-    size_t n = fread(buf, 1, size - 1, f);
-    fclose(f);
-    buf[n] = '\0';
     return DAIMA_OK;
 }
 

@@ -1,4 +1,5 @@
 #include "memory/session_store_file_internal.h"
+#include "memory/session_store_file_common.h"
 
 #include <stdio.h>
 #include <time.h>
@@ -20,15 +21,9 @@ daima_err_t session_store_file_read_summary(const char *chat_id, char *buf, size
         return path_err;
     }
 
-    FILE *f = fopen(path, "r");
-    if (!f) {
+    if (!session_file_read_all(path, buf, size, NULL)) {
         buf[0] = '\0';
-        return DAIMA_OK;
     }
-
-    size_t n = fread(buf, 1, size - 1, f);
-    fclose(f);
-    buf[n] = '\0';
     return DAIMA_OK;
 }
 
@@ -45,22 +40,23 @@ daima_err_t session_store_file_write_summary(const char *chat_id, const char *su
         return path_err;
     }
 
-    FILE *f = fopen(path, "w");
-    if (!f) {
-        DAIMA_LOGE(TAG, "Cannot write session summary %s", path);
-        return DAIMA_FAIL;
-    }
-
     time_t now = time(NULL);
     struct tm tm_info;
     localtime_r(&now, &tm_info);
     char time_buf[64];
     strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S %Z", &tm_info);
 
-    fprintf(f, "## 最近一次上下文压缩摘要\n");
-    fprintf(f, "更新时间：%s\n\n", time_buf);
-    fprintf(f, "%s\n", summary_text);
-    fclose(f);
+    char content[DAIMA_BUF_XLARGE];
+    snprintf(content, sizeof(content),
+             "## 最近一次上下文压缩摘要\n"
+             "更新时间：%s\n\n"
+             "%s\n",
+             time_buf, summary_text);
+
+    if (!session_file_write_all(path, content)) {
+        DAIMA_LOGE(TAG, "Cannot write session summary %s", path);
+        return DAIMA_FAIL;
+    }
     DAIMA_LOGI(TAG, "Session %s summary updated", chat_id);
     return DAIMA_OK;
 }
