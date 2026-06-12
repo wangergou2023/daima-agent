@@ -8,6 +8,7 @@
 #include "agent/channel_policy.h"
 #include "agent/agent_prompt_debug.h"
 #include "agent/agent_turn_common.h"
+#include "agent/compaction_recovery.h"
 #include "agent/context_builder.h"
 #include "llm/llm_proxy.h"
 #include "memory/session_store.h"
@@ -226,6 +227,9 @@ daima_err_t agent_turn_prepare(
 
     context_build_system_prompt_for_channel(msg->channel, system_prompt, system_prompt_size);
     append_session_summary_prompt(system_prompt, system_prompt_size, msg->chat_id);
+#ifdef DAIMA_COMPACTION_RECOVERY_ENABLED
+    compaction_recovery_inject(msg->chat_id, system_prompt, system_prompt_size);
+#endif
     append_session_facts_prompt(system_prompt, system_prompt_size, msg->chat_id);
     append_turn_context_prompt(system_prompt, system_prompt_size, msg);
     agent_channel_policy_append(system_prompt, system_prompt_size, msg);

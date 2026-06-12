@@ -4,6 +4,8 @@
 
 #include "agent/agent_turn_common.h"
 #include "agent/agent_turn_persist.h"
+#include "agent/compaction_recovery.h"
+#include "daima_config.h"
 #include "daima_log.h"
 #include "daima_os.h"
 #include "daima_platform.h"
@@ -69,6 +71,12 @@ void agent_turn_finish(
     if (turn_err != DAIMA_OK) {
         DAIMA_LOGE(TAG, "Agent turn failed: %s", daima_err_to_name(turn_err));
     }
+
+#ifdef DAIMA_COMPACTION_RECOVERY_ENABLED
+    if (turn_err == DAIMA_OK && msg && msg->chat_id[0]) {
+        compaction_recovery_clear(msg->chat_id);
+    }
+#endif
 
     DAIMA_LOGI(TAG, "Free memory: %d bytes", (int)daima_get_free_memory());
 }

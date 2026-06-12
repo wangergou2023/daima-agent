@@ -2,6 +2,7 @@
 
 #include "agent/context_compressor.h"
 #include "agent/context_compress_ops.h"
+#include "agent/compaction_recovery.h"
 #include "agent/agent_turn_common.h"
 #include "app/runtime_config.h"
 
@@ -164,6 +165,10 @@ daima_err_t context_compressor_maybe_compact(
             pass + 1,
             n,
             (unsigned)approx_chars);
+
+#ifdef DAIMA_COMPACTION_RECOVERY_ENABLED
+        compaction_recovery_snapshot(chat_id);
+#endif
 
         daima_err_t err = context_compress_compact_once(chat_id, messages_io, &cfg);
         if (err != DAIMA_OK) {

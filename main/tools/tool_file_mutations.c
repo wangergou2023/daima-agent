@@ -3,6 +3,7 @@
 #include "tools/tool_files.h"
 
 #include "tools/tool_file_ops.h"
+#include "tools/tool_safe_edit.h"
 #include "app/daima_paths.h"
 #include "daima_config.h"
 #include "daima_log.h"
@@ -61,6 +62,31 @@ static bool path_has_prefix(const char *path, const char *prefix)
         return false;
     }
     return path[prefix_len] == '\0' || path[prefix_len] == '/';
+}
+
+static daima_err_t safe_edit_verify_patch_path(const char *path,
+                                               const char *patch_content,
+                                               char *output,
+                                               size_t output_size)
+{
+#ifdef DAIMA_SAFE_EDIT_ENABLED
+    char resolved_path[READ_PATH_SIZE];
+    char scratch[128];
+    if (!resolve_write_path_or_fail(path, resolved_path, sizeof(resolved_path), scratch, sizeof(scratch))) {
+        return DAIMA_OK;
+    }
+    if (safe_edit_verify(resolved_path, patch_content) != DAIMA_OK) {
+        snprintf(output, output_size,
+                 "SafeEdit: 文件自上次读取后已被修改，请重新读取后再编辑");
+        return DAIMA_ERR_INVALID_STATE;
+    }
+#else
+    (void)path;
+    (void)patch_content;
+    (void)output;
+    (void)output_size;
+#endif
+    return DAIMA_OK;
 }
 
 typedef struct {
@@ -383,14 +409,20 @@ daima_err_t tool_apply_patch_execute(const char *input_json, char *output, size_
     if (path) {
         err = apply_patch_add_file(&cursor, path, output, output_size);
     } else if ((path = require_patch_path(line, "*** Update File: ")) != NULL) {
-        err = apply_patch_update_file(&cursor, path, output, output_size);
+        err = safe_edit_verify_patch_path(path, patch, output, output_size);
+        if (err == DAIMA_OK) {
+            err = apply_patch_update_file(&cursor, path, output, output_size);
+        }
     } else if ((path = require_patch_path(line, "*** Delete File: ")) != NULL) {
-        line = next_patch_line(&cursor);
-        if (!line || strcmp(line, "*** End Patch") != 0) {
-            snprintf(output, output_size, "错误：Delete File 后必须直接结束 patch");
-            err = DAIMA_ERR_INVALID_ARG;
-        } else {
-            err = apply_patch_delete_file(path, output, output_size);
+        err = safe_edit_verify_patch_path(path, patch, output, output_size);
+        if (err == DAIMA_OK) {
+            line = next_patch_line(&cursor);
+            if (!line || strcmp(line, "*** End Patch") != 0) {
+                snprintf(output, output_size, "错误：Delete File 后必须直接结束 patch");
+                err = DAIMA_ERR_INVALID_ARG;
+            } else {
+                err = apply_patch_delete_file(path, output, output_size);
+            }
         }
     } else {
         snprintf(output, output_size, "错误：patch 必须包含 Add File、Update File 或 Delete File");

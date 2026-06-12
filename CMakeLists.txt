@@ -83,6 +83,7 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_loop.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_cancel.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/channel_policy.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/agent/intent_gate.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_turn_common.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_prompt_debug.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_turn_persist.c
@@ -93,6 +94,7 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_turn_finish.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/tool_protocol_guard.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/context_compressor.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/agent/compaction_recovery.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/context_compress_ops.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/context_builder.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/learning_review.c
@@ -113,6 +115,7 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_file_ops.c
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_file_paths.c
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_file_checkpoint.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_safe_edit.c
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_file_read.c
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_file_query.c
     ${CMAKE_CURRENT_LIST_DIR}/main/tools/tool_file_mutations.c

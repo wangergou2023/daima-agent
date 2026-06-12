@@ -10,6 +10,7 @@
 #include "cJSON.h"
 #include "daima_config.h"
 #include "daima_log.h"
+#include "tools/tool_safe_edit.h"
 
 typedef struct {
     char path[TOOL_FILES_PATH_SIZE];
@@ -125,10 +126,15 @@ daima_err_t tool_read_file_execute(const char *input_json, char *output, size_t 
 
     int current_line = 0;
     int emitted_lines = 0;
+    int first_emitted_line = 0;
+    int last_emitted_line = 0;
     bool page_truncated = false;
     bool char_truncated = false;
     char *line = NULL;
     size_t cap = 0;
+    char *fingerprint_content = NULL;
+    size_t fingerprint_len = 0;
+    size_t fingerprint_cap = 0;
 
     while (getline(&line, &cap, f) != -1) {
         current_line++;
@@ -139,6 +145,33 @@ daima_err_t tool_read_file_execute(const char *input_json, char *output, size_t 
             page_truncated = true;
             break;
         }
+
+        size_t original_line_len = strlen(line);
+#ifdef DAIMA_SAFE_EDIT_ENABLED
+        if (st.st_size < (1024 * 1024)) {
+            if (fingerprint_len + original_line_len + 1 > fingerprint_cap) {
+                size_t next_cap = fingerprint_cap ? fingerprint_cap : 256;
+                while (next_cap < fingerprint_len + original_line_len + 1) {
+                    next_cap *= 2;
+                }
+                char *next = realloc(fingerprint_content, next_cap);
+                if (next) {
+                    fingerprint_content = next;
+                    fingerprint_cap = next_cap;
+                }
+            }
+            if (fingerprint_content && fingerprint_len + original_line_len + 1 <= fingerprint_cap) {
+                memcpy(fingerprint_content + fingerprint_len, line, original_line_len);
+                fingerprint_len += original_line_len;
+                fingerprint_content[fingerprint_len] = '\0';
+            }
+        }
+#endif
+
+        if (first_emitted_line == 0) {
+            first_emitted_line = current_line;
+        }
+        last_emitted_line = current_line;
 
         tool_files_trim_line_end(line);
 
@@ -184,6 +217,13 @@ daima_err_t tool_read_file_execute(const char *input_json, char *output, size_t 
     }
 
     remember_last_read(resolved_path, offset, limit, st.st_mtime);
+
+#ifdef DAIMA_SAFE_EDIT_ENABLED
+    if (fingerprint_content && emitted_lines > 0) {
+        safe_edit_register_read(resolved_path, fingerprint_content, first_emitted_line, last_emitted_line);
+    }
+#endif
+    free(fingerprint_content);
 
     DAIMA_LOGI(TAG, "read_file: %s lines=%d..%d/%d emitted=%d",
               resolved_path, offset, actual_end, total_lines, emitted_lines);

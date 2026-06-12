@@ -8,6 +8,7 @@
 #include "agent/agent_turn_finish.h"
 #include "agent/agent_turn_prepare.h"
 #include "agent/agent_turn_run.h"
+#include "agent/intent_gate.h"
 #include "app/runtime_config.h"
 #include "bus/message_bus.h"
 #include "daima_config.h"
@@ -42,6 +43,13 @@ static void agent_loop_task(void *arg)
         daima_msg_t msg;
         daima_err_t err = message_bus_pop_inbound(&msg, UINT32_MAX);
         if (err != DAIMA_OK) continue;
+
+#ifdef DAIMA_INTENT_GATE_ENABLED
+        daima_intent_t intent = DAIMA_INTENT_OPEN;
+        intent_gate_classify(msg.content, &intent);
+        DAIMA_LOGI(TAG, "Intent classified: %s -> %s", msg.content, daima_intent_name(intent));
+        // TODO: 后续 CategoryRouting 和 PlanReview 会使用这个 intent
+#endif
 
         if (agent_msg_is_internal_control(&msg)) {
             DAIMA_LOGI(TAG, "Dropping internal control message for %s:%s", msg.channel, msg.chat_id);
