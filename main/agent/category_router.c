@@ -208,6 +208,35 @@ static bool find_provider_by_model(cJSON *json_root,
     return false;
 }
 
+static bool find_provider_by_name(cJSON *json_root,
+                                   const char *provider_name,
+                                   category_model_resolution_t *out)
+{
+    if (!json_root || !provider_name || !provider_name[0] || !out) {
+        return false;
+    }
+
+    cJSON *providers = cJSON_GetObjectItem(json_root, "providers");
+    if (!cJSON_IsObject(providers)) {
+        return false;
+    }
+
+    cJSON *provider = cJSON_GetObjectItem(providers, provider_name);
+    if (!cJSON_IsObject(provider)) {
+        return false;
+    }
+
+    cJSON *p_model = cJSON_GetObjectItem(provider, "model");
+    if (!cJSON_IsString(p_model)) {
+        return false;
+    }
+
+    safe_copy(out->provider_name, sizeof(out->provider_name), provider_name);
+    safe_copy(out->model, sizeof(out->model), p_model->valuestring);
+    read_provider_limits(provider, &out->context_limit, &out->max_tokens);
+    return true;
+}
+
 static bool resolve_active_provider_model(cJSON *json_root, category_model_resolution_t *out)
 {
     if (!out) {
@@ -239,6 +268,18 @@ static bool resolve_category_model(cJSON *json_root,
     }
 
     memset(out, 0, sizeof(*out));
+
+    cJSON *provider_prefs = cJSON_GetObjectItem(category, "provider_preference");
+    if (cJSON_IsArray(provider_prefs)) {
+        cJSON *pref = NULL;
+        cJSON_ArrayForEach(pref, provider_prefs) {
+            if (!cJSON_IsString(pref)) continue;
+            if (find_provider_by_name(json_root, pref->valuestring, out)) {
+                return true;
+            }
+        }
+    }
+
     cJSON *preferences = cJSON_GetObjectItem(category, "model_preference");
     if (cJSON_IsArray(preferences)) {
         cJSON *preference = NULL;
