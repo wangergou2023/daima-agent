@@ -6,7 +6,7 @@ LDLIBS = -lm
 
 SAFE_EDIT_SRC = ../main/tools/tool_safe_edit.c
 
-test: test_tts_player test_work_item test_webfetch test_pet_event test_safe_edit test_apply_patch test_terminal test_runtime_config test_llm_openai_payload test_llm_anthropic_payload test_session_history_reasoning test_paths test_tool_protocol_guard test_intent_gate test_category_router test_plan_review test_files_tool test_cron_tool test_skills_tool test_skill_summary test_context_skills_summary test_tool_surface test_skill_scoped_tools test_tool_invocation_context test_json_helpers test_daima_text test_session_file_common test_compaction_recovery
+test: test_tts_player test_work_item test_webfetch test_pet_event test_safe_edit test_apply_patch test_terminal test_runtime_config test_llm_openai_payload test_llm_anthropic_payload test_session_history_reasoning test_paths test_tool_protocol_guard test_intent_gate test_category_router test_plan_review test_team_mode test_files_tool test_cron_tool test_skills_tool test_skill_summary test_context_skills_summary test_tool_surface test_skill_scoped_tools test_tool_invocation_context test_json_helpers test_daima_text test_session_file_common test_compaction_recovery
 	./test_tts_player
 	./test_work_item
 	./test_webfetch
@@ -23,6 +23,7 @@ test: test_tts_player test_work_item test_webfetch test_pet_event test_safe_edit
 	./test_intent_gate
 	./test_category_router
 	./test_plan_review
+	./test_team_mode
 	./test_files_tool
 	./test_cron_tool
 	./test_skills_tool
@@ -90,6 +91,9 @@ test_category_router: test_category_router.c ../main/agent/category_router.c ../
 test_plan_review: test_plan_review.c ../main/agent/plan_review.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
+test_team_mode: test_team_mode.c ../main/agent/team_mode.c
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+
 test_files_tool: test_files_tool.c ../main/tools/tool_files.c ../main/tools/tool_file_read.c ../main/tools/tool_file_query.c ../main/tools/tool_file_list.c ../main/tools/tool_file_search.c ../main/tools/tool_file_mutations.c ../main/tools/tool_file_paths.c ../main/tools/tool_file_ops.c ../main/tools/tool_file_checkpoint.c $(SAFE_EDIT_SRC) ../main/app/daima_paths.c ../main/app/daima_fs.c ../main/app/daima_log_file.c ../main/daima_text.c ../main/platform/daima_platform.c ../third_party/cjson/cJSON.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
@@ -127,4 +131,4 @@ test_compaction_recovery: test_compaction_recovery.c ../main/agent/compaction_re
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 clean:
-	rm -f test_tts_player test_work_item test_webfetch test_pet_event test_safe_edit test_apply_patch test_terminal test_runtime_config test_deepseek_thinking_runtime test_llm_openai_payload test_llm_anthropic_payload test_session_history_reasoning test_paths test_tool_protocol_guard test_intent_gate test_category_router test_plan_review test_files_tool test_cron_tool test_skills_tool test_skill_summary test_context_skills_summary test_tool_surface test_skill_scoped_tools test_tool_invocation_context test_json_helpers test_daima_text test_session_file_common test_compaction_recovery
+	rm -f test_tts_player test_work_item test_webfetch test_pet_event test_safe_edit test_apply_patch test_terminal test_runtime_config test_deepseek_thinking_runtime test_llm_openai_payload test_llm_anthropic_payload test_session_history_reasoning test_paths test_tool_protocol_guard test_intent_gate test_category_router test_plan_review test_team_mode test_files_tool test_cron_tool test_skills_tool test_skill_summary test_context_skills_summary test_tool_surface test_skill_scoped_tools test_tool_invocation_context test_json_helpers test_daima_text test_session_file_common test_compaction_recovery

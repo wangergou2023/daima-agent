@@ -10,6 +10,7 @@
 #include "agent/agent_turn_prepare.h"
 #include "agent/agent_turn_run.h"
 #include "agent/intent_gate.h"
+#include "agent/team_mode.h"
 #include "app/runtime_config.h"
 #include "bus/message_bus.h"
 #include "daima_config.h"
@@ -93,6 +94,25 @@ static void agent_loop_task(void *arg)
         bool cancelled = false;
         if (err == DAIMA_OK) {
             const char *tools_json = tool_registry_get_tools_json_for_channel(msg.channel);
+#ifdef DAIMA_TEAM_MODE_ENABLED
+#ifdef DAIMA_PLAN_REVIEW_ENABLED
+            team_orchestrator_t team = {0};
+            if (plan.has_plan && plan.reviewed) {
+                daima_err_t team_err = team_mode_orchestrate(&plan, system_prompt, tools_json, &team);
+                if (team_err == DAIMA_OK && team.completed_count > 0) {
+                    daima_err_t inject_err = team_mode_inject_to_prompt(&team, system_prompt, DAIMA_CONTEXT_BUF_SIZE);
+                    if (inject_err == DAIMA_OK) {
+                        DAIMA_LOGI(TAG, "Team Mode guidance injected: sub_agents=%d timeout_ms=%d",
+                                   team.max_sub_agents, team.sub_agent_timeout_ms);
+                    } else {
+                        DAIMA_LOGW(TAG, "Team Mode prompt injection skipped: %s", daima_err_to_name(inject_err));
+                    }
+                } else if (team_err != DAIMA_OK) {
+                    DAIMA_LOGW(TAG, "Team Mode orchestration skipped: %s", daima_err_to_name(team_err));
+                }
+            }
+#endif
+#endif
             err = agent_turn_run(system_prompt, messages, tools_json, &msg,
                                  cancel_token,
                                  &final_text, &reasoning_text, &iteration, &tool_budget_exhausted, &cancelled);
