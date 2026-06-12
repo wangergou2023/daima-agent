@@ -2,6 +2,7 @@
 
 #include "agent/agent_loop.h"
 #include "agent/agent_cancel.h"
+#include "agent/agent_coordinator.h"
 #include "agent/agent_roles.h"
 #include "agent/agent_turn_common.h"
 #include "agent/context_compressor.h"
@@ -68,6 +69,38 @@ static void agent_loop_append_role_prompt(char *system_prompt, size_t system_pro
 }
 #endif
 
+#ifdef DAIMA_AGENT_COORDINATOR_ENABLED
+static void agent_loop_try_coordinator(const daima_msg_t *msg,
+#ifdef DAIMA_PLAN_REVIEW_ENABLED
+                                       const daima_plan_t *plan
+#else
+                                       const void *plan
+#endif
+)
+{
+    coordinator_t coord;
+    memset(&coord, 0, sizeof(coord));
+
+    daima_err_t coord_err = coordinator_decompose(msg->intent,
+#ifdef DAIMA_PLAN_REVIEW_ENABLED
+                                                  plan,
+#else
+                                                  NULL,
+#endif
+                                                  msg->content,
+                                                  &coord);
+    if (coord_err == DAIMA_OK && coord.agent_count > 1) {
+        DAIMA_LOGI(TAG, "Coordinator: %d sub-agents for intent=%s",
+                   coord.agent_count, daima_intent_name(msg->intent));
+    } else if (coord_err != DAIMA_OK) {
+        DAIMA_LOGW(TAG, "Coordinator skipped: %s", daima_err_to_name(coord_err));
+    }
+
+    coordinator_free(&coord);
+    (void)plan;
+}
+#endif
+
 static void agent_loop_task(void *arg)
 {
     (void)arg;
@@ -124,6 +157,16 @@ static void agent_loop_task(void *arg)
             DAIMA_LOGI(TAG, "Agent roles for intent=%s: %s (chain of %d)",
                        daima_intent_name(msg.intent), agent_role_name(roles[0]), role_count);
         }
+#endif
+
+#ifdef DAIMA_AGENT_COORDINATOR_ENABLED
+        agent_loop_try_coordinator(&msg,
+#ifdef DAIMA_PLAN_REVIEW_ENABLED
+                                   &plan
+#else
+                                   NULL
+#endif
+        );
 #endif
 
         if (agent_msg_is_internal_control(&msg)) {
