@@ -81,7 +81,7 @@ test_llm_openai_payload: test_llm_openai_payload.c ../main/llm/llm_openai_payloa
 test_llm_anthropic_payload: test_llm_anthropic_payload.c ../main/llm/llm_anthropic_payload.c ../third_party/cjson/cJSON.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
-test_model_fallback: test_model_fallback.c ../main/llm/model_fallback.c ../main/app/daima_paths.c ../third_party/cjson/cJSON.c
+test_model_fallback: test_model_fallback.c ../main/llm/model_fallback.c ../main/app/daima_paths.c ../main/app/runtime_config.c ../main/app/runtime_config_sections.c ../main/app/daima_fs.c ../main/app/daima_log_file.c ../third_party/cjson/cJSON.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 test_session_history_reasoning: test_session_history_reasoning.c ../main/memory/session_store.c ../main/memory/session_store_file.c ../main/memory/session_store_file_facts.c ../main/memory/session_store_file_summary.c ../main/memory/session_store_file_common.c ../main/app/daima_paths.c ../main/app/daima_fs.c ../main/app/runtime_config.c ../main/app/runtime_config_sections.c ../third_party/cjson/cJSON.c
@@ -96,7 +96,7 @@ test_tool_protocol_guard: test_tool_protocol_guard.c ../main/agent/tool_protocol
 test_intent_gate: test_intent_gate.c ../main/agent/intent_gate.c ../main/daima_env.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
-test_category_router: test_category_router.c ../main/agent/category_router.c ../main/app/daima_paths.c ../main/app/daima_fs.c ../main/app/daima_log_file.c ../main/platform/daima_platform.c ../third_party/cjson/cJSON.c
+test_category_router: test_category_router.c ../main/agent/category_router.c ../main/app/daima_paths.c ../main/app/daima_fs.c ../main/app/daima_log_file.c ../main/app/runtime_config.c ../main/app/runtime_config_sections.c ../main/platform/daima_platform.c ../third_party/cjson/cJSON.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 test_plan_review: test_plan_review.c ../main/agent/plan_review.c

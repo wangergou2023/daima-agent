@@ -1,6 +1,7 @@
 #include "llm/model_fallback.h"
 
 #include "app/daima_paths.h"
+#include "app/runtime_config.h"
 #include "daima_config.h"
 #include "daima_log.h"
 
@@ -49,10 +50,19 @@ static char *read_file(const char *path)
 static void load_default_cfg(model_fallback_cfg_t *cfg)
 {
     memset(cfg, 0, sizeof(*cfg));
+
+    const char *active_model = runtime_config_get_provider_model();
+    if (!active_model || !active_model[0]) {
+        DAIMA_LOGW(TAG, "No active provider model configured, fallback disabled");
+        cfg->enabled = false;
+        return;
+    }
+
     cfg->enabled = true;
-    safe_copy(cfg->models[0], sizeof(cfg->models[0]), "kimi-k2.5");
-    safe_copy(cfg->models[1], sizeof(cfg->models[1]), "gpt-4o-mini");
-    cfg->model_count = 2;
+    safe_copy(cfg->models[0], sizeof(cfg->models[0]), active_model);
+    cfg->model_count = 1;
+
+    DAIMA_LOGI(TAG, "Model fallback default: %s (from active provider)", active_model);
 }
 
 static bool add_model(model_fallback_cfg_t *cfg, const char *model)

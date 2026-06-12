@@ -1,6 +1,7 @@
 #include "agent/category_router.h"
 
 #include "app/daima_paths.h"
+#include "app/runtime_config.h"
 #include "cJSON.h"
 #include "daima_config.h"
 #include "daima_log.h"
@@ -81,14 +82,28 @@ static daima_intent_t intent_from_key(const char *key)
 static void load_default_cfg(category_router_cfg_t *cfg)
 {
     init_empty_cfg(cfg);
-    int quick = add_profile(cfg, "quick", "gpt-4o-mini", 32000, 4096);
-    int deep = add_profile(cfg, "deep", "kimi-k2.5", 128000, 8192);
+
+    const char *active_model = runtime_config_get_provider_model();
+    if (!active_model || !active_model[0]) {
+        DAIMA_LOGW(TAG, "No active provider model configured, category routing disabled");
+        cfg->enabled = false;
+        return;
+    }
+
+    int context_limit = runtime_config_get_context_limit_tokens();
+    int max_tokens = runtime_config_get_max_output_tokens();
+
+    int deep = add_profile(cfg, "deep", active_model, context_limit, max_tokens);
+    int quick = add_profile(cfg, "quick", active_model, context_limit, max_tokens);
 
     cfg->intent_map[DAIMA_INTENT_QA] = quick;
     cfg->intent_map[DAIMA_INTENT_IMPLEMENT] = deep;
     cfg->intent_map[DAIMA_INTENT_INVESTIGATE] = deep;
     cfg->intent_map[DAIMA_INTENT_FIX] = deep;
     cfg->intent_map[DAIMA_INTENT_OPEN] = quick;
+
+    DAIMA_LOGI(TAG, "Category routing defaults: deep=%s quick=%s (from active provider)",
+               active_model, active_model);
 }
 
 static char *read_file(const char *path)
