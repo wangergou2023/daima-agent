@@ -135,19 +135,6 @@ static void agent_loop_task(void *arg)
         DAIMA_LOGI(TAG, "Intent classified: %s -> %s", msg.content, daima_intent_name(msg.intent));
 #ifdef DAIMA_PLAN_REVIEW_ENABLED
         if (msg.intent == DAIMA_INTENT_IMPLEMENT || msg.intent == DAIMA_INTENT_FIX) {
-#ifdef DAIMA_PROMETHEUS_INTERVIEW_ENABLED
-            if (msg.intent == DAIMA_INTENT_IMPLEMENT) {
-                prometheus_state_t p_state;
-                if (prometheus_check_needs_interview(msg.content, &p_state) == DAIMA_OK &&
-                    p_state.needs_interview) {
-                    DAIMA_LOGI(TAG, "Prometheus: interview mode, asking questions");
-                    char *interview_text = strdup(p_state.questions);
-                    char *reasoning_text = NULL;
-                    agent_turn_finish(&msg, &interview_text, &reasoning_text, DAIMA_OK, 0, false, false);
-                    continue;
-                }
-            }
-#endif
             daima_err_t plan_err = plan_review_generate(msg.intent, msg.content, system_prompt, &plan);
             if (plan_err == DAIMA_OK && plan.has_plan && plan.reviewed) {
                 DAIMA_LOGI(TAG, "Plan generated and reviewed for intent=%s", daima_intent_name(msg.intent));
@@ -167,6 +154,19 @@ static void agent_loop_task(void *arg)
         if (role_count > 0) {
             DAIMA_LOGI(TAG, "Agent roles for intent=%s: %s (chain of %d)",
                        daima_intent_name(msg.intent), agent_role_name(roles[0]), role_count);
+        }
+#endif
+#ifdef DAIMA_PROMETHEUS_INTERVIEW_ENABLED
+        if (role_count <= 1 && msg.intent == DAIMA_INTENT_IMPLEMENT) {
+            prometheus_state_t p_state;
+            if (prometheus_check_needs_interview(msg.content, &p_state) == DAIMA_OK &&
+                p_state.needs_interview) {
+                DAIMA_LOGI(TAG, "Prometheus: interview mode, asking questions");
+                char *interview_text = strdup(p_state.questions);
+                char *reasoning_text = NULL;
+                agent_turn_finish(&msg, &interview_text, &reasoning_text, DAIMA_OK, 0, false, false);
+                continue;
+            }
         }
 #endif
 
