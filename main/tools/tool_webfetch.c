@@ -1,6 +1,7 @@
 #include "tools/tool_webfetch.h"
 
 #include "cJSON.h"
+#include "daima_config.h"
 #include "daima_log.h"
 #include "host_http.h"
 #include "work_items/work_item_store.h"
@@ -12,7 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define WEBFETCH_TIMEOUT_MS  30000
+#define WEBFETCH_TIMEOUT_MS  DAIMA_TIMEOUT_DEFAULT
 #define WEBFETCH_MAX_BODY    (512 * 1024)
 
 static const daima_tool_t s_webfetch_tool = {

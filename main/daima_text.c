@@ -22,3 +22,18 @@ bool daima_str_ends_with(const char *s, const char *suffix)
     if (s_len < suf_len) return false;
     return strcmp(s + s_len - suf_len, suffix) == 0;
 }
+
+void daima_shorten_text(const char *src, char *dst, size_t dst_size, size_t max_len)
+{
+    if (!dst || dst_size == 0) return;
+    dst[0] = '\0';
+    if (!src || !src[0]) return;
+
+    size_t len = strlen(src);
+    if (len <= max_len || max_len + 4 >= dst_size) {
+        snprintf(dst, dst_size, "%s", src);
+        return;
+    }
+
+    snprintf(dst, dst_size, "%.*s...", (int)max_len, src);
+}

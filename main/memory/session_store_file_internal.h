@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 
+#include "daima_config.h"
 #include "memory/session_store.h"
 
 daima_err_t session_store_file_artifact_path(const char *chat_id,

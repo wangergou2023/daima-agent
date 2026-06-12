@@ -419,7 +419,7 @@ daima_err_t voice_channel_handle_audio_base64(const char *chat_id,
         sess->last_used = time(NULL);
     }
 
-    char text[1024] = {0};
+    char text[DAIMA_BUF_LARGE] = {0};
     daima_err_t err = voice_asr_mime(NULL, 0, audio_base64, asr_model, prompt, hotwords_json,
                                request_id, user_id, text, sizeof(text));
     if (err != DAIMA_OK) {
@@ -590,7 +590,7 @@ daima_err_t voice_channel_handle_audio(const char *chat_id,
         sess->last_used = time(NULL);
     }
 
-    char text[1024] = {0};
+    char text[DAIMA_BUF_LARGE] = {0};
     daima_err_t err = voice_asr_mime(audio_bytes, audio_len, NULL,
                                     asr_model, prompt, hotwords_json,
                                     request_id, user_id, text, sizeof(text));

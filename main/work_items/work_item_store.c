@@ -2,6 +2,7 @@
 
 #include "app/daima_fs.h"
 #include "app/daima_paths.h"
+#include "utils/json_helpers.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -67,13 +68,6 @@ static void local_date(char *buf, size_t size)
     struct tm tm_now;
     localtime_r(&now, &tm_now);
     strftime(buf, size, "%Y%m%d", &tm_now);
-}
-
-static const char *json_string_or_default(const cJSON *obj, const char *key, const char *fallback)
-{
-    const cJSON *item = cJSON_GetObjectItem((cJSON *)obj, key);
-    const char *value = cJSON_IsString((cJSON *)item) ? item->valuestring : NULL;
-    return value ? value : fallback;
 }
 
 static daima_err_t add_validated_string(cJSON *dst,

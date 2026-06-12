@@ -7,6 +7,7 @@
 #include "app/tool_activity_notifier.h"
 #include "cJSON.h"
 #include "daima_log.h"
+#include "daima_text.h"
 
 static const char *TAG = "agent_tool_feedback";
 
@@ -34,21 +35,6 @@ static const char *path_tail(const char *path)
     if (!path || !path[0]) return "";
     const char *slash = strrchr(path, '/');
     return (slash && slash[1]) ? slash + 1 : path;
-}
-
-static void shorten_text(const char *src, char *dst, size_t dst_size, size_t max_len)
-{
-    if (!dst || dst_size == 0) return;
-    dst[0] = '\0';
-    if (!src || !src[0]) return;
-
-    size_t len = strlen(src);
-    if (len <= max_len || max_len + 4 >= dst_size) {
-        snprintf(dst, dst_size, "%s", src);
-        return;
-    }
-
-    snprintf(dst, dst_size, "%.*s...", (int)max_len, src);
 }
 
 static bool output_is_human_error(const char *tool_output)
@@ -101,7 +87,7 @@ static void summarize_tool_target(const char *tool_name, const char *tool_input,
     }
 
     if (value && value[0]) {
-        shorten_text(value, buf, size, 44);
+        daima_shorten_text(value, buf, size, 44);
     }
     cJSON_Delete(root);
 }
@@ -148,7 +134,7 @@ static bool tool_result_success(const char *tool_name, daima_err_t exec_err, con
 
     if (detail && detail_size > 0) {
         if (output_is_human_error(tool_output)) {
-            shorten_text(tool_output, detail, detail_size, detail_size > 1 ? detail_size - 1 : 0);
+            daima_shorten_text(tool_output, detail, detail_size, detail_size > 1 ? detail_size - 1 : 0);
         } else {
             snprintf(detail, detail_size, "%s", daima_err_to_name(exec_err));
         }

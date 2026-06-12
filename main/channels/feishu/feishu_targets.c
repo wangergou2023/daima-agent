@@ -7,8 +7,10 @@
 
 #include "app/daima_paths.h"
 #include "app/runtime_config.h"
+#include "daima_config.h"
 #include "cJSON.h"
 #include "daima_log.h"
+#include "utils/json_helpers.h"
 
 static const char *TAG = "feishu_targets";
 
@@ -21,7 +23,7 @@ static void targets_path(char *buf, size_t size)
 
 static cJSON *load_targets_root(void)
 {
-    char path[256];
+    char path[DAIMA_BUF_SMALL];
     targets_path(path, sizeof(path));
 
     FILE *f = fopen(path, "rb");
@@ -66,7 +68,7 @@ static bool save_targets_root(cJSON *root)
     char *json = cJSON_Print(root);
     if (!json) return false;
 
-    char path[256];
+    char path[DAIMA_BUF_SMALL];
     targets_path(path, sizeof(path));
     FILE *f = fopen(path, "w");
     if (!f) {
@@ -79,12 +81,6 @@ static bool save_targets_root(cJSON *root)
     fclose(f);
     free(json);
     return written == len;
-}
-
-static const char *json_string(cJSON *obj, const char *key)
-{
-    cJSON *item = cJSON_GetObjectItem(obj, key);
-    return cJSON_IsString(item) && item->valuestring ? item->valuestring : "";
 }
 
 bool feishu_targets_record(const char *route_id,
@@ -108,7 +104,8 @@ bool feishu_targets_record(const char *route_id,
     cJSON *existing = NULL;
     cJSON *item = NULL;
     cJSON_ArrayForEach(item, arr) {
-        if (strcmp(json_string(item, "route_id"), route_id) == 0) {
+        const char *item_route_id = json_string(item, "route_id");
+        if (item_route_id && strcmp(item_route_id, route_id) == 0) {
             existing = item;
             break;
         }
@@ -187,7 +184,7 @@ bool feishu_targets_get_default(char *out, size_t out_size)
         const char *route_id = json_string(item, "route_id");
         cJSON *seen = cJSON_GetObjectItem(item, "last_seen");
         double last_seen = cJSON_IsNumber(seen) ? seen->valuedouble : 0;
-        if (route_id[0] && (!best_id || last_seen > best_seen)) {
+        if (route_id && route_id[0] && (!best_id || last_seen > best_seen)) {
             best_id = route_id;
             best_seen = last_seen;
         }

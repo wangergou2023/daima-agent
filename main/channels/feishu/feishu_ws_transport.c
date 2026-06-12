@@ -28,8 +28,8 @@
 static const char *TAG = "feishu_ws";
 
 #define FEISHU_WS_MAX_PAYLOAD      (512 * 1024)
-#define FEISHU_WS_READ_TIMEOUT     10000
-#define FEISHU_WS_CONNECT_TIMEOUT  10000
+#define FEISHU_WS_READ_TIMEOUT     DAIMA_TIMEOUT_SHORT
+#define FEISHU_WS_CONNECT_TIMEOUT  DAIMA_TIMEOUT_SHORT
 
 typedef struct {
     char scheme[8];

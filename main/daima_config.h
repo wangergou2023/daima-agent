@@ -153,3 +153,17 @@
 #ifndef VAD_MAX_SAMPLES
 #define VAD_MAX_SAMPLES       (16000 * 30)
 #endif
+
+#define DAIMA_BUF_SMALL       256
+#define DAIMA_BUF_MEDIUM      512
+#define DAIMA_BUF_LARGE       1024
+#define DAIMA_BUF_XLARGE      4096
+#define DAIMA_BUF_PATH        512
+
+#define DAIMA_TIMEOUT_SHORT       10000
+#define DAIMA_TIMEOUT_MEDIUM      15000
+#define DAIMA_TIMEOUT_DEFAULT     30000
+#define DAIMA_TIMEOUT_LONG        60000
+
+#define DAIMA_WS_PING_INTERVAL_SEC  20
+#define DAIMA_WS_PONG_TIMEOUT_SEC   60

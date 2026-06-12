@@ -342,13 +342,13 @@ daima_err_t mcp_client_list_tools(mcp_client_t *c, char *tools_json_out, size_t 
 
 daima_err_t mcp_client_subscribe_audio(mcp_client_t *c)
 {
-    char resp[256];
+    char resp[DAIMA_BUF_SMALL];
     return mcp_client_call_tool(c, "robot_subscribe_audio", "{}", resp, sizeof(resp));
 }
 
 daima_err_t mcp_client_unsubscribe_audio(mcp_client_t *c)
 {
-    char resp[256];
+    char resp[DAIMA_BUF_SMALL];
     return mcp_client_call_tool(c, "robot_unsubscribe_audio", "{}", resp, sizeof(resp));
 }
 

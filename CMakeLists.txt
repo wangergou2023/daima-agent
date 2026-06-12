@@ -77,6 +77,7 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/main/platform/daima_platform.c
     ${CMAKE_CURRENT_LIST_DIR}/main/platform/daima_os.c
     ${CMAKE_CURRENT_LIST_DIR}/main/daima_text.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/utils/json_helpers.c
     ${CMAKE_CURRENT_LIST_DIR}/main/daima_base64.c
     ${CMAKE_CURRENT_LIST_DIR}/main/daima_env.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_loop.c

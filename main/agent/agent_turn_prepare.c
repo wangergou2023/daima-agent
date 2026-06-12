@@ -185,7 +185,7 @@ static void append_session_summary_prompt(char *prompt, size_t size, const char 
         return;
     }
 
-    char summary_buf[4096];
+    char summary_buf[DAIMA_BUF_XLARGE];
     if (session_store_read_summary(chat_id, summary_buf, sizeof(summary_buf)) != DAIMA_OK || !summary_buf[0]) {
         return;
     }

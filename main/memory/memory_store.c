@@ -62,7 +62,7 @@ daima_err_t memory_append_today(const char *note)
     char date_str[16];
     get_date_str(date_str, sizeof(date_str), 0);
 
-    char path[256];
+    char path[DAIMA_BUF_SMALL];
     snprintf(path, sizeof(path), "%s/%s.md", daima_path_memory_dir(), date_str);
 
     FILE *f = fopen(path, "a");
@@ -90,7 +90,7 @@ daima_err_t memory_read_recent(char *buf, size_t size, int days)
         char date_str[16];
         get_date_str(date_str, sizeof(date_str), i);
 
-        char path[256];
+        char path[DAIMA_BUF_SMALL];
         snprintf(path, sizeof(path), "%s/%s.md", daima_path_memory_dir(), date_str);
 
         FILE *f = fopen(path, "r");

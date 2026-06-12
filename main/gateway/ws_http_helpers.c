@@ -384,7 +384,7 @@ static char *build_ui_config_json(void)
             const char *suffix = ".codex-pet";
             size_t name_len = strlen(name);
             size_t suffix_len = strlen(suffix);
-            char pet_json_path[1024];
+            char pet_json_path[DAIMA_BUF_LARGE];
             char *pet_json_text = NULL;
             cJSON *pet_meta = NULL;
             cJSON *item = NULL;
@@ -629,7 +629,7 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
     }
 
     if (strcmp(path, "/pet.js") == 0) {
-        char asset_path[1024];
+        char asset_path[DAIMA_BUF_LARGE];
         snprintf(asset_path, sizeof(asset_path), "%s/web/pet.js", daima_path_spiffs_base());
         http_send_static_file_or_fallback(
             client_fd,
@@ -647,7 +647,7 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
             return 0;
         }
 
-        char asset_path[1024];
+        char asset_path[DAIMA_BUF_LARGE];
         snprintf(asset_path, sizeof(asset_path), "%s/%s",
                  daima_path_spiffs_base(), relative);
         http_send_binary_file(client_fd, asset_path);

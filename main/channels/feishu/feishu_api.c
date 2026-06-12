@@ -53,7 +53,7 @@ static char *feishu_api_call_with_token(const char *token,
     headers = curl_slist_append(headers, "Content-Type: application/json; charset=utf-8");
 
     host_http_response_t resp = {0};
-    daima_err_t err = host_http_request(method, url, headers, post_data, 15000, &resp);
+    daima_err_t err = host_http_request(method, url, headers, post_data, DAIMA_TIMEOUT_MEDIUM, &resp);
     curl_slist_free_all(headers);
 
     if (err != DAIMA_OK) {
@@ -200,7 +200,7 @@ daima_err_t feishu_api_pull_ws_config(const char *app_id,
     headers = curl_slist_append(headers, "locale: zh");
 
     host_http_response_t resp = {0};
-    daima_err_t err = host_http_request("POST", FEISHU_WS_CONFIG_URL, headers, json_str, 15000, &resp);
+    daima_err_t err = host_http_request("POST", FEISHU_WS_CONFIG_URL, headers, json_str, DAIMA_TIMEOUT_MEDIUM, &resp);
     curl_slist_free_all(headers);
     free(json_str);
 
@@ -462,7 +462,7 @@ daima_err_t feishu_api_send_card(const char *app_id,
         id_type = "open_id";
     }
 
-    char url[256];
+    char url[DAIMA_BUF_SMALL];
     snprintf(url, sizeof(url), "%s?receive_id_type=%s", FEISHU_SEND_MSG_URL, id_type);
     return feishu_send_card_chunks(token, url, chat_id, markdown, "Send card");
 }
@@ -483,7 +483,7 @@ daima_err_t feishu_api_reply_card(const char *app_id,
         return token_err;
     }
 
-    char url[256];
+    char url[DAIMA_BUF_SMALL];
     snprintf(url, sizeof(url), FEISHU_REPLY_MSG_URL, message_id);
     return feishu_send_card_chunks(token, url, NULL, markdown, "Reply card");
 }

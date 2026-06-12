@@ -30,6 +30,7 @@ static void *memrchr(const void *s, int c, size_t n) {
 #include <stdlib.h>
 #include "daima_log.h"
 #include "cJSON.h"
+#include "utils/json_helpers.h"
 
 static const char *TAG = "llm";
 static const char *DEFAULT_LLM_MODEL = "kimi-k2.5";
@@ -40,8 +41,8 @@ static const int DEFAULT_CONTEXT_LIMIT_TOKENS = 128000;
 #define LLM_MODEL_MAX_LEN   64
 static char s_api_key[LLM_API_KEY_MAX_LEN] = {0};
 static char s_model[LLM_MODEL_MAX_LEN] = "kimi-k2.5";
-static char s_openai_base_url[256] = {0};
-static char s_openai_api_url[512] = {0};
+static char s_openai_base_url[DAIMA_BUF_SMALL] = {0};
+static char s_openai_api_url[DAIMA_BUF_MEDIUM] = {0};
 static bool s_use_anthropic_api = false;
 static bool s_api_key_set = false;
 static bool s_model_set = false;
@@ -52,7 +53,7 @@ static void ensure_dir_path(const char *path)
     if (!path || !path[0]) {
         return;
     }
-    char tmp[512];
+    char tmp[DAIMA_BUF_MEDIUM];
     snprintf(tmp, sizeof(tmp), "%s", path);
     for (char *p = tmp + 1; *p; p++) {
         if (*p == '/') {
@@ -62,18 +63,6 @@ static void ensure_dir_path(const char *path)
         }
     }
     mkdir(tmp, 0755);
-}
-
-static const char *json_string(cJSON *obj, const char *key)
-{
-    cJSON *item = cJSON_GetObjectItem(obj, key);
-    return cJSON_IsString(item) ? item->valuestring : NULL;
-}
-
-static int json_number(cJSON *obj, const char *key)
-{
-    cJSON *item = cJSON_GetObjectItem(obj, key);
-    return cJSON_IsNumber(item) ? item->valueint : -1;
 }
 
 static bool object_is_empty(cJSON *obj)

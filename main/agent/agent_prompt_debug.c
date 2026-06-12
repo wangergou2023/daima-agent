@@ -33,7 +33,7 @@ void agent_prompt_dump_snapshot(const daima_msg_t *msg, const char *system_promp
     char ts_buf[64];
     strftime(ts_buf, sizeof(ts_buf), "%Y-%m-%d %H:%M:%S %Z", &tm_info);
 
-    char paths_block[1024];
+    char paths_block[DAIMA_BUF_LARGE];
     snprintf(paths_block,
              sizeof(paths_block),
              "## 相关路径\n\n"
