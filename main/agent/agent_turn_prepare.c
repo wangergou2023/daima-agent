@@ -228,6 +228,11 @@ daima_err_t agent_turn_prepare(
 
     *out_messages = NULL;
 
+    char prompt_prefix[DAIMA_BUF_XLARGE] = {0};
+    if (system_prompt[0]) {
+        snprintf(prompt_prefix, sizeof(prompt_prefix), "%s", system_prompt);
+    }
+
     context_build_system_prompt_for_channel(msg->channel, system_prompt, system_prompt_size);
     append_session_summary_prompt(system_prompt, system_prompt_size, msg->chat_id);
 #ifdef DAIMA_COMPACTION_RECOVERY_ENABLED
@@ -246,6 +251,15 @@ daima_err_t agent_turn_prepare(
     append_session_facts_prompt(system_prompt, system_prompt_size, msg->chat_id);
     append_turn_context_prompt(system_prompt, system_prompt_size, msg);
     agent_channel_policy_append(system_prompt, system_prompt_size, msg);
+    if (prompt_prefix[0]) {
+        size_t off = strnlen(system_prompt, system_prompt_size - 1);
+        if (off < system_prompt_size - 1) {
+            int n = snprintf(system_prompt + off, system_prompt_size - off, "%s", prompt_prefix);
+            if (n < 0 || (size_t)n >= system_prompt_size - off) {
+                system_prompt[system_prompt_size - 1] = '\0';
+            }
+        }
+    }
 #ifdef DAIMA_PLAN_REVIEW_ENABLED
     plan_review_inject_to_prompt(plan, system_prompt, system_prompt_size);
 #endif

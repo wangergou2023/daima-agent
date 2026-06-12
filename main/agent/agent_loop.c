@@ -2,6 +2,7 @@
 
 #include "agent/agent_loop.h"
 #include "agent/agent_cancel.h"
+#include "agent/agent_roles.h"
 #include "agent/agent_turn_common.h"
 #include "agent/context_compressor.h"
 #include "agent/learning_review.h"
@@ -19,12 +20,53 @@
 #include "daima_platform.h"
 #include "tools/tool_registry.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "cJSON.h"
 
 static const char *TAG = "agent";
+
+#ifdef DAIMA_AGENT_ROLES_ENABLED
+static agent_role_t agent_loop_active_role(const agent_role_t roles[3], int role_count,
+                                           const daima_plan_t *plan)
+{
+    if (role_count <= 0) {
+        return AGENT_ROLE_FAST;
+    }
+#ifdef DAIMA_PLAN_REVIEW_ENABLED
+    if (plan && plan->has_plan && plan->reviewed && role_count > 1) {
+        return roles[1];
+    }
+#else
+    (void)plan;
+#endif
+    return roles[0];
+}
+
+static void agent_loop_append_role_prompt(char *system_prompt, size_t system_prompt_size,
+                                          agent_role_t role)
+{
+    if (!system_prompt || system_prompt_size == 0) {
+        return;
+    }
+
+    size_t prompt_len = strnlen(system_prompt, system_prompt_size - 1);
+    if (prompt_len >= system_prompt_size - 1) {
+        return;
+    }
+
+    int written = snprintf(system_prompt + prompt_len,
+                           system_prompt_size - prompt_len,
+                           "\n\n## 当前角色: %s\n%s\n",
+                           agent_role_name(role),
+                           agent_role_prompt_suffix(role));
+    if (written < 0 || (size_t)written >= system_prompt_size - prompt_len) {
+        system_prompt[system_prompt_size - 1] = '\0';
+    }
+}
+#endif
 
 static void agent_loop_task(void *arg)
 {
@@ -51,6 +93,11 @@ static void agent_loop_task(void *arg)
 #ifdef DAIMA_PLAN_REVIEW_ENABLED
         daima_plan_t plan = {0};
 #endif
+#ifdef DAIMA_AGENT_ROLES_ENABLED
+        agent_role_t roles[3] = {0};
+        int role_count = 0;
+        agent_role_t active_role = AGENT_ROLE_FAST;
+#endif
 
 #ifdef DAIMA_INTENT_GATE_ENABLED
         intent_gate_classify(msg.content, &msg.intent);
@@ -63,6 +110,20 @@ static void agent_loop_task(void *arg)
             }
         }
 #endif
+#endif
+#ifdef DAIMA_AGENT_ROLES_ENABLED
+        role_count = agent_roles_for_intent(msg.intent, roles);
+        active_role = agent_loop_active_role(roles, role_count,
+#ifdef DAIMA_PLAN_REVIEW_ENABLED
+                                             &plan
+#else
+                                             NULL
+#endif
+        );
+        if (role_count > 0) {
+            DAIMA_LOGI(TAG, "Agent roles for intent=%s: %s (chain of %d)",
+                       daima_intent_name(msg.intent), agent_role_name(roles[0]), role_count);
+        }
 #endif
 
         if (agent_msg_is_internal_control(&msg)) {
@@ -77,15 +138,21 @@ static void agent_loop_task(void *arg)
 
         uint64_t cancel_token = agent_cancel_begin_turn(msg.chat_id);
         cJSON *messages = NULL;
+#ifdef DAIMA_AGENT_ROLES_ENABLED
+        system_prompt[0] = '\0';
+        if (role_count > 0) {
+            agent_loop_append_role_prompt(system_prompt, DAIMA_CONTEXT_BUF_SIZE, active_role);
+        }
+#endif
         err = agent_turn_prepare(&msg,
 #ifdef DAIMA_PLAN_REVIEW_ENABLED
                                  &plan,
 #else
                                  NULL,
 #endif
-                                 system_prompt, DAIMA_CONTEXT_BUF_SIZE,
-                                 history_json, DAIMA_LLM_STREAM_BUF_SIZE,
-                                 &messages);
+                                  system_prompt, DAIMA_CONTEXT_BUF_SIZE,
+                                  history_json, DAIMA_LLM_STREAM_BUF_SIZE,
+                                  &messages);
 
         char *final_text = NULL;
         char *reasoning_text = NULL;

@@ -86,6 +86,7 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_cancel.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/channel_policy.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/intent_gate.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_roles.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/category_router.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/plan_review.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/team_mode.c
