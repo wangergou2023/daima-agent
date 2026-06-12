@@ -16,6 +16,9 @@
 #define WEBFETCH_TIMEOUT_MS  DAIMA_TIMEOUT_DEFAULT
 #define WEBFETCH_MAX_BODY    (512 * 1024)
 
+static void strip_html_remove_tags(char *buf, size_t max_body);
+static void strip_html_collapse_whitespace(char *buf);
+
 static const daima_tool_t s_webfetch_tool = {
     .name = "webfetch",
     .description = "从指定 URL 获取网页内容，支持返回纯文本或原始 HTML。用于搜索信息、阅读文档、查阅 API 参考等。",
@@ -150,19 +153,73 @@ static void sanitize_utf8(char *buf)
     buf[wi] = '\0';
 }
 
-static void strip_html(char *buf)
+static void webfetch_report_error(const char *url, const char *error, char *output, size_t output_size)
+{
+    char title[DAIMA_BUF_SMALL];
+    snprintf(title, sizeof(title), "webfetch 请求失败: %.200s", url);
+    work_item_store_collect("defect", "test", title, "webfetch 工具 HTTP 请求超时或网络错误");
+    if (error && error[0]) {
+        snprintf(output, output_size, "错误：%s", error);
+    } else {
+        snprintf(output, output_size, "错误：HTTP 请求失败（超时或网络错误）");
+    }
+}
+
+static void webfetch_report_http_error(const char *url, long status, char *output, size_t output_size)
+{
+    char title[DAIMA_BUF_SMALL];
+    char desc[DAIMA_BUF_MEDIUM];
+    snprintf(title, sizeof(title), "webfetch 返回异常状态码: %.200s", url);
+    snprintf(desc, sizeof(desc), "webfetch 访问 %.200s 返回 HTTP %ld", url, status);
+    work_item_store_collect("defect", "test", title, desc);
+    snprintf(output, output_size, "错误：HTTP %ld", status);
+}
+
+static daima_err_t webfetch_format_output(const char *body, size_t body_len, const char *format,
+                                          char *output, size_t output_size)
+{
+    size_t len = body_len;
+    if (len > WEBFETCH_MAX_BODY) len = WEBFETCH_MAX_BODY;
+
+    if (strcmp(format, "text") == 0) {
+        char *buf = malloc(len + 1);
+        if (!buf) {
+            snprintf(output, output_size, "错误：内存不足");
+            return DAIMA_ERR_NO_MEM;
+        }
+        memcpy(buf, body, len);
+        buf[len] = '\0';
+        strip_html_remove_tags(buf, WEBFETCH_MAX_BODY);
+        strip_html_collapse_whitespace(buf);
+        html_decode(buf, buf, len + 1);
+
+        size_t out_len = strlen(buf);
+        if (out_len > output_size - 1) out_len = output_size - 1;
+        memcpy(output, buf, out_len);
+        output[out_len] = '\0';
+        free(buf);
+    } else {
+        size_t out_len = len;
+        if (out_len > output_size - 1) out_len = output_size - 1;
+        memcpy(output, body, out_len);
+        output[out_len] = '\0';
+    }
+
+    sanitize_utf8(output);
+    return DAIMA_OK;
+}
+
+static bool tag_in_set(const char *tag, const char *const *arr, size_t count)
+{
+    for (size_t i = 0; i < count; i++) {
+        if (strcmp(tag, arr[i]) == 0) return true;
+    }
+    return false;
+}
+
+static void strip_html_remove_tags(char *buf, size_t max_body)
 {
     if (!buf || !buf[0]) return;
-    bool in_tag = false;
-    int skip_depth = 0;
-    size_t wi = 0;
-    char lower_tag[32];
-    int ti = 0;
-    char extracted_title[512];
-    size_t title_off = 0;
-    bool in_title = false;
-    bool in_pre = false;
-    memset(extracted_title, 0, sizeof(extracted_title));
 
     static const char *skip_tags[] = {
         "script", "style", "noscript", "iframe", "object", "embed", "svg", "canvas",
@@ -177,13 +234,14 @@ static void strip_html(char *buf)
         "/pre",
     };
     static const char *newline_self[] = { "br", "br/", "hr", "hr/" };
-#define IN_SET(tag, arr) \
-    ({ bool _found = false; \
-       for (size_t _i = 0; _i < sizeof(arr)/sizeof(arr[0]); _i++) \
-           if (strcmp(tag, arr[_i]) == 0) { _found = true; break; } \
-       _found; })
 
-    for (size_t i = 0; buf[i] && wi < WEBFETCH_MAX_BODY; i++) {
+    bool in_tag = false;
+    int skip_depth = 0;
+    size_t wi = 0;
+    char lower_tag[32];
+    int ti = 0;
+
+    for (size_t i = 0; buf[i] && wi < max_body; i++) {
         char c = buf[i];
         if (c == '<') {
             in_tag = true;
@@ -194,23 +252,14 @@ static void strip_html(char *buf)
         if (in_tag) {
             if (c == '>' || c == ' ' || c == '\t' || c == '\n' || c == '\r') {
                 if (c == '>') {
-                    if (IN_SET(lower_tag, skip_tags)) skip_depth++;
-                    else if (lower_tag[0] == '/' && IN_SET(lower_tag + 1, skip_tags)) skip_depth--;
+                    if (tag_in_set(lower_tag, skip_tags, sizeof(skip_tags)/sizeof(skip_tags[0]))) skip_depth++;
+                    else if (lower_tag[0] == '/' && tag_in_set(lower_tag + 1, skip_tags, sizeof(skip_tags)/sizeof(skip_tags[0]))) skip_depth--;
                     else if (skip_depth == 0) {
-                        if (strcmp(lower_tag, "title") == 0) { in_title = true; title_off = 0; }
-                        else if (strcmp(lower_tag, "/title") == 0) in_title = false;
-                        else if (strcmp(lower_tag, "pre") == 0) {
-                            in_pre = true;
-                            if (wi > 0 && buf[wi - 1] != '\n') buf[wi++] = '\n';
+                        if (tag_in_set(lower_tag, newline_self, sizeof(newline_self)/sizeof(newline_self[0]))) buf[wi++] = '\n';
+                        else if (tag_in_set(lower_tag, block_close, sizeof(block_close)/sizeof(block_close[0]))) buf[wi++] = '\n';
+                        else if (tag_in_set(lower_tag, block_open, sizeof(block_open)/sizeof(block_open[0]))) {
+                            if (wi > 0 && buf[wi-1] != '\n') buf[wi++] = '\n';
                         }
-                        else if (strcmp(lower_tag, "/pre") == 0) {
-                            in_pre = false;
-                            if (wi > 0 && buf[wi - 1] != '\n') buf[wi++] = '\n';
-                        }
-                        else if (IN_SET(lower_tag, newline_self)) buf[wi++] = '\n';
-                        else if (IN_SET(lower_tag, block_close)) buf[wi++] = '\n';
-                        else if (IN_SET(lower_tag, block_open))
-                            { if (wi > 0 && buf[wi-1] != '\n') buf[wi++] = '\n'; }
                     }
                 }
                 in_tag = false;
@@ -226,28 +275,15 @@ static void strip_html(char *buf)
             continue;
         }
         if (skip_depth > 0) continue;
-        if (in_title && title_off < sizeof(extracted_title) - 1) {
-            extracted_title[title_off++] = c;
-            extracted_title[title_off] = '\0';
-            continue;
-        }
-        if (in_pre) { buf[wi++] = c; continue; }
         if (c == '\r') { buf[wi++] = '\n'; continue; }
         if (c == '\n' || c == '\t') { buf[wi++] = ' '; continue; }
         buf[wi++] = c;
     }
     buf[wi] = '\0';
+}
 
-    if (extracted_title[0]) {
-        size_t tlen = strlen(extracted_title);
-        if (tlen > 200) tlen = 200;
-        memmove(buf + tlen + 2, buf, wi + 1);
-        memcpy(buf, extracted_title, tlen);
-        buf[tlen] = '\n';
-        buf[tlen + 1] = '\n';
-    }
-
-    /* collapse whitespace */
+static void strip_html_collapse_whitespace(char *buf)
+{
     char *r = buf, *w = buf;
     while (*r) {
         if (*r == ' ' || *r == '\t') {
@@ -265,10 +301,8 @@ static void strip_html(char *buf)
     }
     *w = '\0';
 
-    /* trim */
     while (w > buf && (*(w - 1) == ' ' || *(w - 1) == '\n' || *(w - 1) == '\t')) { w--; *w = '\0'; }
     while (*buf == ' ' || *buf == '\n' || *buf == '\t') memmove(buf, buf + 1, strlen(buf));
-#undef IN_SET
 }
 
 daima_err_t tool_webfetch_execute(const char *input_json, char *output, size_t output_size)
@@ -287,7 +321,7 @@ daima_err_t tool_webfetch_execute(const char *input_json, char *output, size_t o
         return DAIMA_ERR_INVALID_ARG;
     }
 
-    char url[2048];
+    char url[DAIMA_BUF_MEDIUM * 4];
     snprintf(url, sizeof(url), "%s", raw_url);
     clean_url(url, sizeof(url));
 
@@ -317,25 +351,14 @@ daima_err_t tool_webfetch_execute(const char *input_json, char *output, size_t o
     req_headers = curl_slist_append(req_headers, "Accept-Language: zh-CN,zh;q=0.9,en;q=0.8");
     daima_err_t err = host_http_request("GET", url, req_headers, NULL, WEBFETCH_TIMEOUT_MS, &resp);
     curl_slist_free_all(req_headers);
+
     if (err != DAIMA_OK) {
-        char title[256];
-        snprintf(title, sizeof(title), "webfetch 请求失败: %.200s", url);
-        work_item_store_collect("defect", "test", title, "webfetch 工具 HTTP 请求超时或网络错误");
-        if (resp.error && resp.error[0]) {
-            snprintf(output, output_size, "错误：%s", resp.error);
-        } else {
-            snprintf(output, output_size, "错误：HTTP 请求失败（超时或网络错误）");
-        }
+        webfetch_report_error(url, resp.error, output, output_size);
         host_http_response_free(&resp);
         return err;
     }
     if (resp.status != 200) {
-        char title[256];
-        char desc[512];
-        snprintf(title, sizeof(title), "webfetch 返回异常状态码: %.200s", url);
-        snprintf(desc, sizeof(desc), "webfetch 访问 %.200s 返回 HTTP %ld", url, resp.status);
-        work_item_store_collect("defect", "test", title, desc);
-        snprintf(output, output_size, "错误：HTTP %ld", resp.status);
+        webfetch_report_http_error(url, resp.status, output, output_size);
         host_http_response_free(&resp);
         return DAIMA_FAIL;
     }
@@ -345,36 +368,9 @@ daima_err_t tool_webfetch_execute(const char *input_json, char *output, size_t o
         return DAIMA_FAIL;
     }
 
-    size_t body_len = resp.body_len;
-    if (body_len > WEBFETCH_MAX_BODY) body_len = WEBFETCH_MAX_BODY;
-
-    if (strcmp(format, "text") == 0) {
-        char *buf = malloc(body_len + 1);
-        if (!buf) {
-            snprintf(output, output_size, "错误：内存不足");
-            host_http_response_free(&resp);
-            return DAIMA_ERR_NO_MEM;
-        }
-        memcpy(buf, resp.body, body_len);
-        buf[body_len] = '\0';
-        strip_html(buf);
-        html_decode(buf, buf, body_len + 1);
-
-        size_t out_len = strlen(buf);
-        if (out_len > output_size - 1) out_len = output_size - 1;
-        memcpy(output, buf, out_len);
-        output[out_len] = '\0';
-        free(buf);
-    } else {
-        size_t out_len = body_len;
-        if (out_len > output_size - 1) out_len = output_size - 1;
-        memcpy(output, resp.body, out_len);
-        output[out_len] = '\0';
-    }
-
-    sanitize_utf8(output);
+    daima_err_t result = webfetch_format_output(resp.body, resp.body_len, format, output, output_size);
     host_http_response_free(&resp);
-    return DAIMA_OK;
+    return result;
 }
 
 const daima_tool_t *tool_webfetch_definition(void)
