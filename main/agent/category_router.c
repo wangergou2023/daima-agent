@@ -105,13 +105,18 @@ static void load_default_cfg(category_router_cfg_t *cfg)
     int context_limit = runtime_config_get_context_limit_tokens();
     int max_tokens = runtime_config_get_max_output_tokens();
 
+    const char *quick_model = runtime_config_get_provider_model_for_name("ingenic_local_kimi");
+    if (!quick_model || !quick_model[0]) {
+        quick_model = active_model;
+    }
+
     int deep = add_profile(cfg, "deep", active_model, context_limit, max_tokens);
-    int quick = add_profile(cfg, "quick", active_model, context_limit, max_tokens);
+    int quick = add_profile(cfg, "quick", quick_model, context_limit, max_tokens);
 
     set_default_intent_map(cfg, deep, quick);
 
-    DAIMA_LOGI(TAG, "Category routing defaults: deep=%s quick=%s (from active provider)",
-                active_model, active_model);
+    DAIMA_LOGI(TAG, "Category routing defaults: deep=%s quick=%s",
+                active_model, quick_model);
 }
 
 static void add_profiles_from_provider_object(category_router_cfg_t *cfg, cJSON *profiles)

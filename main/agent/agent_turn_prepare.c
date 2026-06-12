@@ -10,6 +10,7 @@
 #include "agent/agent_turn_common.h"
 #include "agent/compaction_recovery.h"
 #include "agent/context_builder.h"
+#include "agent/rules_injection.h"
 #include "agent/session_recovery.h"
 #include "agent/todo_enforcer.h"
 #include "llm/llm_proxy.h"
@@ -151,6 +152,22 @@ static void append_turn_context_prompt(char *prompt, size_t size, const daima_ms
     }
 }
 
+#ifdef DAIMA_RULES_INJECTION_ENABLED
+static void prepend_rules_prompt(char *prompt, size_t size, const char *rules)
+{
+    if (!prompt || size == 0 || !rules || !rules[0]) {
+        return;
+    }
+
+    char existing[DAIMA_CONTEXT_BUF_SIZE];
+    snprintf(existing, sizeof(existing), "%s", prompt);
+    int n = snprintf(prompt, size, "%s\n%s", rules, existing);
+    if (n < 0 || (size_t)n >= size) {
+        prompt[size - 1] = '\0';
+    }
+}
+#endif
+
 static void append_session_facts_prompt(char *prompt, size_t size, const char *chat_id)
 {
     if (!prompt || size == 0 || !chat_id || !chat_id[0]) {
@@ -234,6 +251,12 @@ daima_err_t agent_turn_prepare(
     }
 
     context_build_system_prompt_for_channel(msg->channel, system_prompt, system_prompt_size);
+#ifdef DAIMA_RULES_INJECTION_ENABLED
+    char rules_buf[8192];
+    if (rules_injection_load(rules_buf, sizeof(rules_buf)) == DAIMA_OK && rules_buf[0]) {
+        prepend_rules_prompt(system_prompt, system_prompt_size, rules_buf);
+    }
+#endif
     append_session_summary_prompt(system_prompt, system_prompt_size, msg->chat_id);
 #ifdef DAIMA_COMPACTION_RECOVERY_ENABLED
     compaction_recovery_inject(msg->chat_id, system_prompt, system_prompt_size);

@@ -90,6 +90,7 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_coordinator.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/category_router.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/plan_review.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/agent/prometheus_interview.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/team_mode.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_turn_common.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_prompt_debug.c
@@ -98,6 +99,7 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_turn_run.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_turn_exec_helpers.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/todo_enforcer.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/agent/ralph_loop.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/tool_feedback.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_turn_finish.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/tool_protocol_guard.c
@@ -106,6 +108,7 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/session_recovery.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/context_compress_ops.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/context_builder.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/agent/rules_injection.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/learning_review.c
     ${CMAKE_CURRENT_LIST_DIR}/main/bus/message_bus.c
     ${CMAKE_CURRENT_LIST_DIR}/main/cron/cron_service.c
