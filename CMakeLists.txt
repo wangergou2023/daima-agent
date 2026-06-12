@@ -142,6 +142,8 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/main/channels/vector/vector_channel.c
     ${CMAKE_CURRENT_LIST_DIR}/main/channels/feishu/feishu_bot.c
     ${CMAKE_CURRENT_LIST_DIR}/main/channels/feishu/feishu_api.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/channels/feishu/feishu_http.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/channels/feishu/feishu_bot.c
     ${CMAKE_CURRENT_LIST_DIR}/main/channels/feishu/feishu_event_handler.c
     ${CMAKE_CURRENT_LIST_DIR}/main/channels/feishu/feishu_media.c
     ${CMAKE_CURRENT_LIST_DIR}/main/channels/feishu/feishu_message.c

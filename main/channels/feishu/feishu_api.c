@@ -9,12 +9,11 @@
 #include <string.h>
 #include <time.h>
 
-#include <curl/curl.h>
-
 #include "cJSON.h"
-#include "host_http.h"
 #include "daima_config.h"
 #include "daima_log.h"
+#include "host_http.h"
+#include "channels/feishu/feishu_http.h"
 
 static const char *TAG = "feishu_api";
 
@@ -24,7 +23,7 @@ static const char *TAG = "feishu_api";
 #define FEISHU_REPLY_MSG_URL FEISHU_API_BASE "/im/v1/messages/%s/reply"
 #define FEISHU_WS_CONFIG_URL "https://open.feishu.cn/callback/ws/endpoint"
 #define FEISHU_CARD_CHUNK_MAX_BYTES 6000
-static char s_tenant_token[512] = {0};
+static char s_tenant_token[DAIMA_BUF_MEDIUM] = {0};
 static time_t s_token_expire_time = 0;
 static pthread_mutex_t s_token_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -36,36 +35,7 @@ void feishu_api_reset_token_cache(void)
     pthread_mutex_unlock(&s_token_lock);
 }
 
-static char *feishu_api_call_with_token(const char *token,
-                                        const char *url,
-                                        const char *method,
-                                        const char *post_data,
-                                        long *out_status)
-{
-    if (!token || !token[0] || !url || !method) {
-        return NULL;
-    }
 
-    struct curl_slist *headers = NULL;
-    char auth_header[600];
-    snprintf(auth_header, sizeof(auth_header), "Authorization: Bearer %s", token);
-    headers = curl_slist_append(headers, auth_header);
-    headers = curl_slist_append(headers, "Content-Type: application/json; charset=utf-8");
-
-    host_http_response_t resp = {0};
-    daima_err_t err = host_http_request(method, url, headers, post_data, DAIMA_TIMEOUT_MEDIUM, &resp);
-    curl_slist_free_all(headers);
-
-    if (err != DAIMA_OK) {
-        host_http_response_free(&resp);
-        return NULL;
-    }
-
-    if (out_status) *out_status = resp.status;
-    free(resp.headers);
-    resp.headers = NULL;
-    return resp.body;
-}
 
 static bool parse_query_param(const char *url, const char *key, char *out, size_t out_size)
 {
@@ -107,36 +77,25 @@ static daima_err_t feishu_get_tenant_token_locked(const char *app_id, const char
         return DAIMA_ERR_NO_MEM;
     }
 
-    struct curl_slist *headers = NULL;
-    headers = curl_slist_append(headers, "Content-Type: application/json");
-
-    host_http_response_t resp = {0};
-    daima_err_t err = host_http_request("POST", FEISHU_AUTH_URL, headers, json_str, 10000, &resp);
-    curl_slist_free_all(headers);
+    feishu_http_response_t resp = {0};
+    daima_err_t err = feishu_http_post_json(FEISHU_AUTH_URL, NULL, json_str, DAIMA_TIMEOUT_SHORT, &resp);
     free(json_str);
 
     if (err != DAIMA_OK) {
-        host_http_response_free(&resp);
+        feishu_http_response_free(&resp);
         return err;
     }
 
     if (resp.status != 200) {
         DAIMA_LOGE(TAG, "Token request failed: http=%ld", resp.status);
-        host_http_response_free(&resp);
+        feishu_http_response_free(&resp);
         return DAIMA_FAIL;
     }
 
-    cJSON *root = cJSON_Parse(resp.body ? resp.body : "");
-    host_http_response_free(&resp);
+    cJSON *root = feishu_http_parse_json(&resp);
+    feishu_http_response_free(&resp);
     if (!root) {
         DAIMA_LOGE(TAG, "Failed to parse token response");
-        return DAIMA_FAIL;
-    }
-
-    cJSON *code = cJSON_GetObjectItem(root, "code");
-    if (!code || !cJSON_IsNumber(code) || code->valueint != 0) {
-        DAIMA_LOGE(TAG, "Token request failed: code=%d", code ? code->valueint : -1);
-        cJSON_Delete(root);
         return DAIMA_FAIL;
     }
 
@@ -195,23 +154,18 @@ daima_err_t feishu_api_pull_ws_config(const char *app_id,
     cJSON_Delete(body);
     if (!json_str) return DAIMA_ERR_NO_MEM;
 
-    struct curl_slist *headers = NULL;
-    headers = curl_slist_append(headers, "Content-Type: application/json");
-    headers = curl_slist_append(headers, "locale: zh");
-
-    host_http_response_t resp = {0};
-    daima_err_t err = host_http_request("POST", FEISHU_WS_CONFIG_URL, headers, json_str, DAIMA_TIMEOUT_MEDIUM, &resp);
-    curl_slist_free_all(headers);
+    feishu_http_response_t resp = {0};
+    daima_err_t err = feishu_http_post_json(FEISHU_WS_CONFIG_URL, NULL, json_str, DAIMA_TIMEOUT_MEDIUM, &resp);
     free(json_str);
 
     if (err != DAIMA_OK || resp.status != 200) {
         DAIMA_LOGE(TAG, "WS config request failed: err=%s http=%ld", daima_err_to_name(err), resp.status);
-        host_http_response_free(&resp);
+        feishu_http_response_free(&resp);
         return DAIMA_FAIL;
     }
 
-    cJSON *root = cJSON_Parse(resp.body ? resp.body : "");
-    host_http_response_free(&resp);
+    cJSON *root = feishu_http_parse_json(&resp);
+    feishu_http_response_free(&resp);
     if (!root) return DAIMA_FAIL;
 
     cJSON *code = cJSON_GetObjectItem(root, "code");
@@ -243,31 +197,7 @@ daima_err_t feishu_api_pull_ws_config(const char *app_id,
     return DAIMA_OK;
 }
 
-static daima_err_t parse_api_result(char *resp, long status, const char *action_name)
-{
-    if (!resp) {
-        DAIMA_LOGE(TAG, "%s request failed (http=%ld)", action_name, status);
-        return DAIMA_FAIL;
-    }
 
-    daima_err_t ret = DAIMA_FAIL;
-    cJSON *root = cJSON_Parse(resp);
-    if (root) {
-        cJSON *code = cJSON_GetObjectItem(root, "code");
-        if (code && cJSON_IsNumber(code) && code->valueint == 0) {
-            ret = DAIMA_OK;
-        } else {
-            cJSON *msg = cJSON_GetObjectItem(root, "msg");
-            DAIMA_LOGW(TAG, "%s failed: code=%d, msg=%s",
-                      action_name,
-                      code ? code->valueint : -1,
-                      msg ? msg->valuestring : "unknown");
-        }
-        cJSON_Delete(root);
-    }
-    free(resp);
-    return ret;
-}
 
 static void feishu_trim_ascii_in_place(char *s)
 {
@@ -384,10 +314,22 @@ static daima_err_t feishu_send_payload_json(const char *token,
         return DAIMA_ERR_NO_MEM;
     }
 
-    long status = 0;
-    char *resp = feishu_api_call_with_token(token, url, "POST", json_str, &status);
+    feishu_http_response_t resp = {0};
+    daima_err_t err = feishu_http_post_json(url, token, json_str, DAIMA_TIMEOUT_MEDIUM, &resp);
     free(json_str);
-    return parse_api_result(resp, status, action_name);
+    if (err != DAIMA_OK) {
+        feishu_http_response_free(&resp);
+        return err;
+    }
+
+    cJSON *root = feishu_http_parse_json(&resp);
+    feishu_http_response_free(&resp);
+    if (!root) {
+        DAIMA_LOGE(TAG, "%s request failed", action_name);
+        return DAIMA_FAIL;
+    }
+    cJSON_Delete(root);
+    return DAIMA_OK;
 }
 
 static daima_err_t feishu_send_card_chunks(const char *token,
