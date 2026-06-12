@@ -162,6 +162,137 @@ static void add_profiles_from_provider_object(category_router_cfg_t *cfg, cJSON 
     }
 }
 
+static bool read_provider_limits(cJSON *provider, int *context_limit, int *max_tokens)
+{
+    if (!cJSON_IsObject(provider)) {
+        return false;
+    }
+    cJSON *context = cJSON_GetObjectItem(provider, "context_limit_tokens");
+    cJSON *max_out = cJSON_GetObjectItem(provider, "max_output_tokens");
+    if (context_limit) {
+        *context_limit = cJSON_IsNumber(context) ? context->valueint : runtime_config_get_context_limit_tokens();
+    }
+    if (max_tokens) {
+        *max_tokens = cJSON_IsNumber(max_out) ? max_out->valueint : runtime_config_get_max_output_tokens();
+    }
+    return true;
+}
+
+static bool find_provider_by_model(cJSON *json_root,
+                                   const char *model,
+                                   category_model_resolution_t *out)
+{
+    if (!json_root || !model || !model[0] || !out) {
+        return false;
+    }
+
+    cJSON *providers = cJSON_GetObjectItem(json_root, "providers");
+    if (!cJSON_IsObject(providers)) {
+        return false;
+    }
+
+    cJSON *provider = NULL;
+    cJSON_ArrayForEach(provider, providers) {
+        cJSON *provider_model = cJSON_GetObjectItem(provider, "model");
+        if (!provider->string || !cJSON_IsString(provider_model) ||
+            strcmp(provider_model->valuestring, model) != 0) {
+            continue;
+        }
+
+        safe_copy(out->provider_name, sizeof(out->provider_name), provider->string);
+        safe_copy(out->model, sizeof(out->model), provider_model->valuestring);
+        read_provider_limits(provider, &out->context_limit, &out->max_tokens);
+        return true;
+    }
+
+    return false;
+}
+
+static bool resolve_active_provider_model(cJSON *json_root, category_model_resolution_t *out)
+{
+    if (!out) {
+        return false;
+    }
+
+    const char *active_model = runtime_config_get_provider_model();
+    if (!active_model || !active_model[0]) {
+        return false;
+    }
+
+    if (find_provider_by_model(json_root, active_model, out)) {
+        return true;
+    }
+
+    safe_copy(out->provider_name, sizeof(out->provider_name), runtime_config_get_active_provider_name());
+    safe_copy(out->model, sizeof(out->model), active_model);
+    out->context_limit = runtime_config_get_context_limit_tokens();
+    out->max_tokens = runtime_config_get_max_output_tokens();
+    return true;
+}
+
+static bool resolve_category_model(cJSON *json_root,
+                                   cJSON *category,
+                                   category_model_resolution_t *out)
+{
+    if (!cJSON_IsObject(category) || !out) {
+        return false;
+    }
+
+    memset(out, 0, sizeof(*out));
+    cJSON *preferences = cJSON_GetObjectItem(category, "model_preference");
+    if (cJSON_IsArray(preferences)) {
+        cJSON *preference = NULL;
+        cJSON_ArrayForEach(preference, preferences) {
+            if (!cJSON_IsString(preference)) {
+                continue;
+            }
+            if (find_provider_by_model(json_root, preference->valuestring, out)) {
+                return true;
+            }
+        }
+    }
+
+    return resolve_active_provider_model(json_root, out);
+}
+
+static void parse_categories_json(category_router_cfg_t *cfg, cJSON *json_root, cJSON *categories)
+{
+    cJSON *entry = NULL;
+    cJSON_ArrayForEach(entry, categories) {
+        if (!entry->string || !entry->string[0] || !cJSON_IsObject(entry)) {
+            continue;
+        }
+
+        category_model_resolution_t resolved;
+        if (!resolve_category_model(json_root, entry, &resolved)) {
+            DAIMA_LOGW(TAG, "Category routing category has no available model: %s", entry->string);
+            continue;
+        }
+
+        add_profile(cfg, entry->string, resolved.model, resolved.context_limit, resolved.max_tokens);
+    }
+}
+
+static void log_loaded_categories(const category_router_cfg_t *cfg, cJSON *json_root)
+{
+    if (!cfg || cfg->profile_count <= 0) {
+        return;
+    }
+
+    DAIMA_LOGI(TAG, "Category routing: categories loaded");
+    for (int i = 0; i < cfg->profile_count; i++) {
+        category_model_resolution_t resolved;
+        const char *provider_name = "active_provider";
+        if (find_provider_by_model(json_root, cfg->profiles[i].model, &resolved) && resolved.provider_name[0]) {
+            provider_name = resolved.provider_name;
+        }
+        DAIMA_LOGI(TAG, "  %-9s -> %s (from %s)",
+                    cfg->profiles[i].name,
+                    cfg->profiles[i].model,
+                    provider_name);
+    }
+}
+
 static char *read_file(const char *path)
 {
     FILE *f = fopen(path, "rb");
@@ -211,8 +342,13 @@ static bool load_json_cfg(category_router_cfg_t *cfg, const char *json_text)
         cfg->enabled = cJSON_IsTrue(enabled);
     }
 
+    bool loaded_categories = false;
+    cJSON *categories = cJSON_GetObjectItem(root, "categories");
     cJSON *profiles = cJSON_GetObjectItem(root, "profiles");
-    if (cJSON_IsArray(profiles)) {
+    if (cJSON_IsObject(categories)) {
+        parse_categories_json(cfg, json_root, categories);
+        loaded_categories = cfg->profile_count > 0;
+    } else if (cJSON_IsArray(profiles)) {
         cJSON *item = NULL;
         cJSON_ArrayForEach(item, profiles) {
             cJSON *name = cJSON_GetObjectItem(item, "name");
@@ -230,6 +366,10 @@ static bool load_json_cfg(category_router_cfg_t *cfg, const char *json_text)
         }
     } else if (cJSON_IsObject(profiles)) {
         add_profiles_from_provider_object(cfg, profiles);
+    }
+
+    if (loaded_categories) {
+        log_loaded_categories(cfg, json_root);
     }
 
     cJSON *intent_map = cJSON_GetObjectItem(root, "intent_map");
