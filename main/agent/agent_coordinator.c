@@ -1,7 +1,12 @@
 #include "agent/agent_coordinator.h"
+#include "daima_config.h"
+#include "daima_log.h"
+#include "daima_os.h"
 
 #include <stdio.h>
 #include <string.h>
+
+static const char *TAG = "coordinator";
 
 static int coordinator_roles_for_intent(daima_intent_t intent,
                                         agent_role_t roles[COORDINATOR_MAX_SUB_AGENTS])
@@ -133,10 +138,129 @@ daima_err_t coordinator_merge_results(coordinator_t *coord,
     return DAIMA_OK;
 }
 
+daima_err_t coordinator_launch_all(const char *base_system_prompt,
+                                   cJSON *shared_messages,
+                                   const char *tools_json,
+                                   coordinator_t *coord)
+{
+    if (!coord || coord->agent_count <= 1) {
+        return DAIMA_OK;
+    }
+
+    const char *base_prompt = base_system_prompt ? base_system_prompt : "";
+
+    for (int i = 0; i < coord->agent_count && i < COORDINATOR_MAX_SUB_AGENTS; i++) {
+        sub_agent_t *agent = &coord->agents[i];
+        char scoped_prompt[DAIMA_CONTEXT_BUF_SIZE];
+
+        int written = snprintf(scoped_prompt,
+                               sizeof(scoped_prompt),
+                               "%s\n%s\n\n## 子任务\n%s",
+                               base_prompt,
+                               agent->system_prompt_add,
+                               agent->task_description);
+        if (written < 0 || (size_t)written >= sizeof(scoped_prompt)) {
+            scoped_prompt[sizeof(scoped_prompt) - 1] = '\0';
+        }
+
+        agent->scoped_messages = shared_messages ? cJSON_Duplicate(shared_messages, 1) : cJSON_CreateArray();
+        if (!agent->scoped_messages) {
+            agent->error = DAIMA_FAIL;
+            agent->done = true;
+            DAIMA_LOGW(TAG, "Coordinator: failed to copy messages for sub-agent %d (%s)",
+                       i, agent_role_name(agent->role));
+            continue;
+        }
+
+        agent->async_chat = llm_chat_tools_async(scoped_prompt,
+                                                 agent->scoped_messages,
+                                                 tools_json,
+                                                 NULL);
+        if (!agent->async_chat) {
+            agent->error = DAIMA_FAIL;
+            agent->done = true;
+            DAIMA_LOGW(TAG, "Coordinator: failed to launch sub-agent %d (%s)",
+                       i, agent_role_name(agent->role));
+        } else {
+            agent->error = DAIMA_OK;
+            agent->done = false;
+            DAIMA_LOGI(TAG, "Coordinator: launched sub-agent %d (%s)",
+                       i, agent_role_name(agent->role));
+        }
+    }
+
+    return DAIMA_OK;
+}
+
+daima_err_t coordinator_wait_all(coordinator_t *coord, int timeout_ms)
+{
+    if (!coord) {
+        return DAIMA_ERR_INVALID_ARG;
+    }
+
+    int pending = 0;
+    for (int i = 0; i < coord->agent_count && i < COORDINATOR_MAX_SUB_AGENTS; i++) {
+        if (!coord->agents[i].done) {
+            pending++;
+        }
+    }
+
+    int elapsed = 0;
+    const int poll_interval_ms = 100;
+    while (pending > 0 && elapsed < timeout_ms) {
+        for (int i = 0; i < coord->agent_count && i < COORDINATOR_MAX_SUB_AGENTS; i++) {
+            sub_agent_t *agent = &coord->agents[i];
+            if (agent->done) {
+                continue;
+            }
+
+            if (llm_chat_async_is_done(agent->async_chat)) {
+                llm_response_t resp = {0};
+                agent->error = llm_chat_async_get_response(agent->async_chat, &resp);
+                if (agent->error == DAIMA_OK && resp.text) {
+                    snprintf(agent->result_text, sizeof(agent->result_text), "%s", resp.text);
+                }
+                llm_response_free(&resp);
+                agent->done = true;
+                pending--;
+                DAIMA_LOGI(TAG, "Coordinator: sub-agent %d (%s) done, err=%s",
+                           i, agent_role_name(agent->role), daima_err_to_name(agent->error));
+            }
+        }
+
+        if (pending > 0) {
+            daima_task_delay((uint32_t)poll_interval_ms);
+            elapsed += poll_interval_ms;
+        }
+    }
+
+    for (int i = 0; i < coord->agent_count && i < COORDINATOR_MAX_SUB_AGENTS; i++) {
+        sub_agent_t *agent = &coord->agents[i];
+        if (!agent->done) {
+            agent->error = DAIMA_ERR_TIMEOUT;
+            agent->done = true;
+            DAIMA_LOGW(TAG, "Coordinator: sub-agent %d (%s) timed out",
+                       i, agent_role_name(agent->role));
+        }
+    }
+
+    return DAIMA_OK;
+}
+
 void coordinator_free(coordinator_t *coord)
 {
     if (!coord) {
         return;
+    }
+    for (int i = 0; i < coord->agent_count && i < COORDINATOR_MAX_SUB_AGENTS; i++) {
+        if (coord->agents[i].async_chat) {
+            llm_chat_async_free(coord->agents[i].async_chat);
+            coord->agents[i].async_chat = NULL;
+        }
+        if (coord->agents[i].scoped_messages) {
+            cJSON_Delete(coord->agents[i].scoped_messages);
+            coord->agents[i].scoped_messages = NULL;
+        }
     }
     memset(coord, 0, sizeof(*coord));
 }

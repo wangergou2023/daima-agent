@@ -69,38 +69,6 @@ static void agent_loop_append_role_prompt(char *system_prompt, size_t system_pro
 }
 #endif
 
-#ifdef DAIMA_AGENT_COORDINATOR_ENABLED
-static void agent_loop_try_coordinator(const daima_msg_t *msg,
-#ifdef DAIMA_PLAN_REVIEW_ENABLED
-                                       const daima_plan_t *plan
-#else
-                                       const void *plan
-#endif
-)
-{
-    coordinator_t coord;
-    memset(&coord, 0, sizeof(coord));
-
-    daima_err_t coord_err = coordinator_decompose(msg->intent,
-#ifdef DAIMA_PLAN_REVIEW_ENABLED
-                                                  plan,
-#else
-                                                  NULL,
-#endif
-                                                  msg->content,
-                                                  &coord);
-    if (coord_err == DAIMA_OK && coord.agent_count > 1) {
-        DAIMA_LOGI(TAG, "Coordinator: %d sub-agents for intent=%s",
-                   coord.agent_count, daima_intent_name(msg->intent));
-    } else if (coord_err != DAIMA_OK) {
-        DAIMA_LOGW(TAG, "Coordinator skipped: %s", daima_err_to_name(coord_err));
-    }
-
-    coordinator_free(&coord);
-    (void)plan;
-}
-#endif
-
 static void agent_loop_task(void *arg)
 {
     (void)arg;
@@ -159,16 +127,6 @@ static void agent_loop_task(void *arg)
         }
 #endif
 
-#ifdef DAIMA_AGENT_COORDINATOR_ENABLED
-        agent_loop_try_coordinator(&msg,
-#ifdef DAIMA_PLAN_REVIEW_ENABLED
-                                   &plan
-#else
-                                   NULL
-#endif
-        );
-#endif
-
         if (agent_msg_is_internal_control(&msg)) {
             DAIMA_LOGI(TAG, "Dropping internal control message for %s:%s", msg.channel, msg.chat_id);
             agent_cleanup_inbound_msg(&msg);
@@ -204,6 +162,49 @@ static void agent_loop_task(void *arg)
         bool cancelled = false;
         if (err == DAIMA_OK) {
             const char *tools_json = tool_registry_get_tools_json_for_channel(msg.channel);
+#ifdef DAIMA_AGENT_COORDINATOR_ENABLED
+            coordinator_t coord;
+            memset(&coord, 0, sizeof(coord));
+            daima_err_t coord_err = coordinator_decompose(msg.intent,
+#ifdef DAIMA_PLAN_REVIEW_ENABLED
+                                                          &plan,
+#else
+                                                          NULL,
+#endif
+                                                          msg.content,
+                                                          &coord);
+            if (coord_err == DAIMA_OK && coord.agent_count > 1) {
+                DAIMA_LOGI(TAG, "Coordinator: launching %d sub-agents for intent=%s",
+                           coord.agent_count, daima_intent_name(msg.intent));
+                daima_err_t launch_err = coordinator_launch_all(system_prompt, messages, tools_json, &coord);
+                if (launch_err == DAIMA_OK) {
+                    coordinator_wait_all(&coord, 120000);
+                    char *merged = daima_calloc(1, COORDINATOR_RESULT_MAX * COORDINATOR_MAX_SUB_AGENTS);
+                    if (merged) {
+                        coordinator_merge_results(&coord,
+                                                  merged,
+                                                  COORDINATOR_RESULT_MAX * COORDINATOR_MAX_SUB_AGENTS);
+                        if (merged[0] != '\0') {
+                            final_text = merged;
+                            merged = NULL;
+                        }
+                        free(merged);
+                    } else {
+                        err = DAIMA_ERR_NO_MEM;
+                    }
+                } else {
+                    DAIMA_LOGW(TAG, "Coordinator launch skipped: %s", daima_err_to_name(launch_err));
+                }
+                coordinator_free(&coord);
+                cJSON_Delete(messages);
+                agent_turn_finish(&msg, &final_text, &reasoning_text, err, iteration,
+                                  tool_budget_exhausted, cancelled);
+                continue;
+            } else if (coord_err != DAIMA_OK) {
+                DAIMA_LOGW(TAG, "Coordinator skipped: %s", daima_err_to_name(coord_err));
+            }
+            coordinator_free(&coord);
+#endif
 #ifdef DAIMA_TEAM_MODE_ENABLED
 #ifdef DAIMA_PLAN_REVIEW_ENABLED
             team_orchestrator_t team = {0};
