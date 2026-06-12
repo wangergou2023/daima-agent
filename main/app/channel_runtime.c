@@ -4,6 +4,7 @@
 
 #include "channels/feishu/feishu_bot.h"
 #include "channels/vector/vector_channel.h"
+#include "gateway/ws_client_session.h"
 #include "gateway/ws_server.h"
 #include "daima_log.h"
 #include "voice/voice_channel.h"
@@ -48,5 +49,9 @@ daima_err_t channel_runtime_dispatch_outbound(const daima_msg_t *msg)
     if (!msg || !msg->content) {
         return DAIMA_ERR_INVALID_ARG;
     }
-    return channel_runtime_send_text(msg->channel, msg->chat_id, msg->content, msg->reasoning);
+    daima_err_t err = channel_runtime_send_text(msg->channel, msg->chat_id, msg->content, msg->reasoning);
+    if (err != DAIMA_OK && strcmp(msg->channel, DAIMA_CHAN_WEBSOCKET) == 0) {
+        ws_pending_save(msg->content);
+    }
+    return err;
 }

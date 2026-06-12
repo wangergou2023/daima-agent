@@ -25,6 +25,15 @@
             <span id="dot" class="dot"></span>
             <span id="status">未连接</span>
           </div>
+          <div class="agent-state-row" id="agentStateRow" aria-live="polite">
+            <span id="agentIntentTag" class="agent-tag" hidden aria-hidden="true">
+              <span class="agent-tag-icon"></span>
+              <span class="agent-tag-label"></span>
+            </span>
+            <span id="agentRoleTag" class="agent-tag role-tag" hidden aria-hidden="true">
+              <span class="agent-tag-label"></span>
+            </span>
+          </div>
           <label class="theme-control" aria-label="Theme">
             <span>主题</span>
             <select id="themeSelect" class="theme-switch" aria-label="Theme">
@@ -108,6 +117,14 @@
     </div>
   </div>
 
+  <aside id="coordinatorPanel" class="coordinator-panel" hidden aria-hidden="true">
+    <div class="coordinator-head">
+      <span class="coordinator-title">Coordinator</span>
+      <button id="coordinatorClose" class="coordinator-close" type="button" aria-label="关闭">×</button>
+    </div>
+    <div id="coordinatorAgents" class="coordinator-agents"></div>
+  </aside>
+
   <aside id="petDock" class="pet-dock" hidden aria-hidden="true">
     <div id="petChooser" class="pet-chooser" hidden aria-hidden="true">
       <button
@@ -133,6 +150,12 @@
       </button>
     </div>
   </aside>
+
+  <div id="reconnectToast" class="reconnect-toast" hidden aria-hidden="true">
+    <span class="reconnect-toast-icon">↻</span>
+    <span id="reconnectToastText">正在恢复会话...</span>
+    <button id="reconnectToastAction" class="reconnect-toast-action" type="button">恢复</button>
+  </div>
 
   <script src="/pet.js"></script>
   <script src="/app.js"></script>

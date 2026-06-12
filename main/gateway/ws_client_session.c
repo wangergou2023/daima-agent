@@ -51,6 +51,9 @@ typedef struct {
 
 static ws_client_t s_clients[DAIMA_WS_MAX_CLIENTS];
 static pthread_mutex_t s_clients_mutex = PTHREAD_MUTEX_INITIALIZER;
+static char s_pending_response[65536];
+static bool s_has_pending = false;
+static pthread_mutex_t s_pending_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static int recv_all(int fd, void *buf, size_t len)
 {
@@ -132,6 +135,63 @@ static void ws_send_json_text(int fd, cJSON *obj)
     if (!text) return;
     ws_send_text(fd, text);
     free(text);
+}
+
+void ws_pending_save(const char *response_text)
+{
+    if (!response_text || !response_text[0]) {
+        return;
+    }
+
+    pthread_mutex_lock(&s_pending_mutex);
+    snprintf(s_pending_response, sizeof(s_pending_response), "%s", response_text);
+    s_has_pending = true;
+    pthread_mutex_unlock(&s_pending_mutex);
+}
+
+const char *ws_pending_pop(void)
+{
+    const char *response = NULL;
+
+    pthread_mutex_lock(&s_pending_mutex);
+    if (s_has_pending) {
+        s_has_pending = false;
+        response = s_pending_response[0] ? s_pending_response : NULL;
+    }
+    pthread_mutex_unlock(&s_pending_mutex);
+    return response;
+}
+
+static void ws_pending_restore(void)
+{
+    pthread_mutex_lock(&s_pending_mutex);
+    if (s_pending_response[0]) {
+        s_has_pending = true;
+    }
+    pthread_mutex_unlock(&s_pending_mutex);
+}
+
+static int ws_send_pending_response(int fd, const char *chat_id, const char *response_text)
+{
+    if (!response_text || !response_text[0]) {
+        return 0;
+    }
+
+    cJSON *resp = cJSON_CreateObject();
+    if (!resp) {
+        return -1;
+    }
+    cJSON_AddStringToObject(resp, "type", "response");
+    cJSON_AddStringToObject(resp, "content", response_text);
+    cJSON_AddStringToObject(resp, "chat_id", chat_id ? chat_id : "");
+    char *text = cJSON_PrintUnformatted(resp);
+    cJSON_Delete(resp);
+    if (!text) {
+        return -1;
+    }
+    int ret = ws_send_text(fd, text);
+    free(text);
+    return ret;
 }
 
 static void ws_send_upload_error(int fd, const char *chat_id, const char *error)
@@ -412,6 +472,8 @@ bool ws_client_session_add(int fd)
     if (slot >= 0) {
         s_clients[slot].fd = fd;
         snprintf(s_clients[slot].chat_id, sizeof(s_clients[slot].chat_id), "ws_%d", fd);
+        char chat_id[sizeof(s_clients[slot].chat_id)];
+        snprintf(chat_id, sizeof(chat_id), "%s", s_clients[slot].chat_id);
         clear_upload_state(&s_clients[slot]);
         s_clients[slot].last_seen = now;
         s_clients[slot].last_pong = now;
@@ -419,7 +481,17 @@ bool ws_client_session_add(int fd)
         s_clients[slot].awaiting_pong = false;
         s_clients[slot].active = true;
         pthread_mutex_unlock(&s_clients_mutex);
-        DAIMA_LOGI(TAG, "Client connected: %s (fd=%d)", s_clients[slot].chat_id, fd);
+        DAIMA_LOGI(TAG, "Client connected: %s (fd=%d)", chat_id, fd);
+
+        const char *pending = ws_pending_pop();
+        if (pending) {
+            if (ws_send_pending_response(fd, chat_id, pending) != 0) {
+                ws_pending_restore();
+                remove_client(fd);
+                return true;
+            }
+            DAIMA_LOGI(TAG, "Delivered pending response to %s", chat_id);
+        }
         return true;
     }
 
@@ -753,6 +825,10 @@ static void handle_message(int fd)
 void ws_client_session_init(void)
 {
     memset(s_clients, 0, sizeof(s_clients));
+    pthread_mutex_lock(&s_pending_mutex);
+    s_pending_response[0] = '\0';
+    s_has_pending = false;
+    pthread_mutex_unlock(&s_pending_mutex);
 }
 
 int ws_client_session_update_fdset(fd_set *readfds, int maxfd)

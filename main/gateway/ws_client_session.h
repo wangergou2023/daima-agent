@@ -13,3 +13,5 @@ int ws_client_session_update_fdset(fd_set *readfds, int maxfd);
 void ws_client_session_handle_ready(const fd_set *readfds);
 void ws_client_session_keepalive_tick(void);
 daima_err_t ws_client_session_send_json(const char *chat_id, cJSON *obj);
+void ws_pending_save(const char *response_text);
+const char *ws_pending_pop(void);

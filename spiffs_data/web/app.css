@@ -1463,6 +1463,298 @@ button:disabled {
   }
 }
 
+/* ── Agent state tags ─────────────────────────────── */
+
+.agent-state-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.agent-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.agent-tag[hidden] {
+  display: none;
+}
+
+.agent-tag-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.agent-tag-label {
+  text-transform: uppercase;
+}
+
+/* Intent color variants */
+.agent-tag.intent-implement {
+  background: rgba(61, 179, 127, 0.14);
+  color: #287d55;
+  border: 1px solid rgba(61, 179, 127, 0.18);
+}
+
+.agent-tag.intent-qa {
+  background: rgba(139, 92, 246, 0.13);
+  color: #6d3fd4;
+  border: 1px solid rgba(139, 92, 246, 0.18);
+}
+
+.agent-tag.intent-investigate {
+  background: rgba(95, 135, 201, 0.13);
+  color: #3e67a5;
+  border: 1px solid rgba(95, 135, 201, 0.18);
+}
+
+.agent-tag.intent-fix {
+  background: rgba(245, 158, 11, 0.14);
+  color: #b06d0b;
+  border: 1px solid rgba(245, 158, 11, 0.18);
+}
+
+/* Role tag */
+.agent-tag.role-tag {
+  background: rgba(71, 84, 103, 0.08);
+  color: var(--muted-strong);
+  border: 1px solid var(--border);
+}
+
+.agent-tag.role-tag.role-active {
+  background: rgba(95, 135, 201, 0.14);
+  color: #3e67a5;
+  border-color: rgba(95, 135, 201, 0.24);
+}
+
+/* ── Coordinator progress panel ──────────────────── */
+
+.coordinator-panel {
+  position: fixed;
+  right: 28px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 14;
+  width: min(320px, calc(100vw - 56px));
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.16);
+  backdrop-filter: blur(18px);
+  animation: coord-panel-in 0.3s ease both;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.coordinator-panel[hidden] {
+  display: none;
+}
+
+.coordinator-panel.removing {
+  opacity: 0;
+  transform: translateY(calc(-50% + 12px));
+}
+
+@keyframes coord-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-50% + 16px)) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+  }
+}
+
+.coordinator-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.coordinator-title {
+  color: rgba(22, 24, 29, 0.92);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.coordinator-close {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(71, 84, 103, 0.06);
+  color: var(--muted-strong);
+  font-size: 15px;
+  line-height: 1;
+}
+
+.coordinator-close:hover {
+  background: rgba(71, 84, 103, 0.12);
+}
+
+.coordinator-agents {
+  display: grid;
+  gap: 8px;
+}
+
+.coordinator-agent {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: rgba(246, 248, 251, 0.6);
+  border: 1px solid rgba(18, 24, 35, 0.04);
+}
+
+.coordinator-agent-status {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.coordinator-agent-status.running {
+  background: rgba(95, 135, 201, 0.12);
+  color: #3e67a5;
+}
+
+.coordinator-agent-status.waiting {
+  background: rgba(148, 163, 184, 0.08);
+  color: var(--muted);
+}
+
+.coordinator-agent-status.done {
+  background: rgba(61, 179, 127, 0.12);
+  color: #287d55;
+}
+
+.coordinator-agent-status.error {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+}
+
+.coordinator-agent-spin {
+  animation: coord-spin 1.2s linear infinite;
+}
+
+@keyframes coord-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.coordinator-agent-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(22, 24, 29, 0.92);
+}
+
+.coordinator-agent-detail {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* ── Reconnect toast ─────────────────────────────── */
+
+.reconnect-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  z-index: 16;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 18px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.16);
+  backdrop-filter: blur(16px);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--foreground);
+  animation: toast-in 0.28s ease both;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.reconnect-toast[hidden] {
+  display: none;
+}
+
+.reconnect-toast.hiding {
+  opacity: 0;
+  transform: translateX(-50%) translateY(12px);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.reconnect-toast-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.reconnect-toast-action {
+  min-width: 64px;
+  height: 30px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-strong);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.reconnect-toast-action:hover {
+  background: var(--accent-soft);
+}
+
+/* Coordinator panel mobile */
+@media (max-width: 900px) {
+  .coordinator-panel {
+    right: 14px;
+    width: min(290px, calc(100vw - 28px));
+  }
+}
+
+@media (max-width: 640px) {
+  .coordinator-panel {
+    right: 6px;
+    width: min(280px, calc(100vw - 12px));
+    padding: 14px;
+  }
+}
+
 @media (max-width: 900px) {
   .app-shell {
     width: 100vw;

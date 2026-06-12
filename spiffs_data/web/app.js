@@ -30,6 +30,15 @@ const petButton = document.getElementById('petButton');
 const petRunner = document.getElementById('petRunner');
 const petSprite = document.getElementById('petSprite');
 const petBubble = document.getElementById('petBubble');
+const agentStateRow = document.getElementById('agentStateRow');
+const agentIntentTag = document.getElementById('agentIntentTag');
+const agentRoleTag = document.getElementById('agentRoleTag');
+const coordinatorPanel = document.getElementById('coordinatorPanel');
+const coordinatorAgents = document.getElementById('coordinatorAgents');
+const coordinatorClose = document.getElementById('coordinatorClose');
+const reconnectToast = document.getElementById('reconnectToast');
+const reconnectToastText = document.getElementById('reconnectToastText');
+const reconnectToastAction = document.getElementById('reconnectToastAction');
 
 const CHAT_ID_KEY = 'daima_chat_id';
 const THEME_KEY = 'daima_theme';
@@ -46,6 +55,22 @@ const DEFAULT_UI_CONFIG = Object.freeze({
     security_level: 'build',
   },
 });
+
+const INTENT_CONFIG = Object.freeze({
+  implement: { icon: '🔧', label: 'IMPLEMENT', cssClass: 'intent-implement' },
+  qa: { icon: '💬', label: 'QA', cssClass: 'intent-qa' },
+  investigate: { icon: '🔍', label: 'INVESTIGATE', cssClass: 'intent-investigate' },
+  fix: { icon: '🐛', label: 'FIX', cssClass: 'intent-fix' },
+});
+
+const ROLE_LABELS = Object.freeze({
+  planner: 'PLANNER',
+  executor: 'EXECUTOR',
+  reviewer: 'REVIEWER',
+  fast: 'FAST',
+});
+
+const RECONNECT_SESSION_KEY = 'daima_last_session';
 
 const storedTheme = localStorage.getItem(THEME_KEY) || 'warm';
 let chatId = createChatId();
@@ -75,6 +100,9 @@ let petChooserOpen = false;
 let sessions = [];
 let selectedSessionId = '';
 let localSessions = [];
+let lastMessageSeq = 0;
+let coordinatorVisible = false;
+let reconnectToastTimer = null;
 
 function createChatId() {
   return `web_${Math.random().toString(36).slice(2, 8)}`;
@@ -1087,9 +1115,19 @@ function connect() {
   ws = new WebSocket(`${proto}://${location.host}`);
   ws.onopen = () => {
     setStatus(true);
+    clearAgentState();
     if (petController) {
       petController.handleSocketOpen();
     }
+    if (lastMessageSeq > 0) {
+      ws.send(JSON.stringify({
+        type: 'session_sync',
+        chat_id: chatId,
+        last_seq: lastMessageSeq,
+      }));
+      showReconnectToast(chatId, messages.childElementCount);
+    }
+    saveReconnectSession();
     refreshContextStats();
     if (pingTimer) clearInterval(pingTimer);
     pingTimer = setInterval(() => {
@@ -1102,6 +1140,8 @@ function connect() {
   };
   ws.onclose = () => {
     setStatus(false);
+    clearAgentState();
+    saveReconnectSession();
     if (pingTimer) {
       clearInterval(pingTimer);
       pingTimer = null;
@@ -1122,6 +1162,34 @@ function connect() {
     try {
       const data = JSON.parse(evt.data);
       if (data.type === 'pong') return;
+      if (data.type === 'agent_state') {
+        handleAgentStateMessage(data);
+        return;
+      }
+      if (data.type === 'coordinator_status') {
+        updateCoordinatorStatus(data.agents);
+        return;
+      }
+      if (data.type === 'session_sync') {
+        if (data.chat_id === chatId && Array.isArray(data.messages)) {
+          const newMessages = data.messages.filter(
+            (m) => m.role === 'assistant' || m.role === 'user'
+          );
+          for (const msg of newMessages) {
+            appendNode(makeMessageNode(msg.role, msg.content || '', msg.reasoning || ''));
+          }
+          if (data.last_seq !== undefined) {
+            lastMessageSeq = Number(data.last_seq) || 0;
+          }
+          hideReconnectToast();
+          pendingAssistantResponse = false;
+          stopRequested = false;
+          syncSendState();
+          refreshContextStats();
+        }
+        saveReconnectSession();
+        return;
+      }
       if (data.type === 'upload_done') {
         if (data.chat_id === chatId) {
           pendingImagePath = data.image_path || '';
@@ -1145,6 +1213,7 @@ function connect() {
             petController.handleSocketOpen();
           }
           syncSendState();
+          saveReconnectSession();
         }
         return;
       }
@@ -1194,6 +1263,7 @@ function connect() {
         }
         syncSendState();
         refreshContextStats();
+        saveReconnectSession();
         return;
       }
     } catch (_) {
@@ -1205,6 +1275,7 @@ function connect() {
         : evt.data;
       addMessage('assistant', assistantText);
       syncSendState();
+      saveReconnectSession();
     }
   };
 }
@@ -1350,6 +1421,205 @@ sudoInput.addEventListener('keydown', (e) => {
   }
 });
 
+if (coordinatorClose) {
+  coordinatorClose.addEventListener('click', () => closeCoordinatorPanel());
+}
+
+if (reconnectToastAction) {
+  reconnectToastAction.addEventListener('click', () => handleReconnect());
+}
+
+window.addEventListener('beforeunload', () => saveReconnectSession());
+
+function updateAgentIntent(intent) {
+  if (!agentIntentTag || !agentStateRow) return;
+  const config = INTENT_CONFIG[intent];
+  if (!config) {
+    agentIntentTag.hidden = true;
+    agentIntentTag.setAttribute('aria-hidden', 'true');
+    return;
+  }
+  agentIntentTag.className = `agent-tag ${config.cssClass}`;
+  agentIntentTag.querySelector('.agent-tag-icon').textContent = config.icon;
+  agentIntentTag.querySelector('.agent-tag-label').textContent = config.label;
+  agentIntentTag.hidden = false;
+  agentIntentTag.removeAttribute('aria-hidden');
+}
+
+function updateAgentRole(role) {
+  if (!agentRoleTag || !agentStateRow) return;
+  const label = ROLE_LABELS[String(role).toLowerCase()];
+  if (!label) {
+    agentRoleTag.hidden = true;
+    agentRoleTag.setAttribute('aria-hidden', 'true');
+    return;
+  }
+  agentRoleTag.className = 'agent-tag role-tag role-active';
+  agentRoleTag.querySelector('.agent-tag-label').textContent = label;
+  agentRoleTag.hidden = false;
+  agentRoleTag.removeAttribute('aria-hidden');
+}
+
+function clearAgentState() {
+  if (agentIntentTag) {
+    agentIntentTag.hidden = true;
+    agentIntentTag.setAttribute('aria-hidden', 'true');
+  }
+  if (agentRoleTag) {
+    agentRoleTag.hidden = true;
+    agentRoleTag.setAttribute('aria-hidden', 'true');
+  }
+}
+
+function handleAgentStateMessage(data) {
+  if (!data) return;
+  if (data.intent !== undefined) updateAgentIntent(data.intent);
+  if (data.role !== undefined) updateAgentRole(data.role);
+}
+
+function renderCoordinatorAgent(agent) {
+  const row = document.createElement('div');
+  row.className = 'coordinator-agent';
+
+  const statusEl = document.createElement('span');
+  statusEl.className = `coordinator-agent-status ${agent.status || 'waiting'}`;
+
+  if (agent.status === 'running') {
+    const spinner = document.createElement('span');
+    spinner.className = 'coordinator-agent-spin';
+    spinner.textContent = '⟳';
+    statusEl.appendChild(spinner);
+  } else if (agent.status === 'done') {
+    statusEl.textContent = '✓';
+  } else if (agent.status === 'error') {
+    statusEl.textContent = '✗';
+  } else {
+    statusEl.textContent = '—';
+  }
+
+  const nameEl = document.createElement('span');
+  nameEl.className = 'coordinator-agent-name';
+  nameEl.textContent = agent.name || 'Agent';
+
+  const detailEl = document.createElement('span');
+  detailEl.className = 'coordinator-agent-detail';
+  detailEl.textContent = agent.detail || (agent.status === 'running' ? '运行中...' : agent.status === 'done' ? '已完成' : agent.status === 'error' ? '出错' : '等待中...');
+
+  row.appendChild(statusEl);
+  row.appendChild(nameEl);
+  row.appendChild(detailEl);
+  return row;
+}
+
+function updateCoordinatorStatus(agents) {
+  if (!coordinatorPanel || !coordinatorAgents) return;
+  if (!Array.isArray(agents) || agents.length === 0) {
+    closeCoordinatorPanel();
+    return;
+  }
+
+  coordinatorAgents.innerHTML = '';
+  for (const agent of agents) {
+    coordinatorAgents.appendChild(renderCoordinatorAgent(agent));
+  }
+
+  if (!coordinatorVisible) {
+    coordinatorPanel.hidden = false;
+    coordinatorPanel.removeAttribute('aria-hidden');
+    coordinatorPanel.classList.remove('removing');
+    coordinatorVisible = true;
+  }
+}
+
+function closeCoordinatorPanel() {
+  if (!coordinatorPanel) return;
+  if (!coordinatorVisible) return;
+  coordinatorPanel.classList.add('removing');
+  const onEnd = () => {
+    coordinatorPanel.removeEventListener('transitionend', onEnd);
+    coordinatorPanel.hidden = true;
+    coordinatorPanel.setAttribute('aria-hidden', 'true');
+    coordinatorPanel.classList.remove('removing');
+    coordinatorVisible = false;
+    if (coordinatorAgents) coordinatorAgents.innerHTML = '';
+  };
+  coordinatorPanel.addEventListener('transitionend', onEnd);
+  setTimeout(() => {
+    if (!coordinatorVisible && coordinatorPanel.hidden) return;
+    coordinatorPanel.removeEventListener('transitionend', onEnd);
+    onEnd();
+  }, 400);
+}
+
+function saveReconnectSession() {
+  try {
+    localStorage.setItem(RECONNECT_SESSION_KEY, JSON.stringify({
+      chat_id: chatId,
+      last_seq: lastMessageSeq,
+      timestamp: Date.now(),
+      has_messages: messages.childElementCount > 0,
+    }));
+  } catch (_) {}
+}
+
+function showReconnectToast(chatIdToRestore, messageCount) {
+  if (!reconnectToast || !reconnectToastText) return;
+
+  if (messageCount > 0) {
+    reconnectToastText.textContent = `检测到之前的会话 (${messageCount} 条消息)`;
+    reconnectToastAction.hidden = false;
+  } else {
+    reconnectToastText.textContent = '正在恢复会话连接...';
+    reconnectToastAction.hidden = true;
+  }
+
+  reconnectToast.hidden = false;
+  reconnectToast.removeAttribute('aria-hidden');
+  reconnectToast.classList.remove('hiding');
+
+  if (reconnectToastTimer) clearTimeout(reconnectToastTimer);
+  reconnectToastTimer = setTimeout(() => hideReconnectToast(), 6000);
+}
+
+function hideReconnectToast() {
+  if (!reconnectToast) return;
+  if (reconnectToast.hidden) return;
+  reconnectToast.classList.add('hiding');
+  if (reconnectToastTimer) {
+    clearTimeout(reconnectToastTimer);
+    reconnectToastTimer = null;
+  }
+  const onEnd = () => {
+    reconnectToast.removeEventListener('transitionend', onEnd);
+    reconnectToast.hidden = true;
+    reconnectToast.setAttribute('aria-hidden', 'true');
+    reconnectToast.classList.remove('hiding');
+  };
+  reconnectToast.addEventListener('transitionend', onEnd);
+  setTimeout(() => {
+    if (reconnectToast.hidden) return;
+    reconnectToast.removeEventListener('transitionend', onEnd);
+    onEnd();
+  }, 400);
+}
+
+async function handleReconnect() {
+  hideReconnectToast();
+  try {
+    const resp = await fetch(`/api/session_history?chat_id=${encodeURIComponent(chatId)}`, { cache: 'no-store' });
+    if (resp.ok) {
+      const data = await resp.json();
+      const history = Array.isArray(data?.messages) ? data.messages : [];
+      if (history.length > 0) {
+        renderHistoryMessages(history);
+        selectedSessionId = chatId;
+        renderSessions();
+      }
+    }
+  } catch (_) {}
+  refreshContextStats();
+}
+
 async function initApp() {
   await refreshUiConfig();
   activePetPackageId = resolveInitialPetPackageId(uiConfig);
@@ -1364,6 +1634,28 @@ async function initApp() {
   syncEmptyComposerLayout();
   syncScrollButton();
   syncSendState();
+
+  try {
+    const savedStr = localStorage.getItem(RECONNECT_SESSION_KEY);
+    if (savedStr) {
+      const saved = JSON.parse(savedStr);
+      if (saved && saved.chat_id && saved.has_messages) {
+        setActiveChatId(saved.chat_id);
+        selectedSessionId = saved.chat_id;
+        lastMessageSeq = Number(saved.last_seq) || 0;
+        const resp = await fetch(`/api/session_history?chat_id=${encodeURIComponent(chatId)}`, { cache: 'no-store' });
+        if (resp.ok) {
+          const data = await resp.json();
+          const history = Array.isArray(data?.messages) ? data.messages : [];
+          if (history.length > 0) {
+            renderHistoryMessages(history);
+            showReconnectToast(chatId, history.length);
+          }
+        }
+      }
+    }
+  } catch (_) {}
+
   await loadSessions();
   connect();
 }
