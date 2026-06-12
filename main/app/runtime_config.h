@@ -14,8 +14,12 @@ const char *runtime_config_get_terminal_security_level(void);
 daima_err_t runtime_config_set_terminal_security_level(const char *level);
 
 const char *runtime_config_get_active_provider(void);
+const char *runtime_config_get_active_provider_name(void);
 const char *runtime_config_get_provider_api_key(void);
 const char *runtime_config_get_provider_model(void);
+const char *runtime_config_get_provider_model_for_name(const char *provider_name);
+int runtime_config_get_provider_count(void);
+const char *runtime_config_get_provider_name_at(int index);
 const char *runtime_config_get_provider_openai_base_url(void);
 const char *runtime_config_get_provider_api_mode(void);
 const char *runtime_config_get_provider_thinking_mode(void);

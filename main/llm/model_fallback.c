@@ -11,6 +11,9 @@
 
 static const char *TAG = "model_fallback";
 
+static bool add_model(model_fallback_cfg_t *cfg, const char *model);
+static void load_runtime_provider_cfg(model_fallback_cfg_t *cfg);
+
 static void safe_copy(char *dst, size_t dst_size, const char *src)
 {
     if (!dst || dst_size == 0) {
@@ -62,13 +65,18 @@ static void load_default_cfg(model_fallback_cfg_t *cfg)
     safe_copy(cfg->models[0], sizeof(cfg->models[0]), active_model);
     cfg->model_count = 1;
 
-    DAIMA_LOGI(TAG, "Model fallback default: %s (from active provider)", active_model);
+    DAIMA_LOGD(TAG, "Model fallback default: %s (from active provider)", active_model);
 }
 
 static bool add_model(model_fallback_cfg_t *cfg, const char *model)
 {
     if (!cfg || !model || !model[0] || cfg->model_count >= FALLBACK_MAX_MODELS) {
         return false;
+    }
+    for (int i = 0; i < cfg->model_count; i++) {
+        if (strcmp(cfg->models[i], model) == 0) {
+            return false;
+        }
     }
     safe_copy(cfg->models[cfg->model_count], sizeof(cfg->models[cfg->model_count]), model);
     cfg->model_count++;

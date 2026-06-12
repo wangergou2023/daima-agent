@@ -79,6 +79,39 @@ static daima_intent_t intent_from_key(const char *key)
     return DAIMA_INTENT_COUNT;
 }
 
+static void set_default_intent_map(category_router_cfg_t *cfg, int deep, int quick)
+{
+    if (!cfg) {
+        return;
+    }
+    cfg->intent_map[DAIMA_INTENT_QA] = quick;
+    cfg->intent_map[DAIMA_INTENT_IMPLEMENT] = deep;
+    cfg->intent_map[DAIMA_INTENT_INVESTIGATE] = deep;
+    cfg->intent_map[DAIMA_INTENT_FIX] = deep;
+    cfg->intent_map[DAIMA_INTENT_OPEN] = quick;
+}
+
+static const char *find_first_non_active_provider_model(void)
+{
+    const char *active_provider = runtime_config_get_active_provider_name();
+    int provider_count = runtime_config_get_provider_count();
+
+    for (int i = 0; i < provider_count; i++) {
+        const char *provider_name = runtime_config_get_provider_name_at(i);
+        if (!provider_name || !provider_name[0]) {
+            continue;
+        }
+        if (active_provider && active_provider[0] && strcmp(provider_name, active_provider) == 0) {
+            continue;
+        }
+        const char *model = runtime_config_get_provider_model_for_name(provider_name);
+        if (model && model[0]) {
+            return model;
+        }
+    }
+    return NULL;
+}
+
 static void load_default_cfg(category_router_cfg_t *cfg)
 {
     init_empty_cfg(cfg);
@@ -94,16 +127,35 @@ static void load_default_cfg(category_router_cfg_t *cfg)
     int max_tokens = runtime_config_get_max_output_tokens();
 
     int deep = add_profile(cfg, "deep", active_model, context_limit, max_tokens);
-    int quick = add_profile(cfg, "quick", active_model, context_limit, max_tokens);
+    const char *quick_model = find_first_non_active_provider_model();
+    if (!quick_model || !quick_model[0]) {
+        quick_model = active_model;
+    }
+    int quick = add_profile(cfg, "quick", quick_model, context_limit, max_tokens);
 
-    cfg->intent_map[DAIMA_INTENT_QA] = quick;
-    cfg->intent_map[DAIMA_INTENT_IMPLEMENT] = deep;
-    cfg->intent_map[DAIMA_INTENT_INVESTIGATE] = deep;
-    cfg->intent_map[DAIMA_INTENT_FIX] = deep;
-    cfg->intent_map[DAIMA_INTENT_OPEN] = quick;
+    set_default_intent_map(cfg, deep, quick);
 
-    DAIMA_LOGI(TAG, "Category routing defaults: deep=%s quick=%s (from active provider)",
-               active_model, active_model);
+    DAIMA_LOGI(TAG, "Category routing defaults: deep=%s quick=%s (from runtime providers)",
+               active_model, quick_model);
+}
+
+static void add_profiles_from_provider_object(category_router_cfg_t *cfg, cJSON *profiles)
+{
+    cJSON *entry = NULL;
+    int context_limit = runtime_config_get_context_limit_tokens();
+    int max_tokens = runtime_config_get_max_output_tokens();
+
+    cJSON_ArrayForEach(entry, profiles) {
+        if (!entry->string || !entry->string[0] || !cJSON_IsString(entry)) {
+            continue;
+        }
+        const char *model = runtime_config_get_provider_model_for_name(entry->valuestring);
+        if (!model || !model[0]) {
+            DAIMA_LOGW(TAG, "Category routing provider not found or missing model: %s", entry->valuestring);
+            continue;
+        }
+        add_profile(cfg, entry->string, model, context_limit, max_tokens);
+    }
 }
 
 static char *read_file(const char *path)
@@ -172,6 +224,8 @@ static bool load_json_cfg(category_router_cfg_t *cfg, const char *json_text)
                         cJSON_IsNumber(context_limit) ? context_limit->valueint : 0,
                         cJSON_IsNumber(max_tokens) ? max_tokens->valueint : 0);
         }
+    } else if (cJSON_IsObject(profiles)) {
+        add_profiles_from_provider_object(cfg, profiles);
     }
 
     cJSON *intent_map = cJSON_GetObjectItem(root, "intent_map");

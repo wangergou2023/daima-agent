@@ -97,6 +97,30 @@ static void apply_provider_values(runtime_config_state_t *cfg,
     DAIMA_LOGI(TAG, "Runtime config applied provider: %s", provider_name);
 }
 
+static void collect_provider_entries(runtime_config_state_t *cfg, const cJSON *providers)
+{
+    const cJSON *entry = NULL;
+
+    if (!cfg || !providers || !cJSON_IsObject(providers)) {
+        return;
+    }
+
+    cfg->provider_count = 0;
+    cJSON_ArrayForEach(entry, (cJSON *)providers) {
+        if (!entry->string || !entry->string[0] || !cJSON_IsObject(entry)) {
+            continue;
+        }
+        if (cfg->provider_count >= RUNTIME_PROVIDER_MAX) {
+            DAIMA_LOGW(TAG, "Runtime config provider list truncated at %d", RUNTIME_PROVIDER_MAX);
+            break;
+        }
+        runtime_provider_entry_t *out = &cfg->providers[cfg->provider_count];
+        snprintf(out->name, sizeof(out->name), "%s", entry->string);
+        runtime_config_json_copy_string(entry, "model", out->model, sizeof(out->model));
+        cfg->provider_count++;
+    }
+}
+
 static void apply_feishu_values(runtime_config_state_t *cfg, const cJSON *root)
 {
     if (!cfg || !root || !cJSON_IsObject(root)) {
@@ -204,6 +228,7 @@ void runtime_config_apply_values(runtime_config_state_t *cfg, const cJSON *root)
     apply_common_values(cfg, common);
 
     if (providers && cJSON_IsObject(providers)) {
+        collect_provider_entries(cfg, providers);
         apply_active_provider(cfg, providers, active_provider);
     }
 }

@@ -309,6 +309,11 @@ const char *runtime_config_get_active_provider(void)
     return s_cfg.active_provider;
 }
 
+const char *runtime_config_get_active_provider_name(void)
+{
+    return runtime_config_get_active_provider();
+}
+
 const char *runtime_config_get_provider_api_key(void)
 {
     return s_cfg.provider_api_key;
@@ -317,6 +322,32 @@ const char *runtime_config_get_provider_api_key(void)
 const char *runtime_config_get_provider_model(void)
 {
     return s_cfg.provider_model[0] ? s_cfg.provider_model : DEFAULT_LLM_MODEL;
+}
+
+const char *runtime_config_get_provider_model_for_name(const char *provider_name)
+{
+    if (!provider_name || !provider_name[0]) {
+        return NULL;
+    }
+    for (int i = 0; i < s_cfg.provider_count; i++) {
+        if (strcmp(s_cfg.providers[i].name, provider_name) == 0) {
+            return s_cfg.providers[i].model[0] ? s_cfg.providers[i].model : NULL;
+        }
+    }
+    return NULL;
+}
+
+int runtime_config_get_provider_count(void)
+{
+    return s_cfg.provider_count;
+}
+
+const char *runtime_config_get_provider_name_at(int index)
+{
+    if (index < 0 || index >= s_cfg.provider_count) {
+        return NULL;
+    }
+    return s_cfg.providers[index].name[0] ? s_cfg.providers[index].name : NULL;
 }
 
 const char *runtime_config_get_provider_openai_base_url(void)

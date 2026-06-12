@@ -15,6 +15,12 @@
 #define RUNTIME_FEISHU_SECRET_MAX 128
 #define RUNTIME_FEISHU_CHAT_ID_MAX 64
 #define RUNTIME_BIGMODEL_KEY_MAX  128
+#define RUNTIME_PROVIDER_MAX      16
+
+typedef struct {
+    char name[RUNTIME_PROVIDER_NAME_MAX];
+    char model[RUNTIME_MODEL_MAX];
+} runtime_provider_entry_t;
 
 typedef struct {
     int loaded;
@@ -42,6 +48,8 @@ typedef struct {
     int provider_max_output_tokens;
     int provider_request_timeout_ms;
     bool provider_needs_reasoning_content;
+    runtime_provider_entry_t providers[RUNTIME_PROVIDER_MAX];
+    int provider_count;
 
     char feishu_app_id[RUNTIME_FEISHU_APP_ID_MAX];
     char feishu_app_secret[RUNTIME_FEISHU_SECRET_MAX];
