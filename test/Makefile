@@ -7,7 +7,7 @@ LDLIBS = -lm
 SAFE_EDIT_SRC = ../main/tools/tool_safe_edit.c
 HASHLINE_SRC = ../main/tools/tool_hashline.c
 
-test: test_tts_player test_work_item test_webfetch test_pet_event test_safe_edit test_hashline test_apply_patch test_terminal test_runtime_config test_llm_openai_payload test_llm_anthropic_payload test_llm_http_async test_llm_async_chat test_model_fallback test_session_history_reasoning test_paths test_tool_protocol_guard test_intent_gate test_agent_roles test_category_router test_plan_review test_team_mode test_files_tool test_cron_tool test_skills_tool test_skill_summary test_context_skills_summary test_tool_surface test_skill_scoped_tools test_tool_invocation_context test_json_helpers test_daima_text test_session_file_common test_compaction_recovery test_session_recovery test_todo_enforcer
+test: test_tts_player test_work_item test_webfetch test_pet_event test_safe_edit test_hashline test_apply_patch test_terminal test_runtime_config test_llm_openai_payload test_llm_anthropic_payload test_llm_http_async test_llm_async_chat test_model_fallback test_session_history_reasoning test_paths test_tool_protocol_guard test_intent_gate test_agent_roles test_agent_coordinator test_category_router test_plan_review test_team_mode test_files_tool test_cron_tool test_skills_tool test_skill_summary test_context_skills_summary test_tool_surface test_skill_scoped_tools test_tool_invocation_context test_json_helpers test_daima_text test_session_file_common test_compaction_recovery test_session_recovery test_todo_enforcer
 	./test_tts_player
 	./test_work_item
 	./test_webfetch
@@ -27,6 +27,7 @@ test: test_tts_player test_work_item test_webfetch test_pet_event test_safe_edit
 	./test_tool_protocol_guard
 	./test_intent_gate
 	./test_agent_roles
+	./test_agent_coordinator
 	./test_category_router
 	./test_plan_review
 	./test_team_mode
@@ -108,6 +109,9 @@ test_intent_gate: test_intent_gate.c ../main/agent/intent_gate.c ../main/daima_e
 test_agent_roles: test_agent_roles.c ../main/agent/agent_roles.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
+test_agent_coordinator: test_agent_coordinator.c ../main/agent/agent_coordinator.c ../main/agent/agent_roles.c
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+
 test_category_router: test_category_router.c ../main/agent/category_router.c ../main/app/daima_paths.c ../main/app/daima_fs.c ../main/app/daima_log_file.c ../main/app/runtime_config.c ../main/app/runtime_config_sections.c ../main/platform/daima_platform.c ../third_party/cjson/cJSON.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
@@ -160,4 +164,4 @@ test_todo_enforcer: test_todo_enforcer.c ../main/agent/todo_enforcer.c ../main/a
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 clean:
-	rm -f test_tts_player test_work_item test_webfetch test_pet_event test_safe_edit test_hashline test_apply_patch test_terminal test_runtime_config test_deepseek_thinking_runtime test_llm_openai_payload test_llm_anthropic_payload test_llm_http_async test_llm_async_chat test_model_fallback test_session_history_reasoning test_paths test_tool_protocol_guard test_intent_gate test_agent_roles test_category_router test_plan_review test_team_mode test_files_tool test_cron_tool test_skills_tool test_skill_summary test_context_skills_summary test_tool_surface test_skill_scoped_tools test_tool_invocation_context test_json_helpers test_daima_text test_session_file_common test_compaction_recovery test_session_recovery test_todo_enforcer
+	rm -f test_tts_player test_work_item test_webfetch test_pet_event test_safe_edit test_hashline test_apply_patch test_terminal test_runtime_config test_deepseek_thinking_runtime test_llm_openai_payload test_llm_anthropic_payload test_llm_http_async test_llm_async_chat test_model_fallback test_session_history_reasoning test_paths test_tool_protocol_guard test_intent_gate test_agent_roles test_agent_coordinator test_category_router test_plan_review test_team_mode test_files_tool test_cron_tool test_skills_tool test_skill_summary test_context_skills_summary test_tool_surface test_skill_scoped_tools test_tool_invocation_context test_json_helpers test_daima_text test_session_file_common test_compaction_recovery test_session_recovery test_todo_enforcer
