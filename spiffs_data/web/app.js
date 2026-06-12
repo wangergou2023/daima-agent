@@ -1189,10 +1189,11 @@ function connect() {
     }
   };
   ws.onerror = () => setStatus(false);
-  ws.onmessage = (evt) => {
-    try {
-      const data = JSON.parse(evt.data);
-      if (data.type === 'pong') return;
+   ws.onmessage = (evt) => {
+     try {
+       const raw = JSON.parse(evt.data);
+       const data = raw.text ? (() => { try { return JSON.parse(raw.text); } catch { return raw; } })() : raw;
+       if (data.type === 'pong') return;
       if (data.type === 'agent_state') {
         handleAgentStateMessage(data);
         return;
