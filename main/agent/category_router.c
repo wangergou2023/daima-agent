@@ -91,27 +91,6 @@ static void set_default_intent_map(category_router_cfg_t *cfg, int deep, int qui
     cfg->intent_map[DAIMA_INTENT_OPEN] = quick;
 }
 
-static const char *find_first_non_active_provider_model(void)
-{
-    const char *active_provider = runtime_config_get_active_provider_name();
-    int provider_count = runtime_config_get_provider_count();
-
-    for (int i = 0; i < provider_count; i++) {
-        const char *provider_name = runtime_config_get_provider_name_at(i);
-        if (!provider_name || !provider_name[0]) {
-            continue;
-        }
-        if (active_provider && active_provider[0] && strcmp(provider_name, active_provider) == 0) {
-            continue;
-        }
-        const char *model = runtime_config_get_provider_model_for_name(provider_name);
-        if (model && model[0]) {
-            return model;
-        }
-    }
-    return NULL;
-}
-
 static void load_default_cfg(category_router_cfg_t *cfg)
 {
     init_empty_cfg(cfg);
@@ -127,16 +106,12 @@ static void load_default_cfg(category_router_cfg_t *cfg)
     int max_tokens = runtime_config_get_max_output_tokens();
 
     int deep = add_profile(cfg, "deep", active_model, context_limit, max_tokens);
-    const char *quick_model = find_first_non_active_provider_model();
-    if (!quick_model || !quick_model[0]) {
-        quick_model = active_model;
-    }
-    int quick = add_profile(cfg, "quick", quick_model, context_limit, max_tokens);
+    int quick = add_profile(cfg, "quick", active_model, context_limit, max_tokens);
 
     set_default_intent_map(cfg, deep, quick);
 
-    DAIMA_LOGI(TAG, "Category routing defaults: deep=%s quick=%s (from runtime providers)",
-               active_model, quick_model);
+    DAIMA_LOGI(TAG, "Category routing defaults: deep=%s quick=%s (from active provider)",
+                active_model, active_model);
 }
 
 static void add_profiles_from_provider_object(category_router_cfg_t *cfg, cJSON *profiles)
