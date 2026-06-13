@@ -44,14 +44,15 @@ EOF
 }
 
 echo "=== Building daima ==="
-./build.sh system
+make clean
+make
 
 echo "=== Installing to $DAIMA_HOME ==="
 mkdir -p "$BIN_DIR" "$CONFIG_DIR" "$WEB_DIR" "$SKILLS_DIR" "$CA_DIR"
 mkdir -p "$DAIMA_HOME/spiffs_data/memory" "$DAIMA_HOME/spiffs_data/sessions" "$DAIMA_HOME/spiffs_data/cache"
 
 rm -f "$DAIMA_HOME/daima"
-install -m755 "./build-host/daima" "$TARGET_BIN"
+install -m755 "./build-kbuild/daima" "$TARGET_BIN"
 install -m644 "./spiffs_data/ca/cacert.pem" "$CA_DIR/cacert.pem"
 
 cp -a "./spiffs_data/web/." "$WEB_DIR/"
