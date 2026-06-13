@@ -13,6 +13,8 @@
 #include "drivers/channel/feishu/feishu_bot.h"
 #include "drivers/channel/vector/vector_channel.h"
 #include "linux/init.h"
+#include "kernel/time/timer.h"
+#include "linux/workqueue.h"
 
 #include <arpa/inet.h>
 #include <ifaddrs.h>
@@ -102,6 +104,8 @@ void do_basic_setup(void)
     DAIMA_ERROR_CHECK(session_store_init());
 
     DAIMA_LOGI(TAG, "subsys_initcall...");
+    DAIMA_ERROR_CHECK(cron_service_init());
+    DAIMA_ERROR_CHECK(heartbeat_init());
     DAIMA_ERROR_CHECK(http_proxy_init());
     DAIMA_ERROR_CHECK(skill_loader_init());
 
@@ -110,6 +114,9 @@ void do_basic_setup(void)
     DAIMA_ERROR_CHECK(feishu_bot_init());
     DAIMA_ERROR_CHECK(feishu_bot_start());
     DAIMA_ERROR_CHECK(vector_channel_init());
+
+    cron_service_start();
+    heartbeat_start();
 
     DAIMA_LOGI(TAG, "Basic setup complete");
 }

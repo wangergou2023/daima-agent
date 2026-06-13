@@ -2,7 +2,12 @@
 #include "state.h"
 #include "team.h"
 #include "autoconf.h"
+#include "linux/module.h"
 #include "log.h"
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("daima");
+MODULE_DESCRIPTION("Agent Extension: team_mode");
 
 static const char *TAG = "ext_team_mode";
 

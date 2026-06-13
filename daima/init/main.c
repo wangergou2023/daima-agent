@@ -16,9 +16,7 @@
 #include "linux/init.h"
 #include "drivers/channel/feishu/feishu_bot.h"
 #include "drivers/channel/vector/vector_channel.h"
-#include "cron.h"
 #include "drivers/channel/gateway/ws_server.h"
-#include "heartbeat.h"
 #include "drivers/llm/llm_proxy.h"
 #include "drivers/memory/memory_store.h"
 #include "drivers/memory/session_store.h"
@@ -74,15 +72,11 @@ int main(int argc, char **argv)
 
     DAIMA_ERROR_CHECK(llm_proxy_init());
     DAIMA_ERROR_CHECK(tool_registry_init());
-    DAIMA_ERROR_CHECK(cron_service_init());
-    DAIMA_ERROR_CHECK(heartbeat_init());
     DAIMA_ERROR_CHECK(agent_loop_init());
 
     DAIMA_ERROR_CHECK(channel_router_start());
 
     DAIMA_ERROR_CHECK(agent_loop_start());
-    cron_service_start();
-    heartbeat_start();
     daima_err_t ws_err = ws_server_start();
     if (ws_err != DAIMA_OK) {
         DAIMA_LOGW(TAG, "WebSocket server failed to start: %s", daima_err_to_name(ws_err));

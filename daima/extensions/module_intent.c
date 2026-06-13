@@ -1,7 +1,12 @@
 #include "hooks.h"
 #include "intent.h"
 #include "autoconf.h"
+#include "linux/module.h"
 #include "log.h"
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("daima");
+MODULE_DESCRIPTION("Agent Extension: intent_gate");
 
 static const char *TAG = "ext_intent_gate";
 

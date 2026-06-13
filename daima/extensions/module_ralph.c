@@ -1,9 +1,14 @@
 #include "hooks.h"
 #include "ralph.h"
 #include "autoconf.h"
+#include "linux/module.h"
 
 #include <stdlib.h>
 #include <string.h>
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("daima");
+MODULE_DESCRIPTION("Agent Extension: ralph_loop");
 
 static daima_err_t on_prepare(daima_msg_t *msg, char *system_prompt,
                               size_t system_prompt_size, cJSON *messages)

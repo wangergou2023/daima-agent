@@ -3,10 +3,15 @@
 #include "state.h"
 #include "interview.h"
 #include "autoconf.h"
+#include "linux/module.h"
 #include "log.h"
 
 #include <stdlib.h>
 #include <string.h>
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("daima");
+MODULE_DESCRIPTION("Agent Extension: prometheus_interview");
 
 static const char *TAG = "ext_prometheus";
 

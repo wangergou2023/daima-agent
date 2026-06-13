@@ -3,11 +3,16 @@
 #include "turn_persist.h"
 #include "state.h"
 #include "runtime.h"
+#include "linux/module.h"
 #include "log.h"
 #include "drivers/platform/platform.h"
 
 #include <stdlib.h>
 #include <string.h>
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("daima");
+MODULE_DESCRIPTION("Agent Extension: coordinator");
 
 static const char *TAG = "ext_coordinator";
 

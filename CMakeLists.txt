@@ -135,8 +135,8 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/daima/extensions/module_sched.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/extensions/module_ralph.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/ipc/bus.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/cron.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/heartbeat.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/time/timer.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/workqueue.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/memory/memory_store.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/memory/session_store.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/memory/session_store_file.c

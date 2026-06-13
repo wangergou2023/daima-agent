@@ -2,10 +2,15 @@
 #include "roles.h"
 #include "state.h"
 #include "autoconf.h"
+#include "linux/module.h"
 #include "log.h"
 
 #include <stdio.h>
 #include <string.h>
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("daima");
+MODULE_DESCRIPTION("Agent Extension: agent_roles");
 
 static const char *TAG = "ext_agent_roles";
 

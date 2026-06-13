@@ -1,7 +1,7 @@
 /* cron 工具实现。 */
 
 #include "drivers/tool/tool_cron.h"
-#include "cron.h"
+#include "kernel/time/timer.h"
 #include "runtime.h"
 #include "drivers/channel/feishu/feishu_targets.h"
 #include "bus.h"

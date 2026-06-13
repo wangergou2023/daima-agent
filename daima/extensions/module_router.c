@@ -1,7 +1,12 @@
 #include "hooks.h"
 #include "router.h"
 #include "autoconf.h"
+#include "linux/module.h"
 #include "log.h"
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("daima");
+MODULE_DESCRIPTION("Agent Extension: category_router");
 
 static const char *TAG = "ext_category_router";
 

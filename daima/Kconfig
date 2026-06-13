@@ -108,6 +108,14 @@ config DAIMA_ENABLE_CRON
 	help
 	  启用cron服务
 
+config DAIMA_WORKQUEUE
+	bool "Workqueue support"
+	default y
+
+config DAIMA_TIMER
+	bool "High resolution timer"
+	default y
+
 config DAIMA_ENABLE_SKILLS
 	bool "Skill系统"
 	default y

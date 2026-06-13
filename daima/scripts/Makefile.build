@@ -1,0 +1,34 @@
+# Simple kbuild-style compile rules for Daima objects.
+
+CC      ?= cc
+AR      ?= ar
+DAIMA   ?= $(CURDIR)/daima
+BUILD   ?= $(CURDIR)/build
+
+CFLAGS  ?= -std=c11 -Wall -Wextra -O2
+CPPFLAGS += -I$(DAIMA) \
+            -I$(DAIMA)/include \
+            -I$(DAIMA)/init \
+            -I$(DAIMA)/kernel \
+            -I$(DAIMA)/kernel/time \
+            -I$(DAIMA)/ipc \
+            -I$(DAIMA)/lib \
+            -I$(DAIMA)/net \
+            -I$(DAIMA)/fs
+
+src-y ?=
+obj-y := $(patsubst $(DAIMA)/%.c,$(BUILD)/%.o,$(src-y))
+
+.PHONY: all clean
+
+all: $(BUILD)/built-in.a
+
+$(BUILD)/built-in.a: $(obj-y)
+	$(AR) rcs $@ $^
+
+$(BUILD)/%.o: $(DAIMA)/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+
+clean:
+	rm -rf $(BUILD)

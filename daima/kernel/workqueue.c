@@ -1,6 +1,6 @@
 /* 心跳/定时触发逻辑。 */
 
-#include "heartbeat.h"
+#include "linux/workqueue.h"
 #include "runtime.h"
 #include "paths.h"
 #include "autoconf.h"
