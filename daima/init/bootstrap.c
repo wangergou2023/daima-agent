@@ -26,7 +26,7 @@
 #include <unistd.h>
 
 #include "autoconf.h"
-#include "log.h"
+#include "linux/printk.h"
 
 static const char *TAG = "bootstrap";
 

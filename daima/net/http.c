@@ -3,7 +3,7 @@
 #include "tls.h"
 #include "proxy.h"
 #include "autoconf.h"
-#include "log.h"
+#include "linux/printk.h"
 
 #include <curl/curl.h>
 #include <pthread.h>

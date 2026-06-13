@@ -5,7 +5,7 @@
 
 #include "drivers/channel/feishu/feishu_bot.h"
 #include "cJSON.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "drivers/channel/gateway/ws_server.h"
 
 static const char *TAG = "tool_activity_notifier";

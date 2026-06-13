@@ -24,7 +24,7 @@
 #include <openssl/evp.h>
 #include <openssl/sha.h>
 
-#include "log.h"
+#include "linux/printk.h"
 #include "cJSON.h"
 
 static const char *TAG = "ws";

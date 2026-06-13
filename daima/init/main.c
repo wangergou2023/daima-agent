@@ -21,7 +21,7 @@
 #include "drivers/memory/memory_store.h"
 #include "drivers/memory/session_store.h"
 #include "autoconf.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "os.h"
 #include "drivers/platform/platform.h"
 #include "proxy.h"

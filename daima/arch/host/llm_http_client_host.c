@@ -11,7 +11,7 @@
 #include "http.h"
 #include "tls.h"
 #include "autoconf.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "proxy.h"
 
 #define LLM_DUMP_MAX_BYTES   (16 * 1024)

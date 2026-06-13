@@ -9,7 +9,7 @@
 #include "runtime.h"
 #include "autoconf.h"
 #include "cJSON.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "json_helpers.h"
 
 static const char *TAG = "feishu_targets";

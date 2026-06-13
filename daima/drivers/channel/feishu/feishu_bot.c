@@ -11,7 +11,7 @@
 #include "drivers/channel/feishu/feishu_ws_runtime.h"
 #include "runtime.h"
 #include "autoconf.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "os.h"
 #include "text.h"
 #include "proxy.h"

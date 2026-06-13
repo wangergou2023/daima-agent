@@ -4,7 +4,7 @@
 #include "state.h"
 #include "runtime.h"
 #include "linux/module.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "drivers/platform/platform.h"
 
 #include <stdlib.h>

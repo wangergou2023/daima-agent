@@ -4,7 +4,7 @@
 
 #include "paths.h"
 #include "env.h"
-#include "log.h"
+#include "linux/printk.h"
 
 static const char *TAG = "host_tls";
 

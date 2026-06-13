@@ -3,7 +3,7 @@
 #include "team.h"
 #include "autoconf.h"
 #include "linux/module.h"
-#include "log.h"
+#include "linux/printk.h"
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("daima");

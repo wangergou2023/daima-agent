@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "log.h"
+#include "linux/printk.h"
 
 static const char *TAG = "llm_parse";
 

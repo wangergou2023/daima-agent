@@ -10,7 +10,7 @@
 #include "runtime.h"
 #include "bus.h"
 #include "drivers/memory/session_store.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "cJSON.h"
 
 static const char *TAG = "agent_finish";

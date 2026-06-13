@@ -12,7 +12,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <ctype.h>
-#include "log.h"
+#include "linux/printk.h"
 
 static const char *TAG = "heartbeat";
 

@@ -3,7 +3,7 @@
 #include "paths.h"
 #include "runtime.h"
 #include "autoconf.h"
-#include "log.h"
+#include "linux/printk.h"
 
 #include <stdio.h>
 #include <stdlib.h>

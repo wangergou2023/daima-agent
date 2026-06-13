@@ -15,7 +15,7 @@
 #include "http.h"
 #include "paths.h"
 #include "autoconf.h"
-#include "log.h"
+#include "linux/printk.h"
 
 static const char *TAG = "feishu_media";
 

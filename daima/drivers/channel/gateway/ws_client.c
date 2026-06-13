@@ -20,7 +20,7 @@
 #include "drivers/channel/gateway/ws_server.h"
 #include "drivers/pet/pet_event.h"
 #include "autoconf.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "cJSON.h"
 
 static const char *TAG = "ws";

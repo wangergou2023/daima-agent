@@ -7,7 +7,7 @@
 
 #include "tool_feedback.h"
 #include "tool_guard.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "text.h"
 #include "drivers/tool/tool_file_ops.h"
 #include "drivers/tool/tool_runtime.h"

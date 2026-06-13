@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include "drivers/channel/vector/vector_channel.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "drivers/pet/pet_event.h"
 
 static const char *TAG = "agent_channel_policy";

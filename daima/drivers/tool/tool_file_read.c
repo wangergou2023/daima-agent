@@ -9,7 +9,7 @@
 
 #include "cJSON.h"
 #include "autoconf.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "drivers/tool/tool_hashline.h"
 #include "drivers/tool/tool_safe_edit.h"
 

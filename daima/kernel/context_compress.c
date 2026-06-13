@@ -7,7 +7,7 @@
 #include "runtime.h"
 
 #include "autoconf.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "cJSON.h"
 
 #include <pthread.h>

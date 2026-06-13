@@ -8,7 +8,7 @@
 
 #include "bus.h"
 #include "autoconf.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "os.h"
 
 static const char *TAG = "router";

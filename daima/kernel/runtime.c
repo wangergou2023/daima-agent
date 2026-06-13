@@ -9,7 +9,7 @@
 
 #include "cJSON.h"
 #include "autoconf.h"
-#include "log.h"
+#include "linux/printk.h"
 
 static const char *TAG = "runtime_config";
 

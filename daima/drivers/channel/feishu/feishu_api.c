@@ -11,7 +11,7 @@
 
 #include "cJSON.h"
 #include "autoconf.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "http.h"
 #include "drivers/channel/feishu/feishu_http.h"
 

@@ -1,4 +1,16 @@
 menu "Kernel Features"
+config PRINTK
+    bool "printk 日志子系统"
+    default y
+
+config IRQ
+    bool "IRQ 中断框架"
+    default y
+
+config SYSCTL
+    bool "sysctl 运行时参数"
+    default y
+
 source "daima/kernel/sched/Kconfig"
 source "daima/kernel/time/Kconfig"
 config DAIMA_KERNEL_WORKQUEUE

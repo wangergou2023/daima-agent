@@ -1,6 +1,6 @@
 #include "sched.h"
 #include "autoconf.h"
-#include "log.h"
+#include "linux/printk.h"
 
 #include <stdio.h>
 #include <string.h>

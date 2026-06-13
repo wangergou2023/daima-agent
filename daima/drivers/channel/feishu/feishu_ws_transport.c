@@ -22,7 +22,7 @@
 #include "tls.h"
 #include "base64.h"
 #include "autoconf.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "text.h"
 
 static const char *TAG = "feishu_ws";

@@ -14,7 +14,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "log.h"
+#include "linux/printk.h"
 #include "cJSON.h"
 
 static const char *TAG = "tool_terminal";

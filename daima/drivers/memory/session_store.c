@@ -2,7 +2,7 @@
 
 #include "session_store.h"
 
-#include "log.h"
+#include "linux/printk.h"
 
 static const char *TAG = "session_store";
 static const daima_session_store_ops_t *s_ops = NULL;

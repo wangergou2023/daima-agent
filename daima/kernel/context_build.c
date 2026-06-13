@@ -15,7 +15,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include "log.h"
+#include "linux/printk.h"
 
 static const char *TAG = "context";
 

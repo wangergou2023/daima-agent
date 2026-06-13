@@ -4,7 +4,7 @@
 #include "runtime.h"
 #include "cJSON.h"
 #include "autoconf.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "text.h"
 
 #include <stdio.h>

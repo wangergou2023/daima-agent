@@ -1,22 +1,13 @@
 #include "err.h"
-#include "log.h"
 #include "drivers/platform/platform.h"
-#include "log_file.h"
 
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 #include <sys/time.h>
 #include <time.h>
 #ifdef __linux__
 #include <sys/sysinfo.h>
 #endif
 
-static int s_log_level = DAIMA_LOG_INFO;
-static daima_log_hook_t s_log_hook = NULL;
 static int s_rand_seeded = 0;
 
 const char *daima_err_to_name(daima_err_t err)
@@ -38,63 +29,6 @@ const char *daima_err_to_name(daima_err_t err)
     case DAIMA_ERR_NVS_NEW_VERSION_FOUND: return "DAIMA_ERR_NVS_NEW_VERSION_FOUND";
     default: return "DAIMA_ERR_UNKNOWN";
     }
-}
-
-void daima_log_level_set(const char *tag, int level)
-{
-    (void)tag;
-    s_log_level = level;
-}
-
-void daima_log_set_hook(daima_log_hook_t hook)
-{
-    s_log_hook = hook;
-}
-
-static const char *level_char(int level)
-{
-    switch (level) {
-    case DAIMA_LOG_ERROR: return "E";
-    case DAIMA_LOG_WARN: return "W";
-    case DAIMA_LOG_INFO: return "I";
-    case DAIMA_LOG_DEBUG: return "D";
-    default: return "?";
-    }
-}
-
-#include <sys/syscall.h>
-
-void daima_log_write(int level, const char *tag, const char *fmt, ...)
-{
-    if (level > s_log_level) return;
-
-    bool hook_state = false;
-    if (s_log_hook) s_log_hook(DAIMA_LOG_HOOK_PRE, &hook_state);
-
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    struct tm tm;
-    localtime_r(&tv.tv_sec, &tm);
-
-    char ts[32];
-    strftime(ts, sizeof(ts), "%H:%M:%S", &tm);
-
-    fprintf(stderr, "%s.%03ld [%s] %s: ", ts, tv.tv_usec / 1000,
-            level_char(level), tag ? tag : "log");
-
-    va_list ap;
-    va_start(ap, fmt);
-
-    char msg_buf[1024];
-    vsnprintf(msg_buf, sizeof(msg_buf), fmt, ap);
-    fprintf(stderr, "%s\n", msg_buf);
-    fflush(stderr);
-
-    daima_log_file_write(level, tag, msg_buf);
-
-    va_end(ap);
-
-    if (s_log_hook) s_log_hook(DAIMA_LOG_HOOK_POST, &hook_state);
 }
 
 size_t daima_get_free_memory(void)

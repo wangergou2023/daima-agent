@@ -3,7 +3,7 @@
 
 #include <string.h>
 #include <stdlib.h>
-#include "log.h"
+#include "linux/printk.h"
 
 static const char *TAG = "proxy";
 

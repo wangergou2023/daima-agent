@@ -28,7 +28,7 @@ static void *memrchr(const void *s, int c, size_t n) {
 }
 #endif
 #include <stdlib.h>
-#include "log.h"
+#include "linux/printk.h"
 #include "cJSON.h"
 #include "json_helpers.h"
 

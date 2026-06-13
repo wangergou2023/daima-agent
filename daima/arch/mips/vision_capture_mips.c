@@ -5,7 +5,7 @@
 #include "drivers/vision/vision_capture.h"
 #include "autoconf.h"
 #include "env.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "text.h"
 
 #include "sample-common.h"

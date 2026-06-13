@@ -17,7 +17,7 @@
 #include "drivers/memory/session_store.h"
 #include "autoconf.h"
 #include "env.h"
-#include "log.h"
+#include "linux/printk.h"
 #ifdef DAIMA_ENABLE_VISION
 #include "drivers/vision/vision_capture.h"
 #endif

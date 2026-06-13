@@ -11,7 +11,7 @@
 #include <strings.h>
 #include <string.h>
 #include <time.h>
-#include "log.h"
+#include "linux/printk.h"
 #include "cJSON.h"
 
 static const char *TAG = "tool_cron";

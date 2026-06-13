@@ -68,6 +68,9 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/daima/fs/paths.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/runtime.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/runtime_sections.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/printk/printk.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/irq/irq.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/sysctl.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/channel_router.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/channel_runtime.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/tool_notify.c

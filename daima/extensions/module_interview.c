@@ -4,7 +4,7 @@
 #include "interview.h"
 #include "autoconf.h"
 #include "linux/module.h"
-#include "log.h"
+#include "linux/printk.h"
 
 #include <stdlib.h>
 #include <string.h>

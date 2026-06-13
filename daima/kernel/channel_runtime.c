@@ -6,7 +6,7 @@
 #include "drivers/channel/vector/vector_channel.h"
 #include "drivers/channel/gateway/ws_client.h"
 #include "drivers/channel/gateway/ws_server.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "drivers/voice/voice_channel.h"
 #include "drivers/voice/tts_player.h"
 

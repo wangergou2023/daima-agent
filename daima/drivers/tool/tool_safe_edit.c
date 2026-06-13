@@ -1,6 +1,6 @@
 #include "drivers/tool/tool_safe_edit.h"
 
-#include "log.h"
+#include "linux/printk.h"
 
 #include <pthread.h>
 #include <stdio.h>

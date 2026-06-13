@@ -7,7 +7,7 @@
 
 #include "drivers/channel/feishu/feishu_targets.h"
 #include "cJSON.h"
-#include "log.h"
+#include "linux/printk.h"
 
 static const char *TAG = "tool_invocation_context";
 

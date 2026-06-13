@@ -2,7 +2,7 @@
 
 #include "fs.h"
 #include "paths.h"
-#include "log.h"
+#include "linux/printk.h"
 
 #include <stdio.h>
 #include <stdlib.h>

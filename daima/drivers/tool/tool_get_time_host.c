@@ -8,7 +8,7 @@
 #include <ctype.h>
 #include <stdbool.h>
 #include <strings.h>
-#include "log.h"
+#include "linux/printk.h"
 
 static const char *TAG = "tool_time";
 

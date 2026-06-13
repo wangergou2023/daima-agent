@@ -7,7 +7,7 @@
 
 #include "drivers/channel/feishu/feishu_api.h"
 #include "drivers/channel/feishu/feishu_event_handler.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "os.h"
 #include "text.h"
 #include "cJSON.h"

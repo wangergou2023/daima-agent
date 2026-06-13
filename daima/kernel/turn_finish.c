@@ -11,7 +11,7 @@
 #include "paths.h"
 #include "cJSON.h"
 #include "autoconf.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "os.h"
 #include "drivers/platform/platform.h"
 #if DAIMA_SKILL_SCOPED_TOOLS_ENABLED

@@ -14,7 +14,7 @@
 #include <signal.h>
 
 #include "cJSON.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "autoconf.h"
 
 static bool handle_mcp_notification(mcp_client_t *c, const char *json_str);

@@ -3,7 +3,7 @@
 #include "paths.h"
 #include "cJSON.h"
 #include "autoconf.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "drivers/memory/session_store.h"
 
 #include <stdio.h>

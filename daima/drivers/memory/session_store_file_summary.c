@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <time.h>
 
-#include "log.h"
+#include "linux/printk.h"
 
 static const char *TAG = "session_summary";
 

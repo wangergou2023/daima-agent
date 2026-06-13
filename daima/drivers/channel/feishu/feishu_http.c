@@ -5,7 +5,7 @@
 #include <string.h>
 
 #include "http.h"
-#include "log.h"
+#include "linux/printk.h"
 
 static const char *TAG = "feishu_http";
 

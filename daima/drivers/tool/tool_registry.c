@@ -17,7 +17,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "bus.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "cJSON.h"
 
 static const char *TAG = "tools";

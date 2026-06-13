@@ -2,7 +2,7 @@
 
 #include "autoconf.h"
 #include "env.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "drivers/llm/llm_proxy.h"
 #include "cJSON.h"
 

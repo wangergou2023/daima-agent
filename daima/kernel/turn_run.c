@@ -10,7 +10,7 @@
 #include "drivers/llm/llm_proxy.h"
 #include "drivers/llm/model_fallback.h"
 #include "autoconf.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "os.h"
 #include "drivers/platform/platform.h"
 

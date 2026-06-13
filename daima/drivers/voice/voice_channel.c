@@ -19,7 +19,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <curl/curl.h>
-#include "log.h"
+#include "linux/printk.h"
 #include "cJSON.h"
 
 static const char *TAG = "voice";

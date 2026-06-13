@@ -3,7 +3,7 @@
 #include "bus.h"
 #include "autoconf.h"
 #include "os.h"
-#include "log.h"
+#include "linux/printk.h"
 #include <string.h>
 
 static const char *TAG = "bus";

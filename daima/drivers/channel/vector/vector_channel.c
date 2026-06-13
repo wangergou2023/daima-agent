@@ -12,7 +12,7 @@
 #include <sys/un.h>
 
 #include "bus.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "os.h"
 #include "autoconf.h"
 #include "drivers/voice/voice_channel.h"

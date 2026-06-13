@@ -8,7 +8,7 @@
 #include <string.h>
 #include <time.h>
 #include <sys/stat.h>
-#include "log.h"
+#include "linux/printk.h"
 
 static const char *TAG = "memory";
 

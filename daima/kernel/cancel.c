@@ -1,6 +1,6 @@
 #include "cancel.h"
 
-#include "log.h"
+#include "linux/printk.h"
 
 #include <pthread.h>
 #include <stdio.h>

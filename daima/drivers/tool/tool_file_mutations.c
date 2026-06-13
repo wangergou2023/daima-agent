@@ -7,7 +7,7 @@
 #include "drivers/tool/tool_safe_edit.h"
 #include "paths.h"
 #include "autoconf.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "cJSON.h"
 
 #include <ctype.h>

@@ -9,7 +9,7 @@
 #include "drivers/tool/tool_invocation_context.h"
 #include "drivers/tool/tool_registry.h"
 #include "cJSON.h"
-#include "log.h"
+#include "linux/printk.h"
 
 static const char *TAG = "tool_runtime";
 

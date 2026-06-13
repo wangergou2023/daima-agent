@@ -10,7 +10,7 @@
 #include <stdbool.h>
 #include <errno.h>
 #include "cJSON.h"
-#include "log.h"
+#include "linux/printk.h"
 
 static const char *TAG = "tool_todo";
 

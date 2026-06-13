@@ -13,7 +13,7 @@
 #include "runtime.h"
 #include "bus.h"
 #include "autoconf.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "os.h"
 #include "drivers/platform/platform.h"
 #include "drivers/tool/tool_registry.h"

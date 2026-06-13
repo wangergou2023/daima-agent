@@ -6,7 +6,7 @@
 #include "runtime.h"
 #include "autoconf.h"
 #include "os.h"
-#include "log.h"
+#include "linux/printk.h"
 
 #include <string.h>
 #include <stdlib.h>

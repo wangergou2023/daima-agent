@@ -6,7 +6,7 @@
 
 #include "tool_notify.h"
 #include "cJSON.h"
-#include "log.h"
+#include "linux/printk.h"
 #include "text.h"
 
 static const char *TAG = "agent_tool_feedback";
