@@ -249,6 +249,7 @@ daima_err_t coordinator_wait_all(coordinator_t *coord, int timeout_ms)
                 last_progress_sec = elapsed_sec;
                 DAIMA_LOGI(TAG, "Coordinator: waiting... %ds elapsed, %d sub-agents pending",
                            elapsed_sec, pending);
+            }
         }
     }
 
