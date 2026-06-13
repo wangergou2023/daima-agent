@@ -1,9 +1,11 @@
 cmake_minimum_required(VERSION 3.12)
 
-# 选择编译目标: 系统库 或 MIPS 交叉编译
+# 选择编译目标: 系统库 或 MIPS/ARM 交叉编译
 # - BUILD_FOR_MIPS=ON 时启用交叉编译工具链与第三方库路径
+# - BUILD_FOR_ARM=ON 时启用 ARM 交叉编译平台源文件
 # - 默认 OFF 时使用宿主机系统库（便于本地调试）
 option(BUILD_FOR_MIPS "Build for MIPS architecture (cross-compile)" OFF)
+option(BUILD_FOR_ARM "Build for ARM architecture (cross-compile)" OFF)
 
 # 启用图片理解功能 (Vision/Multimodal)
 # - 仅控制编译期开关；运行时仍可根据实现决定是否返回图片
@@ -26,6 +28,19 @@ if(BUILD_FOR_MIPS)
     set(MIPS_MEDIA_INCLUDE_DIR "${MIPS_MEDIA_DIR}/include" CACHE PATH "MIPS media include directory")
     message(STATUS "Building for MIPS using ${CMAKE_C_COMPILER}")
     message(STATUS "Using MIPS libraries from: ${LOCAL_THIRD_PARTY}")
+elseif(BUILD_FOR_ARM)
+    set(CMAKE_SYSTEM_NAME Linux)
+    set(CMAKE_SYSTEM_PROCESSOR arm)
+    if(NOT CMAKE_C_COMPILER)
+        set(CMAKE_C_COMPILER "arm-linux-gnueabihf-gcc")
+    endif()
+    if(NOT CMAKE_CXX_COMPILER)
+        set(CMAKE_CXX_COMPILER "arm-linux-gnueabihf-g++")
+    endif()
+    if(NOT LOCAL_THIRD_PARTY)
+        set(LOCAL_THIRD_PARTY "")
+    endif()
+    message(STATUS "Building for ARM using ${CMAKE_C_COMPILER}")
 else()
     if(NOT LOCAL_THIRD_PARTY)
         set(LOCAL_THIRD_PARTY "")
@@ -60,9 +75,7 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/daima/core/http.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/core/tls.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/core/proxy.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/llm/llm_proxy_host.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/llm/model_fallback.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/llm/llm_http_client_host.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/llm/llm_anthropic_payload.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/llm/llm_openai_payload.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/llm/model_fallback.c
@@ -72,7 +85,6 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/tool/tool_daima_log.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/core/log_file.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/tool/tool_daima_log.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/channel/gateway/ws_server_host.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/channel/gateway/ws_http_helpers.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/channel/gateway/ws_client.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/pet/pet_event.c
@@ -161,10 +173,8 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/skill/skill_loader.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/skill/skill_meta.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/skill/skill_tools.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/audio/audio_io_stub.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/voice/voice_channel.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/voice/tts_player.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/voice/voice_wake_stub.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/channel/vector/mcp_client.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/channel/vector/vector_channel.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/channel/feishu/feishu_bot.c
@@ -178,28 +188,48 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/channel/feishu/feishu_ws_transport.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/channel/feishu/feishu_ws_runtime.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/channel/feishu/feishu_ws_proto.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/vision/vision_capture_stub.c
     ${CMAKE_CURRENT_LIST_DIR}/third_party/cjson/cJSON.c
 )
 
-if(BUILD_FOR_MIPS)
-    # MIPS 下替换音频/唤醒/图像抓拍实现，并加入 IMP 示例依赖
-    list(REMOVE_ITEM SRC
-        ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/audio/audio_io_stub.c
-        ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/voice/voice_wake_stub.c
-        ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/vision/vision_capture_stub.c
-    )
-    list(APPEND SRC
-        ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/audio/audio_io_mips.c
-        ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/voice/voice_wake_mips.c
-        ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/vision/vision_capture_mips.c
+set(ARCH_LINUX_SERVICE_SRCS
+    ${CMAKE_CURRENT_LIST_DIR}/daima/arch/host/ws_server_host.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/arch/host/llm_http_client_host.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/arch/host/llm_proxy_host.c
+)
+
+if(BUILD_FOR_MIPS OR CMAKE_SYSTEM_PROCESSOR MATCHES "mips")
+    set(ARCH mips)
+    set(ARCH_SRCS
+        ${CMAKE_CURRENT_LIST_DIR}/daima/arch/mips/audio_io_mips.c
+        ${CMAKE_CURRENT_LIST_DIR}/daima/arch/mips/vision_capture_mips.c
+        ${CMAKE_CURRENT_LIST_DIR}/daima/arch/mips/voice_wake_mips.c
+        ${ARCH_LINUX_SERVICE_SRCS}
         ${CMAKE_CURRENT_LIST_DIR}/third_party/media/samples/libimp-samples/common/sample-common.c
         ${CMAKE_CURRENT_LIST_DIR}/third_party/media/samples/libimp-samples/common/sample-common-framesource.c
         ${CMAKE_CURRENT_LIST_DIR}/third_party/media/samples/libimp-samples/common/sample-common-encoder.c
     )
+elseif(BUILD_FOR_ARM OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm|aarch64")
+    set(ARCH arm)
+    set(ARCH_SRCS
+        ${CMAKE_CURRENT_LIST_DIR}/daima/arch/arm/audio_io_arm.c
+        ${CMAKE_CURRENT_LIST_DIR}/daima/arch/arm/vision_capture_arm.c
+        ${CMAKE_CURRENT_LIST_DIR}/daima/arch/arm/voice_wake_arm.c
+        ${ARCH_LINUX_SERVICE_SRCS}
+    )
+else()
+    set(ARCH host)
+    set(ARCH_SRCS
+        ${CMAKE_CURRENT_LIST_DIR}/daima/arch/host/audio_io_stub.c
+        ${CMAKE_CURRENT_LIST_DIR}/daima/arch/host/vision_capture_stub.c
+        ${CMAKE_CURRENT_LIST_DIR}/daima/arch/host/voice_wake_stub.c
+        ${ARCH_LINUX_SERVICE_SRCS}
+    )
 endif()
 
+message(STATUS "Selected arch: ${ARCH}")
+
 add_executable(daima ${SRC})
+target_sources(daima PRIVATE ${ARCH_SRCS})
 
 target_include_directories(daima PRIVATE
     # 业务代码头文件

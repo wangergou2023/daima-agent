@@ -3,7 +3,7 @@
 #include "core/runtime.h"
 #include "drivers/llm/llm_anthropic_payload.h"
 #include "drivers/llm/llm_openai_payload.h"
-#include "drivers/llm/llm_http_client_host.h"
+#include "arch/host/llm_http_client_host.h"
 #include "core/base64.h"
 #include "core/text.h"
 #include "core/paths.h"

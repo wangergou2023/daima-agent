@@ -1,4 +1,4 @@
-#include "drivers/llm/llm_http_client_host.h"
+#include "arch/host/llm_http_client_host.h"
 
 #include <curl/curl.h>
 #include <stdbool.h>

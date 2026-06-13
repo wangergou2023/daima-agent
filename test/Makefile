@@ -1,5 +1,5 @@
 CC ?= cc
-CFLAGS = -Wall -Wextra -std=c11 -O0 -g -I../daiba -I../daima/include -I../third_party -D_GNU_SOURCE
+CFLAGS = -Wall -Wextra -std=c11 -O0 -g -I../daima -I../daima/include -I../third_party -D_GNU_SOURCE
 LDLIBS = -lm
 
 .PHONY: test test_pptx_generator clean
@@ -90,10 +90,10 @@ test_llm_openai_payload: test_llm_openai_payload.c ../daima/drivers/llm/llm_open
 test_llm_anthropic_payload: test_llm_anthropic_payload.c ../daima/drivers/llm/llm_anthropic_payload.c ../third_party/cjson/cJSON.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
-test_llm_http_async: test_llm_http_async.c ../daima/drivers/llm/llm_http_client_host.c ../daima/core/http.c ../daima/core/agent_cancel.c ../daima/core/tls.c ../daima/core/proxy.c ../daima/core/env.c ../daima/core/base64.c ../daima/core/paths.c ../daima/core/fs.c ../daima/core/log_file.c ../daima/drivers/platform/platform.c
+test_llm_http_async: test_llm_http_async.c ../daima/arch/host/llm_http_client_host.c ../daima/core/http.c ../daima/core/agent_cancel.c ../daima/core/tls.c ../daima/core/proxy.c ../daima/core/env.c ../daima/core/base64.c ../daima/core/paths.c ../daima/core/fs.c ../daima/core/log_file.c ../daima/drivers/platform/platform.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS) -lcurl -lssl -lcrypto
 
-test_llm_async_chat: test_llm_async_chat.c ../daima/drivers/llm/llm_proxy_host.c ../daima/drivers/llm/llm_http_client_host.c ../daima/drivers/llm/llm_openai_payload.c ../daima/drivers/llm/llm_anthropic_payload.c ../daima/core/runtime.c ../daima/core/runtime_sections.c ../daima/core/paths.c ../daima/core/fs.c ../daima/core/log_file.c ../daima/core/http.c ../daima/core/agent_cancel.c ../daima/core/tls.c ../daima/core/proxy.c ../daima/core/env.c ../daima/core/base64.c ../daima/core/text.c ../daima/core/utils/json_helpers.c ../daima/drivers/platform/platform.c ../third_party/cjson/cJSON.c
+test_llm_async_chat: test_llm_async_chat.c ../daima/arch/host/llm_proxy_host.c ../daima/arch/host/llm_http_client_host.c ../daima/drivers/llm/llm_openai_payload.c ../daima/drivers/llm/llm_anthropic_payload.c ../daima/core/runtime.c ../daima/core/runtime_sections.c ../daima/core/paths.c ../daima/core/fs.c ../daima/core/log_file.c ../daima/core/http.c ../daima/core/agent_cancel.c ../daima/core/tls.c ../daima/core/proxy.c ../daima/core/env.c ../daima/core/base64.c ../daima/core/text.c ../daima/core/utils/json_helpers.c ../daima/drivers/platform/platform.c ../third_party/cjson/cJSON.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS) -lcurl -lssl -lcrypto
 
 test_model_fallback: test_model_fallback.c ../daima/drivers/llm/model_fallback.c ../daima/core/paths.c ../daima/core/runtime.c ../daima/core/runtime_sections.c ../daima/core/fs.c ../daima/core/log_file.c ../third_party/cjson/cJSON.c

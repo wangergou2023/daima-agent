@@ -1,0 +1,14 @@
+choice
+	prompt "目标平台"
+	default ARCH_HOST
+
+config ARCH_HOST
+	bool "x86_64 Linux PC"
+
+config ARCH_MIPS
+	bool "MIPS 嵌入式"
+
+config ARCH_ARM
+	bool "ARM 嵌入式"
+
+endchoice

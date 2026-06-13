@@ -36,20 +36,38 @@ case "$BUILD_TYPE" in
         file "$BUILD_DIR/daima" 2>/dev/null || true
         ;;
 
+    arm)
+        # 交叉编译：使用 ARM GNU 工具链
+        echo "=== Building for ARM (cross-compile) ==="
+        export CC=arm-linux-gnueabihf-gcc
+        export CXX=arm-linux-gnueabihf-g++
+        BUILD_DIR="$SCRIPT_DIR/build-arm"
+        mkdir -p "$BUILD_DIR"
+        rm -rf "$BUILD_DIR/CMakeCache.txt" "$BUILD_DIR/CMakeFiles"
+        cmake -B "$BUILD_DIR" \
+            -DBUILD_FOR_ARM=ON \
+            -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc \
+            -DCMAKE_CXX_COMPILER=arm-linux-gnueabihf-g++
+        cmake --build "$BUILD_DIR"
+        echo "=== Build complete: $BUILD_DIR/daima ==="
+        file "$BUILD_DIR/daima" 2>/dev/null || true
+        ;;
+
     clean)
         # 删除构建产物目录
         echo "=== Cleaning build directories ==="
-        rm -rf build-host build-mips
+        rm -rf build-host build-mips build-arm
         echo "=== Clean complete ==="
         ;;
 
     *)
         # 参数不合法时提示用法
-        echo "Usage: $0 [system|mips|clean]"
+        echo "Usage: $0 [system|mips|arm|clean]"
         echo ""
         echo "Options:"
         echo "  system  - Build for x86_64 using system installed libraries (default)"
         echo "  mips    - Cross-compile for MIPS using mips-linux-uclibc-gnu-gcc"
+        echo "  arm     - Cross-compile for ARM using arm-linux-gnueabihf-gcc"
         echo "  clean   - Remove all build directories"
         exit 1
         ;;

@@ -74,6 +74,8 @@ config DAIMA_SESSION_RECOVERY_ENABLED
 
 endmenu
 
+source "daima/arch/Kconfig"
+
 menu "驱动"
 
 config DAIMA_ENABLE_VISION
