@@ -12,6 +12,8 @@
 #include "loop.h"
 #include "hooks.h"
 #include "bus.h"
+#include "linux/driver.h"
+#include "linux/init.h"
 #include "drivers/channel/feishu/feishu_bot.h"
 #include "drivers/channel/vector/vector_channel.h"
 #include "cron.h"
@@ -68,23 +70,8 @@ int main(int argc, char **argv)
     DAIMA_LOGI(TAG, "Free memory: %d bytes", (int)daima_get_free_memory());
     DAIMA_LOGI(TAG, "Timezone: %s", runtime_tz);
 
-    DAIMA_ERROR_CHECK(message_bus_init());
-    agent_hooks_init();
-    DAIMA_ERROR_CHECK(memory_store_init());
-    DAIMA_ERROR_CHECK(skill_loader_init());
-    DAIMA_ERROR_CHECK(session_store_init());
-    DAIMA_ERROR_CHECK(http_proxy_init());
-    DAIMA_ERROR_CHECK(voice_channel_init());
-    DAIMA_ERROR_CHECK(feishu_bot_init());
-    DAIMA_ERROR_CHECK(feishu_bot_start());
-    DAIMA_ERROR_CHECK(vector_channel_init());
-    DAIMA_LOGI(TAG, "Vector channel initialized; MCP starts lazily on vector/voice use");
-#ifdef BUILD_FOR_MIPS
-    daima_err_t wake_err = voice_wake_start();
-    if (wake_err != DAIMA_OK) {
-        DAIMA_LOGW(TAG, "Voice wake failed to start: %s", daima_err_to_name(wake_err));
-    }
-#endif
+    do_basic_setup();
+
     DAIMA_ERROR_CHECK(llm_proxy_init());
     DAIMA_ERROR_CHECK(tool_registry_init());
     DAIMA_ERROR_CHECK(cron_service_init());

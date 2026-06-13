@@ -3,6 +3,17 @@
 #include "paths.h"
 #include "runtime.h"
 
+#include "bus.h"
+#include "hooks.h"
+#include "drivers/memory/memory_store.h"
+#include "drivers/memory/session_store.h"
+#include "proxy.h"
+#include "drivers/skill/skill_loader.h"
+#include "drivers/voice/voice_channel.h"
+#include "drivers/channel/feishu/feishu_bot.h"
+#include "drivers/channel/vector/vector_channel.h"
+#include "linux/init.h"
+
 #include <arpa/inet.h>
 #include <ifaddrs.h>
 #include <net/if.h>
@@ -78,4 +89,27 @@ bool daima_bootstrap_get_primary_ipv4(char *out, size_t out_sz)
 
     freeifaddrs(ifaddr);
     return found;
+}
+
+void do_basic_setup(void)
+{
+    DAIMA_LOGI(TAG, "core_initcall...");
+    DAIMA_ERROR_CHECK(message_bus_init());
+    agent_hooks_init();
+
+    DAIMA_LOGI(TAG, "postcore_initcall...");
+    DAIMA_ERROR_CHECK(memory_store_init());
+    DAIMA_ERROR_CHECK(session_store_init());
+
+    DAIMA_LOGI(TAG, "subsys_initcall...");
+    DAIMA_ERROR_CHECK(http_proxy_init());
+    DAIMA_ERROR_CHECK(skill_loader_init());
+
+    DAIMA_LOGI(TAG, "device_initcall...");
+    DAIMA_ERROR_CHECK(voice_channel_init());
+    DAIMA_ERROR_CHECK(feishu_bot_init());
+    DAIMA_ERROR_CHECK(feishu_bot_start());
+    DAIMA_ERROR_CHECK(vector_channel_init());
+
+    DAIMA_LOGI(TAG, "Basic setup complete");
 }
