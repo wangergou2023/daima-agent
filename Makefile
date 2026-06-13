@@ -12,9 +12,10 @@ include $(DAIMA_DIR)/arch/$(ARCH)/Makefile
 .DEFAULT_GOAL := all
 
 menuconfig:
-	python3 kconfig.py menuconfig
+	python3 scripts/menuconfig.py
 defconfig:
 	python3 kconfig.py defconfig
+	make oldconfig
 config:
 	python3 kconfig.py list
 
