@@ -1,211 +1,146 @@
-# daima-agent 内核框架重构规划
+# daima-agent: 内核级 Agent 工程规划
 
 ## 目标
 
-按 Linux 内核子系统 1:1 映射，越像越好。每个 Phase 独立可交付。
+和 Linux 内核开发流程、代码风格、目录结构几乎一模一样。
 
----
-
-## Phase 1: 驱动模型 (drivers/)
-
-**目标**: 每个驱动 register/probe/remove，类似 `struct platform_driver`
+## 完成度
 
 ```
-drivers/llm/
-├── llm_driver.c      ← module_platform_driver(llm_driver)
-├── llm_ops.c         ← 操作集 (open/chat/close)
-├── payload.c         ← OpenAI/Anthropic payload
-└── proto.h           ← 内部协议头
+目录            6.8内核                          daima-agent        状态
+────────────────────────────────────────────────────────────────────────
+Documentation/  ✅ ReST文档 + kernel-doc        ❌                 待做
+arch/           ✅ x86/arm/mips/riscv/...        ✅ host/mips/arm   完成
+block/          ✅ 块层                          N/A              不需要
+certs/          ✅ 证书系统                       N/A              不需要
+crypto/         ✅ 加密API                        N/A              不需要
+drivers/        ✅ 数百个驱动目录                  ✅ 10个驱动目录    基础完成
+fs/             ✅ VFS + 文件系统                  ✅ fs/            基础完成
+include/        ✅ linux/ asm/ generated/         ✅ linux/         基础完成
+init/           ✅ main.c + Kconfig               ✅ main.c         完成
+ipc/            ✅ 消息队列/信号量                 ✅ bus.c          完成
+kernel/         ✅ sched/ time/ locking/ ...      ✅ sched/ time/   基础完成
+lib/            ✅ 通用库                          ✅ lib/           完成
+mm/             ✅ 内存管理                       N/A              不需要
+net/            ✅ 网络栈                          ✅ net/           基础完成
+scripts/        ✅ Kbuild/Kconfig/checkpatch      ✅ Kbuild/Kconfig 基础+照抄
+security/       ✅ LSM                           ❌                 可选
+sound/          ✅ ALSA                          → drivers/voice   完成
+tools/          ✅ perf/selftests                 → test/           基础完成
+usr/            ✅ initramfs                     N/A              不需要
+virt/           ✅ KVM                           N/A              不需要
 
-drivers/channel/
-├── channel_core.c    ← channel_register/channel_unregister
-├── feishu/
-│   └── feishu_driver.c ← 实现 channel_ops
-├── vector/
-│   └── vector_driver.c
-└── gateway/
-    └── ws_driver.c
-
-drivers/tool/
-├── tool_bus.c        ← tool_register/tool_unregister (≈ driver model)
-├── file_tool.c
-├── terminal_tool.c
-└── ...
-
-每个驱动: 
-  module_platform_driver(xxx) → 自动注册
-  xxx_probe()              → 初始化
-  xxx_remove()             → 清理
+顶层文件:
+COPYING         GPL-2.0                           MIT              待加
+CREDITS         维护者列表                         ❌               待加
+MAINTAINERS     子系统维护者                       ❌               待加
+Kbuild          顶层构建                           → CMakeLists     需改
+Kconfig         顶层配置                           ✅ daima/Kconfig 完成
+Makefile        顶层Makefile                      ✅               完成
+README          项目说明                           ✅               完成
+REPORTING-BUGS  bug报告指南                        ❌               待加
 ```
 
-**新增文件**: 每个驱动目录加 `*_driver.c`，`register`/`unregister` 统一接口
-
----
-
-## Phase 2: 初始化链 (init/)
-
-**目标**: `init/main.c` 用 `do_initcalls()` 风格启动
+## Phase 1: 顶层文件补齐
 
 ```
-init/main.c:
-  asmlinkage void __init start_kernel(void) {
-      setup_arch();
-      mm_init();
-      sched_init();
-      init_IRQ();        → ipc/bus_init()
-      init_timers();     → kernel/time/hrtimer_init()
-      init_workqueues(); → kernel/workqueue_init()
-      driver_init();
-      do_initcalls();
-      ...
-  }
-
-等级:
-  pure_initcall(level0)   ← arch/ (最优先)
-  core_initcall(level1)   ← kernel/ ipc/ lib/
-  postcore_initcall(level2)
-  arch_initcall(level3)   ← drivers/ platform
-  subsys_initcall(level4) ← drivers/ channel/tool
-  fs_initcall(level5)     ← fs/
-  device_initcall(level6) ← drivers/
-  late_initcall(level7)   ← extensions/
+COPYING         →  MIT License (替换 LICENSE.md)
+CREDITS         →  贡献者列表
+MAINTAINERS     →  子系统维护者 (格式照抄内核)
+REPORTING-BUGS  →  bug report 指南
 ```
 
-**实现**: `init/main.c` 用宏和函数指针表实现分级初始化
+## Phase 2: scripts/ 补齐
 
----
-
-## Phase 3: 子系统完善 (kernel/)
-
+照抄内核 (能直接用就用):
 ```
-kernel/
-├── sched/           ✅ 已完成 (core/class/agent)
-├── time/            ← cron.c → hrtimer.c (高精度定时器)
-│   └── timer.c
-├── workqueue.c      ← heartbeat → workqueue (延迟工作)
-├── power/           ← 语音唤醒 → suspend/resume
-│   └── wakeup.c
-├── locking/         ← FreeRTOS mutex → mutex.h/spinlock.h
-│   ├── mutex.c
-│   └── spinlock.c
-├── sysctl.c         ← runtime_config → /proc/sys 风格
-├── capability.c     ← tool 权限管理
-└── fork.c           ← 多agent 创建/回收
+scripts/checkpatch.pl  ← 内核原样复制
+scripts/kernel-doc     ← 内核原样复制
+scripts/get_maintainer.pl  ← 内核原样复制 (可选)
 ```
 
----
+## Phase 3: Kbuild 递归构建
 
-## Phase 4: 头文件规范 (include/)
-
+替换 cmake 为真正的 Kbuild 递归:
 ```
-include/
-├── linux/           ← kernel style prefix
-│   ├── sched.h
-│   ├── init.h       ← initcall 宏
-│   ├── module.h     ← MODULE_LICENSE, module_init
-│   ├── driver.h     ← struct platform_driver
-│   ├── mutex.h
-│   ├── workqueue.h
-│   ├── wait.h       ← wait_event/wake_up
-│   ├── err.h
-│   ├── types.h
-│   └── compiler.h   ← likely/unlikely, __init
-├── asm/             ← 平台相关
-│   ├── host/atomic.h
-│   ├── mips/atomic.h
-│   └── arm/atomic.h
-├── generated/       ← 构建生成
-│   └── autoconf.h
-└── cJSON.h          ← 第三方
+顶层 Makefile
+  → daima/init/Makefile       (obj-y += main.o bootstrap.o)
+  → daima/kernel/Makefile     (obj-y += loop.o hooks.o sched/)
+  → daima/kernel/sched/Makefile (obj-y += core.o class.o agent.o)
+  → daima/ipc/Makefile        (obj-y += bus.o)
+  → daima/lib/Makefile        (obj-y += text.o base64.o log.o)
+  → daima/net/Makefile        (obj-y += http.o tls.o proxy.o)
+  → daima/fs/Makefile         (obj-y += paths.o fs.o)
+  → daima/drivers/llm/Makefile (obj-y += llm_proxy.o payload.o)
+  → daima/arch/host/Makefile  (obj-y += ...)
 ```
 
-**命名规范**:
-- 用户空间 API: 无前缀，如 `agent_send_message()`
-- 内核内部: `__` 前缀，如 `__agent_loop()`
-- 驱动接口: `drm_`/`net_`/`tty_` 等子系统前缀
+每个目录都有 `obj-y` / `obj-m`。
 
----
-
-## Phase 5: 模块系统 (extensions/)
+## Phase 4: kernel/ 子系统完善
 
 ```
-extensions/
-├── Makefile          ← obj-m += module_intent.o
-├── module_intent.c   ← module_init(intent_init) / module_exit(intent_exit)
-├── module_sched.c
-├── module_plan.c
-└── ...
-
-每个模块:
-  MODULE_LICENSE("GPL");
-  MODULE_AUTHOR("daima");
-  MODULE_DESCRIPTION("Intent Gate Agent Extension");
-  
-  static int __init intent_init(void) { register_hook(); return 0; }
-  static void __exit intent_exit(void) { unregister_hook(); }
-  module_init(intent_init);
-  module_exit(intent_exit);
+kernel/sched/       ✅ 完成
+kernel/time/        ✅ 完成
+kernel/locking/     待实现 (mutex.c, spinlock.c)
+kernel/printk/      待实现 (printk.c → lib/log.c 移过来)
+kernel/irq/         待实现 (中断框架 → agent 信号处理)
+kernel/power/       待实现 (suspend/resume → agent 暂停/恢复)
+kernel/fork.c       待实现 (agent 创建 → copy_process 风格)
+kernel/exit.c       待实现 (agent 销毁 → do_exit 风格)
+kernel/sysctl.c     待实现 (运行时参数 → /proc/sys 风格)
+kernel/workqueue.c  ✅ 完成
 ```
 
----
-
-## Phase 6: 基础设施 (scripts/ tools/ Documentation/)
+## Phase 5: include/ 头文件规范
 
 ```
-scripts/
-├── kconfig.py        ✅ 已完成
-├── Makefile.build    ← 编译规则
-├── checkpatch.pl     ← 代码风格检查
-└── kernel-doc        ← 文档生成
-
-tools/testing/selftests/
-├── sched/            ← 调度器测试
-├── llm/              ← LLM 驱动测试
-└── run_tests.sh
-
-Documentation/
-├── admin-guide/      ← 用户手册
-├── driver-api/       ← 驱动文档
-└── core-api/         ← 内核 API 文档
+include/linux/autoconf.h    ✅
+include/linux/compiler.h    ✅
+include/linux/init.h        ✅
+include/linux/module.h      ✅
+include/linux/mutex.h       ✅
+include/linux/sched.h       ✅
+include/linux/types.h       ✅
+include/linux/workqueue.h   ✅
+include/linux/err.h         待加 (err.h → linux/err.h)
+include/linux/printk.h      待加 (log.h → linux/printk.h)
+include/linux/kernel.h      待加 (工具宏如 ARRAY_SIZE, container_of)
+include/linux/slab.h        待加 (kmalloc/kfree 封装)
+include/linux/list.h        待加 (内核链表)
+include/generated/          待加 (构建时生成的头文件)
+include/asm/host/           待加 (平台相关)
+include/asm/mips/
+include/asm/arm/
 ```
 
----
-
-## Phase 7: SMP 调度强化
-
-**目标**: 真正的多核调度
+## Phase 6: tools/ 测试
 
 ```
-kernel/sched/
-├── core.c         ← schedule() 主循环
-├── fair.c         ← CFS 公平调度
-│   vruntime → 各agent的平均响应时间
-│   min_vruntime → 选等待最久的agent
-├── rt.c           ← 实时调度
-│   PLANNER 总是最先跑
-│   REVIEWER 可被 EXECUTOR 抢占
-├── deadline.c     ← 最后期限调度
-│   每个agent有 deadline
-│   超时自动降级/终止
-├── idle.c         ← idle task
-│   无agent时 wait_for_event()
-├── topology.c     ← "CPU" 拓扑
-│   3个HTTP连接 ≈ 3个物理核
-│   arch/host vs arch/mips 不同拓扑
-├── loadavg.c      ← 负载统计
-└── stats.c        ← /proc/sched 统计
+tools/testing/selftests/sched/   调度器测试
+tools/testing/selftests/llm/     LLM 驱动测试
+tools/testing/selftests/ipc/     消息总线测试
+tools/perf/                      性能测试 (可选)
 ```
 
----
+## Phase 7: 细节对齐
 
-## 优先级
+```
+- 内核代码风格: checkpatch.pl 检查
+- 注释风格: /** kernel-doc */ 格式
+- 命名: struct_ops, xxx_init/xxx_exit
+- printk 日志级别: KERN_ERR/KERN_WARNING/KERN_INFO
+- 错误码: -EINVAL, -ENOMEM (映射 daima_err_t)
+```
 
-| Phase | 价值 | 复杂度 | 建议 |
-|-------|------|--------|------|
-| P1 驱动模型 | ⭐⭐⭐ | 中 | 接口统一，值得做 |
-| P2 初始化链 | ⭐⭐⭐ | 低 | 改动小，收益高 |
-| P3 子系统完善 | ⭐⭐ | 中 | 按需做 |
-| P4 include/ | ⭐⭐⭐ | 中 | 命名规范，值得做 |
-| P5 模块系统 | ⭐⭐ | 低 | 已有 module_*，改名即可 |
-| P6 基础设施 | ⭐ | 低 | 锦上添花 |
-| P7 SMP强化 | ⭐⭐ | 高 | 等真正需要时做 |
+## 执行顺序
+
+| 优先级 | Phase | 工作量 | 影响 |
+|--------|-------|--------|------|
+| 🔴 P0 | P1 顶层文件 | 30min | 外观像内核 |
+| 🔴 P0 | P2 scripts/ | 30min | 开发工具像内核 |
+| 🟡 P1 | P4 kernel/子系统 | 2h | 内核化核心逻辑 |
+| 🟡 P1 | P5 include/ | 1h | 头文件规范 |
+| 🟢 P2 | P3 Kbuild | 3h | 大改动, 风险高 |
+| 🟢 P2 | P6 tools/ | 1h | 测试规范 |
+| ⚪ P3 | P7 细节 | 持续 | 渐进优化 |
