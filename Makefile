@@ -34,12 +34,10 @@ core-y += drivers/tool/ drivers/memory/ drivers/skill/ drivers/voice/
 core-y += drivers/platform/ drivers/pet/
 core-y += extensions/
 
-# 递归构建入口；P2 阶段保留 cmake 后端，Kbuild 目标用于验证目录 obj-y。
 daima-dirs := $(patsubst %/,%,$(core-y))
 daima_builtin := $(foreach d,$(daima-dirs),$(d)/built-in.o)
 
 .PHONY: all daima host mips arm arch-obj cjson modules test clean mrproper distclean help menuconfig defconfig config
-.PHONY: $(daima-dirs) kbuild kbuild-doc-check kbuild-clean cmake-build
 
 all: kbuild
 kbuild: daima
@@ -82,10 +80,6 @@ mips:
 arm:
 	$(MAKE) ARCH=arm kbuild
 
-# 备用: cmake 构建
-cmake-build:
-	$(Q)cmake -B build-host -DCMAKE_C_FLAGS="$(DAIMA_CFLAGS)"
-	$(Q)cmake --build build-host
 
 modules:
 	@echo "  MODULES  extensions/ (built-in)"
@@ -109,7 +103,6 @@ distclean: mrproper
 
 help:
 	@echo "make / make host     build x86_64 via Kbuild"
-	@echo "make cmake-build     fallback cmake build"
 	@echo "make mips|arm        cross-compile"
 	@echo "make menuconfig      interactive config"
 	@echo "make test clean mrproper distclean"
