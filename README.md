@@ -22,11 +22,13 @@ daima/
 ## 构建
 
 ```bash
-make defconfig     # 默认配置
+make               # host 编译
+make mips          # MIPS 交叉编译
+make arm           # ARM 交叉编译
 make menuconfig    # 图形化选功能
-./build.sh         # host 编译
-./build.sh mips    # MIPS 交叉编译
-./build.sh arm     # ARM 交叉编译
+make clean         # 清理
+make mrproper      # 清理+.config
+make test          # 运行测试
 ```
 
 ## 开发

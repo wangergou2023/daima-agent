@@ -1,0 +1,19 @@
+# scripts/Makefile.build
+# 内核风格编译规则 (cmake 后端)
+
+quiet_cmd_cc = CC      $@
+      cmd_cc = $(CC) $(DAIMA_CFLAGS) -c -o $@ $<
+
+quiet_cmd_link = LD      $@
+      cmd_link = $(CC) $(DAIMA_CFLAGS) -o $@ $^
+
+# 增量编译模板
+%.o: %.c
+	$(call cmd_cc)
+
+%: %.o
+	$(call cmd_link)
+
+.PHONY: build
+build:
+	@echo "  Using cmake backend for daima"
