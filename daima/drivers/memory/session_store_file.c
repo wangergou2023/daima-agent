@@ -16,6 +16,7 @@
 
 #include "cJSON.h"
 #include "linux/printk.h"
+#include "linux/slab.h"
 
 static const char *TAG = "session";
 
@@ -84,7 +85,7 @@ static daima_err_t file_append_ex(const char *chat_id,
 
     if (line) {
         fprintf(f, "%s\n", line);
-        free(line);
+        kfree(line);
     }
 
     fclose(f);
@@ -176,7 +177,7 @@ static daima_err_t file_get_history_json(const char *chat_id, char *buf, size_t 
     if (json_str) {
         strncpy(buf, json_str, size - 1);
         buf[size - 1] = '\0';
-        free(json_str);
+        kfree(json_str);
     } else {
         snprintf(buf, size, "[]");
     }
@@ -234,7 +235,7 @@ static daima_err_t file_rewrite_from_array(const char *chat_id, const cJSON *mes
         }
 
         fprintf(f, "%s\n", line);
-        free(line);
+        kfree(line);
     }
 
     fclose(f);

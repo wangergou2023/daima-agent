@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "linux/printk.h"
+#include "linux/slab.h"
 
 static const char *TAG = "llm_parse";
 
@@ -150,7 +151,7 @@ static cJSON *convert_messages_openai(const char *system_prompt, cJSON *messages
                 } else if (btype && cJSON_IsString(btype) && strcmp(btype->valuestring, "reasoning") == 0) {
                     cJSON *text = cJSON_GetObjectItem(block, "text");
                     if (text && cJSON_IsString(text) && text->valuestring[0]) {
-                        free(reasoning_buf);
+                        kfree(reasoning_buf);
                         reasoning_buf = strdup(text->valuestring);
                     }
                 } else if (btype && cJSON_IsString(btype) && strcmp(btype->valuestring, "tool_use") == 0) {
@@ -174,7 +175,7 @@ static cJSON *convert_messages_openai(const char *system_prompt, cJSON *messages
                         char *args = cJSON_PrintUnformatted(input);
                         if (args) {
                             cJSON_AddStringToObject(func, "arguments", args);
-                            free(args);
+                            kfree(args);
                         }
                     }
                     cJSON_AddItemToObject(tc, "function", func);
@@ -191,8 +192,8 @@ static cJSON *convert_messages_openai(const char *system_prompt, cJSON *messages
                 cJSON_AddStringToObject(m, "reasoning_content", reasoning_buf);
             }
             cJSON_AddItemToArray(out, m);
-            free(text_buf);
-            free(reasoning_buf);
+            kfree(text_buf);
+            kfree(reasoning_buf);
             continue;
         }
 
@@ -282,7 +283,7 @@ static cJSON *convert_messages_openai(const char *system_prompt, cJSON *messages
             cJSON_AddStringToObject(um, "content", text_buf ? text_buf : "");
             cJSON_AddItemToArray(out, um);
         }
-        free(text_buf);
+        kfree(text_buf);
     }
 
     return out;
@@ -358,7 +359,7 @@ cJSON *llm_create_multimodal_content(const char *text, const llm_image_content_t
         cJSON_AddStringToObject(image_block, "type", "image_url");
         cJSON *image_url_obj = cJSON_CreateObject();
         if (image_url_obj) {
-            char *url_data = malloc(images[i].image_data_len + 64);
+            char *url_data = kmalloc(images[i].image_data_len + 64, GFP_KERNEL);
             if (url_data) {
                 snprintf(url_data,
                          images[i].image_data_len + 64,
@@ -366,7 +367,7 @@ cJSON *llm_create_multimodal_content(const char *text, const llm_image_content_t
                          images[i].mime_type,
                          images[i].image_data);
                 cJSON_AddStringToObject(image_url_obj, "url", url_data);
-                free(url_data);
+                kfree(url_data);
             }
             cJSON_AddItemToObject(image_block, "image_url", image_url_obj);
         }
@@ -464,7 +465,7 @@ daima_err_t llm_openai_parse_response(const char *json_text, llm_response_t *res
             cJSON *content = cJSON_GetObjectItem(message, "content");
             if (content && cJSON_IsString(content)) {
                 size_t tlen = strlen(content->valuestring);
-                resp->text = calloc(1, tlen + 1);
+                resp->text = kzalloc(tlen + 1, GFP_KERNEL);
                 if (resp->text) {
                     memcpy(resp->text, content->valuestring, tlen);
                     resp->text_len = tlen;
@@ -474,7 +475,7 @@ daima_err_t llm_openai_parse_response(const char *json_text, llm_response_t *res
             cJSON *reasoning = cJSON_GetObjectItem(message, "reasoning_content");
             if (reasoning && cJSON_IsString(reasoning) && reasoning->valuestring[0]) {
                 size_t rlen = strlen(reasoning->valuestring);
-                resp->reasoning_content = calloc(1, rlen + 1);
+                resp->reasoning_content = kzalloc(rlen + 1, GFP_KERNEL);
                 if (resp->reasoning_content) {
                     memcpy(resp->reasoning_content, reasoning->valuestring, rlen);
                     resp->reasoning_content_len = rlen;

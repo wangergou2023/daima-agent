@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
+#include "linux/slab.h"
 
 #define TOOL_FILES_PATH_SIZE 1024
 #define TOOL_FILES_RECENT_CHECKPOINTS 16
@@ -149,7 +150,7 @@ daima_err_t tool_files_checkpoint_current_file(const char *path,
     }
 
     err = tool_files_checkpoint_before_write(path, current, current_len, checkpoint_path, checkpoint_path_size);
-    free(current);
+    kfree(current);
     return err;
 }
 
@@ -174,7 +175,7 @@ daima_err_t tool_files_restore_checkpoint(const char *target_path,
     size_t current_len = 0;
     err = tool_files_read_optional_text_file(target_path, max_size, &current, &current_len);
     if (err != DAIMA_OK) {
-        free(checkpoint_text);
+        kfree(checkpoint_text);
         return err;
     }
 
@@ -184,14 +185,14 @@ daima_err_t tool_files_restore_checkpoint(const char *target_path,
         current_len,
         rollback_checkpoint_path,
         rollback_checkpoint_path_size);
-    free(current);
+    kfree(current);
     if (err != DAIMA_OK) {
-        free(checkpoint_text);
+        kfree(checkpoint_text);
         return err;
     }
 
     tool_files_ensure_parent_dirs(target_path);
     err = tool_files_write_text_file(target_path, checkpoint_text ? checkpoint_text : "", checkpoint_len);
-    free(checkpoint_text);
+    kfree(checkpoint_text);
     return err;
 }

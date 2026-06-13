@@ -7,6 +7,7 @@
 
 #include "cJSON.h"
 #include "linux/printk.h"
+#include "linux/slab.h"
 
 static const char *TAG = "skill_tools";
 
@@ -122,7 +123,7 @@ static char *read_file_all(const char *path)
     }
     rewind(f);
 
-    char *buf = calloc(1, (size_t)len + 1);
+    char *buf = kzalloc((size_t)len + 1, GFP_KERNEL);
     if (!buf) {
         fclose(f);
         return NULL;
@@ -190,7 +191,7 @@ daima_err_t skill_tools_register(const char *skill_name, const char *skill_dir)
     }
 
     cJSON *root = cJSON_Parse(json);
-    free(json);
+    kfree(json);
     if (!root || !cJSON_IsArray(root)) {
         cJSON_Delete(root);
         return DAIMA_ERR_INVALID_ARG;

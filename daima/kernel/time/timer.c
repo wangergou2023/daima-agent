@@ -15,6 +15,7 @@
 #include "linux/printk.h"
 #include "drivers/platform/platform.h"
 #include "cJSON.h"
+#include "linux/slab.h"
 
 static const char *TAG = "cron";
 
@@ -156,7 +157,7 @@ static daima_err_t cron_load_jobs(void)
         return DAIMA_OK;
     }
 
-    char *buf = malloc(fsize + 1);
+    char *buf = kmalloc(fsize + 1, GFP_KERNEL);
     if (!buf) {
         fclose(f);
         return DAIMA_ERR_NO_MEM;
@@ -168,7 +169,7 @@ static daima_err_t cron_load_jobs(void)
 
     /* 解析 JSON */
     cJSON *root = cJSON_Parse(buf);
-    free(buf);
+    kfree(buf);
 
     if (!root) {
         DAIMA_LOGW(TAG, "Failed to parse cron JSON");
@@ -304,14 +305,14 @@ static daima_err_t cron_save_jobs(void)
     FILE *f = fopen(daima_path_cron_file(), "w");
     if (!f) {
         DAIMA_LOGE(TAG, "Failed to open %s for writing", daima_path_cron_file());
-        free(json_str);
+        kfree(json_str);
         return DAIMA_FAIL;
     }
 
     size_t len = strlen(json_str);
     size_t written = fwrite(json_str, 1, len, f);
     fclose(f);
-    free(json_str);
+    kfree(json_str);
 
     if (written != len) {
         DAIMA_LOGE(TAG, "Cron save incomplete: %d/%d bytes", (int)written, (int)len);
@@ -351,7 +352,7 @@ static void cron_process_due_jobs(void)
             daima_err_t err = message_bus_push_inbound(&msg);
             if (err != DAIMA_OK) {
                 DAIMA_LOGW(TAG, "Failed to push cron message: %s", daima_err_to_name(err));
-                free(msg.content);
+                kfree(msg.content);
             }
         }
 

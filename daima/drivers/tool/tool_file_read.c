@@ -13,6 +13,7 @@
 #include "linux/printk.h"
 #include "drivers/tool/tool_hashline.h"
 #include "drivers/tool/tool_safe_edit.h"
+#include "linux/slab.h"
 
 typedef struct {
     char path[TOOL_FILES_PATH_SIZE];
@@ -201,7 +202,7 @@ daima_err_t tool_read_file_execute(const char *input_json, char *output, size_t 
         emitted_lines++;
     }
 
-    free(line);
+    kfree(line);
     fclose(f);
 
     if (emitted_lines == 0 && total_lines > 0 && offset > total_lines) {
@@ -227,7 +228,7 @@ daima_err_t tool_read_file_execute(const char *input_json, char *output, size_t 
     if (IS_ENABLED(CONFIG_DAIMA_SAFE_EDIT_ENABLED) && fingerprint_content && emitted_lines > 0) {
         safe_edit_register_read(resolved_path, fingerprint_content, first_emitted_line, last_emitted_line);
     }
-    free(fingerprint_content);
+    kfree(fingerprint_content);
 
     DAIMA_LOGI(TAG, "read_file: %s lines=%d..%d/%d emitted=%d",
               resolved_path, offset, actual_end, total_lines, emitted_lines);

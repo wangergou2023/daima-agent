@@ -6,6 +6,7 @@
 #include <time.h>
 #ifdef __linux__
 #include <sys/sysinfo.h>
+#include "linux/slab.h"
 #endif
 
 static int s_rand_seeded = 0;
@@ -49,7 +50,7 @@ size_t daima_get_largest_free_block(void)
 
 void *daima_calloc(size_t n, size_t size)
 {
-    return calloc(n, size);
+    return kzalloc(n * size, GFP_KERNEL);
 }
 
 void *daima_realloc(void *ptr, size_t size)

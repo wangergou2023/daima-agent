@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "linux/slab.h"
 
 #define WEBFETCH_TIMEOUT_MS  DAIMA_TIMEOUT_DEFAULT
 #define WEBFETCH_MAX_BODY    (512 * 1024)
@@ -183,7 +184,7 @@ static daima_err_t webfetch_format_output(const char *body, size_t body_len, con
     if (len > WEBFETCH_MAX_BODY) len = WEBFETCH_MAX_BODY;
 
     if (strcmp(format, "text") == 0) {
-        char *buf = malloc(len + 1);
+        char *buf = kmalloc(len + 1, GFP_KERNEL);
         if (!buf) {
             snprintf(output, output_size, "错误：内存不足");
             return DAIMA_ERR_NO_MEM;
@@ -198,7 +199,7 @@ static daima_err_t webfetch_format_output(const char *body, size_t body_len, con
         if (out_len > output_size - 1) out_len = output_size - 1;
         memcpy(output, buf, out_len);
         output[out_len] = '\0';
-        free(buf);
+        kfree(buf);
     } else {
         size_t out_len = len;
         if (out_len > output_size - 1) out_len = output_size - 1;

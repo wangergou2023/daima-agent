@@ -5,6 +5,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include "linux/slab.h"
 
 /* ── Queue implementation ───────────────────────────────────── */
 
@@ -38,13 +39,13 @@ static int wait_with_timeout(pthread_cond_t *cond, pthread_mutex_t *mutex, uint3
 
 daima_queue_t *daima_queue_create(size_t queue_length, size_t item_size)
 {
-    struct daima_queue *q = calloc(1, sizeof(*q));
+    struct daima_queue *q = kzalloc(sizeof(*q), GFP_KERNEL);
     if (!q) return NULL;
     q->item_size = item_size;
     q->capacity = queue_length;
-    q->buffer = calloc(queue_length, item_size);
+    q->buffer = kzalloc(queue_length * item_size, GFP_KERNEL);
     if (!q->buffer) {
-        free(q);
+        kfree(q);
         return NULL;
     }
     pthread_mutex_init(&q->mutex, NULL);
@@ -109,7 +110,7 @@ struct daima_event_group {
 
 daima_event_group_t *daima_event_group_create(void)
 {
-    struct daima_event_group *g = calloc(1, sizeof(*g));
+    struct daima_event_group *g = kzalloc(sizeof(*g), GFP_KERNEL);
     if (!g) return NULL;
     pthread_mutex_init(&g->mutex, NULL);
     pthread_cond_init(&g->cond, NULL);
@@ -177,7 +178,7 @@ static void *task_trampoline(void *arg)
     task_wrapper_t *wrap = (task_wrapper_t *)arg;
     daima_task_fn_t fn = wrap->fn;
     void *fn_arg = wrap->arg;
-    free(wrap);
+    kfree(wrap);
     fn(fn_arg);
     return NULL;
 }
@@ -187,17 +188,17 @@ bool daima_task_create(daima_task_fn_t task_func, const char *name,
                       uint32_t priority, daima_task_t **out_handle)
 {
     (void)name; (void)stack_size; (void)priority;
-    struct daima_task *task = malloc(sizeof(*task));
+    struct daima_task *task = kmalloc(sizeof(*task), GFP_KERNEL);
     if (!task) return false;
 
-    task_wrapper_t *wrap = malloc(sizeof(*wrap));
-    if (!wrap) { free(task); return false; }
+    task_wrapper_t *wrap = kmalloc(sizeof(*wrap), GFP_KERNEL);
+    if (!wrap) { kfree(task); return false; }
     wrap->fn = task_func;
     wrap->arg = arg;
 
     if (pthread_create(&task->thread, NULL, task_trampoline, wrap) != 0) {
-        free(wrap);
-        free(task);
+        kfree(wrap);
+        kfree(task);
         return false;
     }
 
@@ -205,7 +206,7 @@ bool daima_task_create(daima_task_fn_t task_func, const char *name,
     if (out_handle) {
         *out_handle = task;
     } else {
-        free(task);
+        kfree(task);
     }
     return true;
 }
@@ -226,7 +227,7 @@ void daima_task_delete(daima_task_t *handle)
     }
     struct daima_task *task = (struct daima_task *)handle;
     pthread_cancel(task->thread);
-    free(task);
+    kfree(task);
 }
 
 /* ── Timers ──────────────────────────────────────────────────── */
@@ -262,7 +263,7 @@ daima_timer_t *daima_timer_create(const char *name,
                                 daima_timer_cb_t callback)
 {
     (void)name;
-    struct daima_timer *t = calloc(1, sizeof(*t));
+    struct daima_timer *t = kzalloc(sizeof(*t), GFP_KERNEL);
     if (!t) return NULL;
     t->period_ms = period_ms;
     t->auto_reload = auto_reload;
@@ -302,6 +303,6 @@ bool daima_timer_delete(daima_timer_t *timer, uint32_t timeout_ms)
     struct daima_timer *t = (struct daima_timer *)timer;
     if (!t) return false;
     t->running = 0;
-    free(t);
+    kfree(t);
     return true;
 }

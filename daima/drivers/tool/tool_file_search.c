@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include "linux/slab.h"
 
 #define TOOL_SEARCH_PATH_SIZE 1024
 
@@ -209,7 +210,7 @@ static void search_file_content(const char *path, search_ctx_t *ctx)
                     prev_count++;
                 }
             } else {
-                free(prev_lines[0]);
+                kfree(prev_lines[0]);
                 for (int i = 1; i < prev_count; i++) {
                     prev_lines[i - 1] = prev_lines[i];
                     prev_nums[i - 1] = prev_nums[i];
@@ -233,9 +234,9 @@ static void search_file_content(const char *path, search_ctx_t *ctx)
 
 search_cleanup:
     for (int i = 0; i < prev_count; i++) {
-        free(prev_lines[i]);
+        kfree(prev_lines[i]);
     }
-    free(line);
+    kfree(line);
     fclose(f);
 }
 

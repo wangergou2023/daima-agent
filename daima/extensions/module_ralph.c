@@ -5,6 +5,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include "linux/slab.h"
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("daima");
@@ -35,11 +36,11 @@ bool agent_extension_ralph_should_append_warning(daima_msg_t *msg, int iteration
     if (!ralph_loop_should_continue(msg->chat_id, iteration, final_text)) return false;
     size_t final_len = strlen(final_text);
     size_t warning_len = sizeof(warning) - 1;
-    char *with_warning = malloc(final_len + warning_len + 1);
+    char *with_warning = kmalloc(final_len + warning_len + 1, GFP_KERNEL);
     if (!with_warning) return false;
     memcpy(with_warning, final_text, final_len);
     memcpy(with_warning + final_len, warning, warning_len + 1);
-    free(*io_final_text);
+    kfree(*io_final_text);
     *io_final_text = with_warning;
     return true;
 #else

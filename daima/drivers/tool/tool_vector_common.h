@@ -10,6 +10,7 @@
 #include <stdlib.h>
 
 #include "cJSON.h"
+#include "linux/slab.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,7 +30,7 @@ static inline daima_err_t call_mcp_with_args(mcp_client_t *mcp, const char *tool
         return DAIMA_ERR_NO_MEM;
     }
     daima_err_t err = mcp_client_call_tool(mcp, tool_name, args_json, output, output_size);
-    free(args_json);
+    kfree(args_json);
     cJSON_Delete(args);
     return err;
 }

@@ -15,6 +15,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <time.h>
+#include "linux/slab.h"
 
 static const char *TAG = "voice_wake";
 
@@ -242,7 +243,7 @@ static unsigned char *build_wav(const uint8_t *pcm,
     if (!pcm || !cfg || pcm_len == 0) return NULL;
     const size_t header = 44;
     size_t total = header + pcm_len;
-    unsigned char *buf = malloc(total);
+    unsigned char *buf = kmalloc(total, GFP_KERNEL);
     if (!buf) return NULL;
 
     memset(buf, 0, header);
@@ -294,14 +295,14 @@ static daima_err_t capture_wav(unsigned char **out_wav, size_t *out_len)
               cfg.sample_rate, cfg.channels, cfg.bits_per_sample,
               record_ms, expected);
 
-    uint8_t *pcm = malloc(expected);
+    uint8_t *pcm = kmalloc(expected, GFP_KERNEL);
     if (!pcm) return DAIMA_ERR_NO_MEM;
     size_t offset = 0;
 
     daima_err_t err = audio_input_start(&cfg);
     if (err != DAIMA_OK) {
         DAIMA_LOGE(TAG, "audio_input_start failed: %s", daima_err_to_name(err));
-        free(pcm);
+        kfree(pcm);
         return err;
     }
 
@@ -309,10 +310,10 @@ static daima_err_t capture_wav(unsigned char **out_wav, size_t *out_len)
     if (frame_bytes == 0) frame_bytes = 2048;
     DAIMA_LOGI(TAG, "Audio frame bytes: %zu", frame_bytes);
 
-    uint8_t *frame = malloc(frame_bytes);
+    uint8_t *frame = kmalloc(frame_bytes, GFP_KERNEL);
     if (!frame) {
         audio_input_stop();
-        free(pcm);
+        kfree(pcm);
         return DAIMA_ERR_NO_MEM;
     }
 
@@ -336,17 +337,17 @@ static daima_err_t capture_wav(unsigned char **out_wav, size_t *out_len)
         offset += take;
     }
 
-    free(frame);
+    kfree(frame);
     audio_input_stop();
 
     if (offset == 0) {
         DAIMA_LOGW(TAG, "No audio captured");
-        free(pcm);
+        kfree(pcm);
         return DAIMA_FAIL;
     }
 
     unsigned char *wav = build_wav(pcm, offset, &cfg, out_len);
-    free(pcm);
+    kfree(pcm);
     if (!wav) return DAIMA_ERR_NO_MEM;
 
     DAIMA_LOGI(TAG, "Captured %zu bytes PCM, WAV size %zu", offset, *out_len);
@@ -364,7 +365,7 @@ static daima_err_t capture_and_send(void)
 
     err = voice_channel_handle_audio(
         DAIMA_VOICE_CHAT_ID, wav, wav_len, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-    free(wav);
+    kfree(wav);
     return err;
 }
 

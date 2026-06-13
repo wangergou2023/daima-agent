@@ -13,6 +13,7 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include "linux/printk.h"
+#include "linux/slab.h"
 
 static const char *TAG = "heartbeat";
 
@@ -106,7 +107,7 @@ static bool heartbeat_send(void)
     daima_err_t err = message_bus_push_inbound(&msg);
     if (err != DAIMA_OK) {
         DAIMA_LOGW(TAG, "Failed to push heartbeat message: %s", daima_err_to_name(err));
-        free(msg.content);
+        kfree(msg.content);
         return false;
     }
 

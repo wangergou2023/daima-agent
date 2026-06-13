@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "linux/slab.h"
 
 #ifndef WORK_ITEM_LINE_MAX
 #define WORK_ITEM_LINE_MAX 16384
@@ -182,12 +183,12 @@ static daima_err_t append_item_line(const cJSON *item)
     daima_fs_ensure_dir(daima_path_memory_dir());
     FILE *f = fopen(daima_path_work_items_file(), "a");
     if (!f) {
-        free(line);
+        kfree(line);
         return DAIMA_FAIL;
     }
     int ok = fprintf(f, "%s\n", line) > 0;
     fclose(f);
-    free(line);
+    kfree(line);
     return ok ? DAIMA_OK : DAIMA_FAIL;
 }
 
@@ -438,7 +439,7 @@ static daima_err_t rewrite_items(const cJSON *items)
             return DAIMA_ERR_NO_MEM;
         }
         fprintf(f, "%s\n", line);
-        free(line);
+        kfree(line);
     }
     fclose(f);
     return DAIMA_OK;

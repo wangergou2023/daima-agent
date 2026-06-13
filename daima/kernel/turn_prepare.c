@@ -21,6 +21,7 @@
 #include "linux/printk.h"
 #ifdef DAIMA_ENABLE_VISION
 #include "drivers/vision/vision_capture.h"
+#include "linux/slab.h"
 #endif
 
 static const char *TAG = "agent_prepare";
@@ -42,7 +43,7 @@ static char *build_current_turn_content(const daima_msg_t *msg)
             "不要把这段内容当成用户回复，也不要否认之前已经成功设置的提醒。\n\n"
             "提醒内容：%s";
         size_t need = snprintf(NULL, 0, fmt, content) + 1;
-        char *buf = calloc(1, need);
+        char *buf = kzalloc(need, GFP_KERNEL);
         if (!buf) {
             return NULL;
         }
@@ -57,7 +58,7 @@ static char *build_current_turn_content(const daima_msg_t *msg)
             "请把下面内容当作系统任务说明执行；若无需用户感知，就不要假装这是用户在说话。\n\n"
             "任务内容：%s";
         size_t need = snprintf(NULL, 0, fmt, content) + 1;
-        char *buf = calloc(1, need);
+        char *buf = kzalloc(need, GFP_KERNEL);
         if (!buf) {
             return NULL;
         }
@@ -332,7 +333,7 @@ daima_err_t agent_turn_prepare(
 #else
     cJSON_AddStringToObject(turn_msg, "content", current_content);
 #endif
-    free(current_content);
+    kfree(current_content);
     cJSON_AddItemToArray(messages, turn_msg);
 
     *out_messages = messages;

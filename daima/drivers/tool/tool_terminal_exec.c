@@ -15,6 +15,7 @@
 #include <unistd.h>
 
 #include "cJSON.h"
+#include "linux/slab.h"
 
 static bool is_word_boundary(char c)
 {
@@ -46,7 +47,7 @@ char *terminal_rewrite_sudo_command(const char *command)
     size_t rep_len = strlen(replace);
 
     size_t cap = cmd_len + 64;
-    char *out = calloc(1, cap);
+    char *out = kzalloc(cap, GFP_KERNEL);
     if (!out) return NULL;
     size_t off = 0;
 
@@ -58,7 +59,7 @@ char *terminal_rewrite_sudo_command(const char *command)
             if (off + tail + 1 > cap) {
                 char *tmp = realloc(out, off + tail + 1);
                 if (!tmp) {
-                    free(out);
+                    kfree(out);
                     return NULL;
                 }
                 out = tmp;
@@ -81,7 +82,7 @@ char *terminal_rewrite_sudo_command(const char *command)
             while (off + add + 1 > new_cap) new_cap *= 2;
             char *tmp = realloc(out, new_cap);
             if (!tmp) {
-                free(out);
+                kfree(out);
                 return NULL;
             }
             out = tmp;
@@ -187,14 +188,14 @@ daima_err_t terminal_execute_local_shell(const char *command,
 
     memset(out, 0, sizeof(*out));
     out->exit_code = -1;
-    out->output = calloc(1, output_cap > 0 ? output_cap : 1);
+    out->output = kzalloc(output_cap > 0 ? output_cap : 1, GFP_KERNEL);
     if (!out->output) {
         return DAIMA_ERR_NO_MEM;
     }
 
     int pipefd[2];
     if (pipe(pipefd) != 0) {
-        free(out->output);
+        kfree(out->output);
         out->output = NULL;
         return DAIMA_FAIL;
     }
@@ -204,7 +205,7 @@ daima_err_t terminal_execute_local_shell(const char *command,
     if (use_stdin && pipe(stdin_pipe) != 0) {
         close(pipefd[0]);
         close(pipefd[1]);
-        free(out->output);
+        kfree(out->output);
         out->output = NULL;
         return DAIMA_FAIL;
     }
@@ -215,7 +216,7 @@ daima_err_t terminal_execute_local_shell(const char *command,
         close(pipefd[1]);
         if (stdin_pipe[0] >= 0) close(stdin_pipe[0]);
         if (stdin_pipe[1] >= 0) close(stdin_pipe[1]);
-        free(out->output);
+        kfree(out->output);
         out->output = NULL;
         return DAIMA_FAIL;
     }

@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include "linux/slab.h"
 
 #define SAFE_EDIT_MAX_FILE_SIZE (1024 * 1024)
 #define SAFE_EDIT_TTL_SECONDS   (5 * 60)
@@ -100,7 +101,7 @@ static daima_err_t read_line_range_hash(const char *path, int line_start, int li
         hash = fnv1a_32_update(hash, line, strlen(line));
     }
 
-    free(line);
+    kfree(line);
     fclose(f);
     *hash_out = hash;
     return DAIMA_OK;

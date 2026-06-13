@@ -16,6 +16,7 @@
 #include "drivers/channel/feishu/feishu_targets.h"
 #include "cJSON.h"
 #include "linux/printk.h"
+#include "linux/slab.h"
 
 static const char *TAG = "feishu_event";
 
@@ -179,13 +180,13 @@ static void handle_message_event(const char *app_id, const char *app_secret, cJS
     if (msg.content) {
         if (message_bus_push_inbound(&msg) != DAIMA_OK) {
             DAIMA_LOGW(TAG, "Inbound queue full, dropping feishu message");
-            free(msg.content);
+            kfree(msg.content);
             if (msg.image_path) unlink(msg.image_path);
-            free(msg.image_path);
+            kfree(msg.image_path);
         }
     } else {
         if (msg.image_path) unlink(msg.image_path);
-        free(msg.image_path);
+        kfree(msg.image_path);
     }
 
     cJSON_Delete(content_obj);

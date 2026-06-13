@@ -9,6 +9,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include "linux/slab.h"
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("daima");
@@ -62,7 +63,7 @@ static daima_err_t replace_run(daima_msg_t *msg, char *system_prompt,
             *out_final_text = merged;
             merged = NULL;
         }
-        free(merged);
+        kfree(merged);
     } else {
         DAIMA_LOGW(TAG, "Coordinator launch skipped: %s", daima_err_to_name(err));
     }

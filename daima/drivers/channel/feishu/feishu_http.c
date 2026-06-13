@@ -6,13 +6,14 @@
 
 #include "http.h"
 #include "linux/printk.h"
+#include "linux/slab.h"
 
 static const char *TAG = "feishu_http";
 
 void feishu_http_response_free(feishu_http_response_t *resp)
 {
     if (!resp) return;
-    free(resp->body);
+    kfree(resp->body);
     resp->body = NULL;
     resp->status = 0;
 }
@@ -44,7 +45,7 @@ static daima_err_t feishu_http_request(const char *url, const char *token,
 
     out->status = resp.status;
     out->body = resp.body;
-    free(resp.headers);
+    kfree(resp.headers);
     resp.headers = NULL;
     return DAIMA_OK;
 }

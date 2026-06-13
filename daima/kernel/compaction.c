@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "linux/slab.h"
 
 static const char *TAG = "compaction_recovery";
 
@@ -113,7 +114,7 @@ static void extract_todos(const char *facts, char *out, size_t out_size)
         append_limited(out, out_size, trimmed);
     }
 
-    free(copy);
+    kfree(copy);
 }
 
 static void extract_current_task(const char *summary, char *out, size_t out_size)
@@ -152,7 +153,7 @@ static void extract_current_task(const char *summary, char *out, size_t out_size
         snprintf(out, out_size, "%s", fallback);
     }
 
-    free(copy);
+    kfree(copy);
 }
 
 static void extract_last_user_message(const char *chat_id, char *out, size_t out_size)
@@ -273,7 +274,7 @@ daima_err_t compaction_recovery_snapshot(const char *chat_id)
     }
 
     bool ok = write_text_file(path, json);
-    free(json);
+    kfree(json);
     if (!ok) {
         DAIMA_LOGE(TAG, "Cannot write compaction recovery %s", path);
         return DAIMA_FAIL;

@@ -16,6 +16,7 @@
 
 #include "linux/printk.h"
 #include "cJSON.h"
+#include "linux/slab.h"
 
 static const char *TAG = "tool_terminal";
 
@@ -185,7 +186,7 @@ static void write_blocked_terminal_result(char *output,
             if (with_message) {
                 strncpy(output, with_message, output_size - 1);
                 output[output_size - 1] = '\0';
-                free(with_message);
+                kfree(with_message);
             } else {
                 strncpy(output, json, output_size - 1);
                 output[output_size - 1] = '\0';
@@ -195,7 +196,7 @@ static void write_blocked_terminal_result(char *output,
             strncpy(output, json, output_size - 1);
             output[output_size - 1] = '\0';
         }
-        free(json);
+        kfree(json);
     } else {
         snprintf(output, output_size, "{\"error\":\"%s\"}", reason ? reason : "command_blocked");
     }
@@ -262,7 +263,7 @@ daima_err_t tool_terminal_execute(const char *input_json, char *output, size_t o
             if (json) {
                 strncpy(output, json, output_size - 1);
                 output[output_size - 1] = '\0';
-                free(json);
+                kfree(json);
             } else {
                 snprintf(output, output_size, "{\"status\":\"sudo_password_required\"}");
             }
@@ -276,9 +277,9 @@ daima_err_t tool_terminal_execute(const char *input_json, char *output, size_t o
             return DAIMA_ERR_NO_MEM;
         }
         size_t pw_len = strlen(sudo_password);
-        stdin_payload = calloc(1, pw_len + 2);
+        stdin_payload = kzalloc(pw_len + 2, GFP_KERNEL);
         if (!stdin_payload) {
-            free(effective_command);
+            kfree(effective_command);
             snprintf(output, output_size, "{\"error\":\"sudo_password_buffer_failed\"}");
             cJSON_Delete(root);
             return DAIMA_ERR_NO_MEM;
@@ -309,7 +310,7 @@ daima_err_t tool_terminal_execute(const char *input_json, char *output, size_t o
     if (json) {
         strncpy(output, json, output_size - 1);
         output[output_size - 1] = '\0';
-        free(json);
+        kfree(json);
     } else {
         snprintf(output, output_size, "{\"error\":\"result_encode_failed\"}");
         err = DAIMA_ERR_NO_MEM;
@@ -325,9 +326,9 @@ daima_err_t tool_terminal_execute(const char *input_json, char *output, size_t o
             effective_workdir);
     }
 
-    free(stdin_payload);
-    free(effective_command);
-    free(result.output);
+    kfree(stdin_payload);
+    kfree(effective_command);
+    kfree(result.output);
     cJSON_Delete(root);
     return err;
 }

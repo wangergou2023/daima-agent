@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "drivers/channel/gateway/ws_server.h"
+#include "linux/slab.h"
 
 daima_err_t channel_runtime_request_sudo(const daima_msg_t *msg,
                                         const char *request_id,
@@ -87,8 +88,8 @@ bool channel_runtime_wait_sudo_password(const daima_msg_t *msg,
         if (strcmp(incoming.channel, msg->channel) == 0 &&
             strcmp(incoming.chat_id, msg->chat_id) == 0 &&
             parse_sudo_password_reply(incoming.content, request_id, password_out, password_out_size, &cancelled)) {
-            free(incoming.content);
-            free(incoming.image_path);
+            kfree(incoming.content);
+            kfree(incoming.image_path);
             if (!cancelled && password_out[0]) {
                 got_password = true;
             }

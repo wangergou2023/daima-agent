@@ -9,6 +9,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include "linux/slab.h"
 
 typedef struct {
     int todo_count;
@@ -56,7 +57,7 @@ static bool load_state(const char *chat_id, todo_enforcer_state_t *state)
         return false;
     }
 
-    char *buf = calloc(1, (size_t)size + 1);
+    char *buf = kzalloc((size_t)size + 1, GFP_KERNEL);
     if (!buf) {
         fclose(f);
         return false;
@@ -67,7 +68,7 @@ static bool load_state(const char *chat_id, todo_enforcer_state_t *state)
     buf[n] = '\0';
 
     cJSON *root = cJSON_Parse(buf);
-    free(buf);
+    kfree(buf);
     if (!root || !cJSON_IsObject(root)) {
         cJSON_Delete(root);
         return false;
@@ -107,14 +108,14 @@ static daima_err_t save_state(const char *chat_id, const todo_enforcer_state_t *
 
     FILE *f = fopen(path, "w");
     if (!f) {
-        free(json);
+        kfree(json);
         return DAIMA_FAIL;
     }
 
     size_t len = strlen(json);
     size_t written = fwrite(json, 1, len, f);
     fclose(f);
-    free(json);
+    kfree(json);
     return written == len ? DAIMA_OK : DAIMA_FAIL;
 }
 

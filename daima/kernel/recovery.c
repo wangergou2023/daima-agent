@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "linux/slab.h"
 
 static const char *TAG = "session_recovery";
 static const time_t SESSION_RECOVERY_TTL_SEC = 30 * 60;
@@ -181,7 +182,7 @@ daima_err_t session_recovery_save_crash(const char *chat_id,
     }
 
     bool ok = write_text_file(path, json);
-    free(json);
+    kfree(json);
     if (!ok) {
         DAIMA_LOGW(TAG, "Cannot write session recovery %s", path);
         return DAIMA_FAIL;

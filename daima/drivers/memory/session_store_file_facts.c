@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "linux/printk.h"
+#include "linux/slab.h"
 
 static const char *TAG = "session_facts";
 
@@ -87,7 +88,7 @@ static int append_unique_fact_lines(
         }
     }
 
-    free(copy);
+    kfree(copy);
     return count;
 }
 

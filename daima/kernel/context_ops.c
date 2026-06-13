@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "linux/slab.h"
 
 static const char *TAG = "compress";
 
@@ -71,17 +72,17 @@ bool context_compress_needed(const cJSON *messages,
 
 cJSON *context_compress_load_session_messages(const char *chat_id)
 {
-    char *history_json = calloc(1, DAIMA_LLM_STREAM_BUF_SIZE);
+    char *history_json = kzalloc(DAIMA_LLM_STREAM_BUF_SIZE, GFP_KERNEL);
     if (!history_json) {
         return NULL;
     }
     if (session_store_get_history_json(chat_id, history_json, DAIMA_LLM_STREAM_BUF_SIZE, DAIMA_AGENT_MAX_HISTORY) != DAIMA_OK) {
-        free(history_json);
+        kfree(history_json);
         return NULL;
     }
 
     cJSON *messages = cJSON_Parse(history_json);
-    free(history_json);
+    kfree(history_json);
     if (!messages) {
         messages = cJSON_CreateArray();
     }
@@ -100,7 +101,7 @@ static char *dup_truncated(const char *text, size_t head_chars, size_t tail_char
     }
 
     size_t out_len = head_chars + tail_chars + 32;
-    char *out = calloc(1, out_len + 1);
+    char *out = kzalloc(out_len + 1, GFP_KERNEL);
     if (!out) {
         return NULL;
     }
@@ -113,7 +114,7 @@ static char *dup_truncated(const char *text, size_t head_chars, size_t tail_char
 static char *serialize_middle_messages(const cJSON *messages, int start_idx, int end_idx)
 {
     size_t cap = 4096;
-    char *buf = calloc(1, cap);
+    char *buf = kzalloc(cap, GFP_KERNEL);
     if (!buf) {
         return NULL;
     }
@@ -134,7 +135,7 @@ static char *serialize_middle_messages(const cJSON *messages, int start_idx, int
                                       SUMMARY_INPUT_HEAD_CHARS,
                                       SUMMARY_INPUT_TAIL_CHARS);
         if (!snippet) {
-            free(buf);
+            kfree(buf);
             return NULL;
         }
 
@@ -147,8 +148,8 @@ static char *serialize_middle_messages(const cJSON *messages, int start_idx, int
             }
             char *tmp = realloc(buf, new_cap);
             if (!tmp) {
-                free(snippet);
-                free(buf);
+                kfree(snippet);
+                kfree(buf);
                 return NULL;
             }
             buf = tmp;
@@ -156,7 +157,7 @@ static char *serialize_middle_messages(const cJSON *messages, int start_idx, int
         }
 
         off += snprintf(buf + off, cap - off, "[%s %d]\n%s\n\n", label, i + 1, snippet);
-        free(snippet);
+        kfree(snippet);
     }
 
     return buf;
@@ -185,14 +186,14 @@ static char *build_summary_prompt(const cJSON *messages, int start_idx, int end_
         "以下是需要压缩的历史消息：\n\n";
 
     size_t need = strlen(template_text) + strlen(serialized) + 1;
-    char *prompt = calloc(1, need);
+    char *prompt = kzalloc(need, GFP_KERNEL);
     if (!prompt) {
-        free(serialized);
+        kfree(serialized);
         return NULL;
     }
 
     snprintf(prompt, need, "%s%s", template_text, serialized);
-    free(serialized);
+    kfree(serialized);
     return prompt;
 }
 
@@ -208,7 +209,7 @@ static char *generate_summary_with_llm(const cJSON *messages, int start_idx, int
     if (!req_msgs || !user_msg) {
         cJSON_Delete(req_msgs);
         cJSON_Delete(user_msg);
-        free(prompt);
+        kfree(prompt);
         return NULL;
     }
 
@@ -224,7 +225,7 @@ static char *generate_summary_with_llm(const cJSON *messages, int start_idx, int
         NULL,
         &resp);
     cJSON_Delete(req_msgs);
-    free(prompt);
+    kfree(prompt);
 
     if (err != DAIMA_OK || resp.tool_use || !resp.text || !resp.text[0]) {
         llm_response_free(&resp);
@@ -232,7 +233,7 @@ static char *generate_summary_with_llm(const cJSON *messages, int start_idx, int
     }
 
     size_t need = strlen(SUMMARY_PREFIX) + resp.text_len + 4;
-    char *out = calloc(1, need);
+    char *out = kzalloc(need, GFP_KERNEL);
     if (out) {
         snprintf(out, need, "%s\n%s", SUMMARY_PREFIX, resp.text);
     }
@@ -265,14 +266,14 @@ static char *build_facts_prompt(const cJSON *messages, int start_idx, int end_id
         "以下是需要提炼事实的历史消息：\n\n";
 
     size_t need = strlen(template_text) + strlen(serialized) + 1;
-    char *prompt = calloc(1, need);
+    char *prompt = kzalloc(need, GFP_KERNEL);
     if (!prompt) {
-        free(serialized);
+        kfree(serialized);
         return NULL;
     }
 
     snprintf(prompt, need, "%s%s", template_text, serialized);
-    free(serialized);
+    kfree(serialized);
     return prompt;
 }
 
@@ -288,7 +289,7 @@ static char *generate_facts_with_llm(const cJSON *messages, int start_idx, int e
     if (!req_msgs || !user_msg) {
         cJSON_Delete(req_msgs);
         cJSON_Delete(user_msg);
-        free(prompt);
+        kfree(prompt);
         return NULL;
     }
 
@@ -304,14 +305,14 @@ static char *generate_facts_with_llm(const cJSON *messages, int start_idx, int e
         NULL,
         &resp);
     cJSON_Delete(req_msgs);
-    free(prompt);
+    kfree(prompt);
 
     if (err != DAIMA_OK || resp.tool_use || !resp.text || !resp.text[0]) {
         llm_response_free(&resp);
         return NULL;
     }
 
-    char *out = calloc(1, FACTS_OUTPUT_BUDGET);
+    char *out = kzalloc(FACTS_OUTPUT_BUDGET, GFP_KERNEL);
     if (out) {
         snprintf(out, FACTS_OUTPUT_BUDGET, "%s", resp.text);
     }
@@ -321,7 +322,7 @@ static char *generate_facts_with_llm(const cJSON *messages, int start_idx, int e
 
 static char *fallback_summary(int dropped_msgs)
 {
-    char *buf = calloc(1, SUMMARY_OUTPUT_BUDGET);
+    char *buf = kzalloc(SUMMARY_OUTPUT_BUDGET, GFP_KERNEL);
     if (!buf) {
         return NULL;
     }
@@ -423,10 +424,10 @@ daima_err_t context_compress_compact_once(const char *chat_id,
             DAIMA_LOGW(TAG, "Failed to merge session facts for %s: %s", chat_id, daima_err_to_name(facts_err));
         }
     }
-    free(facts);
+    kfree(facts);
 
     cJSON *compressed = build_compacted_messages(messages, n, messages, cfg, summary);
-    free(summary);
+    kfree(summary);
     if (!compressed) {
         return DAIMA_ERR_NO_MEM;
     }
@@ -487,17 +488,17 @@ void context_compress_session_in_background(const char *chat_id,
                 DAIMA_LOGW(TAG, "Failed to merge session facts for %s: %s", chat_id, daima_err_to_name(facts_err));
             }
         }
-        free(facts);
+        kfree(facts);
 
         cJSON *latest = context_compress_load_session_messages(chat_id);
         if (!latest) {
-            free(summary);
+            kfree(summary);
             cJSON_Delete(snapshot);
             return;
         }
 
         cJSON *compressed = build_compacted_messages(snapshot, snapshot_count, latest, cfg, summary);
-        free(summary);
+        kfree(summary);
         if (!compressed) {
             cJSON_Delete(latest);
             cJSON_Delete(snapshot);

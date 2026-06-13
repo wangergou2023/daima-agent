@@ -11,6 +11,7 @@
 #include "os.h"
 #include "text.h"
 #include "cJSON.h"
+#include "linux/slab.h"
 
 static const char *TAG = "feishu";
 
@@ -123,7 +124,7 @@ void feishu_ws_runtime_run(feishu_ws_runtime_t *rt,
                 size_t payload_len = 0;
                 if (!feishu_ws_read_frame(&conn, &opcode, &payload, &payload_len)) {
                     DAIMA_LOGW(TAG, "WS frame read failed");
-                    free(payload);
+                    kfree(payload);
                     break;
                 }
                 if (opcode == FEISHU_WS_OPCODE_PING) {
@@ -131,10 +132,10 @@ void feishu_ws_runtime_run(feishu_ws_runtime_t *rt,
                 } else if (opcode == FEISHU_WS_OPCODE_BINARY) {
                     feishu_handle_ws_frame(&conn, app_id, app_secret, rt, payload, payload_len);
                 } else if (opcode == FEISHU_WS_OPCODE_CLOSE) {
-                    free(payload);
+                    kfree(payload);
                     break;
                 }
-                free(payload);
+                kfree(payload);
             }
 
             now = now_ms();

@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "linux/slab.h"
 
 static const char *TAG = "http";
 static pthread_once_t s_curl_once = PTHREAD_ONCE_INIT;
@@ -151,8 +152,8 @@ daima_err_t host_http_request(const char *method,
             DAIMA_LOGW(TAG, "HTTP request failed: %s", curl_easy_strerror(res));
         }
         out->error = strdup(curl_easy_strerror(res));
-        free(resp.data);
-        free(hdrs.data);
+        kfree(resp.data);
+        kfree(hdrs.data);
         return DAIMA_FAIL;
     }
 
@@ -167,9 +168,9 @@ daima_err_t host_http_request(const char *method,
 void host_http_response_free(host_http_response_t *resp)
 {
     if (unlikely(!resp)) return;
-    free(resp->body);
-    free(resp->headers);
-    free(resp->error);
+    kfree(resp->body);
+    kfree(resp->headers);
+    kfree(resp->error);
     resp->body = NULL;
     resp->headers = NULL;
     resp->error = NULL;

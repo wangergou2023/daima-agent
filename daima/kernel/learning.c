@@ -21,6 +21,7 @@
 
 #include "cJSON.h"
 #include "linux/printk.h"
+#include "linux/slab.h"
 
 static const char *TAG = "learn";
 
@@ -210,10 +211,10 @@ static daima_err_t append_skill_review_queue(cJSON *skill_obj, const char *chat_
 
 static void run_review_for_chat(const char *chat_id)
 {
-    char *history_json = calloc(1, REVIEW_HISTORY_BUF_SIZE);
-    char *history_text = calloc(1, REVIEW_PROMPT_BUF_SIZE);
-    char *memory_text = calloc(1, REVIEW_MEMORY_BUF_SIZE);
-    char *prompt = calloc(1, REVIEW_PROMPT_BUF_SIZE);
+    char *history_json = kzalloc(REVIEW_HISTORY_BUF_SIZE, GFP_KERNEL);
+    char *history_text = kzalloc(REVIEW_PROMPT_BUF_SIZE, GFP_KERNEL);
+    char *memory_text = kzalloc(REVIEW_MEMORY_BUF_SIZE, GFP_KERNEL);
+    char *prompt = kzalloc(REVIEW_PROMPT_BUF_SIZE, GFP_KERNEL);
     char skills_summary[4096];
     if (!history_json || !history_text || !memory_text || !prompt) {
         goto cleanup;
@@ -295,12 +296,12 @@ static void run_review_for_chat(const char *chat_id)
     if (!raw) goto cleanup;
     char *json_text = extract_json_object(raw);
     if (!json_text) {
-        free(raw);
+        kfree(raw);
         goto cleanup;
     }
 
     cJSON *review = cJSON_Parse(json_text);
-    free(raw);
+    kfree(raw);
     if (!review || !cJSON_IsObject(review)) {
         cJSON_Delete(review);
         goto cleanup;
@@ -311,10 +312,10 @@ static void run_review_for_chat(const char *chat_id)
     cJSON_Delete(review);
 
 cleanup:
-    free(history_json);
-    free(history_text);
-    free(memory_text);
-    free(prompt);
+    kfree(history_json);
+    kfree(history_text);
+    kfree(memory_text);
+    kfree(prompt);
 }
 
 static void *review_worker_loop(void *arg)

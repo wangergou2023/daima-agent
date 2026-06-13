@@ -17,6 +17,7 @@
 #include "autoconf.h"
 #include "drivers/voice/voice_channel.h"
 #include "cJSON.h"
+#include "linux/slab.h"
 
 static const char *TAG = "vector";
 
@@ -89,7 +90,7 @@ static void pcm_buf_flush_to_asr(void)
 
     size_t n_samples = s->pcm_len;
     size_t pcm_bytes = n_samples * sizeof(int16_t);
-    int16_t *pcm_copy = malloc(pcm_bytes);
+    int16_t *pcm_copy = kmalloc(pcm_bytes, GFP_KERNEL);
     if (!pcm_copy) {
         s->pcm_len = 0;
         pthread_mutex_unlock(&s->mutex);
@@ -100,7 +101,7 @@ static void pcm_buf_flush_to_asr(void)
 
     /* Shrink buffer if it grew too large */
     if (s->pcm_cap > VAD_CHUNK_SAMPLES * 64) {
-        free(s->pcm_buf);
+        kfree(s->pcm_buf);
         s->pcm_buf = NULL;
         s->pcm_cap = 0;
     }
@@ -112,10 +113,10 @@ static void pcm_buf_flush_to_asr(void)
 
     /* Build WAV header + send to ASR (no lock held) */
     size_t wav_size = 44 + pcm_bytes;
-    uint8_t *wav_buf = malloc(wav_size);
+    uint8_t *wav_buf = kmalloc(wav_size, GFP_KERNEL);
     if (!wav_buf) {
         DAIMA_LOGW(TAG, "ASR: malloc failed");
-        free(pcm_copy);
+        kfree(pcm_copy);
         return;
     }
 
@@ -133,12 +134,12 @@ static void pcm_buf_flush_to_asr(void)
     memcpy(wav_buf + 36, "data", 4);
     *(uint32_t *)(wav_buf + 40) = (uint32_t)pcm_bytes;
     memcpy(wav_buf + 44, pcm_copy, pcm_bytes);
-    free(pcm_copy);
+    kfree(pcm_copy);
 
     daima_err_t err = voice_channel_handle_audio(
         DAIMA_CHAN_VECTOR, wav_buf, wav_size,
         NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-    free(wav_buf);
+    kfree(wav_buf);
 
     if (err != DAIMA_OK) {
         DAIMA_LOGW(TAG, "ASR failed: %s", daima_err_to_name(err));
@@ -297,7 +298,7 @@ daima_err_t vector_channel_init(void)
     DAIMA_LOGI(TAG, "Initializing vector channel");
 
     if (!s) {
-        s = calloc(1, sizeof(vector_session_t));
+        s = kzalloc(sizeof(vector_session_t), GFP_KERNEL);
         if (!s) return DAIMA_ERR_NO_MEM;
         pthread_mutex_init(&s->mutex, NULL);
     }

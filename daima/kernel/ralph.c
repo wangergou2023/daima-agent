@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "linux/slab.h"
 
 static void ralph_loop_build_todo_path(const char *chat_id, char *path, size_t path_size)
 {
@@ -46,7 +47,7 @@ static cJSON *ralph_loop_read_json_file(const char *path)
         return NULL;
     }
 
-    char *buf = calloc(1, (size_t)size + 1);
+    char *buf = kzalloc((size_t)size + 1, GFP_KERNEL);
     if (!buf) {
         fclose(f);
         return NULL;
@@ -57,7 +58,7 @@ static cJSON *ralph_loop_read_json_file(const char *path)
     buf[n] = '\0';
 
     cJSON *root = cJSON_Parse(buf);
-    free(buf);
+    kfree(buf);
     return root;
 }
 

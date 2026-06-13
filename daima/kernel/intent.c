@@ -10,6 +10,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include "linux/slab.h"
 
 static const char *TAG = "intent_gate";
 
@@ -83,7 +84,7 @@ intent_gate_cfg_t intent_gate_load_cfg(void)
 static char *ascii_lower_copy(const char *text)
 {
     size_t len = strlen(text);
-    char *copy = (char *)malloc(len + 1);
+    char *copy = (char *)kmalloc(len + 1, GFP_KERNEL);
     if (!copy) {
         return NULL;
     }
@@ -104,7 +105,7 @@ static bool contains_keyword(const char *lower_message, const char *keyword)
     }
 
     bool matched = strstr(lower_message, lower_keyword) != NULL;
-    free(lower_keyword);
+    kfree(lower_keyword);
     return matched;
 }
 
@@ -130,7 +131,7 @@ daima_err_t intent_gate_classify(const char *user_message,
     }
 
 done:
-    free(lower_message);
+    kfree(lower_message);
     *out_intent = intent;
 
 #if DAIMA_INTENT_GATE_LLM_FALLBACK

@@ -22,6 +22,7 @@
 #include "autoconf.h"
 #include "linux/printk.h"
 #include "cJSON.h"
+#include "linux/slab.h"
 
 static const char *TAG = "ws";
 
@@ -134,7 +135,7 @@ static void ws_send_json_text(int fd, cJSON *obj)
     char *text = cJSON_PrintUnformatted(obj);
     if (!text) return;
     ws_send_text(fd, text);
-    free(text);
+    kfree(text);
 }
 
 void ws_pending_save(const char *response_text)
@@ -190,7 +191,7 @@ static int ws_send_pending_response(int fd, const char *chat_id, const char *res
         return -1;
     }
     int ret = ws_send_text(fd, text);
-    free(text);
+    kfree(text);
     return ret;
 }
 
@@ -423,7 +424,7 @@ daima_err_t ws_client_session_send_json(const char *chat_id, cJSON *obj)
         return DAIMA_ERR_NO_MEM;
     }
     int ret = ws_send_text(fd, json_str);
-    free(json_str);
+    kfree(json_str);
     if (ret != 0) {
         DAIMA_LOGW(TAG, "Failed to send JSON to %s", chat_id);
         remove_client(fd);
@@ -532,11 +533,11 @@ static bool ws_read_frame_header(int fd, unsigned char *out_opcode, uint64_t *ou
 
 static char *ws_read_frame_payload(int fd, uint64_t len, bool masked, const unsigned char *mask)
 {
-    char *payload = calloc(1, len + 1);
+    char *payload = kzalloc(len + 1, GFP_KERNEL);
     if (!payload) { return NULL; }
 
     if (recv_all(fd, payload, len) != 0) {
-        free(payload);
+        kfree(payload);
         return NULL;
     }
 
@@ -659,7 +660,7 @@ static void ws_handle_chat_message(int fd, ws_client_t *client, cJSON *root)
     if (msg.content) {
         message_bus_push_inbound(&msg);
     } else {
-        free(msg.image_path);
+        kfree(msg.image_path);
     }
 }
 
@@ -677,7 +678,7 @@ static void ws_handle_stop(int fd, ws_client_t *client, cJSON *root)
         char *text = cJSON_PrintUnformatted(resp);
         if (text) {
             ws_send_text(fd, text);
-            free(text);
+            kfree(text);
         }
         cJSON_Delete(resp);
     }
@@ -732,7 +733,7 @@ static void ws_handle_sudo_password(int fd, ws_client_t *client, cJSON *root)
     }
     if (req && cJSON_IsString(req) && pwd && cJSON_IsString(pwd)) {
         size_t need = strlen("__sudo_password__::") + strlen(req->valuestring) + strlen(pwd->valuestring) + 8;
-        char *payload2 = calloc(1, need);
+        char *payload2 = kzalloc(need, GFP_KERNEL);
         if (payload2) {
             snprintf(payload2, need, "__sudo_password__:%s:%s:%d",
                      req->valuestring,
@@ -819,7 +820,7 @@ static void handle_message(int fd)
         default:  client_touch(fd, now, false); break;
     }
 
-    free(payload);
+    kfree(payload);
 }
 
 void ws_client_session_init(void)

@@ -10,6 +10,7 @@
 #include "drivers/tool/tool_registry.h"
 #include "cJSON.h"
 #include "linux/printk.h"
+#include "linux/slab.h"
 
 static const char *TAG = "tool_runtime";
 
@@ -122,7 +123,7 @@ static void maybe_retry_terminal_with_web_sudo(const llm_tool_call_t *call,
 
     tool_output[0] = '\0';
     tool_registry_execute_for_channel(msg->channel, call->name, retry_input, tool_output, tool_output_size);
-    free(retry_input);
+    kfree(retry_input);
     cJSON_Delete(root);
 }
 

@@ -13,6 +13,7 @@
 #include "drivers/tool/tool_runtime.h"
 #include "drivers/tool/tool_terminal_exec.h"
 #include "work_item.h"
+#include "linux/slab.h"
 
 static const char *TAG = "agent_run";
 
@@ -267,14 +268,14 @@ char *agent_turn_generate_forced_final_response(const char *system_prompt,
         "请仅基于当前已有的对话和工具结果，直接输出最终答复。"
         "如果任务还没完全完成，请明确说明已完成到哪一步、卡在什么地方，以及建议用户下一步怎么做。";
     size_t content_size = strlen(prefix) + strlen(suffix) + 2;
-    char *content = calloc(1, content_size);
+    char *content = kzalloc(content_size, GFP_KERNEL);
     if (!content) {
         cJSON_Delete(user_msg);
         return NULL;
     }
     snprintf(content, content_size, "%s%s", prefix, suffix);
     cJSON_AddStringToObject(user_msg, "content", content);
-    free(content);
+    kfree(content);
     cJSON_AddItemToArray(messages, user_msg);
 
     llm_response_t resp;
@@ -525,7 +526,7 @@ void agent_turn_maybe_run_auto_verification(const turn_exec_stats_t *stats, char
     memset(&result, 0, sizeof(result));
     daima_err_t err = terminal_execute_local_shell(command, NULL, 180, NULL, 4096, &result);
     if (err != DAIMA_OK) {
-        free(result.output);
+        kfree(result.output);
         return;
     }
 
@@ -540,7 +541,7 @@ void agent_turn_maybe_run_auto_verification(const turn_exec_stats_t *stats, char
     }
 
     append_verification_note(io_final_text, command, &result, stats->last_modified_path, stats->last_checkpoint_path);
-    free(result.output);
+    kfree(result.output);
 }
 
 cJSON *agent_turn_build_tool_results(const llm_response_t *resp,
@@ -636,7 +637,7 @@ cJSON *agent_turn_build_tool_results(const llm_response_t *resp,
         cJSON_AddStringToObject(result_block, "content", tool_output);
         cJSON_AddItemToArray(content, result_block);
 
-        free(rt.effective_input);
+        kfree(rt.effective_input);
     }
 
     return content;

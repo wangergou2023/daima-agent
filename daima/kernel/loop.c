@@ -24,6 +24,7 @@
 #include <string.h>
 
 #include "cJSON.h"
+#include "linux/slab.h"
 
 static const char *TAG = "agent";
 
@@ -37,8 +38,8 @@ static void agent_loop_task(void *arg)
 
     if (unlikely(!system_prompt || !history_json)) {
         DAIMA_LOGE(TAG, "Failed to allocate PSRAM buffers");
-        free(system_prompt);
-        free(history_json);
+        kfree(system_prompt);
+        kfree(history_json);
         return;
     }
 

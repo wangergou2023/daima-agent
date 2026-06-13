@@ -24,6 +24,7 @@
 #include "autoconf.h"
 #include "linux/printk.h"
 #include "text.h"
+#include "linux/slab.h"
 
 static const char *TAG = "feishu_ws";
 
@@ -249,7 +250,7 @@ static bool ws_build_key(char *out, size_t out_size)
     char *b64 = daima_base64_encode_alloc(rnd, sizeof(rnd), &b64_len);
     if (!b64) return false;
     daima_safe_copy(out, out_size, b64);
-    free(b64);
+    kfree(b64);
     return true;
 }
 
@@ -308,7 +309,7 @@ static bool ws_verify_accept(const char *key, const char *accept)
     char *b64 = daima_base64_encode_alloc(sha, sizeof(sha), &b64_len);
     if (!b64) return false;
     bool ok = (strcmp(b64, accept) == 0);
-    free(b64);
+    kfree(b64);
     return ok;
 }
 
@@ -468,7 +469,7 @@ bool feishu_ws_send_frame_raw(feishu_ws_conn_t *conn, int opcode, const uint8_t 
 
     uint8_t *masked = NULL;
     if (payload_len > 0) {
-        masked = malloc(payload_len);
+        masked = kmalloc(payload_len, GFP_KERNEL);
         if (!masked) return false;
         for (size_t i = 0; i < payload_len; i++) {
             masked[i] = payload[i] ^ mask[i % 4];
@@ -479,7 +480,7 @@ bool feishu_ws_send_frame_raw(feishu_ws_conn_t *conn, int opcode, const uint8_t 
     if (ok && payload_len > 0) {
         ok = (ws_conn_write_all(conn, masked, payload_len) >= 0);
     }
-    free(masked);
+    kfree(masked);
     return ok;
 }
 
@@ -514,10 +515,10 @@ bool feishu_ws_read_frame(feishu_ws_conn_t *conn, int *out_opcode, uint8_t **out
 
     uint8_t *payload = NULL;
     if (len > 0) {
-        payload = malloc((size_t)len);
+        payload = kmalloc((size_t)len, GFP_KERNEL);
         if (!payload) return false;
         if (ws_read_exact(conn, payload, (size_t)len, FEISHU_WS_READ_TIMEOUT) < 0) {
-            free(payload);
+            kfree(payload);
             return false;
         }
         if (masked) {

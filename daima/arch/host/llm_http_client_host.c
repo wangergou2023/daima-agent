@@ -13,6 +13,7 @@
 #include "autoconf.h"
 #include "linux/printk.h"
 #include "proxy.h"
+#include "linux/slab.h"
 
 #define LLM_DUMP_MAX_BYTES   (16 * 1024)
 #define LLM_DUMP_CHUNK_BYTES 320
@@ -142,14 +143,14 @@ llm_async_request_t *llm_http_async_request(const char *method,
         return NULL;
     }
 
-    llm_async_request_t *req = calloc(1, sizeof(*req));
+    llm_async_request_t *req = kzalloc(sizeof(*req), GFP_KERNEL);
     if (!req) {
         return NULL;
     }
 
     req->easy = curl_easy_init();
     if (!req->easy) {
-        free(req);
+        kfree(req);
         return NULL;
     }
 
@@ -184,7 +185,7 @@ llm_async_request_t *llm_http_async_request(const char *method,
     CURLMcode mcode = curl_multi_add_handle(s_llm_multi, req->easy);
     if (mcode != CURLM_OK) {
         curl_easy_cleanup(req->easy);
-        free(req);
+        kfree(req);
         return NULL;
     }
 
@@ -252,8 +253,8 @@ void llm_http_async_free(llm_async_request_t *req)
     if (req->owns_headers && req->headers) {
         curl_slist_free_all(req->headers);
     }
-    free(req->body.data);
-    free(req);
+    kfree(req->body.data);
+    kfree(req);
 }
 
 void llm_http_log_payload(const char *tag, const char *label, const char *payload)

@@ -8,6 +8,7 @@
 
 #include "autoconf.h"
 #include "env.h"
+#include "linux/slab.h"
 
 int agent_env_int_or_default(const char *name, int fallback)
 {
@@ -122,13 +123,13 @@ void agent_cleanup_inbound_msg(daima_msg_t *msg)
         return;
     }
 
-    free(msg->content);
+    kfree(msg->content);
     msg->content = NULL;
 
     if (msg->image_path) {
         unlink(msg->image_path);
     }
-    free(msg->image_path);
+    kfree(msg->image_path);
     msg->image_path = NULL;
 }
 
@@ -138,8 +139,8 @@ void agent_cleanup_outbound_msg(daima_msg_t *msg)
         return;
     }
 
-    free(msg->content);
+    kfree(msg->content);
     msg->content = NULL;
-    free(msg->reasoning);
+    kfree(msg->reasoning);
     msg->reasoning = NULL;
 }

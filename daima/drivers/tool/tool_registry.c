@@ -19,6 +19,7 @@
 #include "bus.h"
 #include "linux/printk.h"
 #include "cJSON.h"
+#include "linux/slab.h"
 
 static const char *TAG = "tools";
 
@@ -109,8 +110,8 @@ static char *build_tools_json_filtered(bool include_vector_tools)
 
 static void build_tools_json(void)
 {
-    free(s_tools_json);
-    free(s_base_tools_json);
+    kfree(s_tools_json);
+    kfree(s_base_tools_json);
     s_tools_json = build_tools_json_filtered(true);
     s_base_tools_json = build_tools_json_filtered(false);
 

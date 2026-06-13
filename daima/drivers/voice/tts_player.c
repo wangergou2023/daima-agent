@@ -14,6 +14,7 @@
 
 #include "linux/printk.h"
 #include "drivers/channel/vector/vector_channel.h"
+#include "linux/slab.h"
 
 static const char *TAG = "tts_player";
 
@@ -92,7 +93,7 @@ daima_err_t tts_player_speak(const char *text)
     float total_audio_sec = 0.0f;
 
     size_t text_len = strlen(text);
-    char *buf = malloc(text_len + 1);
+    char *buf = kmalloc(text_len + 1, GFP_KERNEL);
     if (!buf) return DAIMA_ERR_NO_MEM;
     memcpy(buf, text, text_len + 1);
 
@@ -176,7 +177,7 @@ daima_err_t tts_player_speak(const char *text)
         }
         n = g_n;
     }
-    free(buf);
+    kfree(buf);
 
     DAIMA_LOGD(TAG, "Collected %d sentences", n);
     if (n == 0) {
@@ -201,7 +202,7 @@ daima_err_t tts_player_speak(const char *text)
             long ms = (te.tv_sec - ts.tv_sec) * 1000 + (te.tv_nsec - ts.tv_nsec) / 1000000;
             float audio = (float)jobs[i].pcm_len / (PCM_TARGET_RATE * 2.0f);
             DAIMA_LOGD(TAG, "  [%d/%d] TTS %ldms + push %ldms (audio %.1fs)", i+1, n, jobs[i].tts_ms, ms, audio);
-            free(jobs[i].pcm);
+            kfree(jobs[i].pcm);
         }
     }
 

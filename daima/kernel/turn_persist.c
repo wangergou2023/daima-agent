@@ -12,6 +12,7 @@
 #include "drivers/memory/session_store.h"
 #include "linux/printk.h"
 #include "cJSON.h"
+#include "linux/slab.h"
 
 static const char *TAG = "agent_finish";
 
@@ -38,12 +39,12 @@ static char *build_assistant_session_content_json(const char *text, const char *
 void agent_turn_queue_outbound_text(const daima_msg_t *msg, char *text, const char *reasoning, bool free_on_fail)
 {
     if (!msg || !text) {
-        free(text);
+        kfree(text);
         return;
     }
     if (agent_msg_is_internal_control(msg)) {
         DAIMA_LOGI(TAG, "Skip outbound response for internal control message");
-        free(text);
+        kfree(text);
         return;
     }
 
@@ -58,9 +59,9 @@ void agent_turn_queue_outbound_text(const daima_msg_t *msg, char *text, const ch
     if (message_bus_push_outbound(&out) != DAIMA_OK) {
         DAIMA_LOGW(TAG, "Outbound queue full, drop response");
         if (free_on_fail) {
-            free(text);
+            kfree(text);
         }
-        free(out.reasoning);
+        kfree(out.reasoning);
     }
 }
 
@@ -91,7 +92,7 @@ void agent_turn_save_session(const daima_msg_t *msg, const char *final_text, con
         char *assistant_payload = build_assistant_session_content_json(final_text, reasoning);
         if (assistant_payload) {
             save_asst = session_store_append(msg->chat_id, "assistant", assistant_payload);
-            free(assistant_payload);
+            kfree(assistant_payload);
         } else {
             save_asst = DAIMA_ERR_NO_MEM;
         }

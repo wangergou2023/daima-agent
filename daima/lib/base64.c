@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include "linux/slab.h"
 
 static const char s_b64_table[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -17,7 +18,7 @@ char *daima_base64_encode_alloc(const unsigned char *data,
         *output_length = out_len;
     }
 
-    char *encoded = malloc(out_len + 1);
+    char *encoded = kmalloc(out_len + 1, GFP_KERNEL);
     if (!encoded) return NULL;
 
     for (size_t i = 0, j = 0; i < input_length;) {

@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "linux/slab.h"
 
 int tool_files_clamp_int(int value, int min_value, int max_value)
 {
@@ -40,7 +41,7 @@ int tool_files_count_total_lines(FILE *f)
     while (getline(&line, &cap, f) != -1) {
         total++;
     }
-    free(line);
+    kfree(line);
     rewind(f);
     return total;
 }
@@ -67,7 +68,7 @@ daima_err_t tool_files_read_text_file(const char *path,
         return DAIMA_ERR_INVALID_SIZE;
     }
 
-    char *buf = malloc((size_t)file_size + 1);
+    char *buf = kmalloc((size_t)file_size + 1, GFP_KERNEL);
     if (!buf) {
         fclose(f);
         return DAIMA_ERR_NO_MEM;
@@ -94,7 +95,7 @@ daima_err_t tool_files_read_optional_text_file(const char *path,
 
     daima_err_t err = tool_files_read_text_file(path, max_size, buf_out, len_out);
     if (err == DAIMA_ERR_NOT_FOUND || err == DAIMA_ERR_INVALID_SIZE) {
-        *buf_out = calloc(1, 1);
+        *buf_out = kzalloc(1, GFP_KERNEL);
         if (!*buf_out) {
             return DAIMA_ERR_NO_MEM;
         }
@@ -159,7 +160,7 @@ daima_err_t tool_files_apply_replace(const char *input,
     if (new_len > old_len) {
         max_result += (size_t)(new_len - old_len) * (size_t)match_count;
     }
-    char *result = malloc(max_result);
+    char *result = kmalloc(max_result, GFP_KERNEL);
     if (!result) {
         return DAIMA_ERR_NO_MEM;
     }

@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "linux/slab.h"
 
 static const char *TAG = "model_fallback";
 
@@ -38,7 +39,7 @@ static char *read_file(const char *path)
     }
     rewind(f);
 
-    char *buf = (char *)calloc(1, (size_t)len + 1);
+    char *buf = (char *)kzalloc((size_t)len + 1, GFP_KERNEL);
     if (!buf) {
         fclose(f);
         return NULL;
@@ -195,7 +196,7 @@ model_fallback_cfg_t model_fallback_load_cfg(void)
             DAIMA_LOGW(TAG, "Invalid model fallback config, using defaults: %s", path);
             load_default_cfg(&cfg);
         }
-        free(json_text);
+        kfree(json_text);
         return cfg;
     }
 

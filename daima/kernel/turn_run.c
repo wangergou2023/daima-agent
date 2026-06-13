@@ -15,6 +15,7 @@
 #include "linux/printk.h"
 #include "os.h"
 #include "drivers/platform/platform.h"
+#include "linux/slab.h"
 
 static const char *TAG = "agent_run";
 
@@ -206,7 +207,7 @@ daima_err_t agent_turn_run(
         agent_turn_maybe_run_auto_verification(&stats, &final_text);
     }
 
-    free(tool_output);
+    kfree(tool_output);
     *out_final_text = final_text;
     *out_reasoning_text = final_reasoning_text;
     *out_iteration = iteration;

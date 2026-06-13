@@ -7,6 +7,7 @@
 #include "cJSON.h"
 #include "autoconf.h"
 #include "linux/printk.h"
+#include "linux/slab.h"
 
 static const char *TAG = "llm_parse";
 
@@ -135,7 +136,7 @@ static cJSON *convert_messages_anthropic(cJSON *messages)
                     if (value_copy && value_copy[0]) {
                         cJSON_AddStringToObject(dup, "thinking", value_copy);
                     }
-                    free(value_copy);
+                    kfree(value_copy);
                 }
                 if (dup) {
                     cJSON_AddItemToArray(blocks, dup);
@@ -297,8 +298,8 @@ daima_err_t llm_anthropic_parse_response(const char *json_text, llm_response_t *
                 }
                 if (thinking && cJSON_IsString(thinking) && thinking->valuestring[0]) {
                     size_t rlen = strlen(thinking->valuestring);
-                    free(resp->reasoning_content);
-                    resp->reasoning_content = calloc(1, rlen + 1);
+                    kfree(resp->reasoning_content);
+                    resp->reasoning_content = kzalloc(rlen + 1, GFP_KERNEL);
                     if (resp->reasoning_content) {
                         memcpy(resp->reasoning_content, thinking->valuestring, rlen);
                         resp->reasoning_content_len = rlen;

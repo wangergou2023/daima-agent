@@ -14,6 +14,7 @@
 #include "linux/printk.h"
 #include "http.h"
 #include "drivers/channel/feishu/feishu_http.h"
+#include "linux/slab.h"
 
 static const char *TAG = "feishu_api";
 
@@ -79,7 +80,7 @@ static daima_err_t feishu_get_tenant_token_locked(const char *app_id, const char
 
     feishu_http_response_t resp = {0};
     daima_err_t err = feishu_http_post_json(FEISHU_AUTH_URL, NULL, json_str, DAIMA_TIMEOUT_SHORT, &resp);
-    free(json_str);
+    kfree(json_str);
 
     if (err != DAIMA_OK) {
         feishu_http_response_free(&resp);
@@ -156,7 +157,7 @@ daima_err_t feishu_api_pull_ws_config(const char *app_id,
 
     feishu_http_response_t resp = {0};
     daima_err_t err = feishu_http_post_json(FEISHU_WS_CONFIG_URL, NULL, json_str, DAIMA_TIMEOUT_MEDIUM, &resp);
-    free(json_str);
+    kfree(json_str);
 
     if (err != DAIMA_OK || resp.status != 200) {
         DAIMA_LOGE(TAG, "WS config request failed: err=%s http=%ld", daima_err_to_name(err), resp.status);
@@ -316,7 +317,7 @@ static daima_err_t feishu_send_payload_json(const char *token,
 
     feishu_http_response_t resp = {0};
     daima_err_t err = feishu_http_post_json(url, token, json_str, DAIMA_TIMEOUT_MEDIUM, &resp);
-    free(json_str);
+    kfree(json_str);
     if (err != DAIMA_OK) {
         feishu_http_response_free(&resp);
         return err;
@@ -354,7 +355,7 @@ static daima_err_t feishu_send_card_chunks(const char *token,
         }
 
         size_t chunk_len = feishu_pick_chunk_len(cursor, FEISHU_CARD_CHUNK_MAX_BYTES);
-        char *segment = malloc(chunk_len + 1);
+        char *segment = kmalloc(chunk_len + 1, GFP_KERNEL);
         if (!segment) {
             return DAIMA_ERR_NO_MEM;
         }
@@ -363,13 +364,13 @@ static daima_err_t feishu_send_card_chunks(const char *token,
         feishu_trim_ascii_in_place(segment);
 
         char *card_content = feishu_build_card_content_json(segment);
-        free(segment);
+        kfree(segment);
         if (!card_content) {
             return DAIMA_ERR_NO_MEM;
         }
 
         daima_err_t err = feishu_send_payload_json(token, url, receive_id, "interactive", card_content, action_name);
-        free(card_content);
+        kfree(card_content);
         if (err != DAIMA_OK) {
             all_ok = 0;
         } else {

@@ -17,6 +17,7 @@
 #include "drivers/platform/platform.h"
 #if DAIMA_SKILL_SCOPED_TOOLS_ENABLED
 #include "drivers/skill/skill_tools.h"
+#include "linux/slab.h"
 #endif
 
 static const char *TAG = "agent_finish";
@@ -40,7 +41,7 @@ static void read_todo_counts(int *out_total, int *out_completed)
         return;
     }
 
-    char *buf = calloc(1, (size_t)size + 1);
+    char *buf = kzalloc((size_t)size + 1, GFP_KERNEL);
     if (!buf) {
         fclose(f);
         return;
@@ -51,7 +52,7 @@ static void read_todo_counts(int *out_total, int *out_completed)
     buf[n] = '\0';
 
     cJSON *root = cJSON_Parse(buf);
-    free(buf);
+    kfree(buf);
     if (!root || !cJSON_IsObject(root)) {
         cJSON_Delete(root);
         return;
@@ -85,8 +86,8 @@ void agent_turn_finish(
     char *reasoning_text = io_reasoning_text ? *io_reasoning_text : NULL;
 
     if (cancelled) {
-        free(final_text);
-        free(reasoning_text);
+        kfree(final_text);
+        kfree(reasoning_text);
         final_text = NULL;
         reasoning_text = NULL;
         if (io_final_text) {
@@ -109,11 +110,11 @@ void agent_turn_finish(
         agent_turn_save_session(msg, final_text, reasoning_text, iteration);
         agent_turn_queue_outbound_text(msg, final_text, reasoning_text, true);
         final_text = NULL;
-        free(reasoning_text);
+        kfree(reasoning_text);
         reasoning_text = NULL;
     } else {
-        free(final_text);
-        free(reasoning_text);
+        kfree(final_text);
+        kfree(reasoning_text);
         reasoning_text = NULL;
         final_text = agent_turn_build_error_reply(tool_budget_exhausted);
         if (final_text) {

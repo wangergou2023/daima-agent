@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "linux/slab.h"
 
 static const char *TAG = "category_router";
 
@@ -362,7 +363,7 @@ static char *read_file(const char *path)
     }
     rewind(f);
 
-    char *buf = (char *)malloc((size_t)len + 1);
+    char *buf = (char *)kmalloc((size_t)len + 1, GFP_KERNEL);
     if (!buf) {
         fclose(f);
         return NULL;
@@ -493,7 +494,7 @@ category_router_cfg_t category_router_load_and_get_cfg(void)
             DAIMA_LOGW(TAG, "Invalid category routing config, using defaults: %s", path);
             load_default_cfg(&s_cfg);
         }
-        free(json_text);
+        kfree(json_text);
     } else {
         load_default_cfg(&s_cfg);
     }

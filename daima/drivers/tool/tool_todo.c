@@ -11,6 +11,7 @@
 #include <errno.h>
 #include "cJSON.h"
 #include "linux/printk.h"
+#include "linux/slab.h"
 
 static const char *TAG = "tool_todo";
 
@@ -47,7 +48,7 @@ static cJSON *todo_load_root(void)
         return NULL;
     }
 
-    char *buf = calloc(1, (size_t)size + 1);
+    char *buf = kzalloc((size_t)size + 1, GFP_KERNEL);
     if (!buf) {
         fclose(f);
         return NULL;
@@ -57,7 +58,7 @@ static cJSON *todo_load_root(void)
     buf[n] = '\0';
 
     cJSON *root = cJSON_Parse(buf);
-    free(buf);
+    kfree(buf);
     if (!root || !cJSON_IsObject(root)) {
         cJSON_Delete(root);
         return NULL;
@@ -80,14 +81,14 @@ static daima_err_t todo_save_root(cJSON *root)
 
     FILE *f = fopen(daima_path_todo_file(), "w");
     if (!f) {
-        free(json);
+        kfree(json);
         return DAIMA_FAIL;
     }
 
     size_t len = strlen(json);
     size_t written = fwrite(json, 1, len, f);
     fclose(f);
-    free(json);
+    kfree(json);
     return written == len ? DAIMA_OK : DAIMA_FAIL;
 }
 

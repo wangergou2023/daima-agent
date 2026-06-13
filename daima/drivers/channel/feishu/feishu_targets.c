@@ -11,6 +11,7 @@
 #include "cJSON.h"
 #include "linux/printk.h"
 #include "json_helpers.h"
+#include "linux/slab.h"
 
 static const char *TAG = "feishu_targets";
 
@@ -41,7 +42,7 @@ static cJSON *load_targets_root(void)
         return NULL;
     }
 
-    char *buf = calloc(1, (size_t)size + 1);
+    char *buf = kzalloc((size_t)size + 1, GFP_KERNEL);
     if (!buf) {
         fclose(f);
         return NULL;
@@ -50,7 +51,7 @@ static cJSON *load_targets_root(void)
     fclose(f);
 
     cJSON *root = cJSON_Parse(buf);
-    free(buf);
+    kfree(buf);
     if (!root || !cJSON_IsObject(root)) {
         cJSON_Delete(root);
         root = cJSON_CreateObject();
@@ -73,13 +74,13 @@ static bool save_targets_root(cJSON *root)
     FILE *f = fopen(path, "w");
     if (!f) {
         DAIMA_LOGW(TAG, "Cannot write %s", path);
-        free(json);
+        kfree(json);
         return false;
     }
     size_t len = strlen(json);
     size_t written = fwrite(json, 1, len, f);
     fclose(f);
-    free(json);
+    kfree(json);
     return written == len;
 }
 

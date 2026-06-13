@@ -16,6 +16,7 @@
 #include "cJSON.h"
 #include "linux/printk.h"
 #include "autoconf.h"
+#include "linux/slab.h"
 
 static bool handle_mcp_notification(mcp_client_t *c, const char *json_str);
 static daima_err_t read_json_line(mcp_client_t *c, char *buf, size_t size, int timeout_ms);
@@ -85,7 +86,7 @@ mcp_client_t *mcp_client_launch(const char *bin_path, const char *robot_addr, co
     close(to_child[0]);   /* close read end of stdin pipe */
     close(from_child[1]); /* close write end of stdout pipe */
 
-    mcp_client_t *c = calloc(1, sizeof(mcp_client_t));
+    mcp_client_t *c = kzalloc(sizeof(mcp_client_t), GFP_KERNEL);
     if (!c) {
         close(to_child[1]);
         close(from_child[0]);
@@ -128,10 +129,10 @@ mcp_client_t *mcp_client_launch(const char *bin_path, const char *robot_addr, co
     cJSON_Delete(init_req);
 
     if (!init_str || fprintf(c->in, "%s\n", init_str) < 0 || fflush(c->in) != 0) {
-        free(init_str);
+        kfree(init_str);
         goto fail;
     }
-    free(init_str);
+    kfree(init_str);
 
     if (wait_for_response(c, init_id, MCP_INIT_TIMEOUT_MS, c->buf, sizeof(c->buf)) != DAIMA_OK) {
         DAIMA_LOGE(TAG, "No response to initialize");
@@ -185,7 +186,7 @@ void mcp_client_destroy(mcp_client_t *c)
         waitpid(c->pid, &status, 0);
     }
     pthread_mutex_destroy(&c->io_mutex);
-    free(c);
+    kfree(c);
 }
 
 daima_err_t mcp_client_call_tool(mcp_client_t *c, const char *tool_name,
@@ -227,12 +228,12 @@ daima_err_t mcp_client_call_tool(mcp_client_t *c, const char *tool_name,
     cJSON_Delete(req);
 
     if (!req_str || fprintf(c->in, "%s\n", req_str) < 0 || fflush(c->in) != 0) {
-        free(req_str);
+        kfree(req_str);
         pthread_mutex_unlock(&c->io_mutex);
         snprintf(response_out, response_size, "Error: write failed");
         return DAIMA_FAIL;
     }
-    free(req_str);
+    kfree(req_str);
 
     response_out[0] = '\0';
 
@@ -305,12 +306,12 @@ daima_err_t mcp_client_list_tools(mcp_client_t *c, char *tools_json_out, size_t 
     cJSON_Delete(req);
 
     if (!req_str || fprintf(c->in, "%s\n", req_str) < 0 || fflush(c->in) != 0) {
-        free(req_str);
+        kfree(req_str);
         pthread_mutex_unlock(&c->io_mutex);
         tools_json_out[0] = '\0';
         return DAIMA_FAIL;
     }
-    free(req_str);
+    kfree(req_str);
 
     daima_err_t wait_err = wait_for_response(c, request_id, MCP_CALL_TIMEOUT_MS,
                                              c->buf, sizeof(c->buf));
@@ -331,7 +332,7 @@ daima_err_t mcp_client_list_tools(mcp_client_t *c, char *tools_json_out, size_t 
         if (tools) {
             char *s = cJSON_PrintUnformatted(tools);
             snprintf(tools_json_out, tools_size, "%s", s ? s : "[]");
-            free(s);
+            kfree(s);
         } else {
             snprintf(tools_json_out, tools_size, "[]");
         }

@@ -17,6 +17,7 @@
 #include <strings.h>
 #include <sys/socket.h>
 #include <time.h>
+#include "linux/slab.h"
 
 static const char *TAG = "ws";
 
@@ -87,7 +88,7 @@ static char *read_text_file(const char *path, size_t max_bytes)
     }
 
     rewind(f);
-    char *buf = calloc(1, (size_t)size + 1);
+    char *buf = kzalloc((size_t)size + 1, GFP_KERNEL);
     if (!buf) {
         fclose(f);
         return NULL;
@@ -127,9 +128,9 @@ static unsigned char *read_binary_file(const char *path, size_t max_bytes, size_
     rewind(f);
     unsigned char *buf = NULL;
     if (size == 0) {
-        buf = calloc(1, 1);
+        buf = kzalloc(1, GFP_KERNEL);
     } else {
-        buf = malloc((size_t)size);
+        buf = kmalloc((size_t)size, GFP_KERNEL);
     }
     if (!buf) {
         fclose(f);
@@ -139,7 +140,7 @@ static unsigned char *read_binary_file(const char *path, size_t max_bytes, size_
     size_t n = fread(buf, 1, (size_t)size, f);
     fclose(f);
     if (n != (size_t)size) {
-        free(buf);
+        kfree(buf);
         return NULL;
     }
 
@@ -158,7 +159,7 @@ static void http_send_static_file_or_fallback(
     char *body = read_text_file(path, 256 * 1024);
     if (body) {
         http_send_response(fd, "200 OK", content_type, body);
-        free(body);
+        kfree(body);
         return;
     }
 
@@ -208,7 +209,7 @@ static void http_send_binary_file(int fd, const char *path)
     }
 
     http_send_response_bytes(fd, "200 OK", content_type_for_path(path), body, size);
-    free(body);
+    kfree(body);
 }
 
 static void parse_request_line(const char *req, char *method, size_t msz,
@@ -406,7 +407,7 @@ static char *build_ui_config_json(void)
             }
 
             pet_meta = cJSON_Parse(pet_json_text);
-            free(pet_json_text);
+            kfree(pet_json_text);
             if (!pet_meta || !cJSON_IsObject(pet_meta)) {
                 cJSON_Delete(pet_meta);
                 continue;
@@ -675,7 +676,7 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
         }
         http_send_response(client_fd, "200 OK",
                            "application/json; charset=utf-8", json);
-        free(json);
+        kfree(json);
         return 0;
     }
 
@@ -689,7 +690,7 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
         }
         http_send_response(client_fd, "200 OK",
                            "application/json; charset=utf-8", json);
-        free(json);
+        kfree(json);
         return 0;
     }
 
@@ -712,7 +713,7 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
         }
         http_send_response(client_fd, "200 OK",
                            "application/json; charset=utf-8", json);
-        free(json);
+        kfree(json);
         return 0;
     }
 
@@ -726,7 +727,7 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
         }
         http_send_response(client_fd, "200 OK",
                            "application/json; charset=utf-8", json);
-        free(json);
+        kfree(json);
         return 0;
     }
 

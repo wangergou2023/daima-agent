@@ -10,6 +10,7 @@
 #include "autoconf.h"
 #include "linux/printk.h"
 #include "os.h"
+#include "linux/slab.h"
 
 static const char *TAG = "router";
 
@@ -31,7 +32,7 @@ static void dispatch_outbound_task(void *arg)
         }
 
         agent_cleanup_outbound_msg(&msg);
-        free(msg.image_path);
+        kfree(msg.image_path);
     }
 }
 

@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "linux/slab.h"
 
 static const char *TAG = "tool_files";
 
@@ -130,7 +131,7 @@ static bool read_line_without_newline(const char *content, int wanted_line, char
     }
 
     size_t len = (size_t)(line_end - line_start);
-    char *copy = malloc(len + 1);
+    char *copy = kmalloc(len + 1, GFP_KERNEL);
     if (!copy) {
         return false;
     }
@@ -164,7 +165,7 @@ static daima_err_t verify_hashline_reference(const char *current,
     }
 
     bool matched = hashline_verify_line(line_number, actual_line, expected_hash);
-    free(actual_line);
+    kfree(actual_line);
     if (!matched) {
         snprintf(output, output_size,
                  "Hashline: 第%d行已变更(hash期望%s)，请重新读取文件后重试",
@@ -200,7 +201,7 @@ static daima_err_t hashline_verify_patch_path(const char *path,
 
     char *copy = strdup(patch_content ? patch_content : "");
     if (!copy) {
-        free(current);
+        kfree(current);
         snprintf(output, output_size, "错误：内存不足");
         return DAIMA_ERR_NO_MEM;
     }
@@ -211,15 +212,15 @@ static daima_err_t hashline_verify_patch_path(const char *path,
         if (line[0] == '-' || line[0] == ' ') {
             err = verify_hashline_reference(current, line + 1, saw_hashline, output, output_size);
             if (err != DAIMA_OK) {
-                free(copy);
-                free(current);
+                kfree(copy);
+                kfree(current);
                 return err;
             }
         }
     }
 
-    free(copy);
-    free(current);
+    kfree(copy);
+    kfree(current);
     return DAIMA_OK;
 }
 #endif
@@ -347,7 +348,7 @@ static daima_err_t apply_patch_add_file(char **cursor,
         if (strcmp(line, "*** End Patch") == 0) {
             tool_files_ensure_parent_dirs(resolved_path);
             daima_err_t err = tool_files_write_text_file(resolved_path, content.data ? content.data : "", content.len);
-            free(content.data);
+            kfree(content.data);
             if (err != DAIMA_OK) {
                 snprintf(output, output_size, "错误：Add File 写入失败：%s", resolved_path);
                 return err;
@@ -374,12 +375,12 @@ static daima_err_t apply_patch_add_file(char **cursor,
         }
         daima_err_t err = tb_append_line(&content, content_line);
         if (err != DAIMA_OK) {
-            free(content.data);
+            kfree(content.data);
             snprintf(output, output_size, "错误：内存不足");
             return err;
         }
     }
-    free(content.data);
+    kfree(content.data);
     snprintf(output, output_size, "错误：patch 缺少 *** End Patch");
     return DAIMA_ERR_INVALID_ARG;
 }
@@ -442,9 +443,9 @@ static daima_err_t apply_patch_update_file(char **cursor,
             continue;
         }
         if (!saw_hunk) {
-            free(current);
-            free(old_text.data);
-            free(new_text.data);
+            kfree(current);
+            kfree(old_text.data);
+            kfree(new_text.data);
             snprintf(output, output_size, "错误：Update File 缺少 @@ hunk");
             return DAIMA_ERR_INVALID_ARG;
         }
@@ -459,31 +460,31 @@ static daima_err_t apply_patch_update_file(char **cursor,
                 err = tb_append_line(&new_text, hashline_strip_prefix(line + 1));
             }
         } else {
-            free(current);
-            free(old_text.data);
-            free(new_text.data);
+            kfree(current);
+            kfree(old_text.data);
+            kfree(new_text.data);
             snprintf(output, output_size, "错误：Update File hunk 行必须以空格、'-' 或 '+' 开头");
             return DAIMA_ERR_INVALID_ARG;
         }
         if (err != DAIMA_OK) {
-            free(current);
-            free(old_text.data);
-            free(new_text.data);
+            kfree(current);
+            kfree(old_text.data);
+            kfree(new_text.data);
             snprintf(output, output_size, "错误：内存不足");
             return err;
         }
     }
     if (!line) {
-        free(current);
-        free(old_text.data);
-        free(new_text.data);
+        kfree(current);
+        kfree(old_text.data);
+        kfree(new_text.data);
         snprintf(output, output_size, "错误：patch 缺少 *** End Patch");
         return DAIMA_ERR_INVALID_ARG;
     }
     if (!saw_hunk || old_text.len == 0) {
-        free(current);
-        free(old_text.data);
-        free(new_text.data);
+        kfree(current);
+        kfree(old_text.data);
+        kfree(new_text.data);
         snprintf(output, output_size, "错误：Update File hunk 为空");
         return DAIMA_ERR_INVALID_ARG;
     }
@@ -503,10 +504,10 @@ static daima_err_t apply_patch_update_file(char **cursor,
         NULL);
     if (err != DAIMA_OK) {
         snprintf(output, output_size, "错误：Update File 在 %s 中未找到 hunk 上下文", resolved_path);
-        free(current);
-        free(old_text.data);
-        free(new_text.data);
-        free(result);
+        kfree(current);
+        kfree(old_text.data);
+        kfree(new_text.data);
+        kfree(result);
         return err;
     }
 
@@ -518,10 +519,10 @@ static daima_err_t apply_patch_update_file(char **cursor,
         err = tool_files_write_text_file(resolved_path, result, result_len);
     }
 
-    free(current);
-    free(old_text.data);
-    free(new_text.data);
-    free(result);
+    kfree(current);
+    kfree(old_text.data);
+    kfree(new_text.data);
+    kfree(result);
     if (err != DAIMA_OK) {
         snprintf(output, output_size, "错误：Update File 写回失败：%s", resolved_path);
         return err;
@@ -560,7 +561,7 @@ daima_err_t tool_apply_patch_execute(const char *input_json, char *output, size_
     char *line = next_patch_line(&cursor);
     if (!line || strcmp(line, "*** Begin Patch") != 0) {
         snprintf(output, output_size, "错误：patch 必须以 *** Begin Patch 开始");
-        free(copy);
+        kfree(copy);
         cJSON_Delete(root);
         return DAIMA_ERR_INVALID_ARG;
     }
@@ -590,7 +591,7 @@ daima_err_t tool_apply_patch_execute(const char *input_json, char *output, size_
         snprintf(output, output_size, "错误：patch 必须包含 Add File、Update File 或 Delete File");
     }
 
-    free(copy);
+    kfree(copy);
     cJSON_Delete(root);
     return err;
 }

@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <time.h>
+#include "linux/slab.h"
 
 #define LOG_FILE_MAX_SIZE  (512 * 1024)
 #define LOG_FILE_TRIM_KEEP (384 * 1024)
@@ -47,7 +48,7 @@ static void trim_if_needed(const char *path)
     if (keep_start <= 0) { fclose(f); return; }
 
     size_t keep_len = (size_t)(st.st_size - keep_start);
-    char *buf = malloc(keep_len + 1);
+    char *buf = kmalloc(keep_len + 1, GFP_KERNEL);
     if (!buf) { fclose(f); return; }
 
     fseek(f, keep_start, SEEK_SET);
@@ -56,10 +57,10 @@ static void trim_if_needed(const char *path)
     buf[nread] = '\0';
 
     f = fopen(path, "w");
-    if (!f) { free(buf); return; }
+    if (!f) { kfree(buf); return; }
     fwrite(buf, 1, nread, f);
     fclose(f);
-    free(buf);
+    kfree(buf);
 }
 
 void daima_log_file_write(int level, const char *tag, const char *msg)

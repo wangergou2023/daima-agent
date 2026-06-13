@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "linux/slab.h"
 
 static const char *PET_CHAT_PREFIX = "pet_";
 
@@ -26,7 +27,7 @@ char *pet_build_action_prompt(const char *action, const char *pet_id)
         "请用 1 句简短、可爱、像桌宠一样的口吻回应，不要展开成长答案。\n"
         "如果合适，可在句末附加一个隐藏动作标记 `[[pet:state=...]]`。";
     size_t need = snprintf(NULL, 0, fmt, pet, verb) + 1;
-    char *buf = calloc(1, need);
+    char *buf = kzalloc(need, GFP_KERNEL);
     if (!buf) {
         return NULL;
     }

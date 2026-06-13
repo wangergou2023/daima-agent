@@ -21,6 +21,7 @@
 #include <curl/curl.h>
 #include "linux/printk.h"
 #include "cJSON.h"
+#include "linux/slab.h"
 
 static const char *TAG = "voice";
 
@@ -245,19 +246,19 @@ static daima_err_t voice_asr_mime(const unsigned char *audio_bytes,
 
     if (res != CURLE_OK) {
         DAIMA_LOGW(TAG, "ASR request failed: %s", curl_easy_strerror(res));
-        free(resp.data);
+        kfree(resp.data);
         return DAIMA_FAIL;
     }
 
     if (status != 200 || !resp.data) {
         DAIMA_LOGW(TAG, "ASR failed: status=%ld body=%s", status, resp.data ? resp.data : "(null)");
-        free(resp.data);
+        kfree(resp.data);
         return DAIMA_FAIL;
     }
 
     cJSON *root = cJSON_Parse(resp.data);
     if (!root) {
-        free(resp.data);
+        kfree(resp.data);
         return DAIMA_FAIL;
     }
 
@@ -278,7 +279,7 @@ static daima_err_t voice_asr_mime(const unsigned char *audio_bytes,
     if (!text) {
         DAIMA_LOGW(TAG, "ASR response missing text: %s", resp.data);
         cJSON_Delete(root);
-        free(resp.data);
+        kfree(resp.data);
         return DAIMA_FAIL;
     }
 
@@ -286,7 +287,7 @@ static daima_err_t voice_asr_mime(const unsigned char *audio_bytes,
     out_text[out_size - 1] = '\0';
     DAIMA_LOGI(TAG, "ASR text: %.256s", out_text);
     cJSON_Delete(root);
-    free(resp.data);
+    kfree(resp.data);
     return DAIMA_OK;
 }
 
@@ -322,7 +323,7 @@ static daima_err_t voice_tts(const char *text,
     host_http_response_t resp = {0};
     daima_err_t err = host_http_request("POST", BIGMODEL_TTS_URL, headers, post_data, 30 * 1000, &resp);
     curl_slist_free_all(headers);
-    free(post_data);
+    kfree(post_data);
 
     if (err != DAIMA_OK) {
         host_http_response_free(&resp);
@@ -364,7 +365,7 @@ static daima_err_t voice_tts(const char *text,
 
     /* 直接返回 WAV 二进制 */
     size_t audio_len = resp.body_len;
-    unsigned char *audio = malloc(audio_len);
+    unsigned char *audio = kmalloc(audio_len, GFP_KERNEL);
     if (!audio) {
         host_http_response_free(&resp);
         return DAIMA_ERR_NO_MEM;
@@ -459,7 +460,7 @@ daima_err_t voice_channel_send_reply(const char *chat_id, const char *text)
     DAIMA_LOGI(TAG, "TTS audio bytes: %zu", audio_len);
     /* audio_output_play_wav 会解析 WAV 头，只播放 data 段 */
     daima_err_t play_err = audio_output_play_wav(audio, audio_len);
-    free(audio);
+    kfree(audio);
     if (play_err != DAIMA_OK) {
         DAIMA_LOGW(TAG, "Audio playback failed: %s", daima_err_to_name(play_err));
     }
@@ -521,15 +522,15 @@ daima_err_t voice_channel_get_tts_pcm(const char *text,
     }
 
     /* Allocate and copy PCM, then free WAV */
-    unsigned char *pcm = malloc(pcm_len);
-    if (!pcm) { free(wav); return DAIMA_ERR_NO_MEM; }
+    unsigned char *pcm = kmalloc(pcm_len, GFP_KERNEL);
+    if (!pcm) { kfree(wav); return DAIMA_ERR_NO_MEM; }
     memcpy(pcm, pcm_data, pcm_len);
 
     /* Resample to 16000 Hz if needed (robot hardware max is 16025) */
     if (sample_rate > 16000) {
         size_t in_samples = pcm_len / 2;  /* 16-bit mono */
         size_t out_samples = (size_t)((uint64_t)in_samples * 16000 / sample_rate);
-        unsigned char *resampled = malloc(out_samples * 2);
+        unsigned char *resampled = kmalloc(out_samples * 2, GFP_KERNEL);
         if (resampled) {
             int16_t *in = (int16_t *)pcm;
             int16_t *out = (int16_t *)resampled;
@@ -548,14 +549,14 @@ daima_err_t voice_channel_get_tts_pcm(const char *text,
                     out[i] = 0;
                 }
             }
-            free(pcm);
+            kfree(pcm);
             pcm = resampled;
             pcm_len = out_samples * 2;
             sample_rate = 16000;
         }
     }
 
-    free(wav);
+    kfree(wav);
     *out_pcm = pcm;
     *out_len = pcm_len;
     if (out_rate) *out_rate = sample_rate;

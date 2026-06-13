@@ -10,6 +10,7 @@
 #include "cJSON.h"
 #include "autoconf.h"
 #include "linux/printk.h"
+#include "linux/slab.h"
 
 static const char *TAG = "runtime_config";
 
@@ -94,7 +95,7 @@ static char *read_config_text(void)
     }
     rewind(f);
 
-    buf = calloc(1, (size_t)size + 1);
+    buf = kzalloc((size_t)size + 1, GFP_KERNEL);
     if (!buf) {
         fclose(f);
         return NULL;
@@ -173,7 +174,7 @@ daima_err_t runtime_config_init(void)
     }
 
     root = cJSON_Parse(text);
-    free(text);
+    kfree(text);
     if (!root || !cJSON_IsObject(root)) {
         cJSON_Delete(root);
         DAIMA_LOGW(TAG, "Invalid runtime config JSON: %s", daima_path_runtime_config_file());
@@ -243,7 +244,7 @@ static daima_err_t write_config_json_atomic(cJSON *root)
     snprintf(tmp_path, sizeof(tmp_path), "%s.tmp", daima_path_runtime_config_file());
     FILE *f = fopen(tmp_path, "wb");
     if (!f) {
-        free(text);
+        kfree(text);
         return DAIMA_FAIL;
     }
 
@@ -252,7 +253,7 @@ static daima_err_t write_config_json_atomic(cJSON *root)
     if (fclose(f) != 0) {
         ok = false;
     }
-    free(text);
+    kfree(text);
     if (!ok) {
         unlink(tmp_path);
         return DAIMA_FAIL;
@@ -272,7 +273,7 @@ daima_err_t runtime_config_set_terminal_security_level(const char *level)
 
     char *text = read_config_text();
     cJSON *root = text ? cJSON_Parse(text) : NULL;
-    free(text);
+    kfree(text);
     if (!root || !cJSON_IsObject(root)) {
         cJSON_Delete(root);
         root = cJSON_CreateObject();
