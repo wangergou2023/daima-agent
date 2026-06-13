@@ -2,6 +2,7 @@
 
 #include "cJSON.h"
 #include "autoconf.h"
+#include "linux/kernel.h"
 #include "linux/printk.h"
 #include "http.h"
 #include "work_item.h"
@@ -252,12 +253,12 @@ static void strip_html_remove_tags(char *buf, size_t max_body)
         if (in_tag) {
             if (c == '>' || c == ' ' || c == '\t' || c == '\n' || c == '\r') {
                 if (c == '>') {
-                    if (tag_in_set(lower_tag, skip_tags, sizeof(skip_tags)/sizeof(skip_tags[0]))) skip_depth++;
-                    else if (lower_tag[0] == '/' && tag_in_set(lower_tag + 1, skip_tags, sizeof(skip_tags)/sizeof(skip_tags[0]))) skip_depth--;
+                    if (tag_in_set(lower_tag, skip_tags, ARRAY_SIZE(skip_tags))) skip_depth++;
+                    else if (lower_tag[0] == '/' && tag_in_set(lower_tag + 1, skip_tags, ARRAY_SIZE(skip_tags))) skip_depth--;
                     else if (skip_depth == 0) {
-                        if (tag_in_set(lower_tag, newline_self, sizeof(newline_self)/sizeof(newline_self[0]))) buf[wi++] = '\n';
-                        else if (tag_in_set(lower_tag, block_close, sizeof(block_close)/sizeof(block_close[0]))) buf[wi++] = '\n';
-                        else if (tag_in_set(lower_tag, block_open, sizeof(block_open)/sizeof(block_open[0]))) {
+                        if (tag_in_set(lower_tag, newline_self, ARRAY_SIZE(newline_self))) buf[wi++] = '\n';
+                        else if (tag_in_set(lower_tag, block_close, ARRAY_SIZE(block_close))) buf[wi++] = '\n';
+                        else if (tag_in_set(lower_tag, block_open, ARRAY_SIZE(block_open))) {
                             if (wi > 0 && buf[wi-1] != '\n') buf[wi++] = '\n';
                         }
                     }
