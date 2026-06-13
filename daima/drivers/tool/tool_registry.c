@@ -17,6 +17,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "bus.h"
+#include "linux/list.h"
 #include "linux/printk.h"
 #include "cJSON.h"
 #include "linux/slab.h"
@@ -27,7 +28,13 @@ static const char *TAG = "tools";
 
 static daima_tool_t s_tools[MAX_TOOLS];
 static int s_tool_count = 0;
-static daima_tool_t s_dynamic_tools[TOOL_REGISTRY_MAX_DYNAMIC];
+typedef struct {
+    struct list_head list;
+    daima_tool_t tool;
+} dynamic_tool_node_t;
+
+static dynamic_tool_node_t s_dynamic_tools[TOOL_REGISTRY_MAX_DYNAMIC];
+static LIST_HEAD(s_dynamic_tool_list);
 static int s_dynamic_count = 0;
 static char *s_tools_json = NULL;          /* 缓存的完整工具数组字符串 */
 static char *s_base_tools_json = NULL;     /* 缓存的不含机器人控制工具数组字符串 */
@@ -57,8 +64,9 @@ static bool tool_name_exists(const char *name)
             return true;
         }
     }
-    for (int i = 0; i < s_dynamic_count; i++) {
-        if (strcmp(s_dynamic_tools[i].name, name) == 0) {
+    dynamic_tool_node_t *node;
+    list_for_each_entry(node, &s_dynamic_tool_list, list, dynamic_tool_node_t) {
+        if (strcmp(node->tool.name, name) == 0) {
             return true;
         }
     }
@@ -95,12 +103,13 @@ static char *build_tools_json_filtered(bool include_vector_tools)
         add_tool_json(arr, &s_tools[i]);
     }
 
-    for (int i = 0; i < s_dynamic_count; i++) {
-        if (!include_vector_tools && is_vector_tool_name(s_dynamic_tools[i].name)) {
+    dynamic_tool_node_t *node;
+    list_for_each_entry(node, &s_dynamic_tool_list, list, dynamic_tool_node_t) {
+        if (!include_vector_tools && is_vector_tool_name(node->tool.name)) {
             continue;
         }
 
-        add_tool_json(arr, &s_dynamic_tools[i]);
+        add_tool_json(arr, &node->tool);
     }
 
     char *json = cJSON_PrintUnformatted(arr);
@@ -122,6 +131,11 @@ daima_err_t tool_registry_init(void)
 {
     s_tool_count = 0;
     s_dynamic_count = 0;
+    INIT_LIST_HEAD(&s_dynamic_tool_list);
+    for (int i = 0; i < TOOL_REGISTRY_MAX_DYNAMIC; i++) {
+        INIT_LIST_HEAD(&s_dynamic_tools[i].list);
+        memset(&s_dynamic_tools[i].tool, 0, sizeof(s_dynamic_tools[i].tool));
+    }
 
     tool_weather_init();
 
@@ -183,7 +197,20 @@ daima_err_t tool_registry_register_dynamic(const daima_tool_t *tool)
         return DAIMA_ERR_INVALID_STATE;
     }
 
-    s_dynamic_tools[s_dynamic_count++] = *tool;
+    dynamic_tool_node_t *slot = NULL;
+    for (int i = 0; i < TOOL_REGISTRY_MAX_DYNAMIC; i++) {
+        if (!s_dynamic_tools[i].tool.name) {
+            slot = &s_dynamic_tools[i];
+            break;
+        }
+    }
+    if (!slot) {
+        return DAIMA_ERR_NO_MEM;
+    }
+
+    slot->tool = *tool;
+    list_add(&slot->list, &s_dynamic_tool_list);
+    s_dynamic_count++;
     build_tools_json();
     DAIMA_LOGI(TAG, "Registered dynamic tool: %s", tool->name);
     return DAIMA_OK;
@@ -195,13 +222,12 @@ daima_err_t tool_registry_unregister_dynamic(const char *tool_name)
         return DAIMA_ERR_INVALID_ARG;
     }
 
-    for (int i = 0; i < s_dynamic_count; i++) {
-        if (strcmp(s_dynamic_tools[i].name, tool_name) == 0) {
-            for (int j = i; j < s_dynamic_count - 1; j++) {
-                s_dynamic_tools[j] = s_dynamic_tools[j + 1];
-            }
+    dynamic_tool_node_t *node, *next;
+    list_for_each_entry_safe(node, next, &s_dynamic_tool_list, list, dynamic_tool_node_t) {
+        if (strcmp(node->tool.name, tool_name) == 0) {
+            list_del(&node->list);
+            memset(&node->tool, 0, sizeof(node->tool));
             s_dynamic_count--;
-            memset(&s_dynamic_tools[s_dynamic_count], 0, sizeof(s_dynamic_tools[s_dynamic_count]));
             build_tools_json();
             DAIMA_LOGI(TAG, "Unregistered dynamic tool: %s", tool_name);
             return DAIMA_OK;
@@ -246,10 +272,11 @@ daima_err_t tool_registry_execute(const char *name, const char *input_json,
         }
     }
 
-    for (int i = 0; i < s_dynamic_count; i++) {
-        if (strcmp(s_dynamic_tools[i].name, name) == 0) {
+    dynamic_tool_node_t *node;
+    list_for_each_entry(node, &s_dynamic_tool_list, list, dynamic_tool_node_t) {
+        if (strcmp(node->tool.name, name) == 0) {
             DAIMA_LOGI(TAG, "Executing dynamic tool: %s", name);
-            return s_dynamic_tools[i].execute(input_json, output, output_size);
+            return node->tool.execute(input_json, output, output_size);
         }
     }
 

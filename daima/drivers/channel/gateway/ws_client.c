@@ -20,6 +20,7 @@
 #include "drivers/channel/gateway/ws_server.h"
 #include "drivers/pet/pet_event.h"
 #include "autoconf.h"
+#include "linux/list.h"
 #include "linux/printk.h"
 #include "cJSON.h"
 #include "linux/slab.h"
@@ -37,6 +38,7 @@ static const char *TAG = "ws";
 #endif
 
 typedef struct {
+    struct list_head list;
     int fd;
     char chat_id[32];
     bool upload_pending;
@@ -52,6 +54,7 @@ typedef struct {
 } ws_client_t;
 
 static ws_client_t s_clients[DAIMA_WS_MAX_CLIENTS];
+static LIST_HEAD(s_client_list);
 static pthread_mutex_t s_clients_mutex = PTHREAD_MUTEX_INITIALIZER;
 static char s_pending_response[65536];
 static bool s_has_pending = false;
@@ -310,9 +313,11 @@ static bool is_allowed_uploaded_image_path(const char *path)
 
 static ws_client_t *find_client_by_fd(int fd)
 {
-    for (int i = 0; i < DAIMA_WS_MAX_CLIENTS; i++) {
-        if (s_clients[i].active && s_clients[i].fd == fd) {
-            return &s_clients[i];
+    ws_client_t *client;
+
+    list_for_each_entry(client, &s_client_list, list, ws_client_t) {
+        if (client->fd == fd) {
+            return client;
         }
     }
     return NULL;
@@ -320,12 +325,22 @@ static ws_client_t *find_client_by_fd(int fd)
 
 static ws_client_t *find_client_by_chat_id(const char *chat_id)
 {
-    for (int i = 0; i < DAIMA_WS_MAX_CLIENTS; i++) {
-        if (s_clients[i].active && strcmp(s_clients[i].chat_id, chat_id) == 0) {
-            return &s_clients[i];
+    ws_client_t *client;
+
+    list_for_each_entry(client, &s_client_list, list, ws_client_t) {
+        if (strcmp(client->chat_id, chat_id) == 0) {
+            return client;
         }
     }
     return NULL;
+}
+
+static void ws_client_detach(ws_client_t *client)
+{
+    if (!client || !client->active) return;
+
+    client->active = false;
+    list_del(&client->list);
 }
 
 static void clear_upload_state(ws_client_t *client)
@@ -341,15 +356,13 @@ static void clear_upload_state(ws_client_t *client)
 static void remove_client(int fd)
 {
     pthread_mutex_lock(&s_clients_mutex);
-    for (int i = 0; i < DAIMA_WS_MAX_CLIENTS; i++) {
-        if (s_clients[i].active && s_clients[i].fd == fd) {
-            DAIMA_LOGI(TAG, "Client disconnected: %s", s_clients[i].chat_id);
-            s_clients[i].active = false;
-            close(s_clients[i].fd);
-            s_clients[i].fd = -1;
-            clear_upload_state(&s_clients[i]);
-            break;
-        }
+    ws_client_t *client = find_client_by_fd(fd);
+    if (client) {
+        DAIMA_LOGI(TAG, "Client disconnected: %s", client->chat_id);
+        ws_client_detach(client);
+        close(client->fd);
+        client->fd = -1;
+        clear_upload_state(client);
     }
     pthread_mutex_unlock(&s_clients_mutex);
 }
@@ -372,14 +385,14 @@ static void drop_duplicate_chat_id(const char *chat_id, int keep_fd)
 {
     if (!chat_id || !chat_id[0]) return;
     pthread_mutex_lock(&s_clients_mutex);
-    for (int i = 0; i < DAIMA_WS_MAX_CLIENTS; i++) {
-        if (s_clients[i].active && s_clients[i].fd != keep_fd
-            && strcmp(s_clients[i].chat_id, chat_id) == 0) {
-            int old_fd = s_clients[i].fd;
-            s_clients[i].active = false;
-            s_clients[i].fd = -1;
-            s_clients[i].chat_id[0] = '\0';
-            clear_upload_state(&s_clients[i]);
+    ws_client_t *client, *next;
+    list_for_each_entry_safe(client, next, &s_client_list, list, ws_client_t) {
+        if (client->fd != keep_fd && strcmp(client->chat_id, chat_id) == 0) {
+            int old_fd = client->fd;
+            ws_client_detach(client);
+            client->fd = -1;
+            client->chat_id[0] = '\0';
+            clear_upload_state(client);
             pthread_mutex_unlock(&s_clients_mutex);
             if (old_fd >= 0) close(old_fd);
             DAIMA_LOGW(TAG, "Dropped duplicate chat_id=%s (fd=%d)", chat_id, old_fd);
@@ -438,7 +451,7 @@ bool ws_client_session_add(int fd)
 {
     time_t now = time(NULL);
     int slot = -1;
-    int evict_idx = -1;
+    ws_client_t *evict = NULL;
     time_t max_idle = 0;
 
     pthread_mutex_lock(&s_clients_mutex);
@@ -447,24 +460,26 @@ bool ws_client_session_add(int fd)
             slot = i;
             break;
         }
-        if (s_clients[i].active) {
-            time_t idle = now - s_clients[i].last_seen;
-            if (idle > WS_PONG_TIMEOUT && idle > max_idle) {
-                max_idle = idle;
-                evict_idx = i;
-            }
+    }
+
+    ws_client_t *client;
+    list_for_each_entry(client, &s_client_list, list, ws_client_t) {
+        time_t idle = now - client->last_seen;
+        if (idle > WS_PONG_TIMEOUT && idle > max_idle) {
+            max_idle = idle;
+            evict = client;
         }
     }
 
-    if (slot < 0 && evict_idx >= 0) {
-        int old_fd = s_clients[evict_idx].fd;
+    if (slot < 0 && evict) {
+        int old_fd = evict->fd;
         char old_chat[32];
-        strscpy(old_chat, s_clients[evict_idx].chat_id, sizeof(old_chat));
-        s_clients[evict_idx].active = false;
-        s_clients[evict_idx].fd = -1;
-        s_clients[evict_idx].chat_id[0] = '\0';
-        clear_upload_state(&s_clients[evict_idx]);
-        slot = evict_idx;
+        strscpy(old_chat, evict->chat_id, sizeof(old_chat));
+        slot = (int)(evict - s_clients);
+        ws_client_detach(evict);
+        evict->fd = -1;
+        evict->chat_id[0] = '\0';
+        clear_upload_state(evict);
         pthread_mutex_unlock(&s_clients_mutex);
         if (old_fd >= 0) close(old_fd);
         DAIMA_LOGW(TAG, "Evicted stale client %s (fd=%d)", old_chat, old_fd);
@@ -482,6 +497,7 @@ bool ws_client_session_add(int fd)
         s_clients[slot].last_ping = now;
         s_clients[slot].awaiting_pong = false;
         s_clients[slot].active = true;
+        list_add(&s_clients[slot].list, &s_client_list);
         pthread_mutex_unlock(&s_clients_mutex);
         DAIMA_LOGI(TAG, "Client connected: %s (fd=%d)", chat_id, fd);
 
@@ -827,6 +843,11 @@ static void handle_message(int fd)
 void ws_client_session_init(void)
 {
     memset(s_clients, 0, sizeof(s_clients));
+    INIT_LIST_HEAD(&s_client_list);
+    for (int i = 0; i < DAIMA_WS_MAX_CLIENTS; i++) {
+        INIT_LIST_HEAD(&s_clients[i].list);
+        s_clients[i].fd = -1;
+    }
     pthread_mutex_lock(&s_pending_mutex);
     s_pending_response[0] = '\0';
     s_has_pending = false;
@@ -836,11 +857,10 @@ void ws_client_session_init(void)
 int ws_client_session_update_fdset(fd_set *readfds, int maxfd)
 {
     pthread_mutex_lock(&s_clients_mutex);
-    for (int i = 0; i < DAIMA_WS_MAX_CLIENTS; i++) {
-        if (s_clients[i].active) {
-            FD_SET(s_clients[i].fd, readfds);
-            if (s_clients[i].fd > maxfd) maxfd = s_clients[i].fd;
-        }
+    ws_client_t *client;
+    list_for_each_entry(client, &s_client_list, list, ws_client_t) {
+        FD_SET(client->fd, readfds);
+        if (client->fd > maxfd) maxfd = client->fd;
     }
     pthread_mutex_unlock(&s_clients_mutex);
     return maxfd;
@@ -849,9 +869,10 @@ int ws_client_session_update_fdset(fd_set *readfds, int maxfd)
 void ws_client_session_handle_ready(const fd_set *readfds)
 {
     pthread_mutex_lock(&s_clients_mutex);
-    for (int i = 0; i < DAIMA_WS_MAX_CLIENTS; i++) {
-        if (s_clients[i].active && FD_ISSET(s_clients[i].fd, readfds)) {
-            int fd = s_clients[i].fd;
+    ws_client_t *client, *next;
+    list_for_each_entry_safe(client, next, &s_client_list, list, ws_client_t) {
+        if (FD_ISSET(client->fd, readfds)) {
+            int fd = client->fd;
             pthread_mutex_unlock(&s_clients_mutex);
             handle_message(fd);
             pthread_mutex_lock(&s_clients_mutex);
@@ -869,19 +890,19 @@ void ws_client_session_keepalive_tick(void)
     int stale_count = 0;
 
     pthread_mutex_lock(&s_clients_mutex);
-    for (int i = 0; i < DAIMA_WS_MAX_CLIENTS; i++) {
-        if (!s_clients[i].active) continue;
+    ws_client_t *client;
+    list_for_each_entry(client, &s_client_list, list, ws_client_t) {
 
-        if (s_clients[i].awaiting_pong && (now - s_clients[i].last_pong) > WS_PONG_TIMEOUT) {
-            stale_fds[stale_count++] = s_clients[i].fd;
+        if (client->awaiting_pong && (now - client->last_pong) > WS_PONG_TIMEOUT) {
+            stale_fds[stale_count++] = client->fd;
             continue;
         }
 
-        if ((now - s_clients[i].last_seen) >= WS_PING_INTERVAL
-            && (now - s_clients[i].last_ping) >= WS_PING_INTERVAL) {
-            s_clients[i].last_ping = now;
-            s_clients[i].awaiting_pong = true;
-            ping_fds[ping_count++] = s_clients[i].fd;
+        if ((now - client->last_seen) >= WS_PING_INTERVAL
+            && (now - client->last_ping) >= WS_PING_INTERVAL) {
+            client->last_ping = now;
+            client->awaiting_pong = true;
+            ping_fds[ping_count++] = client->fd;
         }
     }
     pthread_mutex_unlock(&s_clients_mutex);

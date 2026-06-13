@@ -15,6 +15,7 @@
 #include <sys/stat.h>
 
 #include "cJSON.h"
+#include "linux/list.h"
 #include "linux/printk.h"
 #include "linux/slab.h"
 #include "linux/kernel.h"
@@ -301,14 +302,22 @@ static bool parse_session_filename_with_suffix(const char *filename,
     return true;
 }
 
-static daima_session_record_t *find_or_add_record(daima_session_record_t *records,
+struct session_record_node {
+    struct list_head list;
+    daima_session_record_t *record;
+};
+
+static daima_session_record_t *find_or_add_record(struct list_head *record_list,
+                                                 struct session_record_node *nodes,
+                                                 daima_session_record_t *records,
                                                  int *count,
                                                  size_t capacity,
                                                  const char *chat_id)
 {
-    for (int i = 0; i < *count; i++) {
-        if (strcmp(records[i].chat_id, chat_id) == 0) {
-            return &records[i];
+    struct session_record_node *node;
+    list_for_each_entry(node, record_list, list, struct session_record_node) {
+        if (strcmp(node->record->chat_id, chat_id) == 0) {
+            return node->record;
         }
     }
     if ((size_t)*count >= capacity) {
@@ -317,6 +326,9 @@ static daima_session_record_t *find_or_add_record(daima_session_record_t *record
     daima_session_record_t *record = &records[*count];
     memset(record, 0, sizeof(*record));
     strscpy(record->chat_id, chat_id, sizeof(record->chat_id));
+    nodes[*count].record = record;
+    INIT_LIST_HEAD(&nodes[*count].list);
+    list_add(&nodes[*count].list, record_list);
     (*count)++;
     return record;
 }
@@ -344,6 +356,8 @@ static daima_err_t file_list_records(daima_session_record_t *records, size_t cap
     }
 
     int count = 0;
+    LIST_HEAD(record_list);
+    struct session_record_node nodes[capacity];
     struct dirent *entry = NULL;
     while ((entry = readdir(dir)) != NULL) {
         char chat_id[sizeof(records[0].chat_id)];
@@ -359,7 +373,7 @@ static daima_err_t file_list_records(daima_session_record_t *records, size_t cap
             continue;
         }
 
-        daima_session_record_t *record = find_or_add_record(records, &count, capacity, chat_id);
+        daima_session_record_t *record = find_or_add_record(&record_list, nodes, records, &count, capacity, chat_id);
         if (!record) {
             continue;
         }

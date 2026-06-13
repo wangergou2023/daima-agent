@@ -10,6 +10,11 @@
 
 static const char *TAG = "sched";
 
+static bool sched_runqueue_has_list(const struct sched_runqueue *rq)
+{
+    return rq && rq->agent_list.next && rq->agent_list.prev;
+}
+
 void sched_init(void)
 {
 }
@@ -50,6 +55,7 @@ void sched_enqueue(struct sched_runqueue *rq, const struct sched_class *cls,
     struct sched_agent *agent = &rq->agents[rq->nr_agents];
     sched_agent_init(agent, cls, task);
     agent->pid = rq->nr_agents;
+    list_add(&agent->run_list, &rq->agent_list);
     rq->nr_agents++;
 }
 
@@ -72,8 +78,8 @@ struct sched_agent *sched_pick_next(struct sched_runqueue *rq)
         return NULL;
     }
 
-    for (int i = 0; i < rq->nr_agents && i < SCHED_MAX_AGENTS; i++) {
-        struct sched_agent *agent = &rq->agents[i];
+    struct sched_agent *agent;
+    list_for_each_entry(agent, &rq->agent_list, run_list, struct sched_agent) {
         if (agent->state != SCHED_AGENT_WAITING) {
             continue;
         }
@@ -112,6 +118,7 @@ daima_err_t sched_dispatch(daima_intent_t intent, const daima_plan_t *plan,
     }
 
     memset(rq, 0, sizeof(*rq));
+    INIT_LIST_HEAD(&rq->agent_list);
     rq->timeout_ms = 0;
 
     int count = 0;
@@ -166,10 +173,10 @@ daima_err_t sched_wait(struct sched_runqueue *rq)
     const int timeout_ms = rq->timeout_ms;
     const int poll_interval_ms = 100;
     int last_progress_sec = 0;
+    struct sched_agent *agent;
 
     while (rq->nr_running > 0 && elapsed < timeout_ms) {
-        for (int i = 0; i < rq->nr_agents && i < SCHED_MAX_AGENTS; i++) {
-            struct sched_agent *agent = &rq->agents[i];
+        list_for_each_entry(agent, &rq->agent_list, run_list, struct sched_agent) {
             if (!sched_agent_is_done(agent)) {
                 continue;
             }
@@ -180,7 +187,7 @@ daima_err_t sched_wait(struct sched_runqueue *rq)
             sched_complete(rq, agent, err);
             agent->state = state;
             DAIMA_LOGI(TAG, "agent %d (%s) done, err=%s",
-                       i, sched_class_name(agent->class), daima_err_to_name(agent->error));
+                       agent->pid, sched_class_name(agent->class), daima_err_to_name(agent->error));
         }
 
         if (rq->nr_running > 0) {
@@ -195,12 +202,11 @@ daima_err_t sched_wait(struct sched_runqueue *rq)
         }
     }
 
-    for (int i = 0; i < rq->nr_agents && i < SCHED_MAX_AGENTS; i++) {
-        struct sched_agent *agent = &rq->agents[i];
+    list_for_each_entry(agent, &rq->agent_list, run_list, struct sched_agent) {
         if (agent->state == SCHED_AGENT_RUNNING) {
             sched_complete(rq, agent, DAIMA_ERR_TIMEOUT);
             DAIMA_LOGW(TAG, "agent %d (%s) timed out",
-                       i, sched_class_name(agent->class));
+                       agent->pid, sched_class_name(agent->class));
         }
     }
 
@@ -213,14 +219,24 @@ void sched_merge(struct sched_runqueue *rq, char *output, size_t size)
         return;
     }
 
+    if (!sched_runqueue_has_list(rq)) {
+        INIT_LIST_HEAD(&rq->agent_list);
+        for (int i = 0; i < rq->nr_agents && i < SCHED_MAX_AGENTS; i++) {
+            INIT_LIST_HEAD(&rq->agents[i].run_list);
+            rq->agents[i].pid = i;
+            list_add(&rq->agents[i].run_list, &rq->agent_list);
+        }
+    }
+
     output[0] = '\0';
     rq->merged[0] = '\0';
 
 #define SCHED_DISPLAY_MAX 2000
 
     size_t used = 0;
-    for (int i = 0; i < rq->nr_agents && i < SCHED_MAX_AGENTS && used < size; i++) {
-        const struct sched_agent *agent = &rq->agents[i];
+    struct sched_agent *agent;
+    list_for_each_entry(agent, &rq->agent_list, run_list, struct sched_agent) {
+        if (used >= size) break;
         if (agent->state != SCHED_AGENT_DONE && agent->state != SCHED_AGENT_ERROR &&
             agent->state != SCHED_AGENT_TIMEOUT) {
             continue;
@@ -242,8 +258,8 @@ void sched_merge(struct sched_runqueue *rq, char *output, size_t size)
         used += (size_t)written;
     }
 
-    for (int i = 0; i < rq->nr_agents && i < SCHED_MAX_AGENTS && used < size; i++) {
-        const struct sched_agent *agent = &rq->agents[i];
+    list_for_each_entry(agent, &rq->agent_list, run_list, struct sched_agent) {
+        if (used >= size) break;
         if (agent->state == SCHED_AGENT_DONE || agent->state == SCHED_AGENT_ERROR ||
             agent->state == SCHED_AGENT_TIMEOUT) {
             continue;
@@ -267,8 +283,7 @@ void sched_merge(struct sched_runqueue *rq, char *output, size_t size)
 
     const struct sched_agent *executor = NULL;
     const struct sched_agent *reviewer = NULL;
-    for (int i = 0; i < rq->nr_agents && i < SCHED_MAX_AGENTS; i++) {
-        const struct sched_agent *agent = &rq->agents[i];
+    list_for_each_entry(agent, &rq->agent_list, run_list, struct sched_agent) {
         if (agent->state != SCHED_AGENT_DONE) {
             continue;
         }
@@ -307,16 +322,17 @@ void sched_exit(struct sched_runqueue *rq)
     if (unlikely(!rq)) {
         return;
     }
-    for (int i = 0; i < rq->nr_agents && i < SCHED_MAX_AGENTS; i++) {
-        if (rq->agents[i].async_chat) {
-            llm_chat_async_free(rq->agents[i].async_chat);
-            rq->agents[i].async_chat = NULL;
+    struct sched_agent *agent;
+    list_for_each_entry(agent, &rq->agent_list, run_list, struct sched_agent) {
+        if (agent->async_chat) {
+            llm_chat_async_free(agent->async_chat);
+            agent->async_chat = NULL;
         }
-        if (rq->agents[i].scoped_messages) {
-            cJSON_Delete(rq->agents[i].scoped_messages);
-            rq->agents[i].scoped_messages = NULL;
+        if (agent->scoped_messages) {
+            cJSON_Delete(agent->scoped_messages);
+            agent->scoped_messages = NULL;
         }
-        llm_response_free(&rq->agents[i].response);
+        llm_response_free(&agent->response);
     }
     memset(rq, 0, sizeof(*rq));
 }

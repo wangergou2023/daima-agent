@@ -62,11 +62,11 @@ static bool resolve_workspace_path(const char *path,
 
     char candidate[TOOL_FILES_PATH_SIZE];
     if (path[0] == '/') {
-        if (strscpy(candidate, path, sizeof(candidate)) >= (int)sizeof(candidate)) {
+        if (strscpy(candidate, path, sizeof(candidate)) >= sizeof(candidate)) {
             return false;
         }
     } else {
-        if (snprintf(candidate, sizeof(candidate), "%s/%s", workspace_root, path) >= (int)sizeof(candidate)) {
+        if (snprintf(candidate, sizeof(candidate), "%s/%s", workspace_root, path) >= sizeof(candidate)) {
             return false;
         }
     }
@@ -95,7 +95,7 @@ static bool resolve_workspace_path(const char *path,
     }
     memcpy(parent_candidate, candidate, parent_len);
     parent_candidate[parent_len] = '\0';
-    if (strscpy(leaf, slash + 1, sizeof(leaf)) >= (int)sizeof(leaf)) {
+    if (strscpy(leaf, slash + 1, sizeof(leaf)) >= sizeof(leaf)) {
         return false;
     }
     if (!realpath(parent_candidate, real_buf)) {
@@ -122,7 +122,7 @@ bool tool_files_resolve_read_path(const char *path, char *resolved, size_t resol
     }
 
     char candidate[TOOL_FILES_PATH_SIZE];
-    if (strscpy(candidate, path, sizeof(candidate)) >= (int)sizeof(candidate)) {
+    if (strscpy(candidate, path, sizeof(candidate)) >= sizeof(candidate)) {
         return false;
     }
 

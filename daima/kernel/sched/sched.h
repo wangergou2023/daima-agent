@@ -4,6 +4,7 @@
 #include "plan.h"
 #include "drivers/llm/llm_proxy.h"
 #include "err.h"
+#include "linux/list.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -37,6 +38,7 @@ struct sched_class {
 };
 
 struct sched_agent {
+    struct list_head run_list;
     int pid;
     enum sched_class_id class;
     enum sched_agent_state state;
@@ -52,6 +54,7 @@ struct sched_agent {
 };
 
 struct sched_runqueue {
+    struct list_head agent_list;
     struct sched_agent agents[SCHED_MAX_AGENTS];
     int nr_running;
     int nr_agents;
