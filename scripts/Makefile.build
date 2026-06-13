@@ -1,39 +1,40 @@
-# scripts/Makefile.build
-# 处理单个目录的 obj-y
+# scripts/Makefile.build - 实际编译规则
 
 include $(TOPDIR)/scripts/Kbuild.include
+
+.DEFAULT_GOAL := __build
 
 src := $(obj)
 kbuild-dir := $(if $(filter /%,$(src)),$(src),$(srctree)/$(src))
 
 include $(kbuild-dir)/Makefile
 
-__obj-y := $(obj-y)
-
-# 递归进入子目录
 __subdir-y := $(patsubst %/,%,$(filter %/, $(obj-y)))
 obj-y := $(filter-out %/, $(obj-y))
-subdir-obj-y :=
+
+obj-files := $(addprefix $(obj)/, $(obj-y))
 
 # 编译当前目录的 .c → .o
-targets := $(obj-y)
-obj-y := $(addprefix $(obj)/, $(obj-y))
+$(obj)/%.o: $(src)/%.c
+	@mkdir -p $(dir $@)
+	@echo "  CC      $(obj)/$(*F).o"
+	$(Q)$(CC) $(DAIMA_CFLAGS) -c -o $@ $<
 
-quiet_cmd_cc_o_c = CC      $@
-      cmd_cc_o_c = $(CC) $(DAIMA_CFLAGS) -c -o $@ $<
+# 子目录递归
+subdirs: $(patsubst %, _subdir_%, $(__subdir-y))
+.PHONY: __build subdirs built-in.o $(patsubst %, _subdir_%, $(__subdir-y))
+_subdir_%:
+	$(Q)$(MAKE) -f $(TOPDIR)/scripts/Makefile.build obj=$(obj)/$*
 
-.PHONY: __build subdirs $(patsubst %, _subdir_%, $(__subdir-y))
+# 收集所有 .o 文件
 ifeq ($(KBUILD_DOC_ONLY),1)
-__build: subdirs
+__build built-in.o: subdirs
 	@:
 else
-__build: $(obj-y) subdirs
+__build: built-in.o
 	@:
+
+built-in.o: $(obj-files) subdirs
+	@mkdir -p $(BUILD_DIR)
+	@printf '%s\n' $(obj-files) >> $(BUILD_DIR)/objects.list
 endif
-
-$(obj)/%.o: $(src)/%.c
-	$(call cmd,cc_o_c)
-
-subdirs: $(patsubst %, _subdir_%, $(__subdir-y))
-_subdir_%:
-	$(Q)$(MAKE) $(build)=$(obj)/$*

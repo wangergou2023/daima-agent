@@ -6,17 +6,15 @@ export TOPDIR := $(CURDIR)
 export srctree := $(TOPDIR)
 export objtree := $(TOPDIR)
 export DAIMA_DIR := $(TOPDIR)/daima
+BUILD_DIR := build-kbuild
+export BUILD_DIR
+DAIMA_BIN := $(BUILD_DIR)/daima
 
 ARCH ?= host
 export ARCH
 include $(DAIMA_DIR)/arch/$(ARCH)/Makefile
 include $(TOPDIR)/scripts/Kbuild.include
-
-# 输出目录 (内核风格: make O=build)
-O ?= build-host
-ifeq ($(O),.)
-  O := build-host
-endif
+export CC DAIMA_CFLAGS LDFLAGS
 
 # 详细输出
 ifeq ($(V),1)
@@ -40,13 +38,32 @@ core-y += extensions/
 daima-dirs := $(patsubst %/,%,$(core-y))
 daima_builtin := $(foreach d,$(daima-dirs),$(d)/built-in.o)
 
-.PHONY: all host mips arm modules test clean mrproper distclean help menuconfig defconfig config
-.PHONY: $(daima-dirs) kbuild kbuild-doc-check
-$(daima-dirs):
+.PHONY: all daima host mips arm arch-obj cjson modules test clean mrproper distclean help menuconfig defconfig config
+.PHONY: $(daima-dirs) kbuild kbuild-doc-check kbuild-clean cmake-build
+
+all: kbuild
+kbuild: daima
+
+$(BUILD_DIR):
+	$(Q)mkdir -p $(BUILD_DIR)
+	$(Q)> $(BUILD_DIR)/objects.list
+
+$(daima-dirs): $(BUILD_DIR)
 	$(Q)$(MAKE) -f $(TOPDIR)/scripts/Makefile.build obj=daima/$@
 
-kbuild: $(daima-dirs)
-	@:
+cjson: $(BUILD_DIR)
+	@echo "  CC      $(BUILD_DIR)/cjson.o"
+	$(Q)$(CC) $(DAIMA_CFLAGS) -c -o $(BUILD_DIR)/cjson.o $(TOPDIR)/third_party/cjson/cJSON.c
+	@echo $(BUILD_DIR)/cjson.o >> $(BUILD_DIR)/objects.list
+
+arch-obj: $(BUILD_DIR)
+	$(Q)$(MAKE) -f $(TOPDIR)/scripts/Makefile.build obj=daima/arch/$(ARCH)
+
+daima: $(daima-dirs) cjson arch-obj
+	@echo "  LD      daima"
+	$(Q)awk '!seen[$$0]++' $(BUILD_DIR)/objects.list > $(BUILD_DIR)/objects.link
+	$(Q)$(CC) $(DAIMA_CFLAGS) -o $(DAIMA_BIN) @$(BUILD_DIR)/objects.link $(LDFLAGS)
+	@echo "  DONE    daima"
 
 kbuild-doc-check:
 	$(Q)$(MAKE) KBUILD_DOC_ONLY=1 kbuild
@@ -59,16 +76,16 @@ defconfig:
 config:
 	python3 kconfig.py list
 
-all: host
-host:
-	$(Q)echo "  BUILD   daima ($(ARCH)) → $(O)/"
-	$(Q)cmake -B $(O) -DCMAKE_C_FLAGS="$(DAIMA_CFLAGS)" \
-		-DCMAKE_BUILD_TYPE=Release
-	$(Q)cmake --build $(O)
+host: kbuild
 mips:
-	$(MAKE) ARCH=mips O=build-mips host
+	$(MAKE) ARCH=mips kbuild
 arm:
-	$(MAKE) ARCH=arm O=build-arm host
+	$(MAKE) ARCH=arm kbuild
+
+# 备用: cmake 构建
+cmake-build:
+	$(Q)cmake -B build-host -DCMAKE_C_FLAGS="$(DAIMA_CFLAGS)"
+	$(Q)cmake --build build-host
 
 modules:
 	@echo "  MODULES  extensions/ (built-in)"
@@ -77,8 +94,13 @@ test:
 	$(MAKE) -C test test PWD=$(CURDIR)
 
 clean:
-	$(Q)rm -rf build-host build-mips build-arm
+	$(Q)rm -rf build-kbuild build-host build-mips build-arm
+	$(Q)find daima -name '*.o' -delete
 	$(Q)$(MAKE) -C test clean
+
+kbuild-clean:
+	$(Q)rm -rf $(BUILD_DIR)
+	$(Q)find daima -name '*.o' -delete
 
 mrproper: clean
 	$(Q)rm -f .config .config.old
@@ -86,8 +108,8 @@ distclean: mrproper
 	rm -rf build-*
 
 help:
-	@echo "make / make host     build x86_64"
-	@echo "make kbuild          walk Kbuild obj-y directories"
+	@echo "make / make host     build x86_64 via Kbuild"
+	@echo "make cmake-build     fallback cmake build"
 	@echo "make mips|arm        cross-compile"
 	@echo "make menuconfig      interactive config"
 	@echo "make test clean mrproper distclean"
