@@ -1,19 +1,39 @@
 # scripts/Makefile.build
-# 内核风格编译规则 (cmake 后端)
+# 处理单个目录的 obj-y
 
-quiet_cmd_cc = CC      $@
-      cmd_cc = $(CC) $(DAIMA_CFLAGS) -c -o $@ $<
+include $(TOPDIR)/scripts/Kbuild.include
 
-quiet_cmd_link = LD      $@
-      cmd_link = $(CC) $(DAIMA_CFLAGS) -o $@ $^
+src := $(obj)
+kbuild-dir := $(if $(filter /%,$(src)),$(src),$(srctree)/$(src))
 
-# 增量编译模板
-%.o: %.c
-	$(call cmd_cc)
+include $(kbuild-dir)/Makefile
 
-%: %.o
-	$(call cmd_link)
+__obj-y := $(obj-y)
 
-.PHONY: build
-build:
-	@echo "  Using cmake backend for daima"
+# 递归进入子目录
+__subdir-y := $(patsubst %/,%,$(filter %/, $(obj-y)))
+obj-y := $(filter-out %/, $(obj-y))
+subdir-obj-y :=
+
+# 编译当前目录的 .c → .o
+targets := $(obj-y)
+obj-y := $(addprefix $(obj)/, $(obj-y))
+
+quiet_cmd_cc_o_c = CC      $@
+      cmd_cc_o_c = $(CC) $(DAIMA_CFLAGS) -c -o $@ $<
+
+.PHONY: __build subdirs $(patsubst %, _subdir_%, $(__subdir-y))
+ifeq ($(KBUILD_DOC_ONLY),1)
+__build: subdirs
+	@:
+else
+__build: $(obj-y) subdirs
+	@:
+endif
+
+$(obj)/%.o: $(src)/%.c
+	$(call cmd,cc_o_c)
+
+subdirs: $(patsubst %, _subdir_%, $(__subdir-y))
+_subdir_%:
+	$(Q)$(MAKE) $(build)=$(obj)/$*

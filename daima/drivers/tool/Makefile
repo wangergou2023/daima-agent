@@ -1,0 +1,11 @@
+obj-y := tool_registry.o tool_runtime.o tool_invocation_context.o
+obj-y += tool_files.o tool_file_read.o tool_file_list.o tool_file_search.o
+obj-y += tool_file_query.o tool_file_paths.o tool_file_ops.o
+obj-y += tool_file_mutations.o tool_file_checkpoint.o
+obj-y += tool_cron.o tool_terminal_exec.o tool_system.o
+obj-y += tool_todo.o tool_work_item.o tool_skills.o
+obj-y += tool_webfetch.o tool_daima_log.o tool_session_search.o
+obj-y += tool_session_search_scan.o tool_session_search_render.o
+obj-y += tool_weather_host.o tool_get_time_host.o
+obj-y += tool_vector_motion.o tool_vector_body.o tool_vector_audio.o tool_vector_anim.o tool_vector_status.o
+obj-y += tool_hashline.o tool_safe_edit.o
