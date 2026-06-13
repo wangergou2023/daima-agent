@@ -220,17 +220,13 @@ static void agent_loop_task(void *arg)
                            coord.agent_count, daima_intent_name(msg.intent));
 
                 char thinking_msg[512];
-                snprintf(thinking_msg, sizeof(thinking_msg),
-                    "🤖 Coordinator 并行处理中 (%d个子Agent: %s%s%s)",
-                    coord.agent_count,
-                    agent_role_name(coord.agents[0].role),
-                    coord.agent_count > 1 ? " + " : "",
-                    coord.agent_count > 1 ? agent_role_name(coord.agents[1].role) : "");
-                if (coord.agent_count > 2) {
-                    snprintf(thinking_msg + strlen(thinking_msg),
-                             sizeof(thinking_msg) - strlen(thinking_msg),
-                             " + %s", agent_role_name(coord.agents[2].role));
+                int off = snprintf(thinking_msg, sizeof(thinking_msg),
+                    "🤖 Coordinator 并行处理中 (%d个子Agent", coord.agent_count);
+                for (int i = 0; i < coord.agent_count && i < COORDINATOR_MAX_SUB_AGENTS; i++) {
+                    off += snprintf(thinking_msg + off, sizeof(thinking_msg) - off,
+                        "%s%s", i == 0 ? ": " : " + ", agent_role_name(coord.agents[i].role));
                 }
+                off += snprintf(thinking_msg + off, sizeof(thinking_msg) - off, ")");
                 agent_turn_queue_outbound_text(&msg, strdup(thinking_msg), NULL, true);
 
                 daima_err_t launch_err = coordinator_launch_all(system_prompt, messages, tools_json, &coord);

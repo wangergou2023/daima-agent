@@ -115,6 +115,29 @@ daima_err_t coordinator_merge_results(coordinator_t *coord,
 #define COORDINATOR_DISPLAY_MAX 2000
 
     size_t used = 0;
+
+    for (int i = 0; i < coord->agent_count && i < COORDINATOR_MAX_SUB_AGENTS; i++) {
+        const sub_agent_t *agent = &coord->agents[i];
+        if (!agent->done) continue;
+        const char *icon = agent->error == DAIMA_OK ? "✅" : "❌";
+        used += snprintf(output + used, output_size - used,
+                        "%s %s %s\n",
+                        icon,
+                        agent_role_name(agent->role),
+                        agent->error == DAIMA_OK ? "已完成" :
+                        agent->error == DAIMA_ERR_TIMEOUT ? "超时" : "失败");
+    }
+
+    for (int i = 0; i < coord->agent_count && i < COORDINATOR_MAX_SUB_AGENTS; i++) {
+        const sub_agent_t *agent = &coord->agents[i];
+        if (agent->done) continue;
+        used += snprintf(output + used, output_size - used,
+                        "⏱️ %s 未完成 (超时)\n",
+                        agent_role_name(agent->role));
+    }
+
+    used += snprintf(output + used, output_size - used, "\n---\n\n");
+
     const sub_agent_t *executor = NULL;
     const sub_agent_t *reviewer = NULL;
 
