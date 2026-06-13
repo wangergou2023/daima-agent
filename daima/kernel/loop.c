@@ -13,6 +13,7 @@
 #include "runtime.h"
 #include "bus.h"
 #include "autoconf.h"
+#include "linux/compiler.h"
 #include "linux/printk.h"
 #include "os.h"
 #include "drivers/platform/platform.h"
@@ -34,7 +35,7 @@ static void agent_loop_task(void *arg)
     char *system_prompt = daima_calloc(1, DAIMA_CONTEXT_BUF_SIZE);
     char *history_json = daima_calloc(1, DAIMA_LLM_STREAM_BUF_SIZE);
 
-    if (!system_prompt || !history_json) {
+    if (unlikely(!system_prompt || !history_json)) {
         DAIMA_LOGE(TAG, "Failed to allocate PSRAM buffers");
         free(system_prompt);
         free(history_json);
@@ -44,13 +45,13 @@ static void agent_loop_task(void *arg)
     while (1) {
         daima_msg_t msg;
         daima_err_t err = message_bus_pop_inbound(&msg, UINT32_MAX);
-        if (err != DAIMA_OK) continue;
+        if (unlikely(err != DAIMA_OK)) continue;
 
         msg.intent = DAIMA_INTENT_OPEN;
         agent_extension_state_reset();
 
         err = agent_hooks_trigger_intent(&msg);
-        if (err != DAIMA_OK) {
+        if (unlikely(err != DAIMA_OK)) {
             char *final_text = NULL;
             char *reasoning_text = NULL;
             agent_turn_finish(&msg, &final_text, &reasoning_text, err, 0, false, false);
@@ -75,7 +76,7 @@ static void agent_loop_task(void *arg)
                                   system_prompt, DAIMA_CONTEXT_BUF_SIZE,
                                   history_json, DAIMA_LLM_STREAM_BUF_SIZE,
                                   &messages);
-        if (err == DAIMA_OK) {
+        if (likely(err == DAIMA_OK)) {
             err = agent_hooks_trigger_prepare(&msg, system_prompt, DAIMA_CONTEXT_BUF_SIZE, messages);
         }
 
@@ -84,13 +85,13 @@ static void agent_loop_task(void *arg)
         int iteration = 0;
         bool tool_budget_exhausted = false;
         bool cancelled = false;
-        if (err == DAIMA_OK) {
+        if (likely(err == DAIMA_OK)) {
             const char *tools_json = tool_registry_get_tools_json_for_channel(msg.channel);
             err = agent_hooks_trigger_replace_run(&msg, system_prompt, messages, tools_json, &final_text);
-            if (err != DAIMA_OK) {
+            if (unlikely(err != DAIMA_OK)) {
                 const char *model_override = NULL;
                 err = agent_hooks_trigger_before_run(&msg, &model_override, tools_json);
-                if (err == DAIMA_OK) {
+                if (likely(err == DAIMA_OK)) {
                     err = agent_turn_run(system_prompt, messages, tools_json, &msg,
                                   model_override,
                                   cancel_token,
@@ -111,12 +112,12 @@ static void agent_loop_task(void *arg)
 daima_err_t agent_loop_init(void)
 {
     daima_err_t err = context_compressor_init();
-    if (err != DAIMA_OK) {
+    if (unlikely(err != DAIMA_OK)) {
         return err;
     }
     if (runtime_config_get_learning_review_enabled()) {
         err = learning_review_init();
-        if (err != DAIMA_OK) {
+        if (unlikely(err != DAIMA_OK)) {
             return err;
         }
     } else {

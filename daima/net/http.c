@@ -3,6 +3,7 @@
 #include "tls.h"
 #include "proxy.h"
 #include "autoconf.h"
+#include "linux/compiler.h"
 #include "linux/printk.h"
 
 #include <curl/curl.h>
@@ -30,7 +31,7 @@ static size_t write_cb(void *contents, size_t size, size_t nmemb, void *userp)
     size_t realsize = size * nmemb;
     buf_t *buf = (buf_t *)userp;
     char *ptr = realloc(buf->data, buf->len + realsize + 1);
-    if (!ptr) return 0;
+    if (unlikely(!ptr)) return 0;
     buf->data = ptr;
     memcpy(&(buf->data[buf->len]), contents, realsize);
     buf->len += realsize;
@@ -43,7 +44,7 @@ static size_t header_cb(char *buffer, size_t size, size_t nitems, void *userp)
     size_t realsize = size * nitems;
     buf_t *buf = (buf_t *)userp;
     char *ptr = realloc(buf->data, buf->len + realsize + 1);
-    if (!ptr) return 0;
+    if (unlikely(!ptr)) return 0;
     buf->data = ptr;
     memcpy(&(buf->data[buf->len]), buffer, realsize);
     buf->len += realsize;
@@ -72,7 +73,7 @@ static void apply_proxy(CURL *curl)
     const char *host = http_proxy_host();
     uint16_t port = http_proxy_port();
     const char *type = http_proxy_type();
-    if (!host || !host[0] || port == 0) return;
+    if (unlikely(!host || !host[0] || port == 0)) return;
 
     char proxy[256];
     const char *scheme = "http";
@@ -100,12 +101,12 @@ daima_err_t host_http_request(const char *method,
                             int timeout_ms,
                             host_http_response_t *out)
 {
-    if (!method || !url || !out) return DAIMA_ERR_INVALID_ARG;
+    if (unlikely(!method || !url || !out)) return DAIMA_ERR_INVALID_ARG;
 
     pthread_once(&s_curl_once, curl_global_init_once);
 
     CURL *curl = curl_easy_init();
-    if (!curl) return DAIMA_FAIL;
+    if (unlikely(!curl)) return DAIMA_FAIL;
 
     buf_t resp = {0};
     buf_t hdrs = {0};
@@ -143,7 +144,7 @@ daima_err_t host_http_request(const char *method,
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
     curl_easy_cleanup(curl);
 
-    if (res != CURLE_OK) {
+    if (unlikely(res != CURLE_OK)) {
         if (res == CURLE_ABORTED_BY_CALLBACK && agent_cancel_current_thread_cancelled()) {
             DAIMA_LOGI(TAG, "HTTP request aborted by agent cancellation");
         } else {
@@ -165,7 +166,7 @@ daima_err_t host_http_request(const char *method,
 
 void host_http_response_free(host_http_response_t *resp)
 {
-    if (!resp) return;
+    if (unlikely(!resp)) return;
     free(resp->body);
     free(resp->headers);
     free(resp->error);

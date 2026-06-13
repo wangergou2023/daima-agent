@@ -10,6 +10,7 @@
 #include "drivers/llm/llm_proxy.h"
 #include "drivers/llm/model_fallback.h"
 #include "autoconf.h"
+#include "linux/compiler.h"
 #include "linux/kernel.h"
 #include "linux/printk.h"
 #include "os.h"
@@ -92,7 +93,7 @@ daima_err_t agent_turn_run(
     bool *out_tool_budget_exhausted,
     bool *out_cancelled)
 {
-    if (!system_prompt || !messages || !msg || !out_final_text || !out_reasoning_text || !out_iteration || !out_tool_budget_exhausted || !out_cancelled) {
+    if (unlikely(!system_prompt || !messages || !msg || !out_final_text || !out_reasoning_text || !out_iteration || !out_tool_budget_exhausted || !out_cancelled)) {
         return DAIMA_ERR_INVALID_ARG;
     }
 
@@ -103,7 +104,7 @@ daima_err_t agent_turn_run(
     *out_cancelled = false;
 
     char *tool_output = daima_calloc(1, TOOL_OUTPUT_SIZE);
-    if (!tool_output) {
+    if (unlikely(!tool_output)) {
         return DAIMA_ERR_NO_MEM;
     }
 
@@ -127,7 +128,7 @@ daima_err_t agent_turn_run(
             err = cancellable_llm_chat_tools(msg, cancel_token, system_prompt, messages, tools_json, model_override, &resp);
         }
 
-        if (err != DAIMA_OK) {
+        if (unlikely(err != DAIMA_OK)) {
             if (mark_cancelled_if_needed(msg, cancel_token, out_cancelled, "during LLM call")) {
                 err = DAIMA_OK;
                 break;

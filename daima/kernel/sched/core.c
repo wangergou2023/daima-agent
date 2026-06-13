@@ -1,5 +1,6 @@
 #include "sched.h"
 #include "autoconf.h"
+#include "linux/compiler.h"
 #include "linux/printk.h"
 #include "os.h"
 
@@ -41,7 +42,7 @@ static void sched_set_task_description(struct sched_agent *agent,
 void sched_enqueue(struct sched_runqueue *rq, const struct sched_class *cls,
                    const char *task)
 {
-    if (!rq || !cls || rq->nr_agents >= SCHED_MAX_AGENTS) {
+    if (unlikely(!rq || !cls || rq->nr_agents >= SCHED_MAX_AGENTS)) {
         return;
     }
 
@@ -53,7 +54,7 @@ void sched_enqueue(struct sched_runqueue *rq, const struct sched_class *cls,
 
 void sched_dequeue(struct sched_runqueue *rq, struct sched_agent *agent)
 {
-    if (!rq || !agent || agent->state != SCHED_AGENT_RUNNING) {
+    if (unlikely(!rq || !agent || agent->state != SCHED_AGENT_RUNNING)) {
         return;
     }
     agent->state = SCHED_AGENT_DONE;
@@ -66,7 +67,7 @@ struct sched_agent *sched_pick_next(struct sched_runqueue *rq)
 {
     struct sched_agent *best = NULL;
 
-    if (!rq) {
+    if (unlikely(!rq)) {
         return NULL;
     }
 
@@ -75,7 +76,7 @@ struct sched_agent *sched_pick_next(struct sched_runqueue *rq)
         if (agent->state != SCHED_AGENT_WAITING) {
             continue;
         }
-        if (!best || agent->class < best->class) {
+        if (unlikely(!best) || agent->class < best->class) {
             best = agent;
         }
     }
@@ -85,12 +86,12 @@ struct sched_agent *sched_pick_next(struct sched_runqueue *rq)
 void sched_complete(struct sched_runqueue *rq, struct sched_agent *agent,
                     daima_err_t err)
 {
-    if (!rq || !agent) {
+    if (unlikely(!rq || !agent)) {
         return;
     }
 
     agent->error = err;
-    if (err == DAIMA_OK) {
+    if (likely(err == DAIMA_OK)) {
         agent->state = SCHED_AGENT_DONE;
     } else if (err == DAIMA_ERR_TIMEOUT) {
         agent->state = SCHED_AGENT_TIMEOUT;
@@ -105,7 +106,7 @@ void sched_complete(struct sched_runqueue *rq, struct sched_agent *agent,
 daima_err_t sched_dispatch(daima_intent_t intent, const daima_plan_t *plan,
                            const char *user_msg, struct sched_runqueue *rq)
 {
-    if (!rq) {
+    if (unlikely(!rq)) {
         return DAIMA_ERR_INVALID_ARG;
     }
 
@@ -129,7 +130,7 @@ daima_err_t sched_dispatch(daima_intent_t intent, const daima_plan_t *plan,
 void sched_start(struct sched_runqueue *rq,
                  const char *system_prompt, cJSON *messages, const char *tools)
 {
-    if (!rq) {
+    if (unlikely(!rq)) {
         return;
     }
 
@@ -156,7 +157,7 @@ void sched_start(struct sched_runqueue *rq,
 
 daima_err_t sched_wait(struct sched_runqueue *rq)
 {
-    if (!rq) {
+    if (unlikely(!rq)) {
         return DAIMA_ERR_INVALID_ARG;
     }
 
@@ -207,7 +208,7 @@ daima_err_t sched_wait(struct sched_runqueue *rq)
 
 void sched_merge(struct sched_runqueue *rq, char *output, size_t size)
 {
-    if (!rq || !output || size == 0) {
+    if (unlikely(!rq || !output || size == 0)) {
         return;
     }
 
@@ -302,7 +303,7 @@ void sched_merge(struct sched_runqueue *rq, char *output, size_t size)
 
 void sched_exit(struct sched_runqueue *rq)
 {
-    if (!rq) {
+    if (unlikely(!rq)) {
         return;
     }
     for (int i = 0; i < rq->nr_agents && i < SCHED_MAX_AGENTS; i++) {
