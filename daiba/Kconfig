@@ -1,0 +1,93 @@
+menu "Daiba Agent"
+
+config AGENT_COORDINATOR
+	bool "多Agent并行协调器"
+	default y
+	help
+	  启用coordinator: PLANNER+EXECUTOR+REVIEWER并行执行
+
+config AGENT_INTENT_GATE
+	bool "意图分类门控"
+	default y
+	help
+	  启用意图分类门控，在进入Agent主循环前判断请求意图。
+
+config AGENT_CATEGORY_ROUTER
+	bool "任务类别路由器"
+	default y
+	help
+	  启用category router，根据任务类别选择不同执行策略。
+
+config AGENT_PLAN_REVIEW
+	bool "计划评审"
+	default y
+	help
+	  启用计划评审扩展，在执行前检查计划质量。
+
+config AGENT_TEAM_MODE
+	bool "Team Mode"
+	default y
+	help
+	  启用多角色Team Mode能力。
+
+config AGENT_RALPH_LOOP
+	bool "Ralph Loop"
+	default y
+	help
+	  启用Ralph自循环执行扩展。
+
+config DAIMA_ENABLE_VISION
+	bool "图像理解"
+	default y
+	help
+	  启用图像抓拍与多模态相关编译开关。
+
+config DAIMA_ENABLE_VOICE
+	bool "语音通道"
+	default y
+	help
+	  启用语音通道、TTS和唤醒相关驱动。
+
+config DAIMA_ENABLE_FEISHU
+	bool "飞书通道"
+	default y
+	help
+	  启用飞书WebSocket、事件处理与媒体接口。
+
+config DAIMA_ENABLE_VECTOR
+	bool "Vector机器人通道"
+	default y
+	help
+	  启用Vector机器人MCP通道与动作工具。
+
+config DAIMA_ENABLE_GATEWAY
+	bool "Web网关"
+	default y
+	help
+	  启用Host WebSocket/HTTP网关。
+
+config DAIMA_ENABLE_CRON
+	bool "定时任务"
+	default y
+	help
+	  启用cron服务与相关工具。
+
+config DAIMA_ENABLE_SKILLS
+	bool "Skill系统"
+	default y
+	help
+	  启用Skill加载器、元数据和Skill工具。
+
+config DAIMA_ENABLE_MEMORY
+	bool "会话记忆"
+	default y
+	help
+	  启用会话存储、摘要、事实与历史推理。
+
+config DAIMA_ENABLE_WORK_ITEMS
+	bool "工作项"
+	default y
+	help
+	  启用工作项存储和工具。
+
+endmenu

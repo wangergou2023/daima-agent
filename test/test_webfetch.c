@@ -1,6 +1,6 @@
-#include "app/daima_paths.h"
+#include "core/paths.h"
 #include "cJSON.h"
-#include "tools/tool_webfetch.h"
+#include "drivers/tool/tool_webfetch.h"
 
 #include <assert.h>
 #include <stdio.h>
