@@ -12,6 +12,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include "linux/slab.h"
+#include "linux/kernel.h"
 
 #define TOOL_SEARCH_PATH_SIZE 1024
 
@@ -112,7 +113,7 @@ static bool emit_search_content_line(search_ctx_t *ctx,
         snprintf(trimmed, sizeof(trimmed), "%.*s... [truncated]",
                  DAIMA_SEARCH_FILES_MAX_LINE_CHARS, line);
     } else {
-        snprintf(trimmed, sizeof(trimmed), "%s", line);
+        strscpy(trimmed, line, sizeof(trimmed));
     }
 
     char row[TOOL_SEARCH_PATH_SIZE + DAIMA_SEARCH_FILES_MAX_LINE_CHARS + 64];

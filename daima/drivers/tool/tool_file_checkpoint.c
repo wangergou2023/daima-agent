@@ -13,6 +13,7 @@
 #include <time.h>
 #include <unistd.h>
 #include "linux/slab.h"
+#include "linux/kernel.h"
 
 #define TOOL_FILES_PATH_SIZE 1024
 #define TOOL_FILES_RECENT_CHECKPOINTS 16
@@ -54,8 +55,8 @@ static void record_recent_checkpoint(const char *path, const char *checkpoint)
         return;
     }
     recent_checkpoint_t *slot = &s_recent_checkpoints[s_recent_checkpoint_cursor % TOOL_FILES_RECENT_CHECKPOINTS];
-    snprintf(slot->path, sizeof(slot->path), "%s", path);
-    snprintf(slot->checkpoint, sizeof(slot->checkpoint), "%s", checkpoint);
+    strscpy(slot->path, path, sizeof(slot->path));
+    strscpy(slot->checkpoint, checkpoint, sizeof(slot->checkpoint));
     s_recent_checkpoint_cursor++;
 }
 
@@ -100,7 +101,7 @@ daima_err_t tool_files_checkpoint_before_write(const char *path,
     }
 
     if (checkpoint_path && checkpoint_path_size > 0) {
-        snprintf(checkpoint_path, checkpoint_path_size, "%s", path_buf);
+        strscpy(checkpoint_path, path_buf, checkpoint_path_size);
     }
     record_recent_checkpoint(path, path_buf);
     return DAIMA_OK;
@@ -118,7 +119,7 @@ bool tool_files_get_recent_checkpoint(const char *path,
         const recent_checkpoint_t *slot =
             &s_recent_checkpoints[(s_recent_checkpoint_cursor - 1 - i + TOOL_FILES_RECENT_CHECKPOINTS * 2) % TOOL_FILES_RECENT_CHECKPOINTS];
         if (slot->path[0] && strcmp(slot->path, path) == 0 && slot->checkpoint[0]) {
-            snprintf(checkpoint_path, checkpoint_path_size, "%s", slot->checkpoint);
+            strscpy(checkpoint_path, slot->checkpoint, checkpoint_path_size);
             return true;
         }
     }

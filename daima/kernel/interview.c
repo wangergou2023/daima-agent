@@ -7,6 +7,7 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
+#include "linux/kernel.h"
 
 static bool prometheus_contains_any(const char *text, const char *const *needles, size_t needle_count)
 {
@@ -167,7 +168,7 @@ static daima_err_t prometheus_generate_questions_with_llm(const char *user_messa
         return DAIMA_ERR_INVALID_ARG;
     }
 
-    snprintf(out, out_size, "%s", resp.text);
+    strscpy(out, resp.text, out_size);
     out[out_size - 1] = '\0';
     llm_response_free(&resp);
     return DAIMA_OK;

@@ -22,6 +22,7 @@
 #include "cJSON.h"
 #include "linux/printk.h"
 #include "linux/slab.h"
+#include "linux/kernel.h"
 
 static const char *TAG = "learn";
 
@@ -58,7 +59,7 @@ static review_job_t *find_review_job_locked(const char *chat_id, bool create_if_
     if (!create_if_missing || !free_slot) {
         return NULL;
     }
-    snprintf(free_slot->chat_id, sizeof(free_slot->chat_id), "%s", chat_id);
+    strscpy(free_slot->chat_id, chat_id, sizeof(free_slot->chat_id));
     free_slot->queued = false;
     free_slot->running = false;
     free_slot->rerun = false;
@@ -132,7 +133,7 @@ static daima_err_t merge_long_term_memory(cJSON *items)
     memory_read_long_term(current, sizeof(current));
 
     char next[REVIEW_MEMORY_BUF_SIZE];
-    snprintf(next, sizeof(next), "%s", current);
+    strscpy(next, current, sizeof(next));
 
     size_t off = strlen(next);
     if (off == 0) {
@@ -146,7 +147,7 @@ static daima_err_t merge_long_term_memory(cJSON *items)
     cJSON_ArrayForEach(item, items) {
         if (!cJSON_IsString(item) || !item->valuestring) continue;
         char temp[256];
-        snprintf(temp, sizeof(temp), "%s", item->valuestring);
+        strscpy(temp, item->valuestring, sizeof(temp));
         char *line = trim_ascii(temp);
         if (!line[0]) continue;
         if (memory_line_exists(next, line)) continue;
@@ -336,7 +337,7 @@ static void *review_worker_loop(void *arg)
             if (picked) {
                 picked->queued = false;
                 picked->running = true;
-                snprintf(chat_id, sizeof(chat_id), "%s", picked->chat_id);
+                strscpy(chat_id, picked->chat_id, sizeof(chat_id));
                 break;
             }
             pthread_cond_wait(&s_review_cond, &s_review_mutex);

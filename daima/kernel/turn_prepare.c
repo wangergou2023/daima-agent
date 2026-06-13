@@ -83,7 +83,7 @@ static cJSON *build_user_vision_content(const char *text, const char *image_path
     bool cleanup_local_path = false;
 
     if (image_path && image_path[0]) {
-        snprintf(local_path, sizeof(local_path), "%s", image_path);
+        strscpy(local_path, image_path, sizeof(local_path));
     } else {
 #ifdef BUILD_FOR_MIPS
         daima_err_t cap_err = vision_capture_jpeg(NULL, local_path, sizeof(local_path));
@@ -162,7 +162,7 @@ static void prepend_rules_prompt(char *prompt, size_t size, const char *rules)
     }
 
     char existing[DAIMA_CONTEXT_BUF_SIZE];
-    snprintf(existing, sizeof(existing), "%s", prompt);
+    strscpy(existing, prompt, sizeof(existing));
     int n = snprintf(prompt, size, "%s\n%s", rules, existing);
     if (n < 0 || (size_t)n >= size) {
         prompt[size - 1] = '\0';
@@ -249,7 +249,7 @@ daima_err_t agent_turn_prepare(
 
     char prompt_prefix[DAIMA_BUF_XLARGE] = {0};
     if (system_prompt[0]) {
-        snprintf(prompt_prefix, sizeof(prompt_prefix), "%s", system_prompt);
+        strscpy(prompt_prefix, system_prompt, sizeof(prompt_prefix));
     }
 
     context_build_system_prompt_for_channel(msg->channel, system_prompt, system_prompt_size);
@@ -279,7 +279,7 @@ daima_err_t agent_turn_prepare(
     if (prompt_prefix[0]) {
         size_t off = strnlen(system_prompt, system_prompt_size - 1);
         if (off < system_prompt_size - 1) {
-            int n = snprintf(system_prompt + off, system_prompt_size - off, "%s", prompt_prefix);
+            int n = strscpy(system_prompt + off, prompt_prefix, system_prompt_size - off);
             if (n < 0 || (size_t)n >= system_prompt_size - off) {
                 system_prompt[system_prompt_size - 1] = '\0';
             }

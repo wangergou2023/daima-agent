@@ -8,6 +8,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include "linux/slab.h"
+#include "linux/kernel.h"
 
 #define SAFE_EDIT_MAX_FILE_SIZE (1024 * 1024)
 #define SAFE_EDIT_TTL_SECONDS   (5 * 60)
@@ -122,7 +123,7 @@ daima_err_t safe_edit_register_read(const char *path, const char *content, int l
         slot = find_slot_locked();
     }
 
-    snprintf(s_fingerprints[slot].file_path, sizeof(s_fingerprints[slot].file_path), "%s", path);
+    strscpy(s_fingerprints[slot].file_path, path, sizeof(s_fingerprints[slot].file_path));
     s_fingerprints[slot].content_hash = fnv1a_32(content, strlen(content));
     s_fingerprints[slot].line_start = line_start;
     s_fingerprints[slot].line_end = line_end;

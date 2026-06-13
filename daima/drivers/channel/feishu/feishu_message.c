@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "cJSON.h"
+#include "linux/kernel.h"
 
 static void trim_ascii_in_place(char *s)
 {
@@ -31,7 +32,7 @@ void feishu_normalize_text(const char *src, char *dst, size_t dst_size)
     dst[0] = '\0';
     if (!src) return;
 
-    snprintf(dst, dst_size, "%s", src);
+    strscpy(dst, src, dst_size);
     trim_ascii_in_place(dst);
 
     if (strncmp(dst, "@_user_1 ", 9) == 0) {
@@ -54,7 +55,7 @@ static void append_text_line(char *dst, size_t dst_size, const char *text)
         len = strlen(dst);
     }
     if (len < dst_size - 1) {
-        snprintf(dst + len, dst_size - len, "%s", normalized);
+        strscpy(dst + len, normalized, dst_size - len);
     }
 }
 

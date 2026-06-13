@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "linux/kernel.h"
 
 static const char *TAG = "sched_agent";
 
@@ -19,8 +20,8 @@ void sched_agent_init(struct sched_agent *agent, const struct sched_class *cls,
     agent->class = (enum sched_class_id)cls->priority;
     agent->state = SCHED_AGENT_WAITING;
     agent->error = DAIMA_OK;
-    snprintf(agent->prompt_add, sizeof(agent->prompt_add), "%s", cls->prompt_suffix);
-    snprintf(agent->task_desc, sizeof(agent->task_desc), "%s", task ? task : "");
+    strscpy(agent->prompt_add, cls->prompt_suffix, sizeof(agent->prompt_add));
+    strscpy(agent->task_desc, task ? task : "", sizeof(agent->task_desc));
 }
 
 void sched_agent_launch(struct sched_agent *agent, const char *prompt,
@@ -74,7 +75,7 @@ void sched_agent_reap(struct sched_agent *agent)
     llm_response_t resp = {0};
     agent->error = llm_chat_async_get_response(agent->async_chat, &resp);
     if (agent->error == DAIMA_OK && resp.text) {
-        snprintf(agent->result, sizeof(agent->result), "%s", resp.text);
+        strscpy(agent->result, resp.text, sizeof(agent->result));
         agent->state = SCHED_AGENT_DONE;
     } else {
         agent->state = SCHED_AGENT_ERROR;

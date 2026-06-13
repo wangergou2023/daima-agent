@@ -16,6 +16,7 @@
 #include <sys/time.h>
 #include <time.h>
 #include "linux/slab.h"
+#include "linux/kernel.h"
 
 /* macOS lacks memrchr (GNU extension) */
 #ifndef __linux__
@@ -68,7 +69,7 @@ static void ensure_dir_path(const char *path)
         return;
     }
     char tmp[DAIMA_BUF_MEDIUM];
-    snprintf(tmp, sizeof(tmp), "%s", path);
+    strscpy(tmp, path, sizeof(tmp));
     for (char *p = tmp + 1; *p; p++) {
         if (*p == '/') {
             *p = '\0';
@@ -137,7 +138,7 @@ static void log_llm_response_diagnostics(const char *protocol,
                     empty_tool_inputs++;
                     const char *name = json_string(block, "name");
                     if (name && !empty_tool_name[0]) {
-                        snprintf(empty_tool_name, sizeof(empty_tool_name), "%s", name);
+                        strscpy(empty_tool_name, name, sizeof(empty_tool_name));
                     }
                 }
                 kfree(input_json);
@@ -169,7 +170,7 @@ static void log_llm_response_diagnostics(const char *protocol,
                         empty_tool_inputs++;
                         const char *name = func ? json_string(func, "name") : NULL;
                         if (name && !empty_tool_name[0]) {
-                            snprintf(empty_tool_name, sizeof(empty_tool_name), "%s", name);
+                            strscpy(empty_tool_name, name, sizeof(empty_tool_name));
                         }
                     }
                 }

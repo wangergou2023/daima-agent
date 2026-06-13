@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
+#include "linux/kernel.h"
 
 static const char *TAG = "agent_cancel";
 
@@ -58,7 +59,7 @@ static cancel_slot_t *find_or_create_slot_locked(const char *chat_id)
     if (!empty && slot->chat_id[0]) {
         DAIMA_LOGW(TAG, "Cancel slot table full, evicting chat=%s", slot->chat_id);
     }
-    snprintf(slot->chat_id, sizeof(slot->chat_id), "%s", chat_id);
+    strscpy(slot->chat_id, chat_id, sizeof(slot->chat_id));
     slot->generation = 0;
     return slot;
 }
@@ -110,7 +111,7 @@ bool agent_cancel_is_cancelled(const char *chat_id, uint64_t token)
 
 void agent_cancel_enter_current_turn(const char *chat_id, uint64_t token)
 {
-    snprintf(s_thread_chat_id, sizeof(s_thread_chat_id), "%s", chat_id ? chat_id : "");
+    strscpy(s_thread_chat_id, chat_id ? chat_id : "", sizeof(s_thread_chat_id));
     s_thread_token = token;
 }
 

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "linux/kernel.h"
 
 #ifndef PATH_MAX
 #define PATH_MAX 4096
@@ -50,7 +51,7 @@ static daima_paths_state_t s_paths = {0};
 static void safe_copy(char *dst, size_t dst_size, const char *src)
 {
     if (!dst || dst_size == 0) return;
-    snprintf(dst, dst_size, "%s", src ? src : "");
+    strscpy(dst, src ? src : "", dst_size);
 }
 
 static void join_path2(char *dst, size_t dst_size, const char *a, const char *b)
@@ -259,10 +260,10 @@ bool daima_path_resolve_spiffs_shortcut(const char *path, char *resolved, size_t
     }
 
     if (strcmp(path, "spiffs_data") == 0) {
-        return snprintf(resolved, resolved_size, "%s", s_paths.spiffs_base) < (int)resolved_size;
+        return strscpy(resolved, s_paths.spiffs_base, resolved_size) < resolved_size;
     }
     if (strncmp(path, "spiffs_data/", 12) == 0) {
-        return snprintf(resolved, resolved_size, "%s/%s", s_paths.spiffs_base, path + 12) < (int)resolved_size;
+        return snprintf(resolved, resolved_size, "%s/%s", s_paths.spiffs_base, path + 12) < resolved_size;
     }
     return false;
 }

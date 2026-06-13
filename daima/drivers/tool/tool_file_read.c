@@ -38,7 +38,7 @@ static bool read_file_should_dedup(const char *resolved_path, int offset, int li
 static void remember_last_read(const char *resolved_path, int offset, int limit, time_t mtime)
 {
     if (!resolved_path) return;
-    snprintf(s_last_read.path, sizeof(s_last_read.path), "%s", resolved_path);
+    strscpy(s_last_read.path, resolved_path, sizeof(s_last_read.path));
     s_last_read.offset = offset;
     s_last_read.limit = limit;
     s_last_read.mtime = mtime;

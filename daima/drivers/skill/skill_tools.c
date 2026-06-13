@@ -8,6 +8,7 @@
 #include "cJSON.h"
 #include "linux/printk.h"
 #include "linux/slab.h"
+#include "linux/kernel.h"
 
 static const char *TAG = "skill_tools";
 
@@ -78,7 +79,7 @@ static skill_tool_bundle_slot_t *alloc_bundle(const char *skill_name)
             memset(&s_bundles[i], 0, sizeof(s_bundles[i]));
             s_bundles[i].bundle.active = true;
             s_bundles[i].loaded = true;
-            snprintf(s_bundles[i].bundle.skill_name, sizeof(s_bundles[i].bundle.skill_name), "%s", skill_name);
+            strscpy(s_bundles[i].bundle.skill_name, skill_name, sizeof(s_bundles[i].bundle.skill_name));
             return &s_bundles[i];
         }
     }
@@ -149,9 +150,9 @@ static daima_err_t init_tool_from_json(skill_tool_bundle_slot_t *slot, cJSON *it
     }
 
     skill_tool_storage_t *storage = &slot->storage[idx];
-    snprintf(storage->name, sizeof(storage->name), "%s", name);
-    snprintf(storage->description, sizeof(storage->description), "%s", description);
-    snprintf(storage->input_schema_json, sizeof(storage->input_schema_json), "%s", schema);
+    strscpy(storage->name, name, sizeof(storage->name));
+    strscpy(storage->description, description, sizeof(storage->description));
+    strscpy(storage->input_schema_json, schema, sizeof(storage->input_schema_json));
 
     daima_tool_t tool = {
         .name = storage->name,
@@ -239,7 +240,7 @@ void skill_tools_unregister_all(void)
     int count = 0;
     for (int i = 0; i < SKILL_TOOLS_MAX; i++) {
         if (s_bundles[i].loaded && s_bundles[i].bundle.active) {
-            snprintf(names[count++], sizeof(names[0]), "%s", s_bundles[i].bundle.skill_name);
+            strscpy(names[count++], s_bundles[i].bundle.skill_name, sizeof(names[0]));
         }
     }
     for (int i = 0; i < count; i++) {

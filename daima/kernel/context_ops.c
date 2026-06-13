@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "linux/slab.h"
+#include "linux/kernel.h"
 
 static const char *TAG = "compress";
 
@@ -314,7 +315,7 @@ static char *generate_facts_with_llm(const cJSON *messages, int start_idx, int e
 
     char *out = kzalloc(FACTS_OUTPUT_BUDGET, GFP_KERNEL);
     if (out) {
-        snprintf(out, FACTS_OUTPUT_BUDGET, "%s", resp.text);
+        strscpy(out, resp.text, FACTS_OUTPUT_BUDGET);
     }
     llm_response_free(&resp);
     return out;

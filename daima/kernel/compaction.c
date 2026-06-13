@@ -11,6 +11,7 @@
 #include <string.h>
 #include <unistd.h>
 #include "linux/slab.h"
+#include "linux/kernel.h"
 
 static const char *TAG = "compaction_recovery";
 
@@ -82,7 +83,7 @@ static void append_limited(char *dst, size_t dst_size, const char *text)
     if (off >= dst_size - 1) {
         return;
     }
-    snprintf(dst + off, dst_size - off, "%s", text);
+    strscpy(dst + off, text, dst_size - off);
 }
 
 static void extract_todos(const char *facts, char *out, size_t out_size)
@@ -145,12 +146,12 @@ static void extract_current_task(const char *summary, char *out, size_t out_size
             fallback = trimmed;
         }
         if (strstr(trimmed, "当前任务") || strstr(trimmed, "任务")) {
-            snprintf(out, out_size, "%s", trimmed);
+            strscpy(out, trimmed, out_size);
             break;
         }
     }
     if (!out[0] && fallback) {
-        snprintf(out, out_size, "%s", fallback);
+        strscpy(out, fallback, out_size);
     }
 
     kfree(copy);
@@ -180,7 +181,7 @@ static void extract_last_user_message(const char *chat_id, char *out, size_t out
         cJSON *role = cJSON_GetObjectItem(msg, "role");
         cJSON *content = cJSON_GetObjectItem(msg, "content");
         if (cJSON_IsString(role) && cJSON_IsString(content) && strcmp(role->valuestring, "user") == 0) {
-            snprintf(out, out_size, "%s", content->valuestring ? content->valuestring : "");
+            strscpy(out, content->valuestring ? content->valuestring : "", out_size);
             break;
         }
     }
@@ -212,13 +213,13 @@ static daima_err_t load_recovery(const char *path, compaction_recovery_t *recove
     cJSON *is_valid = cJSON_GetObjectItem(root, "is_valid");
 
     if (cJSON_IsString(todos)) {
-        snprintf(recovery->active_todos, sizeof(recovery->active_todos), "%s", todos->valuestring);
+        strscpy(recovery->active_todos, todos->valuestring, sizeof(recovery->active_todos));
     }
     if (cJSON_IsString(last)) {
-        snprintf(recovery->last_user_message, sizeof(recovery->last_user_message), "%s", last->valuestring);
+        strscpy(recovery->last_user_message, last->valuestring, sizeof(recovery->last_user_message));
     }
     if (cJSON_IsString(task)) {
-        snprintf(recovery->current_task, sizeof(recovery->current_task), "%s", task->valuestring);
+        strscpy(recovery->current_task, task->valuestring, sizeof(recovery->current_task));
     }
     if (cJSON_IsNumber(snapshot_at)) {
         recovery->snapshot_at = (time_t)snapshot_at->valuedouble;

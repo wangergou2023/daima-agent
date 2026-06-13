@@ -13,6 +13,7 @@
 #include <sys/stat.h>
 #include "cJSON.h"
 #include "linux/printk.h"
+#include "linux/kernel.h"
 
 static const char *TAG = "tool_skills";
 
@@ -143,7 +144,7 @@ static void scan_skill_dir(skill_info_t *infos,
         }
 
         char next_scope[32];
-        snprintf(next_scope, sizeof(next_scope), "%s", scope ? scope : "common");
+        strscpy(next_scope, scope ? scope : "common", sizeof(next_scope));
         if (prefix && strcmp(prefix, "channels") == 0) {
             snprintf(next_scope, sizeof(next_scope), "channel:%.*s",
                      (int)(sizeof(next_scope) - strlen("channel:") - 1),
@@ -154,7 +155,7 @@ static void scan_skill_dir(skill_info_t *infos,
         if (prefix && prefix[0]) {
             snprintf(rel, sizeof(rel), "%s/%s", prefix, ent->d_name);
         } else {
-            snprintf(rel, sizeof(rel), "%s", ent->d_name);
+            strscpy(rel, ent->d_name, sizeof(rel));
         }
 
         char entry_path[SKILL_PATH_SIZE];

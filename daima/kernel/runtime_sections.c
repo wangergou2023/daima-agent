@@ -5,6 +5,7 @@
 
 #include "autoconf.h"
 #include "linux/printk.h"
+#include "linux/kernel.h"
 
 static const char *TAG = "runtime_config_sections";
 
@@ -74,7 +75,7 @@ static void apply_provider_values(runtime_config_state_t *cfg,
         return;
     }
 
-    snprintf(cfg->active_provider, sizeof(cfg->active_provider), "%s", provider_name);
+    strscpy(cfg->active_provider, provider_name, sizeof(cfg->active_provider));
     runtime_config_json_copy_string(provider, "api_key", cfg->provider_api_key, sizeof(cfg->provider_api_key));
     runtime_config_json_copy_string(provider, "model", cfg->provider_model, sizeof(cfg->provider_model));
     runtime_config_json_copy_string(provider, "openai_base_url", cfg->provider_openai_base_url, sizeof(cfg->provider_openai_base_url));
@@ -115,7 +116,7 @@ static void collect_provider_entries(runtime_config_state_t *cfg, const cJSON *p
             break;
         }
         runtime_provider_entry_t *out = &cfg->providers[cfg->provider_count];
-        snprintf(out->name, sizeof(out->name), "%s", entry->string);
+        strscpy(out->name, entry->string, sizeof(out->name));
         runtime_config_json_copy_string(entry, "model", out->model, sizeof(out->model));
         cfg->provider_count++;
     }

@@ -11,6 +11,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include "linux/kernel.h"
 
 #define TOOL_FILES_PATH_SIZE 1024
 
@@ -26,7 +27,7 @@ static bool get_workspace_root(char *root, size_t root_size)
     if (!root || root_size == 0) {
         return false;
     }
-    return snprintf(root, root_size, "%s", daima_path_workspace_dir()) < (int)root_size;
+    return strscpy(root, daima_path_workspace_dir(), root_size) < root_size;
 }
 
 static bool path_is_under_root(const char *path, const char *root)
@@ -61,7 +62,7 @@ static bool resolve_workspace_path(const char *path,
 
     char candidate[TOOL_FILES_PATH_SIZE];
     if (path[0] == '/') {
-        if (snprintf(candidate, sizeof(candidate), "%s", path) >= (int)sizeof(candidate)) {
+        if (strscpy(candidate, path, sizeof(candidate)) >= (int)sizeof(candidate)) {
             return false;
         }
     } else {
@@ -75,7 +76,7 @@ static bool resolve_workspace_path(const char *path,
         if (!path_is_under_root(real_buf, workspace_root)) {
             return false;
         }
-        return snprintf(resolved, resolved_size, "%s", real_buf) < (int)resolved_size;
+        return strscpy(resolved, real_buf, resolved_size) < resolved_size;
     }
 
     if (!allow_missing_leaf) {
@@ -94,7 +95,7 @@ static bool resolve_workspace_path(const char *path,
     }
     memcpy(parent_candidate, candidate, parent_len);
     parent_candidate[parent_len] = '\0';
-    if (snprintf(leaf, sizeof(leaf), "%s", slash + 1) >= (int)sizeof(leaf)) {
+    if (strscpy(leaf, slash + 1, sizeof(leaf)) >= (int)sizeof(leaf)) {
         return false;
     }
     if (!realpath(parent_candidate, real_buf)) {
@@ -103,7 +104,7 @@ static bool resolve_workspace_path(const char *path,
     if (!path_is_under_root(real_buf, workspace_root)) {
         return false;
     }
-    return snprintf(resolved, resolved_size, "%s/%s", real_buf, leaf) < (int)resolved_size;
+    return snprintf(resolved, resolved_size, "%s/%s", real_buf, leaf) < resolved_size;
 }
 
 bool tool_files_resolve_read_path(const char *path, char *resolved, size_t resolved_size)
@@ -121,17 +122,17 @@ bool tool_files_resolve_read_path(const char *path, char *resolved, size_t resol
     }
 
     char candidate[TOOL_FILES_PATH_SIZE];
-    if (snprintf(candidate, sizeof(candidate), "%s", path) >= (int)sizeof(candidate)) {
+    if (strscpy(candidate, path, sizeof(candidate)) >= (int)sizeof(candidate)) {
         return false;
     }
 
     char real_buf[TOOL_FILES_PATH_SIZE];
     if (realpath(candidate, real_buf)) {
-        if (snprintf(resolved, resolved_size, "%s", real_buf) >= (int)resolved_size) {
+        if (strscpy(resolved, real_buf, resolved_size) >= resolved_size) {
             return false;
         }
     } else {
-        if (snprintf(resolved, resolved_size, "%s", candidate) >= (int)resolved_size) {
+        if (strscpy(resolved, candidate, resolved_size) >= resolved_size) {
             return false;
         }
     }
@@ -144,7 +145,7 @@ bool tool_files_resolve_write_path(const char *path, char *resolved, size_t reso
         return true;
     }
     if (validate_spiffs_path(path)) {
-        return snprintf(resolved, resolved_size, "%s", path) < (int)resolved_size;
+        return strscpy(resolved, path, resolved_size) < resolved_size;
     }
     return resolve_workspace_path(path, resolved, resolved_size, true);
 }
@@ -158,7 +159,7 @@ bool tool_files_resolve_list_dir_path(const char *path, char *resolved, size_t r
         return true;
     }
     if (validate_spiffs_path(path)) {
-        return snprintf(resolved, resolved_size, "%s", path) < (int)resolved_size;
+        return strscpy(resolved, path, resolved_size) < resolved_size;
     }
     return resolve_workspace_path(path, resolved, resolved_size, false);
 }
@@ -167,7 +168,7 @@ void tool_files_ensure_parent_dirs(const char *path)
 {
     if (!path || !path[0]) return;
     char tmp[512];
-    snprintf(tmp, sizeof(tmp), "%s", path);
+    strscpy(tmp, path, sizeof(tmp));
     if (tmp[0] == '\0') return;
 
     for (char *p = tmp + 1; *p; p++) {

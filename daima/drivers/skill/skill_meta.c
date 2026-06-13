@@ -164,14 +164,14 @@ bool skill_meta_resolve_path(const char *name,
     }
 
     if (!file_path || !file_path[0]) {
-        return snprintf(resolved, resolved_size, "%s/%s/SKILL.md", daima_path_skills_dir(), name) < (int)resolved_size;
+        return snprintf(resolved, resolved_size, "%s/%s/SKILL.md", daima_path_skills_dir(), name) < resolved_size;
     }
 
     if (file_path[0] == '/' || contains_dotdot(file_path)) {
         return false;
     }
 
-    return snprintf(resolved, resolved_size, "%s/%s/%s", daima_path_skills_dir(), name, file_path) < (int)resolved_size;
+    return snprintf(resolved, resolved_size, "%s/%s/%s", daima_path_skills_dir(), name, file_path) < resolved_size;
 }
 
 bool skill_meta_read_file(const char *path, daima_skill_meta_t *meta)

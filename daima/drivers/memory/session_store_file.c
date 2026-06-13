@@ -17,6 +17,7 @@
 #include "cJSON.h"
 #include "linux/printk.h"
 #include "linux/slab.h"
+#include "linux/kernel.h"
 
 static const char *TAG = "session";
 
@@ -315,7 +316,7 @@ static daima_session_record_t *find_or_add_record(daima_session_record_t *record
     }
     daima_session_record_t *record = &records[*count];
     memset(record, 0, sizeof(*record));
-    snprintf(record->chat_id, sizeof(record->chat_id), "%s", chat_id);
+    strscpy(record->chat_id, chat_id, sizeof(record->chat_id));
     (*count)++;
     return record;
 }
@@ -370,13 +371,13 @@ static daima_err_t file_list_records(daima_session_record_t *records, size_t cap
 
         if (kind == DAIMA_SESSION_ARTIFACT_HISTORY) {
             record->has_history = true;
-            snprintf(record->history_path, sizeof(record->history_path), "%s", path);
+            strscpy(record->history_path, path, sizeof(record->history_path));
         } else if (kind == DAIMA_SESSION_ARTIFACT_FACTS) {
             record->has_facts = true;
-            snprintf(record->facts_path, sizeof(record->facts_path), "%s", path);
+            strscpy(record->facts_path, path, sizeof(record->facts_path));
         } else {
             record->has_summary = true;
-            snprintf(record->summary_path, sizeof(record->summary_path), "%s", path);
+            strscpy(record->summary_path, path, sizeof(record->summary_path));
         }
         maybe_update_record_mtime(record, path);
     }

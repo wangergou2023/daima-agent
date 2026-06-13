@@ -6,6 +6,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "linux/kernel.h"
 
 static const char *TAG = "sched";
 
@@ -283,7 +284,7 @@ void sched_merge(struct sched_runqueue *rq, char *output, size_t size)
                                "%.2000s\n\n...(输出过长已截断, 查看文件获取完整内容)",
                                executor->result);
         } else {
-            written = snprintf(output + used, size - used, "%s", executor->result);
+            written = strscpy(output + used, executor->result, size - used);
         }
         if (written < 0) {
             return;
@@ -298,7 +299,7 @@ void sched_merge(struct sched_runqueue *rq, char *output, size_t size)
                  "\n\n---\n⚠️ REVIEWER: %s", reviewer->result);
     }
 
-    snprintf(rq->merged, sizeof(rq->merged), "%s", output);
+    strscpy(rq->merged, output, sizeof(rq->merged));
 }
 
 void sched_exit(struct sched_runqueue *rq)

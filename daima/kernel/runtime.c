@@ -11,6 +11,7 @@
 #include "autoconf.h"
 #include "linux/printk.h"
 #include "linux/slab.h"
+#include "linux/kernel.h"
 
 static const char *TAG = "runtime_config";
 
@@ -58,12 +59,10 @@ static void reset_defaults(void)
     s_cfg.wake_gpio_active_low = DEFAULT_WAKE_GPIO_ACTIVE_LOW;
     s_cfg.wake_gpio_poll_ms = DEFAULT_WAKE_GPIO_POLL_MS;
     s_cfg.wake_gpio_debounce_ms = DEFAULT_WAKE_GPIO_DEBOUNCE_MS;
-    snprintf(s_cfg.timezone, sizeof(s_cfg.timezone), "%s", DEFAULT_TIMEZONE);
-    snprintf(s_cfg.terminal_security_level, sizeof(s_cfg.terminal_security_level),
-             "%s", DEFAULT_TERMINAL_SECURITY_LEVEL);
-    snprintf(s_cfg.web_default_pet_package_id, sizeof(s_cfg.web_default_pet_package_id),
-             "%s", DEFAULT_WEB_PET_PACKAGE_ID);
-    snprintf(s_cfg.provider_model, sizeof(s_cfg.provider_model), "%s", DEFAULT_LLM_MODEL);
+    strscpy(s_cfg.timezone, DEFAULT_TIMEZONE, sizeof(s_cfg.timezone));
+    strscpy(s_cfg.terminal_security_level, DEFAULT_TERMINAL_SECURITY_LEVEL, sizeof(s_cfg.terminal_security_level));
+    strscpy(s_cfg.web_default_pet_package_id, DEFAULT_WEB_PET_PACKAGE_ID, sizeof(s_cfg.web_default_pet_package_id));
+    strscpy(s_cfg.provider_model, DEFAULT_LLM_MODEL, sizeof(s_cfg.provider_model));
 }
 
 int runtime_config_clamp_int(int value, int min_value, int max_value, int fallback)
@@ -121,7 +120,7 @@ bool runtime_config_json_copy_string(const cJSON *root, const char *key, char *o
     if (!item || !cJSON_IsString(item) || !item->valuestring || !item->valuestring[0]) {
         return false;
     }
-    snprintf(out, out_size, "%s", item->valuestring);
+    strscpy(out, item->valuestring, out_size);
     return true;
 }
 
@@ -300,7 +299,7 @@ daima_err_t runtime_config_set_terminal_security_level(const char *level)
         return err;
     }
 
-    snprintf(s_cfg.terminal_security_level, sizeof(s_cfg.terminal_security_level), "%s", level);
+    strscpy(s_cfg.terminal_security_level, level, sizeof(s_cfg.terminal_security_level));
     DAIMA_LOGI(TAG, "Terminal security level set to %s", level);
     return DAIMA_OK;
 }

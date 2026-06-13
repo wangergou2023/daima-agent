@@ -23,6 +23,7 @@
 #include "linux/printk.h"
 #include "cJSON.h"
 #include "linux/slab.h"
+#include "linux/kernel.h"
 
 static const char *TAG = "ws";
 
@@ -145,7 +146,7 @@ void ws_pending_save(const char *response_text)
     }
 
     pthread_mutex_lock(&s_pending_mutex);
-    snprintf(s_pending_response, sizeof(s_pending_response), "%s", response_text);
+    strscpy(s_pending_response, response_text, sizeof(s_pending_response));
     s_has_pending = true;
     pthread_mutex_unlock(&s_pending_mutex);
 }
@@ -396,7 +397,7 @@ static const char *resolve_client_chat_id(ws_client_t *client, cJSON *root, int 
         chat_id = cid->valuestring;
         drop_duplicate_chat_id(chat_id, fd);
         if (client) {
-            snprintf(client->chat_id, sizeof(client->chat_id), "%s", chat_id);
+            strscpy(client->chat_id, chat_id, sizeof(client->chat_id));
         }
     }
     return chat_id;
@@ -458,7 +459,7 @@ bool ws_client_session_add(int fd)
     if (slot < 0 && evict_idx >= 0) {
         int old_fd = s_clients[evict_idx].fd;
         char old_chat[32];
-        snprintf(old_chat, sizeof(old_chat), "%s", s_clients[evict_idx].chat_id);
+        strscpy(old_chat, s_clients[evict_idx].chat_id, sizeof(old_chat));
         s_clients[evict_idx].active = false;
         s_clients[evict_idx].fd = -1;
         s_clients[evict_idx].chat_id[0] = '\0';
@@ -474,7 +475,7 @@ bool ws_client_session_add(int fd)
         s_clients[slot].fd = fd;
         snprintf(s_clients[slot].chat_id, sizeof(s_clients[slot].chat_id), "ws_%d", fd);
         char chat_id[sizeof(s_clients[slot].chat_id)];
-        snprintf(chat_id, sizeof(chat_id), "%s", s_clients[slot].chat_id);
+        strscpy(chat_id, s_clients[slot].chat_id, sizeof(chat_id));
         clear_upload_state(&s_clients[slot]);
         s_clients[slot].last_seen = now;
         s_clients[slot].last_pong = now;
@@ -620,9 +621,9 @@ static void ws_handle_upload_request(int fd, ws_client_t *client, cJSON *root)
     }
 
     client->upload_pending = true;
-    snprintf(client->upload_chat_id, sizeof(client->upload_chat_id), "%s", chat_id);
-    snprintf(client->upload_filename, sizeof(client->upload_filename), "%s", name);
-    snprintf(client->upload_mime_type, sizeof(client->upload_mime_type), "%s", mime);
+    strscpy(client->upload_chat_id, chat_id, sizeof(client->upload_chat_id));
+    strscpy(client->upload_filename, name, sizeof(client->upload_filename));
+    strscpy(client->upload_mime_type, mime, sizeof(client->upload_mime_type));
     client->upload_size = (size_t)size_value;
     DAIMA_LOGI(TAG, "Image upload pending chat=%s name=%s mime=%s size=%zu",
                client->upload_chat_id,
@@ -696,7 +697,7 @@ static void ws_handle_pet_action(int fd, ws_client_t *client, cJSON *root)
     cJSON *pet_id_json = cJSON_GetObjectItem(root, "pet_id");
 
     if (pet_cid && cJSON_IsString(pet_cid) && pet_cid->valuestring[0]) {
-        snprintf(pet_chat_id, sizeof(pet_chat_id), "%s", pet_cid->valuestring);
+        strscpy(pet_chat_id, pet_cid->valuestring, sizeof(pet_chat_id));
     } else {
         if (!pet_build_chat_id(chat_id, pet_chat_id, sizeof(pet_chat_id))) {
             return;

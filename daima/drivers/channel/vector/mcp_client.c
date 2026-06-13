@@ -17,6 +17,7 @@
 #include "linux/printk.h"
 #include "autoconf.h"
 #include "linux/slab.h"
+#include "linux/kernel.h"
 
 static bool handle_mcp_notification(mcp_client_t *c, const char *json_str);
 static daima_err_t read_json_line(mcp_client_t *c, char *buf, size_t size, int timeout_ms);
@@ -263,7 +264,7 @@ daima_err_t mcp_client_call_tool(mcp_client_t *c, const char *tool_name,
             if (first) {
                 cJSON *text = cJSON_GetObjectItem(first, "text");
                 if (text && cJSON_IsString(text)) {
-                    snprintf(response_out, response_size, "%s", text->valuestring);
+                    strscpy(response_out, text->valuestring, response_size);
                 }
             }
         }
@@ -331,7 +332,7 @@ daima_err_t mcp_client_list_tools(mcp_client_t *c, char *tools_json_out, size_t 
         cJSON *tools = cJSON_GetObjectItem(result, "tools");
         if (tools) {
             char *s = cJSON_PrintUnformatted(tools);
-            snprintf(tools_json_out, tools_size, "%s", s ? s : "[]");
+            strscpy(tools_json_out, s ? s : "[]", tools_size);
             kfree(s);
         } else {
             snprintf(tools_json_out, tools_size, "[]");
@@ -527,7 +528,7 @@ static daima_err_t wait_for_response(mcp_client_t *c, int request_id, int timeou
 
     while (1) {
         if (c->pending[0] != '\0') {
-            snprintf(c->buf, sizeof(c->buf), "%s", c->pending);
+            strscpy(c->buf, c->pending, sizeof(c->buf));
             c->pending[0] = '\0';
         } else {
             daima_err_t err = read_json_line(c, c->buf, sizeof(c->buf), timeout_ms);
@@ -548,7 +549,7 @@ static daima_err_t wait_for_response(mcp_client_t *c, int request_id, int timeou
             int id = jsonrpc_response_id(root);
             if (id == request_id) {
                 if (response != c->buf) {
-                    snprintf(response, response_size, "%s", c->buf);
+                    strscpy(response, c->buf, response_size);
                 }
                 cJSON_Delete(root);
                 return DAIMA_OK;
@@ -569,7 +570,7 @@ int mcp_client_poll(mcp_client_t *c)
     pthread_mutex_lock(&c->io_mutex);
     while (read_json_line(c, c->buf, sizeof(c->buf), 0) == DAIMA_OK) {
         if (!handle_mcp_notification(c, c->buf)) {
-            snprintf(c->pending, sizeof(c->pending), "%s", c->buf);
+            strscpy(c->pending, c->buf, sizeof(c->pending));
         }
         count++;
     }

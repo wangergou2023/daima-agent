@@ -8,6 +8,7 @@
 #include "cJSON.h"
 #include "linux/printk.h"
 #include "text.h"
+#include "linux/kernel.h"
 
 static const char *TAG = "agent_tool_feedback";
 
@@ -119,7 +120,7 @@ static bool tool_result_success(const char *tool_name, daima_err_t exec_err, con
             if (timed_out) {
                 snprintf(detail, detail_size, "超时");
             } else if (status && status[0] && strcmp(status, "ok") != 0) {
-                snprintf(detail, detail_size, "%s", status);
+                strscpy(detail, status, detail_size);
             } else if (exit_code >= 0) {
                 snprintf(detail, detail_size, "exit %d", exit_code);
             }
@@ -136,7 +137,7 @@ static bool tool_result_success(const char *tool_name, daima_err_t exec_err, con
         if (output_is_human_error(tool_output)) {
             daima_shorten_text(tool_output, detail, detail_size, detail_size > 1 ? detail_size - 1 : 0);
         } else {
-            snprintf(detail, detail_size, "%s", daima_err_to_name(exec_err));
+            strscpy(detail, daima_err_to_name(exec_err), detail_size);
         }
     }
     return false;

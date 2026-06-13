@@ -18,6 +18,7 @@
 #include "drivers/voice/voice_channel.h"
 #include "cJSON.h"
 #include "linux/slab.h"
+#include "linux/kernel.h"
 
 static const char *TAG = "vector";
 
@@ -305,9 +306,9 @@ daima_err_t vector_channel_init(void)
 
     const char *custom = getenv("DAIMA_MCP_BIN");
     if (custom && custom[0]) {
-        snprintf(s->bin_path, sizeof(s->bin_path), "%s", custom);
+        strscpy(s->bin_path, custom, sizeof(s->bin_path));
     } else {
-        snprintf(s->bin_path, sizeof(s->bin_path), "%s", MCP_BIN_DEFAULT);
+        strscpy(s->bin_path, MCP_BIN_DEFAULT, sizeof(s->bin_path));
     }
 
     DAIMA_LOGI(TAG, "MCP binary: %s", s->bin_path);

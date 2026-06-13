@@ -14,6 +14,7 @@
 #include "drivers/tool/tool_terminal_exec.h"
 #include "work_item.h"
 #include "linux/slab.h"
+#include "linux/kernel.h"
 
 static const char *TAG = "agent_run";
 
@@ -90,7 +91,7 @@ static bool observer_seen_signature(tool_failure_observer_t *observer, const cha
         }
     }
     if (observer->count < TOOL_FAILURE_SIGNATURE_LIMIT) {
-        snprintf(observer->signatures[observer->count], sizeof(observer->signatures[observer->count]), "%s", signature);
+        strscpy(observer->signatures[observer->count], signature, sizeof(observer->signatures[observer->count]));
         observer->count++;
     }
     return false;
@@ -367,7 +368,7 @@ static bool extract_tool_path(const char *tool_name, const char *tool_input, cha
     }
     bool ok = false;
     if (path && path[0]) {
-        snprintf(buf, size, "%s", path);
+        strscpy(buf, path, size);
         ok = true;
     }
     cJSON_Delete(root);
@@ -403,7 +404,7 @@ static void record_turn_side_effects(turn_exec_stats_t *stats,
         should_auto_verify_code_path(path)) {
         stats->modified_code_files = true;
         stats->saw_explicit_verification = false;
-        snprintf(stats->last_modified_path, sizeof(stats->last_modified_path), "%s", path);
+        strscpy(stats->last_modified_path, path, sizeof(stats->last_modified_path));
         char resolved_path[512];
         if (tool_files_resolve_write_path(path, resolved_path, sizeof(resolved_path))) {
             tool_files_get_recent_checkpoint(

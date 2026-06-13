@@ -12,6 +12,7 @@
 #include "linux/printk.h"
 #include "json_helpers.h"
 #include "linux/slab.h"
+#include "linux/kernel.h"
 
 static const char *TAG = "feishu_targets";
 
@@ -166,7 +167,7 @@ bool feishu_targets_get_default(char *out, size_t out_size)
 
     const char *configured = runtime_config_get_feishu_default_chat_id();
     if (configured && configured[0]) {
-        snprintf(out, out_size, "%s", configured);
+        strscpy(out, configured, out_size);
         return true;
     }
 
@@ -192,7 +193,7 @@ bool feishu_targets_get_default(char *out, size_t out_size)
     }
 
     if (best_id) {
-        snprintf(out, out_size, "%s", best_id);
+        strscpy(out, best_id, out_size);
     }
     cJSON_Delete(root);
     return best_id != NULL;

@@ -17,6 +17,7 @@
 #include <sys/stat.h>
 #include <time.h>
 #include "linux/printk.h"
+#include "linux/kernel.h"
 
 static const char *TAG = "skills";
 
@@ -398,7 +399,7 @@ static skill_summary_cache_entry_t *alloc_summary_cache_entry(const char *channe
     skill_summary_cache_entry_t *entry = &s_summary_cache[oldest];
     memset(entry, 0, sizeof(*entry));
     entry->valid = true;
-    snprintf(entry->channel, sizeof(entry->channel), "%s", channel_key);
+    strscpy(entry->channel, channel_key, sizeof(entry->channel));
     return entry;
 }
 

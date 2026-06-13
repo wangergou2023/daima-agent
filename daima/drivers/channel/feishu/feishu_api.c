@@ -15,6 +15,7 @@
 #include "http.h"
 #include "drivers/channel/feishu/feishu_http.h"
 #include "linux/slab.h"
+#include "linux/kernel.h"
 
 static const char *TAG = "feishu_api";
 
@@ -103,7 +104,7 @@ static daima_err_t feishu_get_tenant_token_locked(const char *app_id, const char
     cJSON *token = cJSON_GetObjectItem(root, "tenant_access_token");
     cJSON *expire = cJSON_GetObjectItem(root, "expire");
     if (token && cJSON_IsString(token)) {
-        snprintf(s_tenant_token, sizeof(s_tenant_token), "%s", token->valuestring);
+        strscpy(s_tenant_token, token->valuestring, sizeof(s_tenant_token));
         int ttl = (expire && cJSON_IsNumber(expire)) ? expire->valueint : 7200;
         s_token_expire_time = now + ttl - 300;
         DAIMA_LOGI(TAG, "Got tenant access token (expires in %ds)", ttl);
@@ -129,7 +130,7 @@ daima_err_t feishu_api_get_tenant_token(const char *app_id,
     pthread_mutex_lock(&s_token_lock);
     daima_err_t err = feishu_get_tenant_token_locked(app_id, app_secret);
     if (err == DAIMA_OK) {
-        snprintf(token, token_size, "%s", s_tenant_token);
+        strscpy(token, s_tenant_token, token_size);
     }
     pthread_mutex_unlock(&s_token_lock);
     return err;
@@ -179,7 +180,7 @@ daima_err_t feishu_api_pull_ws_config(const char *app_id,
         return DAIMA_FAIL;
     }
 
-    snprintf(out->url, sizeof(out->url), "%s", url->valuestring);
+    strscpy(out->url, url->valuestring, sizeof(out->url));
     char sid[24] = {0};
     if (parse_query_param(out->url, "service_id", sid, sizeof(sid))) {
         out->service_id = atoi(sid);

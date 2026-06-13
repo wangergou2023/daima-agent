@@ -7,6 +7,7 @@
 
 #include "cJSON.h"
 #include "drivers/memory/session_store.h"
+#include "linux/kernel.h"
 
 int tool_session_search_clamp_int(int value, int min_value, int max_value)
 {
@@ -54,7 +55,7 @@ static void build_snippet(const char *text, const char *query, char *out, size_t
     const char *match = (query && query[0]) ? strcasestr(text, query) : text;
     size_t len = strlen(text);
     if (!match || len <= out_size - 1) {
-        snprintf(out, out_size, "%s", text);
+        strscpy(out, text, out_size);
         return;
     }
 
@@ -105,7 +106,7 @@ static int find_or_add_session(session_stat_t stats[], int *count, const char *c
 
     int idx = *count;
     memset(&stats[idx], 0, sizeof(stats[idx]));
-    snprintf(stats[idx].chat_id, sizeof(stats[idx].chat_id), "%s", chat_id);
+    strscpy(stats[idx].chat_id, chat_id, sizeof(stats[idx].chat_id));
     (*count)++;
     return idx;
 }
@@ -115,8 +116,8 @@ static void record_first_hit(session_stat_t *stat, const char *role, const char 
     if (!stat || stat->first_snippet[0]) {
         return;
     }
-    snprintf(stat->first_role, sizeof(stat->first_role), "%s", role ? role : "-");
-    snprintf(stat->first_snippet, sizeof(stat->first_snippet), "%s", snippet ? snippet : "");
+    strscpy(stat->first_role, role ? role : "-", sizeof(stat->first_role));
+    strscpy(stat->first_snippet, snippet ? snippet : "", sizeof(stat->first_snippet));
 }
 
 static void append_hit(session_hit_t hits[],
@@ -133,11 +134,11 @@ static void append_hit(session_hit_t hits[],
 
     session_hit_t *hit = &hits[*hit_count];
     memset(hit, 0, sizeof(*hit));
-    snprintf(hit->chat_id, sizeof(hit->chat_id), "%s", chat_id);
-    snprintf(hit->source, sizeof(hit->source), "%s", source ? source : "-");
-    snprintf(hit->role, sizeof(hit->role), "%s", role ? role : "-");
+    strscpy(hit->chat_id, chat_id, sizeof(hit->chat_id));
+    strscpy(hit->source, source ? source : "-", sizeof(hit->source));
+    strscpy(hit->role, role ? role : "-", sizeof(hit->role));
     hit->ts = ts;
-    snprintf(hit->snippet, sizeof(hit->snippet), "%s", snippet ? snippet : "");
+    strscpy(hit->snippet, snippet ? snippet : "", sizeof(hit->snippet));
     (*hit_count)++;
 }
 

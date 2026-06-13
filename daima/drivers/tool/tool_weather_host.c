@@ -8,6 +8,7 @@
 
 #include "cJSON.h"
 #include "linux/printk.h"
+#include "linux/kernel.h"
 
 static const char *TAG = "tool_weather";
 
@@ -103,7 +104,7 @@ static daima_err_t fetch_weather_json(const char *location, const char *adcode,
 {
     char url[768];
     size_t off = 0;
-    off += snprintf(url + off, sizeof(url) - off, "%s", WEATHER_API_URL);
+    off += strscpy(url + off, WEATHER_API_URL, sizeof(url) - off);
 
     bool has_query = false;
     if (location && location[0]) {

@@ -9,6 +9,7 @@
 
 #include <errno.h>
 #include <stddef.h>
+#include <string.h>
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 #define IS_ENABLED(config) ((config) == 1)
@@ -19,3 +20,13 @@
 #define round_up(x, y) (((x) + (y) - 1) / (y) * (y))
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
+
+static inline size_t strscpy(char *dst, const char *src, size_t size)
+{
+    if (!size)
+        return 0;
+    size_t len = strnlen(src, size - 1);
+    memcpy(dst, src, len);
+    dst[len] = '\0';
+    return len;
+}

@@ -1,6 +1,7 @@
 #include "text.h"
 
 #include <string.h>
+#include "linux/kernel.h"
 
 void daima_safe_copy(char *dst, size_t dst_size, const char *src)
 {
@@ -31,7 +32,7 @@ void daima_shorten_text(const char *src, char *dst, size_t dst_size, size_t max_
 
     size_t len = strlen(src);
     if (len <= max_len || max_len + 4 >= dst_size) {
-        snprintf(dst, dst_size, "%s", src);
+        strscpy(dst, src, dst_size);
         return;
     }
 

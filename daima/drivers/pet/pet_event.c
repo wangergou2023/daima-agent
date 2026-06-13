@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "linux/slab.h"
+#include "linux/kernel.h"
 
 static const char *PET_CHAT_PREFIX = "pet_";
 
@@ -61,7 +62,7 @@ bool pet_chat_id_to_ws_chat_id(const char *pet_chat_id, char *out, size_t out_si
         return false;
     }
 
-    return snprintf(out, out_size, "%s", pet_chat_id + prefix_len) < (int)out_size;
+    return strscpy(out, pet_chat_id + prefix_len, out_size) < (int)out_size;
 }
 
 size_t pet_append_channel_policy_prompt(char *prompt, size_t size, size_t offset)

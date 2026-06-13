@@ -324,7 +324,7 @@ daima_err_t tool_webfetch_execute(const char *input_json, char *output, size_t o
     }
 
     char url[DAIMA_BUF_MEDIUM * 4];
-    snprintf(url, sizeof(url), "%s", raw_url);
+    strscpy(url, raw_url, sizeof(url));
     clean_url(url, sizeof(url));
 
     if (!is_safe_url(url)) {
@@ -335,7 +335,7 @@ daima_err_t tool_webfetch_execute(const char *input_json, char *output, size_t o
 
     const char *fmt_raw = cJSON_GetStringValue(cJSON_GetObjectItem(input, "format"));
     char format[8];
-    if (fmt_raw && fmt_raw[0]) snprintf(format, sizeof(format), "%s", fmt_raw);
+    if (fmt_raw && fmt_raw[0]) strscpy(format, fmt_raw, sizeof(format));
     else snprintf(format, sizeof(format), "text");
     if (strcmp(format, "text") != 0 && strcmp(format, "html") != 0) {
         snprintf(output, output_size, "错误：format 仅支持 text 或 html");

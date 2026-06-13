@@ -369,7 +369,7 @@ static daima_err_t apply_patch_add_file(char **cursor,
             content_line = line + 1;
         } else {
             if (non_prefixed_count == 0) {
-                snprintf(first_non_prefixed, sizeof(first_non_prefixed), "%s", line);
+                strscpy(first_non_prefixed, line, sizeof(first_non_prefixed));
             }
             non_prefixed_count++;
         }

@@ -15,6 +15,7 @@
 #include "linux/printk.h"
 #include "drivers/channel/vector/vector_channel.h"
 #include "linux/slab.h"
+#include "linux/kernel.h"
 
 static const char *TAG = "tts_player";
 
@@ -103,7 +104,7 @@ daima_err_t tts_player_speak(const char *text)
 
     if (rune_len(text) <= SOFT_LIMIT) {
         /* Short text: one TTS, no splitting */
-        snprintf(jobs[0].text, sizeof(jobs[0].text), "%s", text);
+        strscpy(jobs[0].text, text, sizeof(jobs[0].text));
         n = 1;
     } else {
         /* Split by sentence-ending punctuation */
@@ -141,13 +142,13 @@ daima_err_t tts_player_speak(const char *text)
                                  "%s%s", moff > 0 ? "。" : "", raw[i]);
                 size_t rlen = rune_len(mbuf);
                 if (rlen <= 10 && i + 1 < raw_n) continue;
-                snprintf(groups[g_n].text, sizeof(groups[g_n].text), "%s", mbuf);
+                strscpy(groups[g_n].text, mbuf, sizeof(groups[g_n].text));
                 g_n++;
                 mbuf[0] = '\0';
                 moff = 0;
             }
             if (moff > 0) {
-                snprintf(groups[g_n].text, sizeof(groups[g_n].text), "%s", mbuf);
+                strscpy(groups[g_n].text, mbuf, sizeof(groups[g_n].text));
                 g_n++;
             }
         }
@@ -164,16 +165,16 @@ daima_err_t tts_player_speak(const char *text)
             /* Merge best and best+1 */
             char merged[1024];
             snprintf(merged, sizeof(merged), "%s。%s", groups[best].text, groups[best+1].text);
-            snprintf(groups[best].text, sizeof(groups[0].text), "%s", merged);
+            strscpy(groups[best].text, merged, sizeof(groups[0].text));
             /* Shift remaining left */
             for (int i = best + 1; i < g_n - 1; i++) {
-                snprintf(groups[i].text, sizeof(groups[0].text), "%s", groups[i+1].text);
+                strscpy(groups[i].text, groups[i+1].text, sizeof(groups[0].text));
             }
             g_n--;
         }
 
         for (int i = 0; i < g_n; i++) {
-            snprintf(jobs[i].text, sizeof(jobs[i].text), "%s", groups[i].text);
+            strscpy(jobs[i].text, groups[i].text, sizeof(jobs[i].text));
         }
         n = g_n;
     }

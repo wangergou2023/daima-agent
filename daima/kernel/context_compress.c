@@ -78,7 +78,7 @@ static compress_job_t *find_job_slot_locked(const char *chat_id, bool create_if_
     if (!create_if_missing || !free_slot) {
         return NULL;
     }
-    snprintf(free_slot->chat_id, sizeof(free_slot->chat_id), "%s", chat_id);
+    strscpy(free_slot->chat_id, chat_id, sizeof(free_slot->chat_id));
     free_slot->queued = false;
     free_slot->running = false;
     free_slot->rerun = false;
@@ -104,7 +104,7 @@ static void *compression_worker_loop(void *arg)
             if (picked) {
                 picked->queued = false;
                 picked->running = true;
-                snprintf(chat_id, sizeof(chat_id), "%s", picked->chat_id);
+                strscpy(chat_id, picked->chat_id, sizeof(chat_id));
                 break;
             }
             pthread_cond_wait(&s_worker_cond, &s_worker_mutex);

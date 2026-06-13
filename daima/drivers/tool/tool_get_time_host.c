@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <strings.h>
 #include "linux/printk.h"
+#include "linux/kernel.h"
 
 static const char *TAG = "tool_time";
 
@@ -51,7 +52,7 @@ static bool parse_http_date(const char *date_str, time_t *out_time)
     const char *prev_tz = getenv("TZ");
     char tz_backup[128] = {0};
     if (prev_tz && prev_tz[0]) {
-        snprintf(tz_backup, sizeof(tz_backup), "%s", prev_tz);
+        strscpy(tz_backup, prev_tz, sizeof(tz_backup));
     }
 
     setenv("TZ", "UTC0", 1);

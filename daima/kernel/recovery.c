@@ -11,6 +11,7 @@
 #include <string.h>
 #include <unistd.h>
 #include "linux/slab.h"
+#include "linux/kernel.h"
 
 static const char *TAG = "session_recovery";
 static const time_t SESSION_RECOVERY_TTL_SEC = 30 * 60;
@@ -110,10 +111,10 @@ static daima_err_t load_recovery(const char *path, session_recovery_t *recovery)
 
     recovery->has_crash = cJSON_IsBool(has_crash) ? cJSON_IsTrue(has_crash) : false;
     if (cJSON_IsString(last_user_msg) && last_user_msg->valuestring) {
-        snprintf(recovery->last_user_msg, sizeof(recovery->last_user_msg), "%s", last_user_msg->valuestring);
+        strscpy(recovery->last_user_msg, last_user_msg->valuestring, sizeof(recovery->last_user_msg));
     }
     if (cJSON_IsString(crash_reason) && crash_reason->valuestring) {
-        snprintf(recovery->crash_reason, sizeof(recovery->crash_reason), "%s", crash_reason->valuestring);
+        strscpy(recovery->crash_reason, crash_reason->valuestring, sizeof(recovery->crash_reason));
     }
     if (cJSON_IsNumber(crash_at)) {
         recovery->crash_at = (time_t)crash_at->valuedouble;

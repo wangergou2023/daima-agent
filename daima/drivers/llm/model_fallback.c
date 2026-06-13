@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "linux/slab.h"
+#include "linux/kernel.h"
 
 static const char *TAG = "model_fallback";
 
@@ -19,7 +20,7 @@ static void safe_copy(char *dst, size_t dst_size, const char *src)
     if (!dst || dst_size == 0) {
         return;
     }
-    snprintf(dst, dst_size, "%s", src ? src : "");
+    strscpy(dst, src ? src : "", dst_size);
 }
 
 static char *read_file(const char *path)

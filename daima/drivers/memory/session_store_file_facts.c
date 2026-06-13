@@ -8,6 +8,7 @@
 
 #include "linux/printk.h"
 #include "linux/slab.h"
+#include "linux/kernel.h"
 
 static const char *TAG = "session_facts";
 
@@ -78,13 +79,13 @@ static int append_unique_fact_lines(
         }
 
         if (count < SESSION_FACTS_MAX_LINES) {
-            snprintf(lines[count], SESSION_FACTS_LINE_BYTES, "%s", norm);
+            strscpy(lines[count], norm, SESSION_FACTS_LINE_BYTES);
             count++;
         } else {
             for (int i = 1; i < SESSION_FACTS_MAX_LINES; i++) {
-                snprintf(lines[i - 1], SESSION_FACTS_LINE_BYTES, "%s", lines[i]);
+                strscpy(lines[i - 1], lines[i], SESSION_FACTS_LINE_BYTES);
             }
-            snprintf(lines[SESSION_FACTS_MAX_LINES - 1], SESSION_FACTS_LINE_BYTES, "%s", norm);
+            strscpy(lines[SESSION_FACTS_MAX_LINES - 1], norm, SESSION_FACTS_LINE_BYTES);
         }
     }
 

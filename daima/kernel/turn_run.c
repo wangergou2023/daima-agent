@@ -58,7 +58,7 @@ static daima_err_t cancellable_model_fallback_chat_tools(const daima_msg_t *msg,
 {
     agent_cancel_enter_current_turn(msg->chat_id, cancel_token);
     char previous_model[64];
-    snprintf(previous_model, sizeof(previous_model), "%s", llm_get_model_name());
+    strscpy(previous_model, llm_get_model_name(), sizeof(previous_model));
     if (model_override && model_override[0]) {
         llm_set_model(model_override);
     }

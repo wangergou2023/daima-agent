@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
+#include "linux/kernel.h"
 
 bool daima_fs_ensure_dir(const char *path)
 {
@@ -23,7 +24,7 @@ bool daima_fs_ensure_dir_recursive(const char *path)
     }
 
     char tmp[1024];
-    snprintf(tmp, sizeof(tmp), "%s", path);
+    strscpy(tmp, path, sizeof(tmp));
     if (!tmp[0]) {
         return false;
     }
