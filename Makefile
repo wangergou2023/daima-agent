@@ -8,6 +8,7 @@ export DAIMA_DIR := $(TOPDIR)/daima
 ARCH ?= host
 export ARCH
 include $(DAIMA_DIR)/arch/$(ARCH)/Makefile
+include $(TOPDIR)/scripts/Kbuild.include
 
 # 输出目录 (内核风格: make O=build)
 O ?= build-host
