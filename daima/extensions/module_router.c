@@ -34,7 +34,15 @@ static agent_extension_hooks_t ext = {
     .enabled = true,
 };
 
-__attribute__((constructor)) static void register_ext(void)
+static int __init router_module_init(void)
 {
     agent_hooks_register(&ext);
+    return 0;
 }
+
+static void __exit router_module_exit(void)
+{
+}
+
+module_init(router_module_init);
+module_exit(router_module_exit);
