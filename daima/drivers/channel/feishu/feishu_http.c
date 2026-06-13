@@ -7,9 +7,6 @@
 #include "http.h"
 #include "linux/printk.h"
 #include "linux/slab.h"
-
-static const char *TAG = "feishu_http";
-
 void feishu_http_response_free(feishu_http_response_t *resp)
 {
     if (!resp) return;
@@ -68,12 +65,12 @@ cJSON *feishu_http_parse_json(feishu_http_response_t *resp)
     if (!resp || !resp->body) return NULL;
     cJSON *root = cJSON_Parse(resp->body);
     if (!root) {
-        DAIMA_LOGW(TAG, "Failed to parse JSON response");
+        pr_warn("Failed to parse JSON response");
         return NULL;
     }
     cJSON *code = cJSON_GetObjectItem(root, "code");
     if (!code || !cJSON_IsNumber(code) || code->valueint != 0) {
-        DAIMA_LOGW(TAG, "API error code=%d", code ? code->valueint : -1);
+        pr_warn("API error code=%d", code ? code->valueint : -1);
         cJSON_Delete(root);
         return NULL;
     }

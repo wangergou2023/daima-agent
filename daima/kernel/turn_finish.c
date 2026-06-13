@@ -19,9 +19,6 @@
 #include "drivers/skill/skill_tools.h"
 #include "linux/slab.h"
 #endif
-
-static const char *TAG = "agent_finish";
-
 #ifdef DAIMA_TODO_ENFORCER_ENABLED
 static void read_todo_counts(int *out_total, int *out_completed)
 {
@@ -96,9 +93,7 @@ void agent_turn_finish(
         if (io_reasoning_text) {
             *io_reasoning_text = NULL;
         }
-        DAIMA_LOGI(TAG, "Skip final response for cancelled turn %s:%s",
-                   msg ? msg->channel : "-",
-                   msg ? msg->chat_id : "-");
+        pr_info("Skip final response for cancelled turn %s:%s", msg ? msg->channel : "-", msg ? msg->chat_id : "-");
 #if DAIMA_SKILL_SCOPED_TOOLS_ENABLED
         skill_tools_unregister_all();
 #endif
@@ -137,7 +132,7 @@ void agent_turn_finish(
 #endif
 
     if (turn_err != DAIMA_OK) {
-        DAIMA_LOGE(TAG, "Agent turn failed: %s", daima_err_to_name(turn_err));
+        pr_err("Agent turn failed: %s", daima_err_to_name(turn_err));
     }
 
     if (IS_ENABLED(CONFIG_DAIMA_COMPACTION_RECOVERY_ENABLED) &&
@@ -156,5 +151,5 @@ void agent_turn_finish(
         session_recovery_clear(msg->chat_id);
     }
 
-    DAIMA_LOGI(TAG, "Free memory: %d bytes", (int)daima_get_free_memory());
+    pr_info("Free memory: %d bytes", (int)daima_get_free_memory());
 }

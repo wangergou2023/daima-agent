@@ -14,9 +14,6 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("daima");
 MODULE_DESCRIPTION("Agent Extension: coordinator");
-
-static const char *TAG = "ext_coordinator";
-
 static daima_err_t replace_run(daima_msg_t *msg, char *system_prompt,
                                cJSON *messages, const char *tools_json,
                                char **out_final_text)
@@ -28,7 +25,7 @@ static daima_err_t replace_run(daima_msg_t *msg, char *system_prompt,
                                            msg->content,
                                            &rq);
     if (coord_err != DAIMA_OK) {
-        DAIMA_LOGW(TAG, "Coordinator skipped: %s", daima_err_to_name(coord_err));
+        pr_warn("Coordinator skipped: %s", daima_err_to_name(coord_err));
         sched_exit(&rq);
         return DAIMA_FAIL;
     }
@@ -37,8 +34,7 @@ static daima_err_t replace_run(daima_msg_t *msg, char *system_prompt,
         return DAIMA_FAIL;
     }
 
-    DAIMA_LOGI(TAG, "Coordinator: launching %d sub-agents for intent=%s",
-               rq.nr_agents, daima_intent_name(msg->intent));
+    pr_info("Coordinator: launching %d sub-agents for intent=%s", rq.nr_agents, daima_intent_name(msg->intent));
     char thinking_msg[512];
     int off = snprintf(thinking_msg, sizeof(thinking_msg),
                        "🤖 Coordinator 并行处理中 (%d个子Agent", rq.nr_agents);
@@ -65,7 +61,7 @@ static daima_err_t replace_run(daima_msg_t *msg, char *system_prompt,
         }
         kfree(merged);
     } else {
-        DAIMA_LOGW(TAG, "Coordinator launch skipped: %s", daima_err_to_name(err));
+        pr_warn("Coordinator launch skipped: %s", daima_err_to_name(err));
     }
     sched_exit(&rq);
     return DAIMA_OK;

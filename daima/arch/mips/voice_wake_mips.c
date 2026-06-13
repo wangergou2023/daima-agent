@@ -16,9 +16,6 @@
 #include <unistd.h>
 #include <time.h>
 #include "linux/slab.h"
-
-static const char *TAG = "voice_wake";
-
 #ifndef BUILD_FOR_MIPS
 #error "voice_wake_mips.c must be built only when BUILD_FOR_MIPS is enabled"
 #endif
@@ -64,16 +61,16 @@ static int gpio_export(int gpio)
     char path[64];
     snprintf(path, sizeof(path), "/sys/class/gpio/gpio%d", gpio);
     if (path_exists(path)) {
-        DAIMA_LOGI(TAG, "GPIO %d already exported", gpio);
+        pr_info("GPIO %d already exported", gpio);
         return 0;
     }
 
     char num[16];
     snprintf(num, sizeof(num), "%d", gpio);
-    DAIMA_LOGI(TAG, "Exporting GPIO %d", gpio);
+    pr_info("Exporting GPIO %d", gpio);
     if (write_str("/sys/class/gpio/export", num) != 0) {
         if (errno != EBUSY) {
-            DAIMA_LOGE(TAG, "GPIO %d export failed: %s", gpio, strerror(errno));
+            pr_err("GPIO %d export failed: %s", gpio, strerror(errno));
             return -1;
         }
     }
@@ -82,7 +79,7 @@ static int gpio_export(int gpio)
         if (path_exists(path)) return 0;
         daima_task_delay(10);
     }
-    DAIMA_LOGE(TAG, "GPIO %d export timeout", gpio);
+    pr_err("GPIO %d export timeout", gpio);
     return -1;
 }
 
@@ -91,7 +88,7 @@ static int gpio_set_direction_in(int gpio)
     char path[128];
     snprintf(path, sizeof(path), "/sys/class/gpio/gpio%d/direction", gpio);
     if (write_str(path, "in") != 0) {
-        DAIMA_LOGE(TAG, "GPIO %d set direction failed: %s", gpio, strerror(errno));
+        pr_err("GPIO %d set direction failed: %s", gpio, strerror(errno));
         return -1;
     }
     return 0;
@@ -104,7 +101,7 @@ static int gpio_set_active_low(int gpio, int active_low)
     char val[4];
     snprintf(val, sizeof(val), "%d", active_low ? 1 : 0);
     if (write_str(path, val) != 0) {
-        DAIMA_LOGW(TAG, "GPIO %d active_low not supported", gpio);
+        pr_warn("GPIO %d active_low not supported", gpio);
         return -1;
     }
     return 0;
@@ -136,7 +133,7 @@ static int gpio_open_value(int gpio)
     snprintf(path, sizeof(path), "/sys/class/gpio/gpio%d/value", gpio);
     int fd = open(path, O_RDONLY);
     if (fd < 0) {
-        DAIMA_LOGE(TAG, "GPIO %d open value failed: %s", gpio, strerror(errno));
+        pr_err("GPIO %d open value failed: %s", gpio, strerror(errno));
     }
     return fd;
 }
@@ -176,10 +173,8 @@ static daima_err_t wake_gpio_init(wake_gpio_t *wg)
     s_poll_ms = runtime_config_get_wake_gpio_poll_ms();
     s_debounce_ms = runtime_config_get_wake_gpio_debounce_ms();
 
-    DAIMA_LOGI(TAG, "Wake GPIO listener started (gpio=%d, active_low=%d, pressed_value=%d, poll=%dms, debounce=%dms)",
-              wg->gpio, wg->active_low, wg->pressed_value,
-              s_poll_ms, s_debounce_ms);
-    DAIMA_LOGI(TAG, "Wake GPIO initial value=%d", wg->last_value);
+    pr_info("Wake GPIO listener started (gpio=%d, active_low=%d, pressed_value=%d, poll=%dms, debounce=%dms)", wg->gpio, wg->active_low, wg->pressed_value, s_poll_ms, s_debounce_ms);
+    pr_info("Wake GPIO initial value=%d", wg->last_value);
     return DAIMA_OK;
 }
 
@@ -291,9 +286,7 @@ static daima_err_t capture_wav(unsigned char **out_wav, size_t *out_len)
     size_t expected = bytes_per_ms * (size_t)record_ms;
     if (bytes_per_ms == 0 || expected == 0) return DAIMA_ERR_INVALID_STATE;
 
-    DAIMA_LOGI(TAG, "Record cfg: %d Hz, %d ch, %d bit, %d ms (~%zu bytes)",
-              cfg.sample_rate, cfg.channels, cfg.bits_per_sample,
-              record_ms, expected);
+    pr_info("Record cfg: %d Hz, %d ch, %d bit, %d ms (~%zu bytes)", cfg.sample_rate, cfg.channels, cfg.bits_per_sample, record_ms, expected);
 
     uint8_t *pcm = kmalloc(expected, GFP_KERNEL);
     if (!pcm) return DAIMA_ERR_NO_MEM;
@@ -301,14 +294,14 @@ static daima_err_t capture_wav(unsigned char **out_wav, size_t *out_len)
 
     daima_err_t err = audio_input_start(&cfg);
     if (err != DAIMA_OK) {
-        DAIMA_LOGE(TAG, "audio_input_start failed: %s", daima_err_to_name(err));
+        pr_err("audio_input_start failed: %s", daima_err_to_name(err));
         kfree(pcm);
         return err;
     }
 
     size_t frame_bytes = calc_frame_bytes(&cfg, DAIMA_AUDIO_FRAME_MS);
     if (frame_bytes == 0) frame_bytes = 2048;
-    DAIMA_LOGI(TAG, "Audio frame bytes: %zu", frame_bytes);
+    pr_info("Audio frame bytes: %zu", frame_bytes);
 
     uint8_t *frame = kmalloc(frame_bytes, GFP_KERNEL);
     if (!frame) {
@@ -326,7 +319,7 @@ static daima_err_t capture_wav(unsigned char **out_wav, size_t *out_len)
             continue;
         }
         if (err != DAIMA_OK) {
-            DAIMA_LOGW(TAG, "audio_input_read failed: %s", daima_err_to_name(err));
+            pr_warn("audio_input_read failed: %s", daima_err_to_name(err));
             break;
         }
         timeout_count = 0;
@@ -341,7 +334,7 @@ static daima_err_t capture_wav(unsigned char **out_wav, size_t *out_len)
     audio_input_stop();
 
     if (offset == 0) {
-        DAIMA_LOGW(TAG, "No audio captured");
+        pr_warn("No audio captured");
         kfree(pcm);
         return DAIMA_FAIL;
     }
@@ -350,7 +343,7 @@ static daima_err_t capture_wav(unsigned char **out_wav, size_t *out_len)
     kfree(pcm);
     if (!wav) return DAIMA_ERR_NO_MEM;
 
-    DAIMA_LOGI(TAG, "Captured %zu bytes PCM, WAV size %zu", offset, *out_len);
+    pr_info("Captured %zu bytes PCM, WAV size %zu", offset, *out_len);
     *out_wav = wav;
     return DAIMA_OK;
 }
@@ -382,10 +375,10 @@ static void voice_wake_task(void *arg)
         if (!s_recording && wake_gpio_poll_pressed(&gpio)) {
             s_recording = true;
             int record_ms = runtime_config_get_voice_record_ms();
-            DAIMA_LOGI(TAG, "Wake GPIO pressed, recording %d ms", record_ms);
+            pr_info("Wake GPIO pressed, recording %d ms", record_ms);
             daima_err_t err = capture_and_send();
             if (err != DAIMA_OK) {
-                DAIMA_LOGW(TAG, "Voice capture failed: %s", daima_err_to_name(err));
+                pr_warn("Voice capture failed: %s", daima_err_to_name(err));
             }
             s_recording = false;
         }
@@ -393,7 +386,7 @@ static void voice_wake_task(void *arg)
     }
 
     wake_gpio_close(&gpio);
-    DAIMA_LOGI(TAG, "Wake GPIO listener stopped");
+    pr_info("Wake GPIO listener stopped");
 }
 
 daima_err_t voice_wake_start(void)
@@ -401,7 +394,7 @@ daima_err_t voice_wake_start(void)
     if (s_running) return DAIMA_OK;
     s_running = true;
     s_recording = false;
-    DAIMA_LOGI(TAG, "Starting wake GPIO thread");
+    pr_info("Starting wake GPIO thread");
     if (!daima_task_create(voice_wake_task, "voice_wake",
                           4096, NULL, 4, &s_task)) {
         s_running = false;
@@ -413,7 +406,7 @@ daima_err_t voice_wake_start(void)
 void voice_wake_stop(void)
 {
     if (!s_running) return;
-    DAIMA_LOGI(TAG, "Stopping wake GPIO thread");
+    pr_info("Stopping wake GPIO thread");
     s_running = false;
     if (s_task) {
         daima_task_delete(s_task);

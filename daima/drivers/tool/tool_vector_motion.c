@@ -9,10 +9,6 @@
 
 #include "cJSON.h"
 #include "linux/printk.h"
-
-static const char *TAG = "tool_vector_motion";
-
-
 /* ---- Drive Straight ---- */
 static daima_err_t tool_robot_drive_straight_execute(const char *input_json, char *output, size_t output_size)
 {

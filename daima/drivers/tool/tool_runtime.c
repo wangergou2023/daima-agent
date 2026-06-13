@@ -11,9 +11,6 @@
 #include "cJSON.h"
 #include "linux/printk.h"
 #include "linux/slab.h"
-
-static const char *TAG = "tool_runtime";
-
 static void log_tool_runtime_input(const char *phase,
                                    const char *tool_name,
                                    const char *input_json)
@@ -29,13 +26,7 @@ static void log_tool_runtime_input(const char *phase,
             preview[i] = ' ';
         }
     }
-    DAIMA_LOGI(TAG,
-               "%s tool=%s input_len=%u input=%s%s",
-               phase,
-               tool_name && tool_name[0] ? tool_name : "<missing>",
-               (unsigned)n,
-               preview,
-               n > shown ? "..." : "");
+    pr_info("%s tool=%s input_len=%u input=%s%s", phase, tool_name && tool_name[0] ? tool_name : "<missing>", (unsigned)n, preview, n > shown ? "..." : "");
 }
 
 static void log_tool_runtime_result(const char *tool_name,
@@ -62,15 +53,7 @@ static void log_tool_runtime_result(const char *tool_name,
     for (size_t i = 0; i < out_shown; i++) {
         if (output_preview[i] == '\n' || output_preview[i] == '\r' || output_preview[i] == '\t') output_preview[i] = ' ';
     }
-    DAIMA_LOGI(TAG,
-               "execute result tool=%s err=%s elapsed_ms=%ld input_len=%u input=%s output_len=%u output=%s",
-               tool_name && tool_name[0] ? tool_name : "<missing>",
-               daima_err_to_name(err),
-               elapsed_ms,
-               (unsigned)in_len,
-               input_preview[0] ? input_preview : "<empty>",
-               (unsigned)out_len,
-               output_preview[0] ? output_preview : "<empty>");
+    pr_info("execute result tool=%s err=%s elapsed_ms=%ld input_len=%u input=%s output_len=%u output=%s", tool_name && tool_name[0] ? tool_name : "<missing>", daima_err_to_name(err), elapsed_ms, (unsigned)in_len, input_preview[0] ? input_preview : "<empty>", (unsigned)out_len, output_preview[0] ? output_preview : "<empty>");
 }
 
 static void maybe_retry_terminal_with_web_sudo(const llm_tool_call_t *call,
@@ -105,7 +88,7 @@ static void maybe_retry_terminal_with_web_sudo(const llm_tool_call_t *call,
         return;
     }
 
-    DAIMA_LOGI(TAG, "Received sudo password from web, retrying terminal command");
+    pr_info("Received sudo password from web, retrying terminal command");
 
     cJSON *tool_args = cJSON_Parse(call->input ? call->input : "{}");
     if (!tool_args) {

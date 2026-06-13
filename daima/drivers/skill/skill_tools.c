@@ -9,9 +9,6 @@
 #include "linux/printk.h"
 #include "linux/slab.h"
 #include "linux/kernel.h"
-
-static const char *TAG = "skill_tools";
-
 #define SKILL_TOOL_NAME_LEN 64
 #define SKILL_TOOL_DESCRIPTION_LEN 256
 #define SKILL_TOOL_SCHEMA_LEN 2048
@@ -215,7 +212,7 @@ daima_err_t skill_tools_register(const char *skill_name, const char *skill_dir)
     }
 
     cJSON_Delete(root);
-    DAIMA_LOGI(TAG, "Registered %d skill-scoped tools for %s", slot->bundle.tool_count, skill_name);
+    pr_info("Registered %d skill-scoped tools for %s", slot->bundle.tool_count, skill_name);
     return DAIMA_OK;
 }
 
@@ -229,7 +226,7 @@ daima_err_t skill_tools_unregister(const char *skill_name)
     for (int i = 0; i < slot->bundle.tool_count; i++) {
         tool_registry_unregister_dynamic(slot->bundle.tools[i].name);
     }
-    DAIMA_LOGI(TAG, "Unregistered skill-scoped tools for %s", slot->bundle.skill_name);
+    pr_info("Unregistered skill-scoped tools for %s", slot->bundle.skill_name);
     slot->bundle.active = false;
     return DAIMA_OK;
 }

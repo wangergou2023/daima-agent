@@ -1,11 +1,8 @@
 #include "linux/driver.h"
 #include "linux/printk.h"
-
-static const char *TAG = "driver";
-
 int daima_driver_probe(struct daima_driver *drv)
 {
     if (!drv || !drv->probe) return -1;
-    DAIMA_LOGI(TAG, "probe: %s", drv->name);
+    pr_info("probe: %s", drv->name);
     return drv->probe();
 }

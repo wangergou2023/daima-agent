@@ -5,9 +5,6 @@
 #include <stdio.h>
 #include <string.h>
 #include "linux/kernel.h"
-
-static const char *TAG = "sched_agent";
-
 void sched_agent_init(struct sched_agent *agent, const struct sched_class *cls,
                       const char *task)
 {
@@ -35,8 +32,7 @@ void sched_agent_launch(struct sched_agent *agent, const char *prompt,
     if (!agent->scoped_messages) {
         agent->error = DAIMA_FAIL;
         agent->state = SCHED_AGENT_ERROR;
-        DAIMA_LOGW(TAG, "failed to copy messages for agent %d (%s)",
-                   agent->pid, sched_class_name(agent->class));
+        pr_warn("failed to copy messages for agent %d (%s)", agent->pid, sched_class_name(agent->class));
         return;
     }
 
@@ -47,15 +43,13 @@ void sched_agent_launch(struct sched_agent *agent, const char *prompt,
     if (!agent->async_chat) {
         agent->error = DAIMA_FAIL;
         agent->state = SCHED_AGENT_ERROR;
-        DAIMA_LOGW(TAG, "failed to launch agent %d (%s)",
-                   agent->pid, sched_class_name(agent->class));
+        pr_warn("failed to launch agent %d (%s)", agent->pid, sched_class_name(agent->class));
         return;
     }
 
     agent->state = SCHED_AGENT_RUNNING;
     agent->error = DAIMA_OK;
-    DAIMA_LOGI(TAG, "launched agent %d (%s)",
-               agent->pid, sched_class_name(agent->class));
+    pr_info("launched agent %d (%s)", agent->pid, sched_class_name(agent->class));
 }
 
 bool sched_agent_is_done(struct sched_agent *agent)

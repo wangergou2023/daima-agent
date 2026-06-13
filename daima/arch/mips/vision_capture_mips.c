@@ -18,9 +18,6 @@
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
-
-static const char *TAG = "vision_capture";
-
 #ifndef BUILD_FOR_MIPS
 #error "vision_capture_mips.c must be built only when BUILD_FOR_MIPS is enabled"
 #endif
@@ -75,8 +72,7 @@ static void unbind_channels(void)
         if (chn[i].enable) {
             int ret = IMP_System_UnBind(&chn[i].framesource_chn, &chn[i].imp_encoder);
             if (ret < 0) {
-                DAIMA_LOGW(TAG, "UnBind FrameSource%d and Encoder%d failed",
-                          chn[i].framesource_chn.groupID, chn[i].imp_encoder.groupID);
+                pr_warn("UnBind FrameSource%d and Encoder%d failed", chn[i].framesource_chn.groupID, chn[i].imp_encoder.groupID);
             }
         }
     }
@@ -97,7 +93,7 @@ void vision_capture_shutdown(void)
     /* 依次关闭：stream -> bind -> jpeg -> group -> framesource -> system */
     if (s_stream_on) {
         if (sample_framesource_streamoff() < 0) {
-            DAIMA_LOGW(TAG, "FrameSource StreamOff failed");
+            pr_warn("FrameSource StreamOff failed");
         }
         s_stream_on = false;
     }
@@ -109,7 +105,7 @@ void vision_capture_shutdown(void)
 
     if (s_jpeg_ready) {
         if (sample_jpeg_exit() < 0) {
-            DAIMA_LOGW(TAG, "Jpeg exit failed");
+            pr_warn("Jpeg exit failed");
         }
         s_jpeg_ready = false;
     }
@@ -121,14 +117,14 @@ void vision_capture_shutdown(void)
 
     if (s_framesource_ready) {
         if (sample_framesource_exit() < 0) {
-            DAIMA_LOGW(TAG, "FrameSource exit failed");
+            pr_warn("FrameSource exit failed");
         }
         s_framesource_ready = false;
     }
 
     if (s_system_ready) {
         if (sample_system_exit() < 0) {
-            DAIMA_LOGW(TAG, "System exit failed");
+            pr_warn("System exit failed");
         }
         s_system_ready = false;
     }
@@ -142,13 +138,13 @@ daima_err_t vision_capture_init(void)
 
     /* 1) 系统/FrameSource 初始化 */
     if (sample_system_init() < 0) {
-        DAIMA_LOGE(TAG, "System init failed");
+        pr_err("System init failed");
         goto fail;
     }
     s_system_ready = true;
 
     if (sample_framesource_init() < 0) {
-        DAIMA_LOGE(TAG, "FrameSource init failed");
+        pr_err("FrameSource init failed");
         goto fail;
     }
     s_framesource_ready = true;
@@ -157,7 +153,7 @@ daima_err_t vision_capture_init(void)
     for (int i = 0; i < FS_CHN_NUM; i++) {
         if (chn[i].enable) {
             if (IMP_Encoder_CreateGroup(chn[i].index) < 0) {
-                DAIMA_LOGE(TAG, "Encoder CreateGroup(%d) failed", chn[i].index);
+                pr_err("Encoder CreateGroup(%d) failed", chn[i].index);
                 goto fail;
             }
         }
@@ -166,14 +162,14 @@ daima_err_t vision_capture_init(void)
 
     /* 3) JPEG 编码初始化 */
     if (sample_jpeg_init() < 0) {
-        DAIMA_LOGE(TAG, "Jpeg init failed");
+        pr_err("Jpeg init failed");
         goto fail;
     }
     s_jpeg_ready = true;
 
     /* 4) 可选 JPEG QP 覆盖（环境变量） */
     int jpeg_qp = daima_env_int_or_default("DAIMA_VISION_JPEG_QP", DAIMA_VISION_JPEG_QP);
-    if (jpeg_qp != DAIMA_VISION_JPEG_QP) DAIMA_LOGI(TAG, "JPEG QP override: %d", jpeg_qp);
+    if (jpeg_qp != DAIMA_VISION_JPEG_QP) pr_info("JPEG QP override: %d", jpeg_qp);
     if (jpeg_qp > 0) {
         for (int i = 0; i < FS_CHN_NUM; i++) {
             if (chn[i].enable) {
@@ -186,8 +182,7 @@ daima_err_t vision_capture_init(void)
     for (int i = 0; i < FS_CHN_NUM; i++) {
         if (chn[i].enable) {
             if (IMP_System_Bind(&chn[i].framesource_chn, &chn[i].imp_encoder) < 0) {
-                DAIMA_LOGE(TAG, "Bind FrameSource%d and Encoder%d failed",
-                          chn[i].framesource_chn.groupID, chn[i].imp_encoder.groupID);
+                pr_err("Bind FrameSource%d and Encoder%d failed", chn[i].framesource_chn.groupID, chn[i].imp_encoder.groupID);
                 goto fail;
             }
         }
@@ -196,20 +191,20 @@ daima_err_t vision_capture_init(void)
 
     /* 6) 启动采集流 */
     if (sample_framesource_streamon() < 0) {
-        DAIMA_LOGE(TAG, "FrameSource StreamOn failed");
+        pr_err("FrameSource StreamOn failed");
         goto fail;
     }
     s_stream_on = true;
 
     /* 7) 预热等待，确保首帧可用 */
     int warm_ms = daima_env_int_or_default("DAIMA_VISION_JPEG_WARMUP_MS", DAIMA_VISION_JPEG_WARMUP_MS);
-    if (warm_ms != DAIMA_VISION_JPEG_WARMUP_MS) DAIMA_LOGI(TAG, "Warmup override: %d ms", warm_ms);
+    if (warm_ms != DAIMA_VISION_JPEG_WARMUP_MS) pr_info("Warmup override: %d ms", warm_ms);
     if (warm_ms > 0) {
         usleep((useconds_t)warm_ms * 1000);
     }
 
     s_inited = true;
-    DAIMA_LOGI(TAG, "Vision capture initialized");
+    pr_info("Vision capture initialized");
     return DAIMA_OK;
 
 fail:
@@ -231,7 +226,7 @@ daima_err_t vision_capture_jpeg(const char *output_path,
     /* 选择 JPEG 通道并触发抓拍 */
     int chnNum = pick_jpeg_channel();
     if (chnNum < 0) {
-        DAIMA_LOGE(TAG, "No enabled JPEG channel");
+        pr_err("No enabled JPEG channel");
         return DAIMA_ERR_INVALID_STATE;
     }
 

@@ -12,8 +12,6 @@
 
 #define SAFE_EDIT_MAX_FILE_SIZE (1024 * 1024)
 #define SAFE_EDIT_TTL_SECONDS   (5 * 60)
-
-static const char *TAG = "safe_edit";
 static safe_edit_fingerprint_t s_fingerprints[SAFE_EDIT_MAX_TRACKED];
 static pthread_mutex_t s_fingerprints_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -131,7 +129,7 @@ daima_err_t safe_edit_register_read(const char *path, const char *content, int l
     s_fingerprints[slot].valid = true;
     pthread_mutex_unlock(&s_fingerprints_mutex);
 
-    DAIMA_LOGI(TAG, "safe_edit register: %s lines=%d..%d", path, line_start, line_end);
+    pr_info("safe_edit register: %s lines=%d..%d", path, line_start, line_end);
     return DAIMA_OK;
 }
 
@@ -153,7 +151,7 @@ daima_err_t safe_edit_verify(const char *path, const char *patch_content)
     if (now - s_fingerprints[slot].read_at > SAFE_EDIT_TTL_SECONDS) {
         s_fingerprints[slot].valid = false;
         pthread_mutex_unlock(&s_fingerprints_mutex);
-        DAIMA_LOGI(TAG, "safe_edit expired: %s", path);
+        pr_info("safe_edit expired: %s", path);
         return DAIMA_OK;
     }
     fp = s_fingerprints[slot];
@@ -162,15 +160,15 @@ daima_err_t safe_edit_verify(const char *path, const char *patch_content)
     uint32_t current_hash = 0;
     daima_err_t err = read_line_range_hash(path, fp.line_start, fp.line_end, &current_hash);
     if (err != DAIMA_OK) {
-        DAIMA_LOGI(TAG, "safe_edit verify read failed: %s err=%d", path, err);
+        pr_info("safe_edit verify read failed: %s err=%d", path, err);
         return err;
     }
     if (current_hash != fp.content_hash) {
-        DAIMA_LOGI(TAG, "safe_edit mismatch: %s lines=%d..%d", path, fp.line_start, fp.line_end);
+        pr_info("safe_edit mismatch: %s lines=%d..%d", path, fp.line_start, fp.line_end);
         return DAIMA_ERR_INVALID_STATE;
     }
 
-    DAIMA_LOGI(TAG, "safe_edit verified: %s", path);
+    pr_info("safe_edit verified: %s", path);
     return DAIMA_OK;
 }
 
@@ -185,7 +183,7 @@ void safe_edit_clear(const char *path)
         s_fingerprints[slot].valid = false;
     }
     pthread_mutex_unlock(&s_fingerprints_mutex);
-    DAIMA_LOGI(TAG, "safe_edit clear: %s", path);
+    pr_info("safe_edit clear: %s", path);
 }
 
 void safe_edit_clear_all(void)
@@ -193,5 +191,5 @@ void safe_edit_clear_all(void)
     pthread_mutex_lock(&s_fingerprints_mutex);
     memset(s_fingerprints, 0, sizeof(s_fingerprints));
     pthread_mutex_unlock(&s_fingerprints_mutex);
-    DAIMA_LOGI(TAG, "safe_edit clear_all");
+    pr_info("safe_edit clear_all");
 }

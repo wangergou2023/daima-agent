@@ -6,9 +6,6 @@
 
 #include "linux/printk.h"
 #include "linux/slab.h"
-
-static const char *TAG = "llm_parse";
-
 static void log_tool_call_parse(const char *protocol,
                                 int index,
                                 const char *id,
@@ -32,16 +29,7 @@ static void log_tool_call_parse(const char *protocol,
             preview[i] = ' ';
         }
     }
-    DAIMA_LOGI(TAG,
-               "%s parsed tool_call[%d]: id=%s name=%s input_state=%s input_len=%u input=%s%s",
-               protocol,
-               index,
-               id && id[0] ? id : "<missing>",
-               name && name[0] ? name : "<missing>",
-               state,
-               (unsigned)n,
-               preview[0] ? preview : "<empty>",
-               n > shown ? "..." : "");
+    pr_info("%s parsed tool_call[%d]: id=%s name=%s input_state=%s input_len=%u input=%s%s", protocol, index, id && id[0] ? id : "<missing>", name && name[0] ? name : "<missing>", state, (unsigned)n, preview[0] ? preview : "<empty>", n > shown ? "..." : "");
 }
 
 /* Sanitize a string in-place, stripping invalid UTF-8 sequences */

@@ -9,9 +9,6 @@
 #include "linux/printk.h"
 #include "linux/slab.h"
 #include "linux/kernel.h"
-
-static const char *TAG = "session_facts";
-
 #define SESSION_FACTS_MAX_BYTES   4096
 #define SESSION_FACTS_MAX_LINES   12
 #define SESSION_FACTS_LINE_BYTES  256
@@ -141,7 +138,7 @@ daima_err_t session_store_file_merge_facts(const char *chat_id, const char *fact
 
     FILE *f = fopen(path, "w");
     if (!f) {
-        DAIMA_LOGE(TAG, "Cannot write session facts %s", path);
+        pr_err("Cannot write session facts %s", path);
         return DAIMA_FAIL;
     }
 
@@ -150,6 +147,6 @@ daima_err_t session_store_file_merge_facts(const char *chat_id, const char *fact
         fprintf(f, "- %s\n", lines[i]);
     }
     fclose(f);
-    DAIMA_LOGI(TAG, "Session %s facts merged: %d lines", chat_id, count);
+    pr_info("Session %s facts merged: %d lines", chat_id, count);
     return DAIMA_OK;
 }

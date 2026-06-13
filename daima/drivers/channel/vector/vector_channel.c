@@ -19,9 +19,6 @@
 #include "cJSON.h"
 #include "linux/slab.h"
 #include "linux/kernel.h"
-
-static const char *TAG = "vector";
-
 #define VAD_SAMPLE_RATE       16000
 #define VAD_CHUNK_SAMPLES     1920    /* 120ms @ 16kHz */
 
@@ -109,14 +106,13 @@ static void pcm_buf_flush_to_asr(void)
 
     pthread_mutex_unlock(&s->mutex);
 
-    DAIMA_LOGI(TAG, "ASR flush: %zu samples (%.1f sec)", n_samples,
-               (double)n_samples / VAD_SAMPLE_RATE);
+    pr_info("ASR flush: %zu samples (%.1f sec)", n_samples, (double)n_samples / VAD_SAMPLE_RATE);
 
     /* Build WAV header + send to ASR (no lock held) */
     size_t wav_size = 44 + pcm_bytes;
     uint8_t *wav_buf = kmalloc(wav_size, GFP_KERNEL);
     if (!wav_buf) {
-        DAIMA_LOGW(TAG, "ASR: malloc failed");
+        pr_warn("ASR: malloc failed");
         kfree(pcm_copy);
         return;
     }
@@ -143,7 +139,7 @@ static void pcm_buf_flush_to_asr(void)
     kfree(wav_buf);
 
     if (err != DAIMA_OK) {
-        DAIMA_LOGW(TAG, "ASR failed: %s", daima_err_to_name(err));
+        pr_warn("ASR failed: %s", daima_err_to_name(err));
     }
 }
 
@@ -163,8 +159,7 @@ static void on_audio_done(const mcp_audio_direction_t *dir, void *user_data)
         s->head_angle_deg = dir->head_angle_deg;
     }
     if (s->pcm_len >= 1600) {
-        DAIMA_LOGI(TAG, "AudioDone: flushing %zu samples (dir=%d prox=%umm cliff=%d)",
-                   s->pcm_len, s->mic_direction, s->prox_distance_mm, s->cliff_detected);
+        pr_info("AudioDone: flushing %zu samples (dir=%d prox=%umm cliff=%d)", s->pcm_len, s->mic_direction, s->prox_distance_mm, s->cliff_detected);
         pthread_mutex_unlock(&s->mutex);
         pcm_buf_flush_to_asr();
         return;
@@ -192,7 +187,7 @@ static void on_vector_audio(const uint8_t *pcm, size_t len, uint64_t timestamp, 
 
     size_t new_len = s->pcm_len + num_samples;
     if (!pcm_buf_ensure(new_len)) {
-        DAIMA_LOGW(TAG, "PCM buffer full, flushing");
+        pr_warn("PCM buffer full, flushing");
         pthread_mutex_unlock(&s->mutex);
         pcm_buf_flush_to_asr();
         return;
@@ -201,7 +196,7 @@ static void on_vector_audio(const uint8_t *pcm, size_t len, uint64_t timestamp, 
     s->pcm_len = new_len;
 
     if (s->pcm_len >= (size_t)VAD_MAX_SAMPLES) {
-        DAIMA_LOGI(TAG, "Audio buffer max duration reached, flushing");
+        pr_info("Audio buffer max duration reached, flushing");
         pthread_mutex_unlock(&s->mutex);
         pcm_buf_flush_to_asr();
         return;
@@ -215,7 +210,7 @@ static void vector_connect_task(void *arg)
     (void)arg;
 
     /* Wait for Gatewway to start (vic-cloud takes ~3s after systemd) */
-    DAIMA_LOGI(TAG, "Waiting for Gateway...");
+    pr_info("Waiting for Gateway...");
     for (int i = 0; i < 20 && s->running; i++) {
         sleep(1);
         if (s->mcp) break; /* already connected in a previous attempt */
@@ -231,7 +226,7 @@ static void vector_connect_task(void *arg)
     pthread_mutex_unlock(&s->mutex);
 
     if (!mcp) {
-        DAIMA_LOGW(TAG, "Failed to launch robot-mcp (retrying in 30s...)");
+        pr_warn("Failed to launch robot-mcp (retrying in 30s...)");
         int retry = 0;
         while (s->running && retry < 100) {
             sleep(30);
@@ -256,47 +251,47 @@ static void vector_connect_task(void *arg)
     daima_err_t err = mcp_client_subscribe_audio(mcp);
     if (err == DAIMA_OK) {
         s->audio_subscribed = true;
-        DAIMA_LOGI(TAG, "Audio subscribed (flush on robot AudioDone)");
+        pr_info("Audio subscribed (flush on robot AudioDone)");
     } else {
-        DAIMA_LOGW(TAG, "Audio subscribe failed");
+        pr_warn("Audio subscribe failed");
     }
 
     /* Set volume once after connection */
     char vol_resp[64];
     mcp_client_call_tool(mcp, "robot_set_volume", "{\"level\":4}", vol_resp, sizeof(vol_resp));
-    DAIMA_LOGI(TAG, "Volume set: %s", vol_resp);
+    pr_info("Volume set: %s", vol_resp);
 
-    DAIMA_LOGI(TAG, "Vector channel connected");
+    pr_info("Vector channel connected");
 }
 
 /* 后台任务：轮询 MCP 子进程的音频通知 */
 static void vector_poll_task(void *arg)
 {
     (void)arg;
-    DAIMA_LOGI(TAG, "Poll task started");
+    pr_info("Poll task started");
     while (s->running) {
         if (s->mcp) {
             int n = mcp_client_poll(s->mcp);
             if (n > 0) {
-                DAIMA_LOGD(TAG, "Processed %d MCP messages", n);
+                pr_debug("Processed %d MCP messages", n);
             }
         }
         /* 超时 unmute: 如果 muted >10s 还没有回复，自动恢复 mic */
         if (s->playing && s->mute_ts > 0) {
             uint64_t now = (uint64_t)time(NULL);
             if (now >= s->mute_ts + 10) {
-                DAIMA_LOGI(TAG, "Mic: auto-unmute (timeout 10s)");
+                pr_info("Mic: auto-unmute (timeout 10s)");
                 s->playing = false;
             }
         }
         usleep(50000); /* 50ms poll interval */
     }
-    DAIMA_LOGI(TAG, "Poll task stopped");
+    pr_info("Poll task stopped");
 }
 
 daima_err_t vector_channel_init(void)
 {
-    DAIMA_LOGI(TAG, "Initializing vector channel");
+    pr_info("Initializing vector channel");
 
     if (!s) {
         s = kzalloc(sizeof(vector_session_t), GFP_KERNEL);
@@ -311,7 +306,7 @@ daima_err_t vector_channel_init(void)
         strscpy(s->bin_path, MCP_BIN_DEFAULT, sizeof(s->bin_path));
     }
 
-    DAIMA_LOGI(TAG, "MCP binary: %s", s->bin_path);
+    pr_info("MCP binary: %s", s->bin_path);
     return DAIMA_OK;
 }
 
@@ -334,7 +329,7 @@ daima_err_t vector_channel_start(void)
         return DAIMA_OK;
     }
 
-    DAIMA_LOGI(TAG, "Vector channel starting (async connect)...");
+    pr_info("Vector channel starting (async connect)...");
 
     if (start_connect) {
         /* 启动后台连接任务（不阻塞） */
@@ -365,7 +360,7 @@ daima_err_t vector_channel_send_reply(const char *chat_id, const char *text)
     }
     /* TTS is handled by the voice channel (BigModel → PCM → socket).
      * robot_say_text (built-in TTS) is not registered in robot-mcp. */
-    DAIMA_LOGD(TAG, "Reply text: %.60s", text ? text : "");
+    pr_debug("Reply text: %.60s", text ? text : "");
     return DAIMA_OK;
 }
 
@@ -380,7 +375,7 @@ daima_err_t vector_channel_play_pcm(const unsigned char *pcm, size_t pcm_len, ui
 
     int fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (fd < 0) {
-        DAIMA_LOGW(TAG, "PlayPCM: socket failed");
+        pr_warn("PlayPCM: socket failed");
         return DAIMA_FAIL;
     }
 
@@ -390,7 +385,7 @@ daima_err_t vector_channel_play_pcm(const unsigned char *pcm, size_t pcm_len, ui
     snprintf(addr.sun_path, sizeof(addr.sun_path), "/tmp/daima_spk.sock");
 
     if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-        DAIMA_LOGW(TAG, "PlayPCM: connect failed (robot-mcp not ready?)");
+        pr_warn("PlayPCM: connect failed (robot-mcp not ready?)");
         close(fd);
         return DAIMA_FAIL;
     }
@@ -402,7 +397,7 @@ daima_err_t vector_channel_play_pcm(const unsigned char *pcm, size_t pcm_len, ui
         !write_all(fd, &label_len, sizeof(label_len)) ||
         (label_len > 0 && !write_all(fd, label, label_len)) ||
         !write_all(fd, pcm, pcm_len)) {
-        DAIMA_LOGW(TAG, "PlayPCM: write failed");
+        pr_warn("PlayPCM: write failed");
         close(fd);
         return DAIMA_FAIL;
     }

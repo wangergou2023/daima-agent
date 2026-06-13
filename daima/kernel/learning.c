@@ -23,9 +23,6 @@
 #include "linux/printk.h"
 #include "linux/slab.h"
 #include "linux/kernel.h"
-
-static const char *TAG = "learn";
-
 #define REVIEW_QUEUE_MAX         16
 #define REVIEW_MSGS_MAX          24
 #define REVIEW_HISTORY_BUF_SIZE  (96 * 1024)
@@ -175,7 +172,7 @@ static daima_err_t append_skill_review_queue(cJSON *skill_obj, const char *chat_
 
     FILE *f = fopen(daima_path_skill_review_queue_file(), "a");
     if (!f) {
-        DAIMA_LOGE(TAG, "Cannot open %s", daima_path_skill_review_queue_file());
+        pr_err("Cannot open %s", daima_path_skill_review_queue_file());
         return DAIMA_FAIL;
     }
 
@@ -206,7 +203,7 @@ static daima_err_t append_skill_review_queue(cJSON *skill_obj, const char *chat_
         }
     }
     fclose(f);
-    DAIMA_LOGI(TAG, "Queued skill review for chat %s", chat_id);
+    pr_info("Queued skill review for chat %s", chat_id);
     return DAIMA_OK;
 }
 
@@ -373,13 +370,13 @@ daima_err_t learning_review_init(void)
     }
     if (pthread_create(&s_review_thread, NULL, review_worker_loop, NULL) != 0) {
         pthread_mutex_unlock(&s_review_mutex);
-        DAIMA_LOGE(TAG, "Failed to start learning review worker");
+        pr_err("Failed to start learning review worker");
         return DAIMA_FAIL;
     }
     pthread_detach(s_review_thread);
     s_review_started = true;
     pthread_mutex_unlock(&s_review_mutex);
-    DAIMA_LOGI(TAG, "Learning review worker started");
+    pr_info("Learning review worker started");
     return DAIMA_OK;
 }
 
@@ -393,7 +390,7 @@ daima_err_t learning_review_schedule(const char *chat_id)
     review_job_t *job = find_review_job_locked(chat_id, true);
     if (!job) {
         pthread_mutex_unlock(&s_review_mutex);
-        DAIMA_LOGW(TAG, "Learning review queue full, skip chat %s", chat_id);
+        pr_warn("Learning review queue full, skip chat %s", chat_id);
         return DAIMA_FAIL;
     }
 

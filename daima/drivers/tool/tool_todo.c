@@ -12,9 +12,6 @@
 #include "cJSON.h"
 #include "linux/printk.h"
 #include "linux/slab.h"
-
-static const char *TAG = "tool_todo";
-
 static const daima_tool_t s_todo_tool = {
     .name = "todo",
     .description = "管理本地待办列表。支持 list、add、set、update、remove、clear，适合先列计划再执行。",
@@ -365,7 +362,7 @@ daima_err_t tool_todo_execute(const char *input_json, char *output, size_t outpu
     }
 
     if (err == DAIMA_OK) {
-        DAIMA_LOGI(TAG, "todo: action=%s", action);
+        pr_info("todo: action=%s", action);
     }
 
 todo_cleanup:

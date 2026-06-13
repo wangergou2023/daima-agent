@@ -9,9 +9,6 @@
 
 #include "cJSON.h"
 #include "linux/printk.h"
-
-static const char *TAG = "tool_vector";
-
 daima_err_t tool_vector_init(void) { return DAIMA_OK; }
 
 /* ---- Get Battery ---- */

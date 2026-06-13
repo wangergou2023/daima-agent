@@ -23,9 +23,6 @@ static bool handle_mcp_notification(mcp_client_t *c, const char *json_str);
 static daima_err_t read_json_line(mcp_client_t *c, char *buf, size_t size, int timeout_ms);
 static daima_err_t wait_for_response(mcp_client_t *c, int request_id, int timeout_ms,
                                      char *response, size_t response_size);
-
-static const char *TAG = "mcp_client";
-
 struct mcp_client {
     FILE   *in;            /* 子进程 stdin  (写入) */
     FILE   *out;           /* 子进程 stdout (读取) */
@@ -49,13 +46,13 @@ mcp_client_t *mcp_client_launch(const char *bin_path, const char *robot_addr, co
 
     int to_child[2], from_child[2];
     if (pipe(to_child) < 0 || pipe(from_child) < 0) {
-        DAIMA_LOGE(TAG, "pipe failed: %s", strerror(errno));
+        pr_err("pipe failed: %s", strerror(errno));
         return NULL;
     }
 
     pid_t pid = fork();
     if (pid < 0) {
-        DAIMA_LOGE(TAG, "fork failed: %s", strerror(errno));
+        pr_err("fork failed: %s", strerror(errno));
         close(to_child[0]); close(to_child[1]);
         close(from_child[0]); close(from_child[1]);
         return NULL;
@@ -79,7 +76,7 @@ mcp_client_t *mcp_client_launch(const char *bin_path, const char *robot_addr, co
         /* Redirect stderr to parent's stderr so we see robot-mcp logs */
         execve(bin_path, (char *[]){ (char *)bin_path, (char *)"--client-only", NULL }, envp);
 
-        DAIMA_LOGE(TAG, "execve failed: %s", strerror(errno));
+        pr_err("execve failed: %s", strerror(errno));
         _exit(1);
     }
 
@@ -99,7 +96,7 @@ mcp_client_t *mcp_client_launch(const char *bin_path, const char *robot_addr, co
     c->request_id = 0;
     pthread_mutex_init(&c->io_mutex, NULL);
     if (!c->in || !c->out) {
-        DAIMA_LOGE(TAG, "fdopen failed");
+        pr_err("fdopen failed");
         mcp_client_destroy(c);
         return NULL;
     }
@@ -107,7 +104,7 @@ mcp_client_t *mcp_client_launch(const char *bin_path, const char *robot_addr, co
     /* Set line buffering so MCP JSON messages are sent/received immediately */
     setlinebuf(c->in);
 
-    DAIMA_LOGI(TAG, "Launched robot-mcp (pid=%d)", (int)pid);
+    pr_info("Launched robot-mcp (pid=%d)", (int)pid);
 
     /* MCP 握手: initialize */
     cJSON *init_params = cJSON_CreateObject();
@@ -136,17 +133,17 @@ mcp_client_t *mcp_client_launch(const char *bin_path, const char *robot_addr, co
     kfree(init_str);
 
     if (wait_for_response(c, init_id, MCP_INIT_TIMEOUT_MS, c->buf, sizeof(c->buf)) != DAIMA_OK) {
-        DAIMA_LOGE(TAG, "No response to initialize");
+        pr_err("No response to initialize");
         goto fail;
     }
-    DAIMA_LOGI(TAG, "Initialize response: %.120s", c->buf);
+    pr_info("Initialize response: %.120s", c->buf);
 
     cJSON *init_resp = cJSON_Parse(c->buf);
     if (!init_resp) goto fail;
 
     cJSON *result = cJSON_GetObjectItem(init_resp, "result");
     if (!result) {
-        DAIMA_LOGE(TAG, "Initialize failed: no result");
+        pr_err("Initialize failed: no result");
         cJSON_Delete(init_resp);
         goto fail;
     }
@@ -156,7 +153,7 @@ mcp_client_t *mcp_client_launch(const char *bin_path, const char *robot_addr, co
     fprintf(c->in, "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}\n");
     fflush(c->in);
 
-    DAIMA_LOGI(TAG, "MCP client ready (id=%d)", c->request_id);
+    pr_info("MCP client ready (id=%d)", c->request_id);
     return c;
 
 fail:
@@ -242,12 +239,12 @@ daima_err_t mcp_client_call_tool(mcp_client_t *c, const char *tool_name,
                                              c->buf, sizeof(c->buf));
     pthread_mutex_unlock(&c->io_mutex);
     if (wait_err != DAIMA_OK) {
-        DAIMA_LOGE(TAG, "No response to tools/call %s (id=%d)", tool_name, request_id);
+        pr_err("No response to tools/call %s (id=%d)", tool_name, request_id);
         snprintf(response_out, response_size, "Error: no response");
         return wait_err;
     }
 
-    DAIMA_LOGI(TAG, "RAW response for %s: %s", tool_name, c->buf);
+    pr_info("RAW response for %s: %s", tool_name, c->buf);
 
     cJSON *resp = cJSON_Parse(c->buf);
     if (!resp) {
@@ -420,7 +417,7 @@ static daima_err_t read_json_line(mcp_client_t *c, char *buf, size_t size, int t
     if (n == 0) return DAIMA_ERR_TIMEOUT;
     if (n < 0) {
         if (errno == EINTR) return DAIMA_ERR_TIMEOUT;
-        DAIMA_LOGW(TAG, "select failed: %s", strerror(errno));
+        pr_warn("select failed: %s", strerror(errno));
         return DAIMA_FAIL;
     }
 
@@ -541,7 +538,7 @@ static daima_err_t wait_for_response(mcp_client_t *c, int request_id, int timeou
 
         cJSON *root = cJSON_Parse(c->buf);
         if (!root) {
-            DAIMA_LOGW(TAG, "Ignoring invalid MCP JSON: %.120s", c->buf);
+            pr_warn("Ignoring invalid MCP JSON: %.120s", c->buf);
             continue;
         }
 
@@ -554,7 +551,7 @@ static daima_err_t wait_for_response(mcp_client_t *c, int request_id, int timeou
                 cJSON_Delete(root);
                 return DAIMA_OK;
             }
-            DAIMA_LOGW(TAG, "Ignoring MCP response id=%d while waiting for id=%d", id, request_id);
+            pr_warn("Ignoring MCP response id=%d while waiting for id=%d", id, request_id);
         }
 
         cJSON_Delete(root);

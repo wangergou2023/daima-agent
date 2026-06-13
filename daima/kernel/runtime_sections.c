@@ -6,9 +6,6 @@
 #include "autoconf.h"
 #include "linux/printk.h"
 #include "linux/kernel.h"
-
-static const char *TAG = "runtime_config_sections";
-
 static void apply_common_values(runtime_config_state_t *cfg, const cJSON *common)
 {
     int value = 0;
@@ -95,7 +92,7 @@ static void apply_provider_values(runtime_config_state_t *cfg,
         cfg->provider_needs_reasoning_content = bool_value;
     }
 
-    DAIMA_LOGI(TAG, "Runtime config applied provider: %s", provider_name);
+    pr_info("Runtime config applied provider: %s", provider_name);
 }
 
 static void collect_provider_entries(runtime_config_state_t *cfg, const cJSON *providers)
@@ -112,7 +109,7 @@ static void collect_provider_entries(runtime_config_state_t *cfg, const cJSON *p
             continue;
         }
         if (cfg->provider_count >= RUNTIME_PROVIDER_MAX) {
-            DAIMA_LOGW(TAG, "Runtime config provider list truncated at %d", RUNTIME_PROVIDER_MAX);
+            pr_warn("Runtime config provider list truncated at %d", RUNTIME_PROVIDER_MAX);
             break;
         }
         runtime_provider_entry_t *out = &cfg->providers[cfg->provider_count];
@@ -187,13 +184,13 @@ static void apply_active_provider(runtime_config_state_t *cfg,
     const cJSON *selected = NULL;
 
     if (!cfg || !providers || !cJSON_IsObject(providers) || !active_provider || !active_provider[0]) {
-        DAIMA_LOGW(TAG, "Runtime config missing active_provider");
+        pr_warn("Runtime config missing active_provider");
         return;
     }
 
     selected = runtime_config_get_object_item(providers, active_provider);
     if (!selected || !cJSON_IsObject(selected)) {
-        DAIMA_LOGW(TAG, "Runtime config provider not found: %s", active_provider);
+        pr_warn("Runtime config provider not found: %s", active_provider);
         return;
     }
 

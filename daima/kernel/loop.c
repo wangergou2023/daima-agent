@@ -25,19 +25,16 @@
 
 #include "cJSON.h"
 #include "linux/slab.h"
-
-static const char *TAG = "agent";
-
 static void agent_loop_task(void *arg)
 {
     (void)arg;
-    DAIMA_LOGI(TAG, "Agent loop started");
+    pr_info("Agent loop started");
 
     char *system_prompt = daima_calloc(1, DAIMA_CONTEXT_BUF_SIZE);
     char *history_json = daima_calloc(1, DAIMA_LLM_STREAM_BUF_SIZE);
 
     if (unlikely(!system_prompt || !history_json)) {
-        DAIMA_LOGE(TAG, "Failed to allocate PSRAM buffers");
+        pr_err("Failed to allocate PSRAM buffers");
         kfree(system_prompt);
         kfree(history_json);
         return;
@@ -60,14 +57,12 @@ static void agent_loop_task(void *arg)
         }
 
         if (agent_msg_is_internal_control(&msg)) {
-            DAIMA_LOGI(TAG, "Dropping internal control message for %s:%s", msg.channel, msg.chat_id);
+            pr_info("Dropping internal control message for %s:%s", msg.channel, msg.chat_id);
             agent_cleanup_inbound_msg(&msg);
             continue;
         }
 
-        DAIMA_LOGI(TAG, "Processing message from %s:%s source=%s",
-                  msg.channel, msg.chat_id,
-                  agent_msg_source_or_default(&msg));
+        pr_info("Processing message from %s:%s source=%s", msg.channel, msg.chat_id, agent_msg_source_or_default(&msg));
 
         uint64_t cancel_token = agent_cancel_begin_turn(msg.chat_id);
         cJSON *messages = NULL;
@@ -122,9 +117,9 @@ daima_err_t agent_loop_init(void)
             return err;
         }
     } else {
-        DAIMA_LOGI(TAG, "Learning review disabled");
+        pr_info("Learning review disabled");
     }
-    DAIMA_LOGI(TAG, "Agent loop initialized");
+    pr_info("Agent loop initialized");
     return DAIMA_OK;
 }
 
@@ -146,15 +141,11 @@ daima_err_t agent_loop_start(void)
             DAIMA_AGENT_PRIO, NULL);
 
         if (ok) {
-            DAIMA_LOGI(TAG, "agent_loop task created with stack=%u bytes", (unsigned)stack_size);
+            pr_info("agent_loop task created with stack=%u bytes", (unsigned)stack_size);
             return DAIMA_OK;
         }
 
-        DAIMA_LOGW(TAG,
-                 "agent_loop create failed (stack=%u, free_mem=%u, largest_free=%u), retrying...",
-                 (unsigned)stack_size,
-                 (unsigned)daima_get_free_memory(),
-                 (unsigned)daima_get_largest_free_block());
+        pr_warn("agent_loop create failed (stack=%u, free_mem=%u, largest_free=%u), retrying...", (unsigned)stack_size, (unsigned)daima_get_free_memory(), (unsigned)daima_get_largest_free_block());
     }
 
     return DAIMA_FAIL;

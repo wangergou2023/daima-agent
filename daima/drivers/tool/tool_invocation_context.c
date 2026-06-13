@@ -8,9 +8,6 @@
 #include "drivers/channel/feishu/feishu_targets.h"
 #include "cJSON.h"
 #include "linux/printk.h"
-
-static const char *TAG = "tool_invocation_context";
-
 static void json_set_string(cJSON *obj, const char *key, const char *value)
 {
     if (!obj || !key || !value) {
@@ -66,9 +63,7 @@ static char *patch_cron_action_add_target(const llm_tool_call_t *call, const dai
         if (patched) {
             const char *effective_channel = cJSON_GetStringValue(cJSON_GetObjectItem(root, "channel"));
             const char *effective_chat_id = cJSON_GetStringValue(cJSON_GetObjectItem(root, "chat_id"));
-            DAIMA_LOGI(TAG, "Patched cron add target to %s:%s",
-                       effective_channel ? effective_channel : "",
-                       effective_chat_id ? effective_chat_id : "");
+            pr_info("Patched cron add target to %s:%s", effective_channel ? effective_channel : "", effective_chat_id ? effective_chat_id : "");
         }
     }
     cJSON_Delete(root);

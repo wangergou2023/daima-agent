@@ -17,9 +17,6 @@
 #include "cJSON.h"
 #include "linux/printk.h"
 #include "linux/slab.h"
-
-static const char *TAG = "feishu_event";
-
 #define FEISHU_DEDUP_CACHE_SIZE 64
 
 static uint64_t s_seen_msg_keys[FEISHU_DEDUP_CACHE_SIZE] = {0};
@@ -80,13 +77,13 @@ static void handle_message_event(const char *app_id, const char *app_secret, cJS
     const char *msg_type = cJSON_IsString(msg_type_j) ? msg_type_j->valuestring : "text";
 
     if (message_id[0] && dedup_check_and_record(message_id)) {
-        DAIMA_LOGD(TAG, "Duplicate message %s, skipping", message_id);
+        pr_debug("Duplicate message %s, skipping", message_id);
         return;
     }
 
     cJSON *content_obj = cJSON_Parse(content_j->valuestring);
     if (!content_obj) {
-        DAIMA_LOGW(TAG, "Failed to parse message content JSON");
+        pr_warn("Failed to parse message content JSON");
         return;
     }
 
@@ -138,12 +135,12 @@ static void handle_message_event(const char *app_id, const char *app_secret, cJS
         } else if (cleaned_buf[0]) {
             cleaned = cleaned_buf;
         } else {
-            DAIMA_LOGI(TAG, "Ignoring empty Feishu post message");
+            pr_info("Ignoring empty Feishu post message");
             cJSON_Delete(content_obj);
             return;
         }
     } else {
-        DAIMA_LOGI(TAG, "Ignoring unsupported Feishu message type: %s", msg_type);
+        pr_info("Ignoring unsupported Feishu message type: %s", msg_type);
         cJSON_Delete(content_obj);
         return;
     }
@@ -160,9 +157,7 @@ static void handle_message_event(const char *app_id, const char *app_secret, cJS
         }
     }
 
-    DAIMA_LOGI(TAG, "Message from %s in %s(%s) type=%s: %.60s%s",
-              sender_id, chat_id, chat_type, msg_type, cleaned,
-              strlen(cleaned) > 60 ? "..." : "");
+    pr_info("Message from %s in %s(%s) type=%s: %.60s%s", sender_id, chat_id, chat_type, msg_type, cleaned, strlen(cleaned) > 60 ? "..." : "");
 
     const char *route_id = chat_id;
     if (strcmp(chat_type, "p2p") == 0 && sender_id[0]) {
@@ -179,7 +174,7 @@ static void handle_message_event(const char *app_id, const char *app_secret, cJS
 
     if (msg.content) {
         if (message_bus_push_inbound(&msg) != DAIMA_OK) {
-            DAIMA_LOGW(TAG, "Inbound queue full, dropping feishu message");
+            pr_warn("Inbound queue full, dropping feishu message");
             kfree(msg.content);
             if (msg.image_path) unlink(msg.image_path);
             kfree(msg.image_path);

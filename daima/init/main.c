@@ -30,9 +30,6 @@
 #include "drivers/tool/tool_registry.h"
 #include "drivers/voice/voice_channel.h"
 #include "drivers/voice/voice_wake.h"
-
-static const char *TAG = "daima";
-
 static const char *resolve_runtime_timezone(void)
 {
     return runtime_config_get_timezone();
@@ -63,11 +60,11 @@ int main(int argc, char **argv)
     setenv("TZ", runtime_tz, 1);
     tzset();
 
-    DAIMA_LOGI(TAG, "========================================");
-    DAIMA_LOGI(TAG, "  Daima - Host AI Agent (Linux)");
-    DAIMA_LOGI(TAG, "========================================");
-    DAIMA_LOGI(TAG, "Free memory: %d bytes", (int)daima_get_free_memory());
-    DAIMA_LOGI(TAG, "Timezone: %s", runtime_tz);
+    pr_info("========================================");
+    pr_info("  Daima - Host AI Agent (Linux)");
+    pr_info("========================================");
+    pr_info("Free memory: %d bytes", (int)daima_get_free_memory());
+    pr_info("Timezone: %s", runtime_tz);
 
     do_basic_setup();
 
@@ -80,13 +77,13 @@ int main(int argc, char **argv)
     BUG_ON(agent_loop_start() != DAIMA_OK);
     daima_err_t ws_err = ws_server_start();
     if (ws_err != DAIMA_OK) {
-        DAIMA_LOGW(TAG, "WebSocket server failed to start: %s", daima_err_to_name(ws_err));
+        pr_warn("WebSocket server failed to start: %s", daima_err_to_name(ws_err));
     }
 
-    DAIMA_LOGI(TAG, "All services started!");
+    pr_info("All services started!");
     char host_ip[INET_ADDRSTRLEN] = "0.0.0.0";
     daima_bootstrap_get_primary_ipv4(host_ip, sizeof(host_ip));
-    DAIMA_LOGI(TAG, "代马 Daima 已就绪，Web UI: http://%s:%d", host_ip, runtime_config_get_web_port());
+    pr_info("代马 Daima 已就绪，Web UI: http://%s:%d", host_ip, runtime_config_get_web_port());
 
     while (1) {
         sleep(1);

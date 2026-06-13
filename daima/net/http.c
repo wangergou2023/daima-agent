@@ -13,8 +13,6 @@
 #include <string.h>
 #include <unistd.h>
 #include "linux/slab.h"
-
-static const char *TAG = "http";
 static pthread_once_t s_curl_once = PTHREAD_ONCE_INIT;
 
 static void curl_global_init_once(void)
@@ -147,9 +145,9 @@ daima_err_t host_http_request(const char *method,
 
     if (unlikely(res != CURLE_OK)) {
         if (res == CURLE_ABORTED_BY_CALLBACK && agent_cancel_current_thread_cancelled()) {
-            DAIMA_LOGI(TAG, "HTTP request aborted by agent cancellation");
+            pr_info("HTTP request aborted by agent cancellation");
         } else {
-            DAIMA_LOGW(TAG, "HTTP request failed: %s", curl_easy_strerror(res));
+            pr_warn("HTTP request failed: %s", curl_easy_strerror(res));
         }
         out->error = strdup(curl_easy_strerror(res));
         kfree(resp.data);

@@ -28,9 +28,6 @@
 #include "autoconf.h"
 #include "linux/kernel.h"
 #include "linux/printk.h"
-
-static const char *TAG = "bootstrap";
-
 void daima_bootstrap_print_usage(const char *prog)
 {
     printf("Usage: %s [--help]\n", prog);
@@ -60,7 +57,7 @@ void daima_bootstrap_prepare_runtime(void)
     ensure_spiffs_layout();
     daima_err_t cfg_err = runtime_config_init();
     if (cfg_err != DAIMA_OK) {
-        DAIMA_LOGW(TAG, "Runtime config init failed: %s", daima_err_to_name(cfg_err));
+        pr_warn("Runtime config init failed: %s", daima_err_to_name(cfg_err));
     }
 }
 
@@ -96,21 +93,21 @@ bool daima_bootstrap_get_primary_ipv4(char *out, size_t out_sz)
 
 void do_basic_setup(void)
 {
-    DAIMA_LOGI(TAG, "core_initcall...");
+    pr_info("core_initcall...");
     BUG_ON(message_bus_init() != DAIMA_OK);
     agent_hooks_init();
 
-    DAIMA_LOGI(TAG, "postcore_initcall...");
+    pr_info("postcore_initcall...");
     BUG_ON(memory_store_init() != DAIMA_OK);
     BUG_ON(session_store_init() != DAIMA_OK);
 
-    DAIMA_LOGI(TAG, "subsys_initcall...");
+    pr_info("subsys_initcall...");
     BUG_ON(cron_service_init() != DAIMA_OK);
     BUG_ON(heartbeat_init() != DAIMA_OK);
     BUG_ON(http_proxy_init() != DAIMA_OK);
     BUG_ON(skill_loader_init() != DAIMA_OK);
 
-    DAIMA_LOGI(TAG, "device_initcall...");
+    pr_info("device_initcall...");
     BUG_ON(voice_channel_init() != DAIMA_OK);
     BUG_ON(feishu_bot_init() != DAIMA_OK);
     BUG_ON(feishu_bot_start() != DAIMA_OK);
@@ -119,5 +116,5 @@ void do_basic_setup(void)
     cron_service_start();
     heartbeat_start();
 
-    DAIMA_LOGI(TAG, "Basic setup complete");
+    pr_info("Basic setup complete");
 }

@@ -16,9 +16,6 @@
 #include "drivers/platform/platform.h"
 #include "cJSON.h"
 #include "linux/slab.h"
-
-static const char *TAG = "cron";
-
 #define MAX_CRON_JOBS  DAIMA_CRON_MAX_JOBS
 
 static cron_job_t s_jobs[MAX_CRON_JOBS];
@@ -106,8 +103,7 @@ static bool cron_sanitize_destination(cron_job_t *job)
     if (strcmp(job->channel, DAIMA_CHAN_WEBSOCKET) == 0 ||
         strcmp(job->channel, DAIMA_CHAN_FEISHU) == 0) {
         if (job->chat_id[0] == '\0' || strcmp(job->chat_id, "cron") == 0) {
-            DAIMA_LOGW(TAG, "Cron job %s has invalid chat_id, fallback to system:cron",
-                     job->id[0] ? job->id : "<new>");
+            pr_warn("Cron job %s has invalid chat_id, fallback to system:cron", job->id[0] ? job->id : "<new>");
             strncpy(job->channel, DAIMA_CHAN_SYSTEM, sizeof(job->channel) - 1);
             strncpy(job->chat_id, "cron", sizeof(job->chat_id) - 1);
             changed = true;
@@ -118,8 +114,7 @@ static bool cron_sanitize_destination(cron_job_t *job)
             changed = true;
         }
     } else {
-        DAIMA_LOGW(TAG, "Cron job %s has unknown channel '%s', fallback to system:cron",
-                 job->id[0] ? job->id : "<new>", job->channel);
+        pr_warn("Cron job %s has unknown channel '%s', fallback to system:cron", job->id[0] ? job->id : "<new>", job->channel);
         strncpy(job->channel, DAIMA_CHAN_SYSTEM, sizeof(job->channel) - 1);
         strncpy(job->chat_id, "cron", sizeof(job->chat_id) - 1);
         changed = true;
@@ -140,7 +135,7 @@ static daima_err_t cron_load_jobs(void)
 {
     FILE *f = fopen(daima_path_cron_file(), "r");
     if (!f) {
-        DAIMA_LOGI(TAG, "No cron file found, starting fresh");
+        pr_info("No cron file found, starting fresh");
         s_job_count = 0;
         return DAIMA_OK;
     }
@@ -151,7 +146,7 @@ static daima_err_t cron_load_jobs(void)
     fseek(f, 0, SEEK_SET);
 
     if (fsize <= 0 || fsize > 8192) {
-        DAIMA_LOGW(TAG, "Cron file invalid size: %ld", fsize);
+        pr_warn("Cron file invalid size: %ld", fsize);
         fclose(f);
         s_job_count = 0;
         return DAIMA_OK;
@@ -172,7 +167,7 @@ static daima_err_t cron_load_jobs(void)
     kfree(buf);
 
     if (!root) {
-        DAIMA_LOGW(TAG, "Failed to parse cron JSON");
+        pr_warn("Failed to parse cron JSON");
         s_job_count = 0;
         return DAIMA_OK;
     }
@@ -255,7 +250,7 @@ static daima_err_t cron_load_jobs(void)
     if (repaired) {
         cron_save_jobs();
     }
-    DAIMA_LOGI(TAG, "Loaded %d cron jobs", s_job_count);
+    pr_info("Loaded %d cron jobs", s_job_count);
     return DAIMA_OK;
 }
 
@@ -298,13 +293,13 @@ static daima_err_t cron_save_jobs(void)
     cJSON_Delete(root);
 
     if (!json_str) {
-        DAIMA_LOGE(TAG, "Failed to serialize cron jobs");
+        pr_err("Failed to serialize cron jobs");
         return DAIMA_ERR_NO_MEM;
     }
 
     FILE *f = fopen(daima_path_cron_file(), "w");
     if (!f) {
-        DAIMA_LOGE(TAG, "Failed to open %s for writing", daima_path_cron_file());
+        pr_err("Failed to open %s for writing", daima_path_cron_file());
         kfree(json_str);
         return DAIMA_FAIL;
     }
@@ -315,11 +310,11 @@ static daima_err_t cron_save_jobs(void)
     kfree(json_str);
 
     if (written != len) {
-        DAIMA_LOGE(TAG, "Cron save incomplete: %d/%d bytes", (int)written, (int)len);
+        pr_err("Cron save incomplete: %d/%d bytes", (int)written, (int)len);
         return DAIMA_FAIL;
     }
 
-    DAIMA_LOGI(TAG, "Saved %d cron jobs to %s", s_job_count, daima_path_cron_file());
+    pr_info("Saved %d cron jobs to %s", s_job_count, daima_path_cron_file());
     return DAIMA_OK;
 }
 
@@ -338,7 +333,7 @@ static void cron_process_due_jobs(void)
         if (job->next_run > now) continue;
 
         /* 任务到期 — 执行 */
-        DAIMA_LOGI(TAG, "Cron job firing: %s (%s)", job->name, job->id);
+        pr_info("Cron job firing: %s (%s)", job->name, job->id);
 
         /* 将消息推入入站队列 */
         daima_msg_t msg;
@@ -351,7 +346,7 @@ static void cron_process_due_jobs(void)
         if (msg.content) {
             daima_err_t err = message_bus_push_inbound(&msg);
             if (err != DAIMA_OK) {
-                DAIMA_LOGW(TAG, "Failed to push cron message: %s", daima_err_to_name(err));
+                pr_warn("Failed to push cron message: %s", daima_err_to_name(err));
                 kfree(msg.content);
             }
         }
@@ -363,7 +358,7 @@ static void cron_process_due_jobs(void)
             /* 一次性任务：禁用或删除 */
             if (job->delete_after_run) {
                 /* 通过移动数组删除 */
-                DAIMA_LOGI(TAG, "Deleting one-shot job: %s", job->name);
+                pr_info("Deleting one-shot job: %s", job->name);
                 for (int j = i; j < s_job_count - 1; j++) {
                     s_jobs[j] = s_jobs[j + 1];
                 }
@@ -433,7 +428,7 @@ daima_err_t cron_service_init(void)
 daima_err_t cron_service_start(void)
 {
     if (s_cron_task) {
-        DAIMA_LOGW(TAG, "Cron task already running");
+        pr_warn("Cron task already running");
         return DAIMA_OK;
     }
 
@@ -462,12 +457,11 @@ daima_err_t cron_service_start(void)
         &s_cron_task
     );
     if (!ok || !s_cron_task) {
-        DAIMA_LOGE(TAG, "Failed to create cron task");
+        pr_err("Failed to create cron task");
         return DAIMA_FAIL;
     }
 
-    DAIMA_LOGI(TAG, "Cron service started (%d jobs, check every %ds)",
-             s_job_count, cron_check_interval_ms() / 1000);
+    pr_info("Cron service started (%d jobs, check every %ds)", s_job_count, cron_check_interval_ms() / 1000);
     return DAIMA_OK;
 }
 
@@ -476,14 +470,14 @@ void cron_service_stop(void)
     if (s_cron_task) {
         daima_task_delete(s_cron_task);
         s_cron_task = NULL;
-        DAIMA_LOGI(TAG, "Cron service stopped");
+        pr_info("Cron service stopped");
     }
 }
 
 daima_err_t cron_add_job(cron_job_t *job)
 {
     if (s_job_count >= MAX_CRON_JOBS) {
-        DAIMA_LOGW(TAG, "Max cron jobs reached (%d)", MAX_CRON_JOBS);
+        pr_warn("Max cron jobs reached (%d)", MAX_CRON_JOBS);
         return DAIMA_ERR_NO_MEM;
     }
 
@@ -504,10 +498,7 @@ daima_err_t cron_add_job(cron_job_t *job)
 
     cron_save_jobs();
 
-    DAIMA_LOGI(TAG, "Added cron job: %s (%s) kind=%s next_run=%lld",
-             job->name, job->id,
-             cron_kind_to_string(job->kind),
-             (long long)job->next_run);
+    pr_info("Added cron job: %s (%s) kind=%s next_run=%lld", job->name, job->id, cron_kind_to_string(job->kind), (long long)job->next_run);
     return DAIMA_OK;
 }
 
@@ -515,7 +506,7 @@ daima_err_t cron_remove_job(const char *job_id)
 {
     for (int i = 0; i < s_job_count; i++) {
         if (strcmp(s_jobs[i].id, job_id) == 0) {
-            DAIMA_LOGI(TAG, "Removing cron job: %s (%s)", s_jobs[i].name, job_id);
+            pr_info("Removing cron job: %s (%s)", s_jobs[i].name, job_id);
 
             /* 将剩余任务前移 */
             for (int j = i; j < s_job_count - 1; j++) {
@@ -528,7 +519,7 @@ daima_err_t cron_remove_job(const char *job_id)
         }
     }
 
-    DAIMA_LOGW(TAG, "Cron job not found: %s", job_id);
+    pr_warn("Cron job not found: %s", job_id);
     return DAIMA_ERR_NOT_FOUND;
 }
 

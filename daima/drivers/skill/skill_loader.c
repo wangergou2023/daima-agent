@@ -18,9 +18,6 @@
 #include <time.h>
 #include "linux/printk.h"
 #include "linux/kernel.h"
-
-static const char *TAG = "skills";
-
 #define SKILL_SUMMARY_CACHE_TTL_SEC 5
 #define SKILL_SUMMARY_CACHE_MAX     8
 #define SKILL_SUMMARY_CHANNEL_LEN   32
@@ -231,14 +228,14 @@ static void install_builtin(const builtin_skill_t *skill)
     FILE *f = fopen(file_path, "r");
     if (f) {
         fclose(f);
-        DAIMA_LOGD(TAG, "Skill exists: %s", file_path);
+        pr_debug("Skill exists: %s", file_path);
         return;
     }
 
     f = fopen(legacy_path, "r");
     if (f) {
         fclose(f);
-        DAIMA_LOGD(TAG, "Legacy skill exists: %s", legacy_path);
+        pr_debug("Legacy skill exists: %s", legacy_path);
         return;
     }
 
@@ -248,25 +245,25 @@ static void install_builtin(const builtin_skill_t *skill)
 
     f = fopen(file_path, "w");
     if (!f) {
-        DAIMA_LOGE(TAG, "Cannot write skill: %s", file_path);
+        pr_err("Cannot write skill: %s", file_path);
         return;
     }
 
     fputs(skill->content, f);
     fclose(f);
-    DAIMA_LOGI(TAG, "Installed built-in skill: %s", file_path);
+    pr_info("Installed built-in skill: %s", file_path);
 }
 
 daima_err_t skill_loader_init(void)
 {
-    DAIMA_LOGI(TAG, "Initializing skills system");
+    pr_info("Initializing skills system");
     memset(s_summary_cache, 0, sizeof(s_summary_cache));
 
     for (size_t i = 0; i < NUM_BUILTINS; i++) {
         install_builtin(&s_builtins[i]);
     }
 
-    DAIMA_LOGI(TAG, "Skills system ready (%d built-in)", (int)NUM_BUILTINS);
+    pr_info("Skills system ready (%d built-in)", (int)NUM_BUILTINS);
     return DAIMA_OK;
 }
 
@@ -427,7 +424,7 @@ static size_t skill_loader_build_summary_uncached(const char *channel, char *buf
 
     DIR *dir = opendir(daima_path_spiffs_base());
     if (!dir) {
-        DAIMA_LOGW(TAG, "Cannot open SPIFFS for skill enumeration");
+        pr_warn("Cannot open SPIFFS for skill enumeration");
     }
 
     struct dirent *ent;
@@ -474,7 +471,7 @@ static size_t skill_loader_build_summary_uncached(const char *channel, char *buf
     if (!found) {
         DIR *skills_dir = opendir(daima_path_skills_dir());
         if (!skills_dir) {
-            DAIMA_LOGW(TAG, "Cannot open skills directory for enumeration");
+            pr_warn("Cannot open skills directory for enumeration");
         } else {
             while ((ent = readdir(skills_dir)) != NULL && off < size - 1) {
                 if (strcmp(ent->d_name, "channels") == 0) continue;
@@ -491,7 +488,7 @@ static size_t skill_loader_build_summary_uncached(const char *channel, char *buf
     }
 
     buf[off] = '\0';
-    DAIMA_LOGD(TAG, "Skills summary: %d bytes", (int)off);
+    pr_debug("Skills summary: %d bytes", (int)off);
     return off;
 }
 
@@ -505,8 +502,7 @@ size_t skill_loader_build_summary_for_channel(const char *channel, char *buf, si
     time_t now = time(NULL);
     skill_summary_cache_entry_t *entry = find_summary_cache_entry(key);
     if (entry && now - entry->built_at <= SKILL_SUMMARY_CACHE_TTL_SEC) {
-        DAIMA_LOGD(TAG, "Skills summary cache hit: channel=%s bytes=%d",
-                   key[0] ? key : "(common)", (int)entry->len);
+        pr_debug("Skills summary cache hit: channel=%s bytes=%d", key[0] ? key : "(common)", (int)entry->len);
         return copy_summary_to_output(entry->summary, entry->len, buf, size);
     }
 

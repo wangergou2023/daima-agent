@@ -4,9 +4,9 @@ LDLIBS = -lm
 
 .PHONY: test test_pptx_generator clean
 
+PRINTK_SRC = ../daima/kernel/printk/printk.c ../daima/lib/log_file.c
 SAFE_EDIT_SRC = ../daima/drivers/tool/tool_safe_edit.c
 HASHLINE_SRC = ../daima/drivers/tool/tool_hashline.c
-PRINTK_SRC = ../daima/kernel/printk/printk.c ../daima/lib/log_file.c
 
 test: test_kernel_headers test_tts_player test_work_item test_webfetch test_pet_event test_safe_edit test_hashline test_apply_patch test_terminal test_runtime_config test_llm_openai_payload test_llm_anthropic_payload test_llm_http_async test_llm_async_chat test_model_fallback test_session_history_reasoning test_paths test_rules_injection test_tool_protocol_guard test_agent_hooks test_intent_gate test_agent_roles test_agent_coordinator test_category_router test_plan_review test_prometheus_interview test_team_mode test_files_tool test_cron_tool test_skills_tool test_skill_summary test_context_skills_summary test_tool_surface test_skill_scoped_tools test_tool_invocation_context test_json_helpers test_daima_text test_session_file_common test_compaction_recovery test_session_recovery test_todo_enforcer test_ralph_loop
 	./test_kernel_headers

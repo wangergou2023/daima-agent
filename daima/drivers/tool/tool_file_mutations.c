@@ -18,9 +18,6 @@
 #include <string.h>
 #include <unistd.h>
 #include "linux/slab.h"
-
-static const char *TAG = "tool_files";
-
 #define MAX_FILE_SIZE (32 * 1024)
 #define READ_PATH_SIZE 1024
 
@@ -354,13 +351,9 @@ static daima_err_t apply_patch_add_file(char **cursor,
                 return err;
             }
             snprintf(output, output_size, "OK：apply_patch 已新增 %s（%d bytes）", resolved_path, (int)content.len);
-            DAIMA_LOGI(TAG, "apply_patch add: %s bytes=%d", resolved_path, (int)content.len);
+            pr_info("apply_patch add: %s bytes=%d", resolved_path, (int)content.len);
             if (non_prefixed_count > 0) {
-                DAIMA_LOGI(TAG,
-                           "apply_patch add accepted %d non-prefixed content lines: path=%s first=%.80s",
-                           non_prefixed_count,
-                           resolved_path,
-                           first_non_prefixed);
+                pr_info("apply_patch add accepted %d non-prefixed content lines: path=%s first=%.80s", non_prefixed_count, resolved_path, first_non_prefixed);
             }
             return DAIMA_OK;
         }
@@ -408,7 +401,7 @@ static daima_err_t apply_patch_delete_file(const char *path,
     }
     snprintf(output, output_size, "OK：apply_patch 已删除 %s（checkpoint=%s）",
              resolved_path, checkpoint_path[0] ? checkpoint_path : "(none)");
-    DAIMA_LOGI(TAG, "apply_patch delete: %s", resolved_path);
+    pr_info("apply_patch delete: %s", resolved_path);
     return DAIMA_OK;
 }
 
@@ -530,7 +523,7 @@ static daima_err_t apply_patch_update_file(char **cursor,
 
     snprintf(output, output_size, "OK：apply_patch 已更新 %s（替换 %d 处，checkpoint=%s）",
              resolved_path, replaced_count, checkpoint_path[0] ? checkpoint_path : "(none)");
-    DAIMA_LOGI(TAG, "apply_patch update: %s replaced=%d", resolved_path, replaced_count);
+    pr_info("apply_patch update: %s replaced=%d", resolved_path, replaced_count);
     return DAIMA_OK;
 }
 
@@ -651,6 +644,6 @@ daima_err_t tool_restore_file_execute(const char *input_json, char *output, size
     snprintf(output, output_size,
              "OK：已将 %s 恢复到 checkpoint=%s（恢复前当前版本已保存到 %s）",
              resolved_path, checkpoint_path, rollback_checkpoint[0] ? rollback_checkpoint : "(none)");
-    DAIMA_LOGI(TAG, "restore_file: %s <- %s", resolved_path, checkpoint_path);
+    pr_info("restore_file: %s <- %s", resolved_path, checkpoint_path);
     return DAIMA_OK;
 }

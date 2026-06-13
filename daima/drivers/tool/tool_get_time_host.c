@@ -10,9 +10,6 @@
 #include <strings.h>
 #include "linux/printk.h"
 #include "linux/kernel.h"
-
-static const char *TAG = "tool_time";
-
 static const daima_tool_t s_get_time_tool = {
     .name = "get_current_time",
     .description = "获取当前日期和时间（并同步系统时钟）。需要知道日期/时间时使用。",
@@ -102,7 +99,7 @@ static void format_time(time_t t, char *out, size_t out_size)
 daima_err_t tool_get_time_execute(const char *input_json, char *output, size_t output_size)
 {
     (void)input_json;
-    DAIMA_LOGI(TAG, "Fetching current time...");
+    pr_info("Fetching current time...");
 
     host_http_response_t resp = {0};
     daima_err_t err = host_http_request("HEAD", "https://example.com/", NULL, NULL, 5000, &resp);
@@ -120,11 +117,11 @@ daima_err_t tool_get_time_execute(const char *input_json, char *output, size_t o
     host_http_response_free(&resp);
 
     if (!ok) {
-        DAIMA_LOGW(TAG, "Falling back to local system time");
+        pr_warn("Falling back to local system time");
     }
 
     format_time(t, output, output_size);
-    DAIMA_LOGI(TAG, "Time: %s", output);
+    pr_info("Time: %s", output);
     return DAIMA_OK;
 }
 

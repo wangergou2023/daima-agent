@@ -12,9 +12,6 @@
 #include <string.h>
 #include "linux/slab.h"
 #include "linux/kernel.h"
-
-static const char *TAG = "category_router";
-
 static category_router_cfg_t s_cfg;
 static bool s_loaded = false;
 static char s_loaded_home[DAIMA_BUF_PATH];
@@ -118,7 +115,7 @@ static void load_default_cfg(category_router_cfg_t *cfg)
 
     const char *active_model = runtime_config_get_provider_model();
     if (!active_model || !active_model[0]) {
-        DAIMA_LOGW(TAG, "No active provider model configured, category routing disabled");
+        pr_warn("No active provider model configured, category routing disabled");
         cfg->enabled = false;
         return;
     }
@@ -141,8 +138,7 @@ static void load_default_cfg(category_router_cfg_t *cfg)
     cfg->role_model_map[AGENT_ROLE_EXECUTOR] = deep;
     cfg->role_model_map[AGENT_ROLE_REVIEWER] = deep;
 
-    DAIMA_LOGI(TAG, "Category routing defaults: deep=%s quick=%s",
-                active_model, quick_model);
+    pr_info("Category routing defaults: deep=%s quick=%s", active_model, quick_model);
 }
 
 static void add_profiles_from_provider_object(category_router_cfg_t *cfg, cJSON *profiles)
@@ -157,7 +153,7 @@ static void add_profiles_from_provider_object(category_router_cfg_t *cfg, cJSON 
         }
         const char *model = runtime_config_get_provider_model_for_name(entry->valuestring);
         if (!model || !model[0]) {
-            DAIMA_LOGW(TAG, "Category routing provider not found or missing model: %s", entry->valuestring);
+            pr_warn("Category routing provider not found or missing model: %s", entry->valuestring);
             continue;
         }
         add_profile(cfg, entry->string, model, context_limit, max_tokens);
@@ -310,13 +306,12 @@ static void parse_categories_json(category_router_cfg_t *cfg, cJSON *json_root, 
 
         if (cJSON_IsString(entry)) {
             if (!find_provider_by_name(json_root, entry->valuestring, &resolved)) {
-                DAIMA_LOGW(TAG, "Category routing provider not found: %s → %s",
-                           entry->string, entry->valuestring);
+                pr_warn("Category routing provider not found: %s → %s", entry->string, entry->valuestring);
                 continue;
             }
         } else if (cJSON_IsObject(entry)) {
             if (!resolve_category_model(json_root, entry, &resolved)) {
-                DAIMA_LOGW(TAG, "Category routing category has no available model: %s", entry->string);
+                pr_warn("Category routing category has no available model: %s", entry->string);
                 continue;
             }
         } else {
@@ -333,17 +328,14 @@ static void log_loaded_categories(const category_router_cfg_t *cfg, cJSON *json_
         return;
     }
 
-    DAIMA_LOGI(TAG, "Category routing: categories loaded");
+    pr_info("Category routing: categories loaded");
     for (int i = 0; i < cfg->profile_count; i++) {
         category_model_resolution_t resolved;
         const char *provider_name = "active_provider";
         if (find_provider_by_model(json_root, cfg->profiles[i].model, &resolved) && resolved.provider_name[0]) {
             provider_name = resolved.provider_name;
         }
-        DAIMA_LOGI(TAG, "  %-9s -> %s (from %s)",
-                    cfg->profiles[i].name,
-                    cfg->profiles[i].model,
-                    provider_name);
+        pr_info("  %-9s -> %s (from %s)", cfg->profiles[i].name, cfg->profiles[i].model, provider_name);
     }
 }
 
@@ -492,7 +484,7 @@ category_router_cfg_t category_router_load_and_get_cfg(void)
     char *json_text = read_category_config(path, sizeof(path));
     if (json_text) {
         if (!load_json_cfg(&s_cfg, json_text)) {
-            DAIMA_LOGW(TAG, "Invalid category routing config, using defaults: %s", path);
+            pr_warn("Invalid category routing config, using defaults: %s", path);
             load_default_cfg(&s_cfg);
         }
         kfree(json_text);

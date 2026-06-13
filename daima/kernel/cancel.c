@@ -6,9 +6,6 @@
 #include <stdio.h>
 #include <string.h>
 #include "linux/kernel.h"
-
-static const char *TAG = "agent_cancel";
-
 #define CANCEL_SLOT_MAX 32
 
 typedef struct {
@@ -57,7 +54,7 @@ static cancel_slot_t *find_or_create_slot_locked(const char *chat_id)
 
     slot = empty ? empty : &s_slots[0];
     if (!empty && slot->chat_id[0]) {
-        DAIMA_LOGW(TAG, "Cancel slot table full, evicting chat=%s", slot->chat_id);
+        pr_warn("Cancel slot table full, evicting chat=%s", slot->chat_id);
     }
     strscpy(slot->chat_id, chat_id, sizeof(slot->chat_id));
     slot->generation = 0;
@@ -89,10 +86,7 @@ void agent_cancel_request(const char *chat_id, const char *reason)
     pthread_mutex_unlock(&s_mutex);
 
     if (generation > 0) {
-        DAIMA_LOGI(TAG, "Cancel requested for chat=%s generation=%llu reason=%s",
-                   chat_id,
-                   (unsigned long long)generation,
-                   reason && reason[0] ? reason : "-");
+        pr_info("Cancel requested for chat=%s generation=%llu reason=%s", chat_id, (unsigned long long)generation, reason && reason[0] ? reason : "-");
     }
 }
 

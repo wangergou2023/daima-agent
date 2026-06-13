@@ -16,9 +16,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include "linux/printk.h"
-
-static const char *TAG = "context";
-
 static size_t append_textf(char *buf, size_t size, size_t offset, const char *fmt, ...);
 
 /* Strip any orphaned multi-byte UTF-8 sequences anywhere in the buffer.
@@ -410,7 +407,7 @@ daima_err_t context_build_system_prompt_for_channel(const char *channel, char *b
     }
 
     fix_truncated_utf8(buf, off);
-    DAIMA_LOGD(TAG, "System prompt built: %d bytes", (int)off);
+    pr_debug("System prompt built: %d bytes", (int)off);
     return DAIMA_OK;
 }
 

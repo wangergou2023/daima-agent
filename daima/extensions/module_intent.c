@@ -7,14 +7,11 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("daima");
 MODULE_DESCRIPTION("Agent Extension: intent_gate");
-
-static const char *TAG = "ext_intent_gate";
-
 static daima_err_t on_intent(daima_msg_t *msg)
 {
 #if AGENT_EXTENSIONS_ENABLED
     intent_gate_classify(msg->content, &msg->intent);
-    DAIMA_LOGI(TAG, "Intent classified: %s -> %s", msg->content, daima_intent_name(msg->intent));
+    pr_info("Intent classified: %s -> %s", msg->content, daima_intent_name(msg->intent));
 #endif
     return DAIMA_OK;
 }

@@ -12,9 +12,6 @@
 #include "text.h"
 #include "cJSON.h"
 #include "linux/slab.h"
-
-static const char *TAG = "feishu";
-
 static int64_t now_ms(void)
 {
     struct timespec ts;
@@ -40,7 +37,7 @@ static void feishu_handle_ws_frame(feishu_ws_conn_t *conn,
 {
     feishu_ws_frame_t frame = {0};
     if (!feishu_ws_parse_frame(buf, len, &frame)) {
-        DAIMA_LOGW(TAG, "WS frame parse failed");
+        pr_warn("WS frame parse failed");
         return;
     }
 
@@ -104,7 +101,7 @@ void feishu_ws_runtime_run(feishu_ws_runtime_t *rt,
         }
 
         rt->connected = true;
-        DAIMA_LOGI(TAG, "Feishu WS connected");
+        pr_info("Feishu WS connected");
 
         int64_t last_ping = 0;
         while (1) {
@@ -115,7 +112,7 @@ void feishu_ws_runtime_run(feishu_ws_runtime_t *rt,
 
             int ready = feishu_ws_wait_readable(&conn, timeout);
             if (ready < 0) {
-                DAIMA_LOGW(TAG, "WS read error");
+                pr_warn("WS read error");
                 break;
             }
             if (ready > 0) {
@@ -123,7 +120,7 @@ void feishu_ws_runtime_run(feishu_ws_runtime_t *rt,
                 uint8_t *payload = NULL;
                 size_t payload_len = 0;
                 if (!feishu_ws_read_frame(&conn, &opcode, &payload, &payload_len)) {
-                    DAIMA_LOGW(TAG, "WS frame read failed");
+                    pr_warn("WS frame read failed");
                     kfree(payload);
                     break;
                 }
@@ -155,7 +152,7 @@ void feishu_ws_runtime_run(feishu_ws_runtime_t *rt,
 
         feishu_ws_conn_close(&conn);
         rt->connected = false;
-        DAIMA_LOGW(TAG, "Feishu WS disconnected");
+        pr_warn("Feishu WS disconnected");
         daima_task_delay(3000);
     }
 }

@@ -13,9 +13,6 @@
 #include "json_helpers.h"
 #include "linux/slab.h"
 #include "linux/kernel.h"
-
-static const char *TAG = "feishu_targets";
-
 #define FEISHU_TARGETS_MAX 16
 
 static void targets_path(char *buf, size_t size)
@@ -74,7 +71,7 @@ static bool save_targets_root(cJSON *root)
     targets_path(path, sizeof(path));
     FILE *f = fopen(path, "w");
     if (!f) {
-        DAIMA_LOGW(TAG, "Cannot write %s", path);
+        pr_warn("Cannot write %s", path);
         kfree(json);
         return false;
     }
@@ -153,7 +150,7 @@ bool feishu_targets_record(const char *route_id,
     bool ok = save_targets_root(root);
     cJSON_Delete(root);
     if (ok) {
-        DAIMA_LOGI(TAG, "Recorded Feishu target: %s", route_id);
+        pr_info("Recorded Feishu target: %s", route_id);
     }
     return ok;
 }

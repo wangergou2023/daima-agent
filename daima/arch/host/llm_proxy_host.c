@@ -34,7 +34,6 @@ static void *memrchr(const void *s, int c, size_t n) {
 #include "cJSON.h"
 #include "json_helpers.h"
 
-static const char *TAG = "llm";
 static const char *DEFAULT_LLM_MODEL = "kimi-k2.5";
 static const int DEFAULT_CONTEXT_LIMIT_TOKENS = 128000;
 
@@ -178,23 +177,7 @@ static void log_llm_response_diagnostics(const char *protocol,
         }
     }
 
-    DAIMA_LOGI(TAG,
-               "LLM diagnostics: protocol=%s id=%s model=%s stop=%s usage_in=%d usage_out=%d usage_total=%d raw_bytes=%d blocks{text=%d thinking=%d tool=%d} max_tool_input_len=%d empty_tool_inputs=%d%s%s",
-               protocol ? protocol : "-",
-               id ? id : "-",
-               model ? model : "-",
-               stop ? stop : "-",
-               input_tokens,
-               output_tokens,
-               total_tokens,
-               raw_resp ? (int)strlen(raw_resp) : 0,
-               text_blocks,
-               thinking_blocks,
-               tool_blocks,
-               max_tool_input_len,
-               empty_tool_inputs,
-               empty_tool_name[0] ? " first_empty_tool=" : "",
-               empty_tool_name[0] ? empty_tool_name : "");
+    pr_info("LLM diagnostics: protocol=%s id=%s model=%s stop=%s usage_in=%d usage_out=%d usage_total=%d raw_bytes=%d blocks{text=%d thinking=%d tool=%d} max_tool_input_len=%d empty_tool_inputs=%d%s%s", protocol ? protocol : "-", id ? id : "-", model ? model : "-", stop ? stop : "-", input_tokens, output_tokens, total_tokens, raw_resp ? (int)strlen(raw_resp) : 0, text_blocks, thinking_blocks, tool_blocks, max_tool_input_len, empty_tool_inputs, empty_tool_name[0] ? " first_empty_tool=" : "", empty_tool_name[0] ? empty_tool_name : "");
 
     if (empty_tool_inputs <= 0 || !raw_resp) {
         return;
@@ -221,12 +204,12 @@ static void log_llm_response_diagnostics(const char *protocol,
 
     FILE *f = fopen(path, "w");
     if (!f) {
-        DAIMA_LOGW(TAG, "Failed to write LLM empty tool debug file: %s", path);
+        pr_warn("Failed to write LLM empty tool debug file: %s", path);
         return;
     }
     fwrite(raw_resp, 1, strlen(raw_resp), f);
     fclose(f);
-    DAIMA_LOGW(TAG, "LLM empty tool input raw response saved: %s", path);
+    pr_warn("LLM empty tool input raw response saved: %s", path);
 }
 
 static bool url_tail_is_version_root(const char *url)
@@ -467,7 +450,7 @@ static daima_err_t parse_llm_response(const char *raw_resp,
     memset(resp, 0, sizeof(*resp));
 
     if (status != 200) {
-        DAIMA_LOGE(TAG, "API error %ld: %.500s", status, raw_resp ? raw_resp : "");
+        pr_err("API error %ld: %.500s", status, raw_resp ? raw_resp : "");
         return DAIMA_FAIL;
     }
 
@@ -479,22 +462,20 @@ static daima_err_t parse_llm_response(const char *raw_resp,
             diag_root);
         cJSON_Delete(diag_root);
     } else {
-        DAIMA_LOGW(TAG, "LLM diagnostics skipped: raw response JSON parse failed");
+        pr_warn("LLM diagnostics skipped: raw response JSON parse failed");
     }
 
     daima_err_t err = use_anthropic_api
         ? llm_anthropic_parse_response(raw_resp, resp)
         : llm_openai_parse_response(raw_resp, resp);
     if (err != DAIMA_OK) {
-        DAIMA_LOGE(TAG, "Failed to parse API response JSON");
+        pr_err("Failed to parse API response JSON");
         return err;
     }
 
-    DAIMA_LOGI(TAG, "Response: %d bytes text, %d tool calls, stop=%s",
-             (int)resp->text_len, resp->call_count,
-             resp->tool_use ? "tool_use" : "end_turn");
+    pr_info("Response: %d bytes text, %d tool calls, stop=%s", (int)resp->text_len, resp->call_count, resp->tool_use ? "tool_use" : "end_turn");
     if (resp->text && resp->text[0]) {
-        DAIMA_LOGI(TAG, "LLM text: %zu bytes", strlen(resp->text));
+        pr_info("LLM text: %zu bytes", strlen(resp->text));
     }
 
     return DAIMA_OK;
@@ -531,18 +512,15 @@ daima_err_t llm_proxy_init(void)
     }
 
     if (s_api_key[0]) {
-        DAIMA_LOGI(TAG, "LLM proxy initialized (protocol: %s, api_mode: %s, model: %s)",
-                  s_use_anthropic_api ? "anthropic-compatible" : "openai-compatible",
-                  (api_mode && api_mode[0]) ? api_mode : "chat_completions(default)",
-                  s_model);
+        pr_info("LLM proxy initialized (protocol: %s, api_mode: %s, model: %s)", s_use_anthropic_api ? "anthropic-compatible" : "openai-compatible", (api_mode && api_mode[0]) ? api_mode : "chat_completions(default)", s_model);
     } else {
-        DAIMA_LOGW(TAG, "No API key configured in %s", daima_path_runtime_config_file());
+        pr_warn("No API key configured in %s", daima_path_runtime_config_file());
     }
 
     if (s_openai_base_url[0]) {
-        DAIMA_LOGI(TAG, "LLM base URL: %s", s_openai_base_url);
+        pr_info("LLM base URL: %s", s_openai_base_url);
         if (s_openai_api_url[0]) {
-            DAIMA_LOGI(TAG, "LLM API URL: %s", s_openai_api_url);
+            pr_info("LLM API URL: %s", s_openai_api_url);
         }
     }
     return DAIMA_OK;
@@ -591,13 +569,8 @@ daima_err_t llm_chat_tools(const char *system_prompt,
     char *post_data = build_request_body(system_prompt, messages, tools_json, s_model);
     if (!post_data) return DAIMA_ERR_NO_MEM;
 
-    DAIMA_LOGI(TAG, "Calling LLM API with tools (protocol: %s, model: %s, max_output_tokens: %d, timeout_ms: %d, body: %d bytes)",
-             s_use_anthropic_api ? "anthropic-compatible" : "openai-compatible",
-             s_model,
-             max_output_tokens,
-             request_timeout_ms,
-             (int)strlen(post_data));
-    llm_http_log_payload(TAG, "LLM tools request", post_data);
+    pr_info("Calling LLM API with tools (protocol: %s, model: %s, max_output_tokens: %d, timeout_ms: %d, body: %d bytes)", s_use_anthropic_api ? "anthropic-compatible" : "openai-compatible", s_model, max_output_tokens, request_timeout_ms, (int)strlen(post_data));
+    llm_http_log_payload("llm", "LLM tools request", post_data);
 
     char *raw_resp = NULL;
     int status = 0;
@@ -605,13 +578,13 @@ daima_err_t llm_chat_tools(const char *system_prompt,
     kfree(post_data);
 
     if (err != DAIMA_OK) {
-        DAIMA_LOGE(TAG, "HTTP request failed: %s timeout_ms=%d", daima_err_to_name(err), request_timeout_ms);
-        llm_http_log_payload(TAG, "LLM tools partial response", raw_resp);
+        pr_err("HTTP request failed: %s timeout_ms=%d", daima_err_to_name(err), request_timeout_ms);
+        llm_http_log_payload("llm", "LLM tools partial response", raw_resp);
         kfree(raw_resp);
         return err;
     }
 
-    llm_http_log_payload(TAG, "LLM tools raw response", raw_resp);
+    llm_http_log_payload("llm", "LLM tools raw response", raw_resp);
 
     err = parse_llm_response(raw_resp, status, s_use_anthropic_api, resp);
     kfree(raw_resp);
@@ -673,13 +646,8 @@ llm_async_chat_t *llm_chat_tools_async(const char *system_prompt,
         return NULL;
     }
 
-    DAIMA_LOGI(TAG, "Launching async LLM API call (protocol: %s, model: %s, max_output_tokens: %d, timeout_ms: %d, body: %d bytes)",
-             chat->use_anthropic_api ? "anthropic-compatible" : "openai-compatible",
-             chat->model_name,
-             max_output_tokens,
-             request_timeout_ms,
-             (int)strlen(chat->post_data));
-    llm_http_log_payload(TAG, "LLM async tools request", chat->post_data);
+    pr_info("Launching async LLM API call (protocol: %s, model: %s, max_output_tokens: %d, timeout_ms: %d, body: %d bytes)", chat->use_anthropic_api ? "anthropic-compatible" : "openai-compatible", chat->model_name, max_output_tokens, request_timeout_ms, (int)strlen(chat->post_data));
+    llm_http_log_payload("llm", "LLM async tools request", chat->post_data);
 
     chat->headers = build_headers(llm_api_url());
     chat->http_req = llm_http_async_request("POST", llm_api_url(), chat->headers, chat->post_data, request_timeout_ms);
@@ -714,13 +682,13 @@ daima_err_t llm_chat_async_get_response(llm_async_chat_t *chat, llm_response_t *
     long status = 0;
     daima_err_t err = llm_http_async_get_response(chat->http_req, &raw_resp, &status);
     if (err != DAIMA_OK) {
-        DAIMA_LOGE(TAG, "Async HTTP request failed: %s", daima_err_to_name(err));
-        llm_http_log_payload(TAG, "LLM async tools partial response", raw_resp);
+        pr_err("Async HTTP request failed: %s", daima_err_to_name(err));
+        llm_http_log_payload("llm", "LLM async tools partial response", raw_resp);
         kfree(raw_resp);
         return err;
     }
 
-    llm_http_log_payload(TAG, "LLM async tools raw response", raw_resp);
+    llm_http_log_payload("llm", "LLM async tools raw response", raw_resp);
     err = parse_llm_response(raw_resp, status, chat->use_anthropic_api, resp);
     kfree(raw_resp);
     return err;
@@ -746,7 +714,7 @@ daima_err_t llm_set_api_key(const char *api_key)
     /* 覆盖当前进程内的运行时配置 */
     daima_safe_copy(s_api_key, sizeof(s_api_key), api_key);
     s_api_key_set = true;
-    DAIMA_LOGI(TAG, "API key set");
+    pr_info("API key set");
     return DAIMA_OK;
 }
 
@@ -755,7 +723,7 @@ daima_err_t llm_set_model(const char *model)
     /* 覆盖当前进程内的模型配置 */
     daima_safe_copy(s_model, sizeof(s_model), model);
     s_model_set = true;
-    DAIMA_LOGI(TAG, "Model set to: %s", s_model);
+    pr_info("Model set to: %s", s_model);
     return DAIMA_OK;
 }
 
@@ -800,7 +768,7 @@ daima_err_t llm_image_read_file(const char *image_path, llm_image_content_t *out
 
     FILE *fp = fopen(image_path, "rb");
     if (!fp) {
-        DAIMA_LOGE(TAG, "Failed to open image file: %s", image_path);
+        pr_err("Failed to open image file: %s", image_path);
         return DAIMA_ERR_NOT_FOUND;
     }
     
@@ -811,7 +779,7 @@ daima_err_t llm_image_read_file(const char *image_path, llm_image_content_t *out
     /* 通过配置限制图片大小，避免占用过多内存 */
     const long max_size = (long)DAIMA_VISION_MAX_IMAGE_SIZE;
     if (file_size <= 0 || file_size > max_size) {
-        DAIMA_LOGE(TAG, "Invalid image file size: %ld (max %ld)", file_size, max_size);
+        pr_err("Invalid image file size: %ld (max %ld)", file_size, max_size);
         fclose(fp);
         return DAIMA_ERR_INVALID_ARG;
     }
@@ -823,7 +791,7 @@ daima_err_t llm_image_read_file(const char *image_path, llm_image_content_t *out
     }
     
     if (fread(file_data, 1, file_size, fp) != (size_t)file_size) {
-        DAIMA_LOGE(TAG, "Failed to read image file");
+        pr_err("Failed to read image file");
         kfree(file_data);
         fclose(fp);
         return DAIMA_FAIL;
@@ -897,13 +865,8 @@ daima_err_t llm_chat_with_images(const char *system_prompt,
     
     if (!post_data) return DAIMA_ERR_NO_MEM;
     
-    DAIMA_LOGI(TAG, "Calling LLM API with images (protocol: %s, model: %s, max_output_tokens: %d, timeout_ms: %d, images: %d)",
-             s_use_anthropic_api ? "anthropic-compatible" : "openai-compatible",
-             s_model,
-             max_output_tokens,
-             request_timeout_ms,
-             image_count);
-    llm_http_log_payload(TAG, "LLM vision request", post_data);
+    pr_info("Calling LLM API with images (protocol: %s, model: %s, max_output_tokens: %d, timeout_ms: %d, images: %d)", s_use_anthropic_api ? "anthropic-compatible" : "openai-compatible", s_model, max_output_tokens, request_timeout_ms, image_count);
+    llm_http_log_payload("llm", "LLM vision request", post_data);
     
     char *raw_resp = NULL;
     int status = 0;
@@ -911,16 +874,16 @@ daima_err_t llm_chat_with_images(const char *system_prompt,
     kfree(post_data);
     
     if (err != DAIMA_OK) {
-        DAIMA_LOGE(TAG, "HTTP request failed: %s timeout_ms=%d", daima_err_to_name(err), request_timeout_ms);
-        llm_http_log_payload(TAG, "LLM vision partial response", raw_resp);
+        pr_err("HTTP request failed: %s timeout_ms=%d", daima_err_to_name(err), request_timeout_ms);
+        llm_http_log_payload("llm", "LLM vision partial response", raw_resp);
         kfree(raw_resp);
         return err;
     }
     
-    llm_http_log_payload(TAG, "LLM vision raw response", raw_resp);
+    llm_http_log_payload("llm", "LLM vision raw response", raw_resp);
     
     if (status != 200) {
-        DAIMA_LOGE(TAG, "API error %d: %.500s", status, raw_resp ? raw_resp : "");
+        pr_err("API error %d: %.500s", status, raw_resp ? raw_resp : "");
         kfree(raw_resp);
         return DAIMA_FAIL;
     }
@@ -930,11 +893,11 @@ daima_err_t llm_chat_with_images(const char *system_prompt,
         : llm_openai_parse_response(raw_resp, resp);
     kfree(raw_resp);
     if (err != DAIMA_OK) {
-        DAIMA_LOGE(TAG, "Failed to parse API response JSON");
+        pr_err("Failed to parse API response JSON");
         return err;
     }
     
-    DAIMA_LOGI(TAG, "Vision response: %d bytes text", (int)resp->text_len);
+    pr_info("Vision response: %d bytes text", (int)resp->text_len);
     
     return DAIMA_OK;
 }

@@ -10,9 +10,6 @@
 #include "autoconf.h"
 #include "linux/printk.h"
 #include "drivers/tool/tool_session_search_internal.h"
-
-static const char *TAG = "tool_session_search";
-
 static const daima_tool_t s_session_search_tool = {
     .name = "session_search",
     .description = "搜索历史会话消息和事实卡片，也可列出已有会话。适合回忆之前聊过什么、查看上下文压缩摘要或事实卡片。",
@@ -149,15 +146,7 @@ daima_err_t tool_session_search_execute(const char *input_json, char *output, si
         tool_session_search_render_hits(output, output_size, query ? query : "", target, hits, hit_count, offset, limit);
     }
 
-    DAIMA_LOGI(
-        TAG,
-        "session_search: query=%s chat_id=%s target=%s mode=%s stats=%d hits=%d",
-        query && query[0] ? query : "(none)",
-        chat_id_filter && chat_id_filter[0] ? chat_id_filter : "(all)",
-        target,
-        output_mode,
-        stats_count,
-        hit_count);
+    pr_info("session_search: query=%s chat_id=%s target=%s mode=%s stats=%d hits=%d", query && query[0] ? query : "(none)", chat_id_filter && chat_id_filter[0] ? chat_id_filter : "(all)", target, output_mode, stats_count, hit_count);
 
     cJSON_Delete(root);
     return DAIMA_OK;

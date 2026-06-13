@@ -260,17 +260,14 @@ void llm_http_async_free(llm_async_request_t *req)
 void llm_http_log_payload(const char *tag, const char *label, const char *payload)
 {
     if (!payload) {
-        DAIMA_LOGI(tag, "%s: <null>", label);
+        pr_info("%s: <null>", label);
         return;
     }
 
     size_t total = strlen(payload);
 #if DAIMA_LLM_LOG_VERBOSE_PAYLOAD
     size_t shown = total > LLM_DUMP_MAX_BYTES ? LLM_DUMP_MAX_BYTES : total;
-    DAIMA_LOGI(tag, "%s (%u bytes)%s",
-              label,
-              (unsigned)total,
-              (shown < total) ? " [truncated]" : "");
+    pr_info("%s (%u bytes)%s", label, (unsigned)total, (shown < total) ? " [truncated]" : "");
 
     char chunk[LLM_DUMP_CHUNK_BYTES + 1];
     for (size_t off = 0; off < shown; off += LLM_DUMP_CHUNK_BYTES) {
@@ -280,7 +277,7 @@ void llm_http_log_payload(const char *tag, const char *label, const char *payloa
         }
         memcpy(chunk, payload + off, n);
         chunk[n] = '\0';
-        DAIMA_LOGI(tag, "%s[%u]: %s", label, (unsigned)off, chunk);
+        pr_info("%s[%u]: %s", label, (unsigned)off, chunk);
     }
 #else
     if (DAIMA_LLM_LOG_PREVIEW_BYTES > 0) {
@@ -293,13 +290,9 @@ void llm_http_log_payload(const char *tag, const char *label, const char *payloa
                 preview[i] = ' ';
             }
         }
-        DAIMA_LOGI(tag, "%s (%u bytes): %s%s",
-                  label,
-                  (unsigned)total,
-                  preview,
-                  (shown < total) ? " ..." : "");
+        pr_info("%s (%u bytes): %s%s", label, (unsigned)total, preview, (shown < total) ? " ..." : "");
     } else {
-        DAIMA_LOGI(tag, "%s (%u bytes)", label, (unsigned)total);
+        pr_info("%s (%u bytes)", label, (unsigned)total);
     }
 #endif
 }

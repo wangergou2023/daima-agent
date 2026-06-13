@@ -11,24 +11,20 @@
 #include "linux/printk.h"
 #include "os.h"
 #include "linux/slab.h"
-
-static const char *TAG = "router";
-
 static void dispatch_outbound_task(void *arg)
 {
     (void)arg;
-    DAIMA_LOGI(TAG, "Outbound dispatch started");
+    pr_info("Outbound dispatch started");
 
     while (1) {
         daima_msg_t msg;
         if (message_bus_pop_outbound(&msg, UINT32_MAX) != DAIMA_OK) continue;
 
-        DAIMA_LOGI(TAG, "Dispatching response to %s:%s", msg.channel, msg.chat_id);
+        pr_info("Dispatching response to %s:%s", msg.channel, msg.chat_id);
 
         daima_err_t send_err = channel_runtime_dispatch_outbound(&msg);
         if (send_err != DAIMA_OK) {
-            DAIMA_LOGW(TAG, "Outbound send failed for %s:%s: %s",
-                      msg.channel, msg.chat_id, daima_err_to_name(send_err));
+            pr_warn("Outbound send failed for %s:%s: %s", msg.channel, msg.chat_id, daima_err_to_name(send_err));
         }
 
         agent_cleanup_outbound_msg(&msg);

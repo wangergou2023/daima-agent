@@ -16,8 +16,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
-
-static const char *TAG = "compress";
 #define COMPRESS_QUEUE_MAX       16
 
 enum {
@@ -159,13 +157,7 @@ daima_err_t context_compressor_maybe_compact(
 
         int n = context_compress_message_count(*messages_io);
 
-        DAIMA_LOGI(
-            TAG,
-            "Session %s needs compression: pass=%d msgs=%d approx_chars=%u",
-            chat_id,
-            pass + 1,
-            n,
-            (unsigned)approx_chars);
+        pr_info("Session %s needs compression: pass=%d msgs=%d approx_chars=%u", chat_id, pass + 1, n, (unsigned)approx_chars);
 
         if (IS_ENABLED(CONFIG_DAIMA_COMPACTION_RECOVERY_ENABLED)) {
             compaction_recovery_snapshot(chat_id);
@@ -192,13 +184,13 @@ daima_err_t context_compressor_init(void)
     }
     if (pthread_create(&s_worker_thread, NULL, compression_worker_loop, NULL) != 0) {
         pthread_mutex_unlock(&s_worker_mutex);
-        DAIMA_LOGE(TAG, "Failed to start background compression worker");
+        pr_err("Failed to start background compression worker");
         return DAIMA_FAIL;
     }
     pthread_detach(s_worker_thread);
     s_worker_started = true;
     pthread_mutex_unlock(&s_worker_mutex);
-    DAIMA_LOGI(TAG, "Background compression worker started");
+    pr_info("Background compression worker started");
     return DAIMA_OK;
 }
 
@@ -212,7 +204,7 @@ daima_err_t context_compressor_schedule(const char *chat_id)
     compress_job_t *job = find_job_slot_locked(chat_id, true);
     if (!job) {
         pthread_mutex_unlock(&s_worker_mutex);
-        DAIMA_LOGW(TAG, "Compression queue full, skip schedule for %s", chat_id);
+        pr_warn("Compression queue full, skip schedule for %s", chat_id);
         return DAIMA_FAIL;
     }
 
@@ -248,12 +240,7 @@ daima_err_t context_compressor_schedule_if_needed(const char *chat_id)
     cJSON_Delete(messages);
 
     if (!needed) {
-        DAIMA_LOGD(
-            TAG,
-            "Skip background compression schedule for %s: msgs=%d approx_chars=%u below threshold",
-            chat_id,
-            n,
-            (unsigned)approx_chars);
+        pr_debug("Skip background compression schedule for %s: msgs=%d approx_chars=%u below threshold", chat_id, n, (unsigned)approx_chars);
         return DAIMA_OK;
     }
 

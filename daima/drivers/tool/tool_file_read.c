@@ -22,8 +22,6 @@ typedef struct {
     time_t mtime;
     bool valid;
 } read_file_cache_t;
-
-static const char *TAG = "tool_files";
 static read_file_cache_t s_last_read = {0};
 
 static bool read_file_should_dedup(const char *resolved_path, int offset, int limit, time_t mtime)
@@ -230,8 +228,7 @@ daima_err_t tool_read_file_execute(const char *input_json, char *output, size_t 
     }
     kfree(fingerprint_content);
 
-    DAIMA_LOGI(TAG, "read_file: %s lines=%d..%d/%d emitted=%d",
-              resolved_path, offset, actual_end, total_lines, emitted_lines);
+    pr_info("read_file: %s lines=%d..%d/%d emitted=%d", resolved_path, offset, actual_end, total_lines, emitted_lines);
     cJSON_Delete(root);
     return DAIMA_OK;
 }

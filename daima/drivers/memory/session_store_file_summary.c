@@ -5,9 +5,6 @@
 #include <time.h>
 
 #include "linux/printk.h"
-
-static const char *TAG = "session_summary";
-
 daima_err_t session_store_file_read_summary(const char *chat_id, char *buf, size_t size)
 {
     if (!chat_id || !buf || size == 0) {
@@ -54,9 +51,9 @@ daima_err_t session_store_file_write_summary(const char *chat_id, const char *su
              time_buf, summary_text);
 
     if (!session_file_write_all(path, content)) {
-        DAIMA_LOGE(TAG, "Cannot write session summary %s", path);
+        pr_err("Cannot write session summary %s", path);
         return DAIMA_FAIL;
     }
-    DAIMA_LOGI(TAG, "Session %s summary updated", chat_id);
+    pr_info("Session %s summary updated", chat_id);
     return DAIMA_OK;
 }

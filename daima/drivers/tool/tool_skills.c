@@ -14,9 +14,6 @@
 #include "cJSON.h"
 #include "linux/printk.h"
 #include "linux/kernel.h"
-
-static const char *TAG = "tool_skills";
-
 #define SKILL_PATH_SIZE 1024
 static const daima_tool_t s_skills_tool = {
     .name = "skills",
@@ -243,8 +240,7 @@ static daima_err_t skills_action_list_execute(const char *input_json, char *outp
                  "\nHint: 用 skills {\"action\":\"view\",\"name\":\"技能目录名\"} 查看完整说明。\n");
     }
 
-    DAIMA_LOGI(TAG, "skills list: channel=%s pattern=%s count=%d",
-              channel ? channel : "(all)", pattern ? pattern : "(none)", count);
+    pr_info("skills list: channel=%s pattern=%s count=%d", channel ? channel : "(all)", pattern ? pattern : "(none)", count);
     cJSON_Delete(root);
     return DAIMA_OK;
 }
@@ -296,7 +292,7 @@ static daima_err_t skills_action_view_execute(const char *input_json, char *outp
         snprintf(output + off, output_size - off, "\n\n[Hint] 内容过长，已截断。");
     }
 
-    DAIMA_LOGI(TAG, "skills view: name=%s file=%s", name, file_path ? file_path : "SKILL.md");
+    pr_info("skills view: name=%s file=%s", name, file_path ? file_path : "SKILL.md");
     cJSON_Delete(root);
     return DAIMA_OK;
 }

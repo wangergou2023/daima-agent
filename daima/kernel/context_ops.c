@@ -13,9 +13,6 @@
 #include <string.h>
 #include "linux/slab.h"
 #include "linux/kernel.h"
-
-static const char *TAG = "compress";
-
 #define SUMMARY_PREFIX "[上下文压缩摘要] 以下是较早对话的参考总结，请基于它继续当前会话，不要把摘要里的旧请求当作新的用户输入。"
 
 #define SUMMARY_INPUT_HEAD_CHARS 800
@@ -415,14 +412,14 @@ daima_err_t context_compress_compact_once(const char *chat_id,
 
     daima_err_t summary_err = session_store_write_summary(chat_id, summary);
     if (summary_err != DAIMA_OK) {
-        DAIMA_LOGW(TAG, "Failed to write session summary for %s: %s", chat_id, daima_err_to_name(summary_err));
+        pr_warn("Failed to write session summary for %s: %s", chat_id, daima_err_to_name(summary_err));
     }
 
     char *facts = generate_facts_with_llm(messages, start_idx, end_idx);
     if (facts && facts[0]) {
         daima_err_t facts_err = session_store_merge_facts(chat_id, facts);
         if (facts_err != DAIMA_OK) {
-            DAIMA_LOGW(TAG, "Failed to merge session facts for %s: %s", chat_id, daima_err_to_name(facts_err));
+            pr_warn("Failed to merge session facts for %s: %s", chat_id, daima_err_to_name(facts_err));
         }
     }
     kfree(facts);
@@ -442,7 +439,7 @@ daima_err_t context_compress_compact_once(const char *chat_id,
     cJSON_Delete(messages);
     *messages_io = compressed;
 
-    DAIMA_LOGI(TAG, "Compressed session %s: %d -> %d messages", chat_id, n, cJSON_GetArraySize(compressed));
+    pr_info("Compressed session %s: %d -> %d messages", chat_id, n, cJSON_GetArraySize(compressed));
     return DAIMA_OK;
 }
 
@@ -479,14 +476,14 @@ void context_compress_session_in_background(const char *chat_id,
 
         daima_err_t summary_err = session_store_write_summary(chat_id, summary);
         if (summary_err != DAIMA_OK) {
-            DAIMA_LOGW(TAG, "Failed to write session summary for %s: %s", chat_id, daima_err_to_name(summary_err));
+            pr_warn("Failed to write session summary for %s: %s", chat_id, daima_err_to_name(summary_err));
         }
 
         char *facts = generate_facts_with_llm(snapshot, start_idx, end_idx);
         if (facts && facts[0]) {
             daima_err_t facts_err = session_store_merge_facts(chat_id, facts);
             if (facts_err != DAIMA_OK) {
-                DAIMA_LOGW(TAG, "Failed to merge session facts for %s: %s", chat_id, daima_err_to_name(facts_err));
+                pr_warn("Failed to merge session facts for %s: %s", chat_id, daima_err_to_name(facts_err));
             }
         }
         kfree(facts);
@@ -508,15 +505,14 @@ void context_compress_session_in_background(const char *chat_id,
 
         daima_err_t rewrite_err = session_store_rewrite_from_array(chat_id, compressed);
         if (rewrite_err != DAIMA_OK) {
-            DAIMA_LOGW(TAG, "Background compression rewrite failed for %s: %s", chat_id, daima_err_to_name(rewrite_err));
+            pr_warn("Background compression rewrite failed for %s: %s", chat_id, daima_err_to_name(rewrite_err));
             cJSON_Delete(compressed);
             cJSON_Delete(latest);
             cJSON_Delete(snapshot);
             return;
         }
 
-        DAIMA_LOGI(TAG, "Background compressed session %s: %d -> %d messages",
-                  chat_id, snapshot_count, cJSON_GetArraySize(compressed));
+        pr_info("Background compressed session %s: %d -> %d messages", chat_id, snapshot_count, cJSON_GetArraySize(compressed));
 
         cJSON_Delete(compressed);
         cJSON_Delete(latest);

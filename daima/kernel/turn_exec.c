@@ -15,9 +15,6 @@
 #include "work_item.h"
 #include "linux/slab.h"
 #include "linux/kernel.h"
-
-static const char *TAG = "agent_run";
-
 #define TOOL_FAILURE_SIGNATURE_LIMIT 16
 
 typedef struct {
@@ -38,17 +35,7 @@ static void log_tool_payload_preview(const char *phase,
     char output_preview[360];
     daima_shorten_text(input, input_preview, sizeof(input_preview), 320);
     daima_shorten_text(output, output_preview, sizeof(output_preview), 320);
-    DAIMA_LOGI(TAG,
-               "tool_payload %s chat=%s tool=%s id=%s err=%s input_len=%u input=%s output_len=%u output=%s",
-               phase ? phase : "-",
-               msg && msg->chat_id[0] ? msg->chat_id : "-",
-               tool_name && tool_name[0] ? tool_name : "-",
-               tool_id && tool_id[0] ? tool_id : "-",
-               daima_err_to_name(err),
-               input ? (unsigned)strlen(input) : 0,
-               input_preview[0] ? input_preview : "<empty>",
-               output ? (unsigned)strlen(output) : 0,
-               output_preview[0] ? output_preview : "<empty>");
+    pr_info("tool_payload %s chat=%s tool=%s id=%s err=%s input_len=%u input=%s output_len=%u output=%s", phase ? phase : "-", msg && msg->chat_id[0] ? msg->chat_id : "-", tool_name && tool_name[0] ? tool_name : "-", tool_id && tool_id[0] ? tool_id : "-", daima_err_to_name(err), input ? (unsigned)strlen(input) : 0, input_preview[0] ? input_preview : "<empty>", output ? (unsigned)strlen(output) : 0, output_preview[0] ? output_preview : "<empty>");
 }
 
 static const char *normalize_tool_failure_output(const char *tool_name,
@@ -201,9 +188,9 @@ static void collect_tool_failure_work_item(tool_failure_observer_t *observer,
     daima_err_t err = work_item_store_collect_structured(input, &item);
     if (err == DAIMA_OK) {
         const char *id = cJSON_GetStringValue(cJSON_GetObjectItem(item, "id"));
-        DAIMA_LOGI(TAG, "Collected work item for tool failure: %s (%s)", id ? id : "-", signature);
+        pr_info("Collected work item for tool failure: %s (%s)", id ? id : "-", signature);
     } else {
-        DAIMA_LOGW(TAG, "Collect work item for tool failure failed: %s", daima_err_to_name(err));
+        pr_warn("Collect work item for tool failure failed: %s", daima_err_to_name(err));
     }
     cJSON_Delete(item);
     cJSON_Delete(input);
@@ -531,8 +518,7 @@ void agent_turn_maybe_run_auto_verification(const turn_exec_stats_t *stats, char
         return;
     }
 
-    DAIMA_LOGI(TAG, "Auto verification: cmd=%s exit=%d timed_out=%d",
-              command, result.exit_code, result.timed_out ? 1 : 0);
+    pr_info("Auto verification: cmd=%s exit=%d timed_out=%d", command, result.exit_code, result.timed_out ? 1 : 0);
 
     if (result.exit_code != 0 || result.timed_out) {
         char title[256];
@@ -619,17 +605,13 @@ cJSON *agent_turn_build_tool_results(const llm_response_t *resp,
         }
 
         if (tool_err == DAIMA_OK) {
-            DAIMA_LOGI(TAG, "Tool %s result: %d bytes", call->name, (int)strlen(tool_output));
+            pr_info("Tool %s result: %d bytes", call->name, (int)strlen(tool_output));
         } else {
             char input_preview[240];
             char output_preview[240];
             daima_shorten_text(tool_input, input_preview, sizeof(input_preview), 220);
             daima_shorten_text(tool_output, output_preview, sizeof(output_preview), 220);
-            DAIMA_LOGW(TAG, "Tool %s failed: %s input=%s output=%s",
-                       call->name,
-                       daima_err_to_name(tool_err),
-                       input_preview,
-                       output_preview);
+            pr_warn("Tool %s failed: %s input=%s output=%s", call->name, daima_err_to_name(tool_err), input_preview, output_preview);
         }
 
         cJSON *result_block = cJSON_CreateObject();

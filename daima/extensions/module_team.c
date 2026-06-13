@@ -8,9 +8,6 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("daima");
 MODULE_DESCRIPTION("Agent Extension: team_mode");
-
-static const char *TAG = "ext_team_mode";
-
 static daima_err_t replace_run(daima_msg_t *msg, char *system_prompt,
                                cJSON *messages, const char *tools_json,
                                char **out_final_text)
@@ -26,13 +23,12 @@ static daima_err_t replace_run(daima_msg_t *msg, char *system_prompt,
         if (team_err == DAIMA_OK && team.completed_count > 0) {
             daima_err_t inject_err = team_mode_inject_to_prompt(&team, system_prompt, DAIMA_CONTEXT_BUF_SIZE);
             if (inject_err == DAIMA_OK) {
-                DAIMA_LOGI(TAG, "Team Mode guidance injected: sub_agents=%d timeout_ms=%d",
-                           team.max_sub_agents, team.sub_agent_timeout_ms);
+                pr_info("Team Mode guidance injected: sub_agents=%d timeout_ms=%d", team.max_sub_agents, team.sub_agent_timeout_ms);
             } else {
-                DAIMA_LOGW(TAG, "Team Mode prompt injection skipped: %s", daima_err_to_name(inject_err));
+                pr_warn("Team Mode prompt injection skipped: %s", daima_err_to_name(inject_err));
             }
         } else if (team_err != DAIMA_OK) {
-            DAIMA_LOGW(TAG, "Team Mode orchestration skipped: %s", daima_err_to_name(team_err));
+            pr_warn("Team Mode orchestration skipped: %s", daima_err_to_name(team_err));
         }
     }
 #endif

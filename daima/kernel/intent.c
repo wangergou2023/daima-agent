@@ -11,9 +11,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include "linux/slab.h"
-
-static const char *TAG = "intent_gate";
-
 #ifndef DAIMA_INTENT_GATE_ENABLED
 #define DAIMA_INTENT_GATE_ENABLED 1
 #endif
@@ -140,7 +137,7 @@ done:
     }
 #endif
 
-    DAIMA_LOGI(TAG, "IntentGate classified: %s", daima_intent_name(*out_intent));
+    pr_info("IntentGate classified: %s", daima_intent_name(*out_intent));
     return DAIMA_OK;
 }
 
@@ -178,8 +175,7 @@ static daima_err_t intent_gate_classify_llm(const char *user_message,
         else if (strstr(resp.text, "FIX"))        *out_intent = DAIMA_INTENT_FIX;
         else if (strstr(resp.text, "INVESTIGATE")) *out_intent = DAIMA_INTENT_INVESTIGATE;
         else if (strstr(resp.text, "QA"))          *out_intent = DAIMA_INTENT_QA;
-        DAIMA_LOGI(TAG, "IntentGate LLM reclassified: %s -> %s (raw: %.80s)",
-                   user_message, daima_intent_name(*out_intent), resp.text);
+        pr_info("IntentGate LLM reclassified: %s -> %s (raw: %.80s)", user_message, daima_intent_name(*out_intent), resp.text);
     }
 
     llm_response_free(&resp);

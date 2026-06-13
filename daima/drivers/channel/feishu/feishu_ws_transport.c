@@ -25,9 +25,6 @@
 #include "linux/printk.h"
 #include "text.h"
 #include "linux/slab.h"
-
-static const char *TAG = "feishu_ws";
-
 #define FEISHU_WS_MAX_PAYLOAD      (512 * 1024)
 #define FEISHU_WS_READ_TIMEOUT     DAIMA_TIMEOUT_SHORT
 #define FEISHU_WS_CONNECT_TIMEOUT  DAIMA_TIMEOUT_SHORT
@@ -343,7 +340,7 @@ static bool ws_handshake(feishu_ws_conn_t *conn, const ws_url_t *url)
     if (!ws_read_http_header(conn, resp, sizeof(resp), FEISHU_WS_CONNECT_TIMEOUT)) return false;
 
     if (strstr(resp, " 101 ") == NULL) {
-        DAIMA_LOGE(TAG, "WebSocket upgrade failed: %.120s", resp);
+        pr_err("WebSocket upgrade failed: %.120s", resp);
         return false;
     }
 

@@ -22,9 +22,6 @@
 #include "linux/printk.h"
 #include "cJSON.h"
 #include "linux/slab.h"
-
-static const char *TAG = "voice";
-
 /* BigModel API endpoints */
 static const char *BIGMODEL_ASR_URL = "https://open.bigmodel.cn/api/paas/v4/audio/transcriptions";
 static const char *BIGMODEL_TTS_URL = "https://open.bigmodel.cn/api/paas/v4/audio/speech";
@@ -245,13 +242,13 @@ static daima_err_t voice_asr_mime(const unsigned char *audio_bytes,
     curl_easy_cleanup(curl);
 
     if (res != CURLE_OK) {
-        DAIMA_LOGW(TAG, "ASR request failed: %s", curl_easy_strerror(res));
+        pr_warn("ASR request failed: %s", curl_easy_strerror(res));
         kfree(resp.data);
         return DAIMA_FAIL;
     }
 
     if (status != 200 || !resp.data) {
-        DAIMA_LOGW(TAG, "ASR failed: status=%ld body=%s", status, resp.data ? resp.data : "(null)");
+        pr_warn("ASR failed: status=%ld body=%s", status, resp.data ? resp.data : "(null)");
         kfree(resp.data);
         return DAIMA_FAIL;
     }
@@ -277,7 +274,7 @@ static daima_err_t voice_asr_mime(const unsigned char *audio_bytes,
     }
 
     if (!text) {
-        DAIMA_LOGW(TAG, "ASR response missing text: %s", resp.data);
+        pr_warn("ASR response missing text: %s", resp.data);
         cJSON_Delete(root);
         kfree(resp.data);
         return DAIMA_FAIL;
@@ -285,7 +282,7 @@ static daima_err_t voice_asr_mime(const unsigned char *audio_bytes,
 
     strncpy(out_text, text, out_size - 1);
     out_text[out_size - 1] = '\0';
-    DAIMA_LOGI(TAG, "ASR text: %.256s", out_text);
+    pr_info("ASR text: %.256s", out_text);
     cJSON_Delete(root);
     kfree(resp.data);
     return DAIMA_OK;
@@ -331,9 +328,9 @@ static daima_err_t voice_tts(const char *text,
     }
 
     if (resp.status != 200 || !resp.body || resp.body_len == 0) {
-        DAIMA_LOGW(TAG, "TTS failed: status=%ld body_len=%zu", resp.status, resp.body_len);
+        pr_warn("TTS failed: status=%ld body_len=%zu", resp.status, resp.body_len);
         if (resp.body) {
-            DAIMA_LOGW(TAG, "TTS error body: %.256s", resp.body);
+            pr_warn("TTS error body: %.256s", resp.body);
         }
         host_http_response_free(&resp);
         return DAIMA_FAIL;
@@ -348,19 +345,13 @@ static daima_err_t voice_tts(const char *text,
                 size_t n = (size_t)(end - ct);
                 if (n >= sizeof(tmp)) n = sizeof(tmp) - 1;
                 memcpy(tmp, ct, n);
-                DAIMA_LOGI(TAG, "TTS response header: %s", tmp);
+                pr_info("TTS response header: %s", tmp);
             }
         }
     }
     if (resp.body_len >= 4) {
         const unsigned char *b = (const unsigned char *)resp.body;
-        DAIMA_LOGD(TAG, "TTS audio head: %02X %02X %02X %02X (%c%c%c%c) len=%zu",
-                  b[0], b[1], b[2], b[3],
-                  (b[0] >= 32 && b[0] <= 126) ? b[0] : '.',
-                  (b[1] >= 32 && b[1] <= 126) ? b[1] : '.',
-                  (b[2] >= 32 && b[2] <= 126) ? b[2] : '.',
-                  (b[3] >= 32 && b[3] <= 126) ? b[3] : '.',
-                  resp.body_len);
+        pr_debug("TTS audio head: %02X %02X %02X %02X (%c%c%c%c) len=%zu", b[0], b[1], b[2], b[3], (b[0] >= 32 && b[0] <= 126) ? b[0] : '.', (b[1] >= 32 && b[1] <= 126) ? b[1] : '.', (b[2] >= 32 && b[2] <= 126) ? b[2] : '.', (b[3] >= 32 && b[3] <= 126) ? b[3] : '.', resp.body_len);
     }
 
     /* 直接返回 WAV 二进制 */
@@ -388,9 +379,9 @@ daima_err_t voice_channel_init(void)
     }
 
     if (s_bigmodel_key[0]) {
-        DAIMA_LOGI(TAG, "Voice channel initialized (BigModel key loaded)");
+        pr_info("Voice channel initialized (BigModel key loaded)");
     } else {
-        DAIMA_LOGW(TAG, "Voice channel disabled: missing audio.bigmodel_api_key in config.json");
+        pr_warn("Voice channel disabled: missing audio.bigmodel_api_key in config.json");
     }
 
     return DAIMA_OK;
@@ -446,7 +437,7 @@ daima_err_t voice_channel_send_reply(const char *chat_id, const char *text)
     const char *voice = sess ? sess->voice : DEFAULT_VOICE;
     const char *format = sess ? sess->format : DEFAULT_TTS_FORMAT;
     if (format && strcmp(format, "wav") != 0) {
-        DAIMA_LOGW(TAG, "Audio output expects wav; overriding response_format=%s", format);
+        pr_warn("Audio output expects wav; overriding response_format=%s", format);
         format = DEFAULT_TTS_FORMAT;
     }
 
@@ -457,12 +448,12 @@ daima_err_t voice_channel_send_reply(const char *chat_id, const char *text)
         return err;
     }
 
-    DAIMA_LOGI(TAG, "TTS audio bytes: %zu", audio_len);
+    pr_info("TTS audio bytes: %zu", audio_len);
     /* audio_output_play_wav 会解析 WAV 头，只播放 data 段 */
     daima_err_t play_err = audio_output_play_wav(audio, audio_len);
     kfree(audio);
     if (play_err != DAIMA_OK) {
-        DAIMA_LOGW(TAG, "Audio playback failed: %s", daima_err_to_name(play_err));
+        pr_warn("Audio playback failed: %s", daima_err_to_name(play_err));
     }
     return play_err;
 }
@@ -561,8 +552,7 @@ daima_err_t voice_channel_get_tts_pcm(const char *text,
     *out_len = pcm_len;
     if (out_rate) *out_rate = sample_rate;
 
-    DAIMA_LOGI(TAG, "TTS PCM: %zu bytes, sample_rate=%u Hz",
-               pcm_len, sample_rate);
+    pr_info("TTS PCM: %zu bytes, sample_rate=%u Hz", pcm_len, sample_rate);
     return DAIMA_OK;
 }
 

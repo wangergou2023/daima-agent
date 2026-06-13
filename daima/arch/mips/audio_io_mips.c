@@ -9,9 +9,6 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <imp/imp_audio.h>
-
-static const char *TAG = "audio_io";
-
 #ifndef BUILD_FOR_MIPS
 #error "audio_io_mips.c must be built only when BUILD_FOR_MIPS is enabled"
 #endif
@@ -58,13 +55,13 @@ daima_err_t audio_input_start(const audio_stream_cfg_t *cfg)
 
     ret = IMP_AI_SetPubAttr(devID, &attr);
     if (ret != 0) {
-        DAIMA_LOGE(TAG, "IMP_AI_SetPubAttr failed: %d", ret);
+        pr_err("IMP_AI_SetPubAttr failed: %d", ret);
         return DAIMA_FAIL;
     }
 
     ret = IMP_AI_Enable(devID);
     if (ret != 0) {
-        DAIMA_LOGE(TAG, "IMP_AI_Enable failed: %d", ret);
+        pr_err("IMP_AI_Enable failed: %d", ret);
         return DAIMA_FAIL;
     }
 
@@ -74,13 +71,13 @@ daima_err_t audio_input_start(const audio_stream_cfg_t *cfg)
     chnParam.aecChn = 0;
     ret = IMP_AI_SetChnParam(devID, chnID, &chnParam);
     if (ret != 0) {
-        DAIMA_LOGE(TAG, "IMP_AI_SetChnParam failed: %d", ret);
+        pr_err("IMP_AI_SetChnParam failed: %d", ret);
         return DAIMA_FAIL;
     }
 
     ret = IMP_AI_EnableChn(devID, chnID);
     if (ret != 0) {
-        DAIMA_LOGE(TAG, "IMP_AI_EnableChn failed: %d", ret);
+        pr_err("IMP_AI_EnableChn failed: %d", ret);
         return DAIMA_FAIL;
     }
 
@@ -92,8 +89,7 @@ daima_err_t audio_input_start(const audio_stream_cfg_t *cfg)
 
     s_ai_started = true;
     s_ai_cfg = *cfg;
-    DAIMA_LOGI(TAG, "Audio input started: %d Hz, %d ch, %d bit",
-             cfg->sample_rate, cfg->channels, cfg->bits_per_sample);
+    pr_info("Audio input started: %d Hz, %d ch, %d bit", cfg->sample_rate, cfg->channels, cfg->bits_per_sample);
     return DAIMA_OK;
 }
 
@@ -164,19 +160,19 @@ daima_err_t audio_output_start(const audio_stream_cfg_t *cfg)
 
     ret = IMP_AO_SetPubAttr(devID, &attr);
     if (ret != 0) {
-        DAIMA_LOGE(TAG, "IMP_AO_SetPubAttr failed: %d", ret);
+        pr_err("IMP_AO_SetPubAttr failed: %d", ret);
         return DAIMA_FAIL;
     }
 
     ret = IMP_AO_Enable(devID);
     if (ret != 0) {
-        DAIMA_LOGE(TAG, "IMP_AO_Enable failed: %d", ret);
+        pr_err("IMP_AO_Enable failed: %d", ret);
         return DAIMA_FAIL;
     }
 
     ret = IMP_AO_EnableChn(devID, chnID);
     if (ret != 0) {
-        DAIMA_LOGE(TAG, "IMP_AO_EnableChn failed: %d", ret);
+        pr_err("IMP_AO_EnableChn failed: %d", ret);
         return DAIMA_FAIL;
     }
 
@@ -189,8 +185,7 @@ daima_err_t audio_output_start(const audio_stream_cfg_t *cfg)
     s_ao_started = true;
     s_ao_cfg = *cfg;
     s_ao_frame_bytes = (size_t)bytes_per_frame(cfg, DAIMA_AUDIO_FRAME_MS);
-    DAIMA_LOGI(TAG, "Audio output started: %d Hz, %d ch, %d bit",
-             cfg->sample_rate, cfg->channels, cfg->bits_per_sample);
+    pr_info("Audio output started: %d Hz, %d ch, %d bit", cfg->sample_rate, cfg->channels, cfg->bits_per_sample);
     return DAIMA_OK;
 }
 
@@ -207,7 +202,7 @@ daima_err_t audio_output_write(const uint8_t *buf, size_t buf_size)
     frm.len = (int)buf_size;
     int ret = IMP_AO_SendFrame(devID, chnID, &frm, BLOCK);
     if (ret != 0) {
-        DAIMA_LOGE(TAG, "IMP_AO_SendFrame failed: %d (len=%zu)", ret, buf_size);
+        pr_err("IMP_AO_SendFrame failed: %d (len=%zu)", ret, buf_size);
         return DAIMA_FAIL;
     }
     return DAIMA_OK;
@@ -282,17 +277,16 @@ daima_err_t audio_output_play_wav(const uint8_t *buf, size_t buf_size)
     const uint8_t *data = NULL;
     size_t data_len = 0;
     if (!wav_parse(buf, buf_size, &cfg, &data, &data_len)) {
-        DAIMA_LOGE(TAG, "Invalid WAV data");
+        pr_err("Invalid WAV data");
         return DAIMA_ERR_INVALID_ARG;
     }
 
     if (cfg.bits_per_sample != 16) {
-        DAIMA_LOGE(TAG, "Unsupported WAV bits_per_sample=%d", cfg.bits_per_sample);
+        pr_err("Unsupported WAV bits_per_sample=%d", cfg.bits_per_sample);
         return DAIMA_ERR_INVALID_ARG;
     }
 
-    DAIMA_LOGI(TAG, "WAV cfg: %d Hz, %d ch, %d bit, data_len=%zu",
-             cfg.sample_rate, cfg.channels, cfg.bits_per_sample, data_len);
+    pr_info("WAV cfg: %d Hz, %d ch, %d bit, data_len=%zu", cfg.sample_rate, cfg.channels, cfg.bits_per_sample, data_len);
 
     daima_err_t err = audio_output_start(&cfg);
     if (err != DAIMA_OK) return err;

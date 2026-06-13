@@ -25,9 +25,6 @@
 #include "cJSON.h"
 #include "linux/slab.h"
 #include "linux/kernel.h"
-
-static const char *TAG = "ws";
-
 #define WS_PING_INTERVAL DAIMA_WS_PING_INTERVAL_SEC
 #define WS_PONG_TIMEOUT  DAIMA_WS_PONG_TIMEOUT_SEC
 #define WS_MAX_TEXT_BYTES (64 * 1024)
@@ -358,7 +355,7 @@ static void remove_client(int fd)
     pthread_mutex_lock(&s_clients_mutex);
     ws_client_t *client = find_client_by_fd(fd);
     if (client) {
-        DAIMA_LOGI(TAG, "Client disconnected: %s", client->chat_id);
+        pr_info("Client disconnected: %s", client->chat_id);
         ws_client_detach(client);
         close(client->fd);
         client->fd = -1;
@@ -395,7 +392,7 @@ static void drop_duplicate_chat_id(const char *chat_id, int keep_fd)
             clear_upload_state(client);
             pthread_mutex_unlock(&s_clients_mutex);
             if (old_fd >= 0) close(old_fd);
-            DAIMA_LOGW(TAG, "Dropped duplicate chat_id=%s (fd=%d)", chat_id, old_fd);
+            pr_warn("Dropped duplicate chat_id=%s (fd=%d)", chat_id, old_fd);
             pthread_mutex_lock(&s_clients_mutex);
         }
     }
@@ -427,7 +424,7 @@ daima_err_t ws_client_session_send_json(const char *chat_id, cJSON *obj)
     client = find_client_by_chat_id(chat_id);
     if (!client) {
         pthread_mutex_unlock(&s_clients_mutex);
-        DAIMA_LOGW(TAG, "No WS client with chat_id=%s", chat_id);
+        pr_warn("No WS client with chat_id=%s", chat_id);
         return DAIMA_ERR_NOT_FOUND;
     }
     int fd = client->fd;
@@ -440,7 +437,7 @@ daima_err_t ws_client_session_send_json(const char *chat_id, cJSON *obj)
     int ret = ws_send_text(fd, json_str);
     kfree(json_str);
     if (ret != 0) {
-        DAIMA_LOGW(TAG, "Failed to send JSON to %s", chat_id);
+        pr_warn("Failed to send JSON to %s", chat_id);
         remove_client(fd);
         return DAIMA_FAIL;
     }
@@ -482,7 +479,7 @@ bool ws_client_session_add(int fd)
         clear_upload_state(evict);
         pthread_mutex_unlock(&s_clients_mutex);
         if (old_fd >= 0) close(old_fd);
-        DAIMA_LOGW(TAG, "Evicted stale client %s (fd=%d)", old_chat, old_fd);
+        pr_warn("Evicted stale client %s (fd=%d)", old_chat, old_fd);
         pthread_mutex_lock(&s_clients_mutex);
     }
 
@@ -499,7 +496,7 @@ bool ws_client_session_add(int fd)
         s_clients[slot].active = true;
         list_add(&s_clients[slot].list, &s_client_list);
         pthread_mutex_unlock(&s_clients_mutex);
-        DAIMA_LOGI(TAG, "Client connected: %s (fd=%d)", chat_id, fd);
+        pr_info("Client connected: %s (fd=%d)", chat_id, fd);
 
         const char *pending = ws_pending_pop();
         if (pending) {
@@ -508,13 +505,13 @@ bool ws_client_session_add(int fd)
                 remove_client(fd);
                 return true;
             }
-            DAIMA_LOGI(TAG, "Delivered pending response to %s", chat_id);
+            pr_info("Delivered pending response to %s", chat_id);
         }
         return true;
     }
 
     pthread_mutex_unlock(&s_clients_mutex);
-    DAIMA_LOGW(TAG, "Max clients reached, rejecting fd=%d", fd);
+    pr_warn("Max clients reached, rejecting fd=%d", fd);
     return false;
 }
 static bool ws_read_frame_header(int fd, unsigned char *out_opcode, uint64_t *out_len, bool *out_masked, unsigned char *out_mask)
@@ -595,10 +592,7 @@ static void ws_handle_binary_frame(int fd, ws_client_t *client, const char *payl
     bool ok = save_uploaded_image(client, payload, len, saved_path, sizeof(saved_path));
     if (!ok) {
         ws_send_upload_error(fd, client->upload_chat_id, "failed to save image");
-        DAIMA_LOGW(TAG, "Image upload save failed chat=%s name=%s len=%llu",
-                   client->upload_chat_id,
-                   client->upload_filename,
-                   (unsigned long long)len);
+        pr_warn("Image upload save failed chat=%s name=%s len=%llu", client->upload_chat_id, client->upload_filename, (unsigned long long)len);
         clear_upload_state(client);
         return;
     }
@@ -612,10 +606,7 @@ static void ws_handle_binary_frame(int fd, ws_client_t *client, const char *payl
         ws_send_json_text(fd, resp);
         cJSON_Delete(resp);
     }
-    DAIMA_LOGI(TAG, "Image upload saved chat=%s size=%llu path=%s",
-               client->upload_chat_id,
-               (unsigned long long)len,
-               saved_path);
+    pr_info("Image upload saved chat=%s size=%llu path=%s", client->upload_chat_id, (unsigned long long)len, saved_path);
     clear_upload_state(client);
 }
 
@@ -641,11 +632,7 @@ static void ws_handle_upload_request(int fd, ws_client_t *client, cJSON *root)
     strscpy(client->upload_filename, name, sizeof(client->upload_filename));
     strscpy(client->upload_mime_type, mime, sizeof(client->upload_mime_type));
     client->upload_size = (size_t)size_value;
-    DAIMA_LOGI(TAG, "Image upload pending chat=%s name=%s mime=%s size=%zu",
-               client->upload_chat_id,
-               client->upload_filename,
-               client->upload_mime_type,
-               client->upload_size);
+    pr_info("Image upload pending chat=%s name=%s mime=%s size=%zu", client->upload_chat_id, client->upload_filename, client->upload_mime_type, client->upload_size);
 }
 
 static void ws_handle_chat_message(int fd, ws_client_t *client, cJSON *root)
@@ -660,10 +647,7 @@ static void ws_handle_chat_message(int fd, ws_client_t *client, cJSON *root)
     const char *image_path_value = image_path && cJSON_IsString(image_path) ? image_path->valuestring : NULL;
 
     bool valid_image_path = is_allowed_uploaded_image_path(image_path_value);
-    DAIMA_LOGI(TAG, "WS message from %s: %.40s... image=%s",
-               chat_id,
-               content->valuestring,
-               valid_image_path ? "yes" : "no");
+    pr_info("WS message from %s: %.40s... image=%s", chat_id, content->valuestring, valid_image_path ? "yes" : "no");
     agent_cancel_request(chat_id, "new_web_message");
 
     daima_msg_t msg = {0};
@@ -685,7 +669,7 @@ static void ws_handle_stop(int fd, ws_client_t *client, cJSON *root)
 {
     const char *chat_id = resolve_client_chat_id(client, root, fd);
 
-    DAIMA_LOGI(TAG, "WS stop from %s", chat_id);
+    pr_info("WS stop from %s", chat_id);
     agent_cancel_request(chat_id, "web_stop");
 
     cJSON *resp = cJSON_CreateObject();
@@ -772,7 +756,7 @@ static void ws_dispatch_text_frame(int fd, ws_client_t *client, const char *payl
 
     cJSON *root = cJSON_Parse(payload);
     if (!root) {
-        DAIMA_LOGW(TAG, "Invalid JSON from fd=%d", fd);
+        pr_warn("Invalid JSON from fd=%d", fd);
         return;
     }
 

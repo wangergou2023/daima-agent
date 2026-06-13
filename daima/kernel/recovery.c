@@ -12,8 +12,6 @@
 #include <unistd.h>
 #include "linux/slab.h"
 #include "linux/kernel.h"
-
-static const char *TAG = "session_recovery";
 static const time_t SESSION_RECOVERY_TTL_SEC = 30 * 60;
 
 static daima_err_t recovery_path(const char *chat_id, char *buf, size_t size)
@@ -185,11 +183,11 @@ daima_err_t session_recovery_save_crash(const char *chat_id,
     bool ok = write_text_file(path, json);
     kfree(json);
     if (!ok) {
-        DAIMA_LOGW(TAG, "Cannot write session recovery %s", path);
+        pr_warn("Cannot write session recovery %s", path);
         return DAIMA_FAIL;
     }
 
-    DAIMA_LOGI(TAG, "Session recovery snapshot saved for %s", chat_id);
+    pr_info("Session recovery snapshot saved for %s", chat_id);
     return DAIMA_OK;
 }
 
@@ -237,7 +235,7 @@ daima_err_t session_recovery_inject_prompt(const char *chat_id,
         system_prompt[system_prompt_size - 1] = '\0';
     }
 
-    DAIMA_LOGI(TAG, "Session recovery injected for %s", chat_id);
+    pr_info("Session recovery injected for %s", chat_id);
     return DAIMA_OK;
 }
 
@@ -248,6 +246,6 @@ void session_recovery_clear(const char *chat_id)
         return;
     }
     if (unlink(path) == 0) {
-        DAIMA_LOGI(TAG, "Session recovery cleared for %s", chat_id);
+        pr_info("Session recovery cleared for %s", chat_id);
     }
 }

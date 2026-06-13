@@ -3,8 +3,6 @@
 #include "session_store.h"
 
 #include "linux/printk.h"
-
-static const char *TAG = "session_store";
 static const daima_session_store_ops_t *s_ops = NULL;
 
 static daima_err_t ensure_store_ready(void)
@@ -19,16 +17,16 @@ daima_err_t session_store_init(void)
 {
     s_ops = session_store_file_backend();
     if (!s_ops) {
-        DAIMA_LOGE(TAG, "No session store backend available");
+        pr_err("No session store backend available");
         return DAIMA_FAIL;
     }
     if (!s_ops->init) {
-        DAIMA_LOGE(TAG, "Session store backend missing init");
+        pr_err("Session store backend missing init");
         return DAIMA_ERR_INVALID_ARG;
     }
     daima_err_t err = s_ops->init();
     if (err == DAIMA_OK) {
-        DAIMA_LOGI(TAG, "Session store backend ready");
+        pr_info("Session store backend ready");
     }
     return err;
 }

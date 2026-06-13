@@ -18,9 +18,6 @@
 #include <sys/socket.h>
 #include <time.h>
 #include "linux/slab.h"
-
-static const char *TAG = "ws";
-
 static int send_all(int fd, const void *buf, size_t len)
 {
     const char *p = (const char *)buf;
@@ -163,7 +160,7 @@ static void http_send_static_file_or_fallback(
         return;
     }
 
-    DAIMA_LOGW(TAG, "Static asset missing, fallback to built-in body: %s", path ? path : "(null)");
+    pr_warn("Static asset missing, fallback to built-in body: %s", path ? path : "(null)");
     http_send_response(fd, "200 OK", content_type, fallback_body ? fallback_body : "");
 }
 

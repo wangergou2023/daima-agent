@@ -10,9 +10,6 @@
 #include <string.h>
 #include "linux/slab.h"
 #include "linux/kernel.h"
-
-static const char *TAG = "model_fallback";
-
 static bool add_model(model_fallback_cfg_t *cfg, const char *model);
 
 static void safe_copy(char *dst, size_t dst_size, const char *src)
@@ -57,7 +54,7 @@ static void load_default_cfg(model_fallback_cfg_t *cfg)
 
     const char *active_model = runtime_config_get_provider_model();
     if (!active_model || !active_model[0]) {
-        DAIMA_LOGW(TAG, "No active provider model configured, fallback disabled");
+        pr_warn("No active provider model configured, fallback disabled");
         cfg->enabled = false;
         return;
     }
@@ -66,7 +63,7 @@ static void load_default_cfg(model_fallback_cfg_t *cfg)
     safe_copy(cfg->models[0], sizeof(cfg->models[0]), active_model);
     cfg->model_count = 1;
 
-    DAIMA_LOGD(TAG, "Model fallback default: %s (from active provider)", active_model);
+    pr_debug("Model fallback default: %s (from active provider)", active_model);
 }
 
 static bool add_model(model_fallback_cfg_t *cfg, const char *model)
@@ -194,7 +191,7 @@ model_fallback_cfg_t model_fallback_load_cfg(void)
     char *json_text = read_fallback_config(path, sizeof(path));
     if (json_text) {
         if (!load_json_cfg(&cfg, json_text)) {
-            DAIMA_LOGW(TAG, "Invalid model fallback config, using defaults: %s", path);
+            pr_warn("Invalid model fallback config, using defaults: %s", path);
             load_default_cfg(&cfg);
         }
         kfree(json_text);
@@ -238,7 +235,7 @@ daima_err_t model_fallback_chat_with_fallback(const char *system_prompt,
         llm_set_model(cfg.models[i]);
         last_err = llm_chat_tools(system_prompt, messages, tools_json, resp);
         if (last_err == DAIMA_OK) {
-            DAIMA_LOGI(TAG, "Model fallback: primary失败 -> %s", cfg.models[i]);
+            pr_info("Model fallback: primary失败 -> %s", cfg.models[i]);
             llm_set_model(primary_model);
             return DAIMA_OK;
         }

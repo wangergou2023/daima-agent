@@ -37,11 +37,6 @@ void daima_log_set_hook(daima_log_hook_t hook);
 #define pr_info(fmt, ...)  printk(KERN_INFO fmt, ##__VA_ARGS__)
 #define pr_debug(fmt, ...) printk(KERN_DEBUG fmt, ##__VA_ARGS__)
 
-#define DAIMA_LOGE(tag, fmt, ...) daima_log_write(DAIMA_LOG_ERROR, tag, fmt, ##__VA_ARGS__)
-#define DAIMA_LOGW(tag, fmt, ...) daima_log_write(DAIMA_LOG_WARN,  tag, fmt, ##__VA_ARGS__)
-#define DAIMA_LOGI(tag, fmt, ...) daima_log_write(DAIMA_LOG_INFO,  tag, fmt, ##__VA_ARGS__)
-#define DAIMA_LOGD(tag, fmt, ...) daima_log_write(DAIMA_LOG_DEBUG, tag, fmt, ##__VA_ARGS__)
-
 #ifdef __cplusplus
 }
 #endif

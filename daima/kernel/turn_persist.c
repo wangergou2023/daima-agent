@@ -13,9 +13,6 @@
 #include "linux/printk.h"
 #include "cJSON.h"
 #include "linux/slab.h"
-
-static const char *TAG = "agent_finish";
-
 static bool should_save_assistant_reply(const daima_msg_t *msg, const char *final_text)
 {
     return msg && final_text && final_text[0] && !agent_msg_is_internal_control(msg);
@@ -43,7 +40,7 @@ void agent_turn_queue_outbound_text(const daima_msg_t *msg, char *text, const ch
         return;
     }
     if (agent_msg_is_internal_control(msg)) {
-        DAIMA_LOGI(TAG, "Skip outbound response for internal control message");
+        pr_info("Skip outbound response for internal control message");
         kfree(text);
         return;
     }
@@ -54,10 +51,9 @@ void agent_turn_queue_outbound_text(const daima_msg_t *msg, char *text, const ch
     out.content = text;
     out.reasoning = reasoning && reasoning[0] ? strdup(reasoning) : NULL;
 
-    DAIMA_LOGI(TAG, "Queue final response to %s:%s (%d bytes)",
-              out.channel, out.chat_id, (int)strlen(text));
+    pr_info("Queue final response to %s:%s (%d bytes)", out.channel, out.chat_id, (int)strlen(text));
     if (message_bus_push_outbound(&out) != DAIMA_OK) {
-        DAIMA_LOGW(TAG, "Outbound queue full, drop response");
+        pr_warn("Outbound queue full, drop response");
         if (free_on_fail) {
             kfree(text);
         }
@@ -102,22 +98,16 @@ void agent_turn_save_session(const daima_msg_t *msg, const char *final_text, con
     }
 
     if (save_inbound != DAIMA_OK || save_asst != DAIMA_OK) {
-        DAIMA_LOGW(TAG, "Session save failed for chat %s (source=%s, inbound=%s, assistant=%s)",
-                  msg->chat_id,
-                  agent_msg_source_or_default(msg),
-                  daima_err_to_name(save_inbound),
-                  daima_err_to_name(save_asst));
+        pr_warn("Session save failed for chat %s (source=%s, inbound=%s, assistant=%s)", msg->chat_id, agent_msg_source_or_default(msg), daima_err_to_name(save_inbound), daima_err_to_name(save_asst));
         return;
     }
 
     if (!saved_any) {
-        DAIMA_LOGI(TAG, "Skip session save for chat %s (source=%s)",
-                  msg->chat_id, agent_msg_source_or_default(msg));
+        pr_info("Skip session save for chat %s (source=%s)", msg->chat_id, agent_msg_source_or_default(msg));
         return;
     }
 
-    DAIMA_LOGI(TAG, "Session saved for chat %s (source=%s)",
-              msg->chat_id, agent_msg_source_or_default(msg));
+    pr_info("Session saved for chat %s (source=%s)", msg->chat_id, agent_msg_source_or_default(msg));
     context_compressor_schedule_if_needed(msg->chat_id);
     if (iteration >= 1 && runtime_config_get_learning_review_enabled()) {
         learning_review_schedule(msg->chat_id);

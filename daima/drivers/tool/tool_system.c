@@ -17,9 +17,6 @@
 #include "linux/printk.h"
 #include "cJSON.h"
 #include "linux/slab.h"
-
-static const char *TAG = "tool_terminal";
-
 #define TERMINAL_DEFAULT_TIMEOUT 120
 #define TERMINAL_MAX_TIMEOUT     1800
 #define SUDO_ENV_NAME            "DAIMA_SUDO_PASSWORD"
@@ -240,8 +237,7 @@ daima_err_t tool_terminal_execute(const char *input_json, char *output, size_t o
                                       command,
                                       effective_workdir,
                                       blocked_reason ? blocked_reason : "command_blocked");
-        DAIMA_LOGW(TAG, "terminal command blocked: reason=%s cmd=%.120s",
-                  blocked_reason ? blocked_reason : "command_blocked", command);
+        pr_warn("terminal command blocked: reason=%s cmd=%.120s", blocked_reason ? blocked_reason : "command_blocked", command);
         cJSON_Delete(root);
         return DAIMA_ERR_INVALID_STATE;
     }
@@ -317,13 +313,7 @@ daima_err_t tool_terminal_execute(const char *input_json, char *output, size_t o
     }
 
     if (err == DAIMA_OK) {
-        DAIMA_LOGI(
-            TAG,
-            "terminal: cmd=%.120s exit=%d timeout=%d workdir=%s",
-            command,
-            result.exit_code,
-            timeout_seconds,
-            effective_workdir);
+        pr_info("terminal: cmd=%.120s exit=%d timeout=%d workdir=%s", command, result.exit_code, timeout_seconds, effective_workdir);
     }
 
     kfree(stdin_payload);

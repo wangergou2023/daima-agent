@@ -14,9 +14,6 @@
 #include <ctype.h>
 #include "linux/printk.h"
 #include "linux/slab.h"
-
-static const char *TAG = "heartbeat";
-
 static daima_timer_t *s_heartbeat_timer = NULL;
 
 static int heartbeat_interval_ms(void)
@@ -82,7 +79,7 @@ static bool heartbeat_has_tasks(void)
 static bool heartbeat_send(void)
 {
     if (!heartbeat_has_tasks()) {
-        DAIMA_LOGD(TAG, "No actionable tasks in HEARTBEAT.md");
+        pr_debug("No actionable tasks in HEARTBEAT.md");
         return false;
     }
 
@@ -100,18 +97,18 @@ static bool heartbeat_send(void)
     msg.content = strdup(prompt);
 
     if (!msg.content) {
-        DAIMA_LOGE(TAG, "Failed to allocate heartbeat prompt");
+        pr_err("Failed to allocate heartbeat prompt");
         return false;
     }
 
     daima_err_t err = message_bus_push_inbound(&msg);
     if (err != DAIMA_OK) {
-        DAIMA_LOGW(TAG, "Failed to push heartbeat message: %s", daima_err_to_name(err));
+        pr_warn("Failed to push heartbeat message: %s", daima_err_to_name(err));
         kfree(msg.content);
         return false;
     }
 
-    DAIMA_LOGI(TAG, "Triggered agent check");
+    pr_info("Triggered agent check");
     return true;
 }
 
@@ -127,15 +124,14 @@ static void heartbeat_timer_callback(daima_timer_t *timer)
 
 daima_err_t heartbeat_init(void)
 {
-    DAIMA_LOGI(TAG, "Heartbeat service initialized (file: %s, interval: %ds)",
-             daima_path_heartbeat_file(), heartbeat_interval_ms() / 1000);
+    pr_info("Heartbeat service initialized (file: %s, interval: %ds)", daima_path_heartbeat_file(), heartbeat_interval_ms() / 1000);
     return DAIMA_OK;
 }
 
 daima_err_t heartbeat_start(void)
 {
     if (s_heartbeat_timer) {
-        DAIMA_LOGW(TAG, "Heartbeat timer already running");
+        pr_warn("Heartbeat timer already running");
         return DAIMA_OK;
     }
 
@@ -148,16 +144,16 @@ daima_err_t heartbeat_start(void)
     );
 
     if (!s_heartbeat_timer) {
-        DAIMA_LOGE(TAG, "Failed to create heartbeat timer");
+        pr_err("Failed to create heartbeat timer");
         return DAIMA_FAIL;
     }
 
     if (!daima_timer_start(s_heartbeat_timer, 1000)) {
-        DAIMA_LOGE(TAG, "Failed to start heartbeat timer");
+        pr_err("Failed to start heartbeat timer");
         return DAIMA_FAIL;
     }
 
-    DAIMA_LOGI(TAG, "Heartbeat started (every %d min)", heartbeat_interval_ms() / 60000);
+    pr_info("Heartbeat started (every %d min)", heartbeat_interval_ms() / 60000);
     return DAIMA_OK;
 }
 
@@ -167,7 +163,7 @@ void heartbeat_stop(void)
         daima_timer_stop(s_heartbeat_timer, 1000);
         daima_timer_delete(s_heartbeat_timer, 1000);
         s_heartbeat_timer = NULL;
-        DAIMA_LOGI(TAG, "Heartbeat stopped");
+        pr_info("Heartbeat stopped");
     }
 }
 

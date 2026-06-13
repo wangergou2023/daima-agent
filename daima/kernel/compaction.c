@@ -12,9 +12,6 @@
 #include <unistd.h>
 #include "linux/slab.h"
 #include "linux/kernel.h"
-
-static const char *TAG = "compaction_recovery";
-
 static daima_err_t recovery_path(const char *chat_id, char *buf, size_t size)
 {
     if (!chat_id || !chat_id[0] || !buf || size == 0) {
@@ -277,11 +274,11 @@ daima_err_t compaction_recovery_snapshot(const char *chat_id)
     bool ok = write_text_file(path, json);
     kfree(json);
     if (!ok) {
-        DAIMA_LOGE(TAG, "Cannot write compaction recovery %s", path);
+        pr_err("Cannot write compaction recovery %s", path);
         return DAIMA_FAIL;
     }
 
-    DAIMA_LOGI(TAG, "Compaction recovery snapshot saved for %s", chat_id);
+    pr_info("Compaction recovery snapshot saved for %s", chat_id);
     return DAIMA_OK;
 }
 
@@ -327,7 +324,7 @@ daima_err_t compaction_recovery_inject(const char *chat_id, char *system_prompt,
         system_prompt[system_prompt_size - 1] = '\0';
     }
 
-    DAIMA_LOGI(TAG, "Compaction recovery injected for %s", chat_id);
+    pr_info("Compaction recovery injected for %s", chat_id);
     return DAIMA_OK;
 }
 
@@ -342,7 +339,7 @@ daima_err_t compaction_recovery_clear(const char *chat_id)
         return path_err;
     }
     if (unlink(path) == 0) {
-        DAIMA_LOGI(TAG, "Compaction recovery cleared for %s", chat_id);
+        pr_info("Compaction recovery cleared for %s", chat_id);
     }
     return DAIMA_OK;
 }

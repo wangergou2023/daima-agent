@@ -26,9 +26,6 @@
 
 #include "linux/printk.h"
 #include "cJSON.h"
-
-static const char *TAG = "ws";
-
 static const char *UI_FALLBACK_HTML =
     "<!doctype html>\n"
     "<html lang=\"en\">\n"
@@ -137,7 +134,7 @@ static int handle_http_or_ws(int client_fd)
 static void *ws_server_loop(void *arg)
 {
     (void)arg;
-    DAIMA_LOGI(TAG, "WebSocket server started on port %d", s_server_port);
+    pr_info("WebSocket server started on port %d", s_server_port);
 
     while (s_running) {
         fd_set readfds;
@@ -186,7 +183,7 @@ daima_err_t ws_server_start(void)
 
     s_server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (s_server_fd < 0) {
-        DAIMA_LOGE(TAG, "Failed to create socket (errno=%d: %s)", errno, strerror(errno));
+        pr_err("Failed to create socket (errno=%d: %s)", errno, strerror(errno));
         return DAIMA_FAIL;
     }
 
@@ -199,14 +196,14 @@ daima_err_t ws_server_start(void)
     addr.sin_port = htons((uint16_t)s_server_port);
 
     if (bind(s_server_fd, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
-        DAIMA_LOGE(TAG, "Failed to bind port %d", s_server_port);
+        pr_err("Failed to bind port %d", s_server_port);
         close(s_server_fd);
         s_server_fd = -1;
         return DAIMA_FAIL;
     }
 
     if (listen(s_server_fd, DAIMA_WS_MAX_CLIENTS) != 0) {
-        DAIMA_LOGE(TAG, "Failed to listen");
+        pr_err("Failed to listen");
         close(s_server_fd);
         s_server_fd = -1;
         return DAIMA_FAIL;

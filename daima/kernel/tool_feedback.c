@@ -9,9 +9,6 @@
 #include "linux/printk.h"
 #include "text.h"
 #include "linux/kernel.h"
-
-static const char *TAG = "agent_tool_feedback";
-
 static const char *tool_display_icon(const char *tool_name)
 {
     if (!tool_name) return "⚙";
@@ -201,7 +198,6 @@ void agent_tool_feedback_send_activity(const daima_msg_t *msg,
     };
     daima_err_t send_err = channel_runtime_send_tool_activity(msg, &event);
     if (send_err != DAIMA_OK) {
-        DAIMA_LOGW(TAG, "Tool activity send failed for %s:%s: %s",
-                  msg->channel, msg->chat_id, daima_err_to_name(send_err));
+        pr_warn("Tool activity send failed for %s:%s: %s", msg->channel, msg->chat_id, daima_err_to_name(send_err));
     }
 }

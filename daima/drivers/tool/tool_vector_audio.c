@@ -9,9 +9,6 @@
 
 #include "cJSON.h"
 #include "linux/printk.h"
-
-static const char *TAG = "tool_vector_audio";
-
 static daima_err_t tool_robot_set_volume_execute(const char *input_json, char *output, size_t output_size)
 {
     mcp_client_t *mcp = tool_get_mcp(output, output_size);

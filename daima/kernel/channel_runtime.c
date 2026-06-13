@@ -9,9 +9,6 @@
 #include "linux/printk.h"
 #include "drivers/voice/voice_channel.h"
 #include "drivers/voice/tts_player.h"
-
-static const char *TAG = "channel_runtime";
-
 static daima_err_t channel_runtime_send_text(const char *channel,
                                              const char *chat_id,
                                              const char *text,
@@ -28,14 +25,14 @@ static daima_err_t channel_runtime_send_text(const char *channel,
         return ws_server_send_pet_response(chat_id, text);
     }
     if (strcmp(channel, DAIMA_CHAN_VOICE) == 0) {
-        DAIMA_LOGI(TAG, "Voice output: [%s]", text);
+        pr_info("Voice output: [%s]", text);
         return tts_player_speak(text);
     }
     if (strcmp(channel, DAIMA_CHAN_FEISHU) == 0) {
         return feishu_send_card(chat_id, text);
     }
     if (strcmp(channel, DAIMA_CHAN_SYSTEM) == 0) {
-        DAIMA_LOGI(TAG, "System message [%s]: %.128s", chat_id, text);
+        pr_info("System message [%s]: %.128s", chat_id, text);
         return DAIMA_OK;
     }
     if (strcmp(channel, DAIMA_CHAN_VECTOR) == 0) {

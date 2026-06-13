@@ -6,9 +6,6 @@
 #include "drivers/channel/vector/vector_channel.h"
 #include "linux/printk.h"
 #include "drivers/pet/pet_event.h"
-
-static const char *TAG = "agent_channel_policy";
-
 static void append_voice_policy(char *prompt, size_t size, size_t off)
 {
     int n = snprintf(
@@ -29,8 +26,7 @@ static void append_voice_policy(char *prompt, size_t size, size_t off)
             "正前方", "右前方", "右方", "右后方", "后方", "后方", "左后方",
             "左方", "左方", "左前方", "前方", "前方", "正上方"
         };
-        DAIMA_LOGI(TAG, "Voice context: dir=%d(%s) deg=%d°",
-                   dir, dir_labels[dir], (int)dir * 30);
+        pr_info("Voice context: dir=%d(%s) deg=%d°", dir, dir_labels[dir], (int)dir * 30);
         int dn = snprintf(
             prompt + off + (size_t)n, size - off - (size_t)n,
             "- 当前对用户说话声音来源方向: %d (%s, 角度约 %d°)\n",

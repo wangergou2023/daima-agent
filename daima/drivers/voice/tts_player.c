@@ -16,9 +16,6 @@
 #include "drivers/channel/vector/vector_channel.h"
 #include "linux/slab.h"
 #include "linux/kernel.h"
-
-static const char *TAG = "tts_player";
-
 static uint32_t g_tts_seq = 0;
 
 #define LOWPASS_CUTOFF  4000.0
@@ -85,7 +82,7 @@ daima_err_t tts_player_speak(const char *text)
 {
     if (!text || !*text) return DAIMA_ERR_INVALID_ARG;
 
-    DAIMA_LOGI(TAG, "Speak start: len=%zu text=[%s]", strlen(text), text);
+    pr_info("Speak start: len=%zu text=[%s]", strlen(text), text);
 
     vector_channel_mute_mic(true);
 
@@ -180,21 +177,21 @@ daima_err_t tts_player_speak(const char *text)
     }
     kfree(buf);
 
-    DAIMA_LOGD(TAG, "Collected %d sentences", n);
+    pr_debug("Collected %d sentences", n);
     if (n == 0) {
-        DAIMA_LOGI(TAG, "Speak done: no valid sentences");
+        pr_info("Speak done: no valid sentences");
         vector_channel_mute_mic(false);
         return DAIMA_OK;
     }
 
     /* Serial TTS — BigModel concurrency causes corrupted audio */
     for (int i = 0; i < n; i++) {
-        DAIMA_LOGI(TAG, "  TTS[%d/%d] start: [%s]", i+1, n, jobs[i].text);
+        pr_info("  TTS[%d/%d] start: [%s]", i+1, n, jobs[i].text);
         pthread_t th;
         pthread_create(&th, NULL, tts_thread, &jobs[i]);
         pthread_join(th, NULL);
         if (jobs[i].pcm && jobs[i].pcm_len > 0) {
-            DAIMA_LOGI(TAG, "  TTS[%d/%d] done: TTS=%ldms PCM=%zuKB", i+1, n, jobs[i].tts_ms, jobs[i].pcm_len/1024);
+            pr_info("  TTS[%d/%d] done: TTS=%ldms PCM=%zuKB", i+1, n, jobs[i].tts_ms, jobs[i].pcm_len/1024);
             total_audio_sec += (float)jobs[i].pcm_len / (PCM_TARGET_RATE * 2.0f);
             struct timespec ts, te;
             clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -202,17 +199,17 @@ daima_err_t tts_player_speak(const char *text)
             clock_gettime(CLOCK_MONOTONIC, &te);
             long ms = (te.tv_sec - ts.tv_sec) * 1000 + (te.tv_nsec - ts.tv_nsec) / 1000000;
             float audio = (float)jobs[i].pcm_len / (PCM_TARGET_RATE * 2.0f);
-            DAIMA_LOGD(TAG, "  [%d/%d] TTS %ldms + push %ldms (audio %.1fs)", i+1, n, jobs[i].tts_ms, ms, audio);
+            pr_debug("  [%d/%d] TTS %ldms + push %ldms (audio %.1fs)", i+1, n, jobs[i].tts_ms, ms, audio);
             kfree(jobs[i].pcm);
         }
     }
 
     clock_gettime(CLOCK_MONOTONIC, &t_end);
     long total = (t_end.tv_sec - t_start.tv_sec) * 1000 + (t_end.tv_nsec - t_start.tv_nsec) / 1000000;
-    DAIMA_LOGI(TAG, "Speak done: %ldms total (%d sentences), audio=%.1fs", total, n, total_audio_sec);
+    pr_info("Speak done: %ldms total (%d sentences), audio=%.1fs", total, n, total_audio_sec);
 
     if (total_audio_sec > 0.5f) {
-        DAIMA_LOGI(TAG, "Waiting %.1fs for playback before unmute", total_audio_sec);
+        pr_info("Waiting %.1fs for playback before unmute", total_audio_sec);
         struct timespec req = { (time_t)total_audio_sec, (long)((total_audio_sec - (int)total_audio_sec) * 1e9) };
         nanosleep(&req, NULL);
     }

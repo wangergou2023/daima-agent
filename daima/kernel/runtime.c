@@ -12,9 +12,6 @@
 #include "linux/printk.h"
 #include "linux/slab.h"
 #include "linux/kernel.h"
-
-static const char *TAG = "runtime_config";
-
 static const char *DEFAULT_TIMEZONE = "CST-8";
 static const char *DEFAULT_LLM_MODEL = "kimi-k2.5";
 static const char *DEFAULT_WEB_PET_PACKAGE_ID = "guga.codex-pet";
@@ -159,15 +156,15 @@ daima_err_t runtime_config_init(void)
     reset_defaults();
 
     if (access(daima_path_runtime_config_file(), F_OK) != 0) {
-        DAIMA_LOGW(TAG, "Runtime config missing: %s", daima_path_runtime_config_file());
-        DAIMA_LOGW(TAG, "Please create it with reference to: %s/config.example.json", daima_path_config_dir());
+        pr_warn("Runtime config missing: %s", daima_path_runtime_config_file());
+        pr_warn("Please create it with reference to: %s/config.example.json", daima_path_config_dir());
         s_cfg.loaded = 1;
         return DAIMA_OK;
     }
 
     text = read_config_text();
     if (!text) {
-        DAIMA_LOGW(TAG, "Cannot read runtime config: %s", daima_path_runtime_config_file());
+        pr_warn("Cannot read runtime config: %s", daima_path_runtime_config_file());
         s_cfg.loaded = 1;
         return DAIMA_OK;
     }
@@ -176,7 +173,7 @@ daima_err_t runtime_config_init(void)
     kfree(text);
     if (!root || !cJSON_IsObject(root)) {
         cJSON_Delete(root);
-        DAIMA_LOGW(TAG, "Invalid runtime config JSON: %s", daima_path_runtime_config_file());
+        pr_warn("Invalid runtime config JSON: %s", daima_path_runtime_config_file());
         s_cfg.loaded = 1;
         return DAIMA_OK;
     }
@@ -185,10 +182,7 @@ daima_err_t runtime_config_init(void)
     cJSON_Delete(root);
     s_cfg.loaded = 1;
 
-    DAIMA_LOGI(TAG, "Runtime config loaded: %s%s%s",
-               daima_path_runtime_config_file(),
-               s_cfg.active_provider[0] ? " active_provider=" : "",
-               s_cfg.active_provider[0] ? s_cfg.active_provider : "");
+    pr_info("Runtime config loaded: %s%s%s", daima_path_runtime_config_file(), s_cfg.active_provider[0] ? " active_provider=" : "", s_cfg.active_provider[0] ? s_cfg.active_provider : "");
     return DAIMA_OK;
 }
 
@@ -300,7 +294,7 @@ daima_err_t runtime_config_set_terminal_security_level(const char *level)
     }
 
     strscpy(s_cfg.terminal_security_level, level, sizeof(s_cfg.terminal_security_level));
-    DAIMA_LOGI(TAG, "Terminal security level set to %s", level);
+    pr_info("Terminal security level set to %s", level);
     return DAIMA_OK;
 }
 

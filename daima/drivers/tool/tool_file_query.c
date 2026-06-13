@@ -12,9 +12,6 @@
 #include "cJSON.h"
 #include "autoconf.h"
 #include "linux/printk.h"
-
-static const char *TAG = "tool_files";
-
 daima_err_t tool_list_dir_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *root = cJSON_Parse(input_json);
@@ -50,8 +47,7 @@ daima_err_t tool_list_dir_execute(const char *input_json, char *output, size_t o
         snprintf(output, output_size, "（未找到文件）");
     }
 
-    DAIMA_LOGI(TAG, "list_dir: %d files (path=%s prefix=%s)",
-              count, resolved_dir, prefix ? prefix : "(none)");
+    pr_info("list_dir: %d files (path=%s prefix=%s)", count, resolved_dir, prefix ? prefix : "(none)");
     cJSON_Delete(root);
     return DAIMA_OK;
 }
@@ -155,9 +151,7 @@ daima_err_t tool_search_files_execute(const char *input_json, char *output, size
                  offset + ctx.count);
     }
 
-    DAIMA_LOGI(TAG, "search_files: pattern=%s target=%s mode=%s path=%s offset=%d limit=%d context=%d count=%d seen=%d",
-              pattern, search_files_only ? "files" : "content",
-              output_mode, resolved_dir, offset, limit, context, ctx.count, ctx.seen);
+    pr_info("search_files: pattern=%s target=%s mode=%s path=%s offset=%d limit=%d context=%d count=%d seen=%d", pattern, search_files_only ? "files" : "content", output_mode, resolved_dir, offset, limit, context, ctx.count, ctx.seen);
     cJSON_Delete(root);
     return DAIMA_OK;
 }

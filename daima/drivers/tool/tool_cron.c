@@ -13,9 +13,6 @@
 #include <time.h>
 #include "linux/printk.h"
 #include "cJSON.h"
-
-static const char *TAG = "tool_cron";
-
 static void format_epoch_local(int64_t epoch, char *buf, size_t buf_size)
 {
     if (!buf || buf_size == 0) {
@@ -320,7 +317,7 @@ static daima_err_t cron_action_add_execute(const char *input_json, char *output,
                  next_run_text, (long long)job.next_run);
     }
 
-    DAIMA_LOGI(TAG, "cron add: %s", output);
+    pr_info("cron add: %s", output);
     return DAIMA_OK;
 }
 
@@ -372,7 +369,7 @@ static daima_err_t cron_action_list_execute(const char *input_json, char *output
         }
     }
 
-    DAIMA_LOGI(TAG, "cron list: %d jobs", count);
+    pr_info("cron list: %d jobs", count);
     return DAIMA_OK;
 }
 
@@ -407,7 +404,7 @@ static daima_err_t cron_action_remove_execute(const char *input_json, char *outp
         snprintf(output, output_size, "错误：移除任务失败（%s）", daima_err_to_name(err));
     }
 
-    DAIMA_LOGI(TAG, "cron remove: %s -> %s", job_id_copy, daima_err_to_name(err));
+    pr_info("cron remove: %s -> %s", job_id_copy, daima_err_to_name(err));
     return err;
 }
 

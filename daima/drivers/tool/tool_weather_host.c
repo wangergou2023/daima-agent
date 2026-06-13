@@ -9,9 +9,6 @@
 #include "cJSON.h"
 #include "linux/printk.h"
 #include "linux/kernel.h"
-
-static const char *TAG = "tool_weather";
-
 #define WEATHER_API_TIMEOUT_MS  6000
 #define WEATHER_API_URL         "https://uapis.cn/api/v1/misc/weather"
 
@@ -126,7 +123,7 @@ static daima_err_t fetch_weather_json(const char *location, const char *adcode,
     }
 
     host_http_response_t resp = {0};
-    DAIMA_LOGI(TAG, "UAPI weather request: %s", url);
+    pr_info("UAPI weather request: %s", url);
     daima_err_t err = host_http_request("GET", url, NULL, NULL, WEATHER_API_TIMEOUT_MS, &resp);
     if (err != DAIMA_OK) {
         host_http_response_free(&resp);
@@ -282,12 +279,12 @@ static void log_output_snippet(const char *output)
     char tmp[256];
     if (n > 0) memcpy(tmp, output, n);
     tmp[n] = '\0';
-    DAIMA_LOGI(TAG, "weather output (%d bytes): %s", (int)len, tmp);
+    pr_info("weather output (%d bytes): %s", (int)len, tmp);
 }
 
 daima_err_t tool_weather_init(void)
 {
-    DAIMA_LOGI(TAG, "Weather initialized (UAPI weather, no API key required)");
+    pr_info("Weather initialized (UAPI weather, no API key required)");
     return DAIMA_OK;
 }
 
@@ -327,7 +324,7 @@ daima_err_t tool_weather_execute(const char *input_json, char *output, size_t ou
         output_size);
     if (err != DAIMA_OK) {
         cJSON_Delete(input);
-        DAIMA_LOGW(TAG, "UAPI weather failed: %s", output);
+        pr_warn("UAPI weather failed: %s", output);
         return err;
     }
 

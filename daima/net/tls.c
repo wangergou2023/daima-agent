@@ -5,9 +5,6 @@
 #include "paths.h"
 #include "env.h"
 #include "linux/printk.h"
-
-static const char *TAG = "host_tls";
-
 const char *host_tls_ca_cert_path(void)
 {
     const char *ca = daima_env_get("DAIMA_CA_CERT");
@@ -39,7 +36,7 @@ void host_tls_apply_ssl_ctx_ca(SSL_CTX *ctx)
         if (SSL_CTX_load_verify_locations(ctx, ca, NULL) == 1) {
             return;
         }
-        DAIMA_LOGW(TAG, "Failed to load CA cert from %s", ca);
+        pr_warn("Failed to load CA cert from %s", ca);
     }
     SSL_CTX_set_default_verify_paths(ctx);
 }

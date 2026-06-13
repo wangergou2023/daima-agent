@@ -12,9 +12,6 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("daima");
 MODULE_DESCRIPTION("Agent Extension: prometheus_interview");
-
-static const char *TAG = "ext_prometheus";
-
 static daima_err_t replace_run(daima_msg_t *msg, char *system_prompt,
                                cJSON *messages, const char *tools_json,
                                char **out_final_text)
@@ -27,7 +24,7 @@ static daima_err_t replace_run(daima_msg_t *msg, char *system_prompt,
         prometheus_state_t p_state;
         if (prometheus_check_needs_interview(msg->content, &p_state) == DAIMA_OK &&
             p_state.needs_interview) {
-            DAIMA_LOGI(TAG, "Prometheus: interview mode, asking questions");
+            pr_info("Prometheus: interview mode, asking questions");
             *out_final_text = strdup(p_state.questions);
             return DAIMA_OK;
         }

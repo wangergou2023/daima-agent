@@ -21,9 +21,6 @@
 #include "linux/printk.h"
 #include "cJSON.h"
 #include "linux/slab.h"
-
-static const char *TAG = "tools";
-
 #define MAX_TOOLS 32
 
 static daima_tool_t s_tools[MAX_TOOLS];
@@ -47,11 +44,11 @@ static bool is_vector_tool_name(const char *name)
 static void register_tool(const daima_tool_t *tool)
 {
     if (s_tool_count >= MAX_TOOLS) {
-        DAIMA_LOGE(TAG, "Tool registry full");
+        pr_err("Tool registry full");
         return;
     }
     s_tools[s_tool_count++] = *tool;
-    DAIMA_LOGI(TAG, "Registered tool: %s", tool->name);
+    pr_info("Registered tool: %s", tool->name);
 }
 
 static bool tool_name_exists(const char *name)
@@ -124,7 +121,7 @@ static void build_tools_json(void)
     s_tools_json = build_tools_json_filtered(true);
     s_base_tools_json = build_tools_json_filtered(false);
 
-    DAIMA_LOGI(TAG, "Tools JSON built (%d static, %d dynamic)", s_tool_count, s_dynamic_count);
+    pr_info("Tools JSON built (%d static, %d dynamic)", s_tool_count, s_dynamic_count);
 }
 
 daima_err_t tool_registry_init(void)
@@ -179,7 +176,7 @@ daima_err_t tool_registry_init(void)
 
     build_tools_json();
 
-    DAIMA_LOGI(TAG, "Tool registry initialized");
+    pr_info("Tool registry initialized");
     return DAIMA_OK;
 }
 
@@ -189,11 +186,11 @@ daima_err_t tool_registry_register_dynamic(const daima_tool_t *tool)
         return DAIMA_ERR_INVALID_ARG;
     }
     if (s_dynamic_count >= TOOL_REGISTRY_MAX_DYNAMIC) {
-        DAIMA_LOGE(TAG, "Dynamic tool registry full");
+        pr_err("Dynamic tool registry full");
         return DAIMA_ERR_NO_MEM;
     }
     if (tool_name_exists(tool->name)) {
-        DAIMA_LOGW(TAG, "Dynamic tool name already registered: %s", tool->name);
+        pr_warn("Dynamic tool name already registered: %s", tool->name);
         return DAIMA_ERR_INVALID_STATE;
     }
 
@@ -212,7 +209,7 @@ daima_err_t tool_registry_register_dynamic(const daima_tool_t *tool)
     list_add(&slot->list, &s_dynamic_tool_list);
     s_dynamic_count++;
     build_tools_json();
-    DAIMA_LOGI(TAG, "Registered dynamic tool: %s", tool->name);
+    pr_info("Registered dynamic tool: %s", tool->name);
     return DAIMA_OK;
 }
 
@@ -229,7 +226,7 @@ daima_err_t tool_registry_unregister_dynamic(const char *tool_name)
             memset(&node->tool, 0, sizeof(node->tool));
             s_dynamic_count--;
             build_tools_json();
-            DAIMA_LOGI(TAG, "Unregistered dynamic tool: %s", tool_name);
+            pr_info("Unregistered dynamic tool: %s", tool_name);
             return DAIMA_OK;
         }
     }
@@ -267,7 +264,7 @@ daima_err_t tool_registry_execute(const char *name, const char *input_json,
 {
     for (int i = 0; i < s_tool_count; i++) {
         if (strcmp(s_tools[i].name, name) == 0) {
-            DAIMA_LOGI(TAG, "Executing tool: %s", name);
+            pr_info("Executing tool: %s", name);
             return s_tools[i].execute(input_json, output, output_size);
         }
     }
@@ -275,12 +272,12 @@ daima_err_t tool_registry_execute(const char *name, const char *input_json,
     dynamic_tool_node_t *node;
     list_for_each_entry(node, &s_dynamic_tool_list, list, dynamic_tool_node_t) {
         if (strcmp(node->tool.name, name) == 0) {
-            DAIMA_LOGI(TAG, "Executing dynamic tool: %s", name);
+            pr_info("Executing dynamic tool: %s", name);
             return node->tool.execute(input_json, output, output_size);
         }
     }
 
-    DAIMA_LOGW(TAG, "Unknown tool: %s", name);
+    pr_warn("Unknown tool: %s", name);
     snprintf(output, output_size, "错误：未知工具 '%s'", name);
     return DAIMA_ERR_NOT_FOUND;
 }
@@ -295,8 +292,7 @@ daima_err_t tool_registry_execute_for_channel(const char *channel,
         return DAIMA_ERR_INVALID_ARG;
     }
     if (!channel_allows_tool(channel, name)) {
-        DAIMA_LOGW(TAG, "Tool blocked by channel policy: channel=%s tool=%s",
-                  channel ? channel : "(none)", name);
+        pr_warn("Tool blocked by channel policy: channel=%s tool=%s", channel ? channel : "(none)", name);
         snprintf(output, output_size,
                  "错误：工具 '%s' 仅允许在 vector/voice 通道使用，当前通道为 '%s'",
                  name, channel ? channel : "");

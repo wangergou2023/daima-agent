@@ -23,9 +23,6 @@
 #include "drivers/vision/vision_capture.h"
 #include "linux/slab.h"
 #endif
-
-static const char *TAG = "agent_prepare";
-
 static char *build_current_turn_content(const daima_msg_t *msg)
 {
     const char *source = agent_msg_source_or_default(msg);
@@ -100,8 +97,7 @@ static cJSON *build_user_vision_content(const char *text, const char *image_path
     llm_image_content_t img = {0};
     daima_err_t read_err = llm_image_read_file(local_path, &img);
     if (read_err != DAIMA_OK) {
-        DAIMA_LOGW(TAG, "Failed to read image for multimodal request: %s (%s)",
-                 local_path, daima_err_to_name(read_err));
+        pr_warn("Failed to read image for multimodal request: %s (%s)", local_path, daima_err_to_name(read_err));
         if (cleanup_local_path) {
             unlink(local_path);
         }
@@ -110,7 +106,7 @@ static cJSON *build_user_vision_content(const char *text, const char *image_path
 
     cJSON *content = llm_create_multimodal_content(text, &img, 1);
     llm_image_content_free(&img);
-    DAIMA_LOGI(TAG, "Attached image to multimodal request: %s", local_path);
+    pr_info("Attached image to multimodal request: %s", local_path);
 
     if (cleanup_local_path) {
         const char *keep = daima_env_get("DAIMA_VISION_KEEP_SNAPSHOT");
@@ -289,8 +285,7 @@ daima_err_t agent_turn_prepare(
     context_fix_truncated_utf8(system_prompt, strnlen(system_prompt, system_prompt_size));
 
     agent_prompt_dump_snapshot(msg, system_prompt);
-    DAIMA_LOGI(TAG, "LLM turn context: channel=%s chat_id=%s source=%s",
-              msg->channel, msg->chat_id, agent_msg_source_or_default(msg));
+    pr_info("LLM turn context: channel=%s chat_id=%s source=%s", msg->channel, msg->chat_id, agent_msg_source_or_default(msg));
 
     session_store_get_history_json(msg->chat_id, history_json, history_json_size, DAIMA_AGENT_MAX_HISTORY);
 

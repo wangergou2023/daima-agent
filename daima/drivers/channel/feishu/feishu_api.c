@@ -16,9 +16,6 @@
 #include "drivers/channel/feishu/feishu_http.h"
 #include "linux/slab.h"
 #include "linux/kernel.h"
-
-static const char *TAG = "feishu_api";
-
 #define FEISHU_API_BASE      "https://open.feishu.cn/open-apis"
 #define FEISHU_AUTH_URL      FEISHU_API_BASE "/auth/v3/tenant_access_token/internal"
 #define FEISHU_SEND_MSG_URL  FEISHU_API_BASE "/im/v1/messages"
@@ -89,7 +86,7 @@ static daima_err_t feishu_get_tenant_token_locked(const char *app_id, const char
     }
 
     if (resp.status != 200) {
-        DAIMA_LOGE(TAG, "Token request failed: http=%ld", resp.status);
+        pr_err("Token request failed: http=%ld", resp.status);
         feishu_http_response_free(&resp);
         return DAIMA_FAIL;
     }
@@ -97,7 +94,7 @@ static daima_err_t feishu_get_tenant_token_locked(const char *app_id, const char
     cJSON *root = feishu_http_parse_json(&resp);
     feishu_http_response_free(&resp);
     if (!root) {
-        DAIMA_LOGE(TAG, "Failed to parse token response");
+        pr_err("Failed to parse token response");
         return DAIMA_FAIL;
     }
 
@@ -107,7 +104,7 @@ static daima_err_t feishu_get_tenant_token_locked(const char *app_id, const char
         strscpy(s_tenant_token, token->valuestring, sizeof(s_tenant_token));
         int ttl = (expire && cJSON_IsNumber(expire)) ? expire->valueint : 7200;
         s_token_expire_time = now + ttl - 300;
-        DAIMA_LOGI(TAG, "Got tenant access token (expires in %ds)", ttl);
+        pr_info("Got tenant access token (expires in %ds)", ttl);
     } else {
         cJSON_Delete(root);
         return DAIMA_FAIL;
@@ -161,7 +158,7 @@ daima_err_t feishu_api_pull_ws_config(const char *app_id,
     kfree(json_str);
 
     if (err != DAIMA_OK || resp.status != 200) {
-        DAIMA_LOGE(TAG, "WS config request failed: err=%s http=%ld", daima_err_to_name(err), resp.status);
+        pr_err("WS config request failed: err=%s http=%ld", daima_err_to_name(err), resp.status);
         feishu_http_response_free(&resp);
         return DAIMA_FAIL;
     }
@@ -175,7 +172,7 @@ daima_err_t feishu_api_pull_ws_config(const char *app_id,
     cJSON *url = data ? cJSON_GetObjectItem(data, "URL") : NULL;
     cJSON *ccfg = data ? cJSON_GetObjectItem(data, "ClientConfig") : NULL;
     if (!code || !cJSON_IsNumber(code) || code->valueint != 0 || !url || !cJSON_IsString(url)) {
-        DAIMA_LOGE(TAG, "Invalid WS config response");
+        pr_err("Invalid WS config response");
         cJSON_Delete(root);
         return DAIMA_FAIL;
     }
@@ -195,7 +192,7 @@ daima_err_t feishu_api_pull_ws_config(const char *app_id,
     }
 
     cJSON_Delete(root);
-    DAIMA_LOGI(TAG, "WS config ready: service_id=%d ping=%dms", out->service_id, out->ping_interval_ms);
+    pr_info("WS config ready: service_id=%d ping=%dms", out->service_id, out->ping_interval_ms);
     return DAIMA_OK;
 }
 
@@ -327,7 +324,7 @@ static daima_err_t feishu_send_payload_json(const char *token,
     cJSON *root = feishu_http_parse_json(&resp);
     feishu_http_response_free(&resp);
     if (!root) {
-        DAIMA_LOGE(TAG, "%s request failed", action_name);
+        pr_err("%s request failed", action_name);
         return DAIMA_FAIL;
     }
     cJSON_Delete(root);
@@ -375,7 +372,7 @@ static daima_err_t feishu_send_card_chunks(const char *token,
         if (err != DAIMA_OK) {
             all_ok = 0;
         } else {
-            DAIMA_LOGI(TAG, "%s ok (%s part %d)", action_name, receive_id ? receive_id : "reply", part);
+            pr_info("%s ok (%s part %d)", action_name, receive_id ? receive_id : "reply", part);
         }
 
         cursor += chunk_len;

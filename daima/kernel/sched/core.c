@@ -7,9 +7,6 @@
 #include <stdio.h>
 #include <string.h>
 #include "linux/kernel.h"
-
-static const char *TAG = "sched";
-
 static bool sched_runqueue_has_list(const struct sched_runqueue *rq)
 {
     return rq && rq->agent_list.next && rq->agent_list.prev;
@@ -186,8 +183,7 @@ daima_err_t sched_wait(struct sched_runqueue *rq)
             enum sched_agent_state state = agent->state;
             sched_complete(rq, agent, err);
             agent->state = state;
-            DAIMA_LOGI(TAG, "agent %d (%s) done, err=%s",
-                       agent->pid, sched_class_name(agent->class), daima_err_to_name(agent->error));
+            pr_info("agent %d (%s) done, err=%s", agent->pid, sched_class_name(agent->class), daima_err_to_name(agent->error));
         }
 
         if (rq->nr_running > 0) {
@@ -196,8 +192,7 @@ daima_err_t sched_wait(struct sched_runqueue *rq)
             int elapsed_sec = elapsed / 1000;
             if (elapsed_sec > 0 && elapsed_sec % 10 == 0 && elapsed_sec != last_progress_sec) {
                 last_progress_sec = elapsed_sec;
-                DAIMA_LOGI(TAG, "waiting... %ds elapsed, %d agents running",
-                           elapsed_sec, rq->nr_running);
+                pr_info("waiting... %ds elapsed, %d agents running", elapsed_sec, rq->nr_running);
             }
         }
     }
@@ -205,8 +200,7 @@ daima_err_t sched_wait(struct sched_runqueue *rq)
     list_for_each_entry(agent, &rq->agent_list, run_list, struct sched_agent) {
         if (agent->state == SCHED_AGENT_RUNNING) {
             sched_complete(rq, agent, DAIMA_ERR_TIMEOUT);
-            DAIMA_LOGW(TAG, "agent %d (%s) timed out",
-                       agent->pid, sched_class_name(agent->class));
+            pr_warn("agent %d (%s) timed out", agent->pid, sched_class_name(agent->class));
         }
     }
 

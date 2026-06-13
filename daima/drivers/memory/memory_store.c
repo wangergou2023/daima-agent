@@ -9,9 +9,6 @@
 #include <time.h>
 #include <sys/stat.h>
 #include "linux/printk.h"
-
-static const char *TAG = "memory";
-
 static void get_date_str(char *buf, size_t size, int days_ago)
 {
     time_t now;
@@ -26,7 +23,7 @@ daima_err_t memory_store_init(void)
 {
     /* SPIFFS 是扁平结构——不需要真正创建目录。
        这里只需确认能打开 base 路径。 */
-    DAIMA_LOGI(TAG, "Memory store initialized at %s", daima_path_spiffs_base());
+    pr_info("Memory store initialized at %s", daima_path_spiffs_base());
     return DAIMA_OK;
 }
 
@@ -48,12 +45,12 @@ daima_err_t memory_write_long_term(const char *content)
 {
     FILE *f = fopen(daima_path_memory_file(), "w");
     if (!f) {
-        DAIMA_LOGE(TAG, "Cannot write %s", daima_path_memory_file());
+        pr_err("Cannot write %s", daima_path_memory_file());
         return DAIMA_FAIL;
     }
     fputs(content, f);
     fclose(f);
-    DAIMA_LOGI(TAG, "Long-term memory updated (%d bytes)", (int)strlen(content));
+    pr_info("Long-term memory updated (%d bytes)", (int)strlen(content));
     return DAIMA_OK;
 }
 
@@ -70,7 +67,7 @@ daima_err_t memory_append_today(const char *note)
         /* 尝试创建——如果文件不存在则写入标题 */
         f = fopen(path, "w");
         if (!f) {
-            DAIMA_LOGE(TAG, "Cannot open %s", path);
+            pr_err("Cannot open %s", path);
             return DAIMA_FAIL;
         }
         fprintf(f, "# %s\n\n", date_str);

@@ -16,9 +16,6 @@
 #include "paths.h"
 #include "autoconf.h"
 #include "linux/printk.h"
-
-static const char *TAG = "feishu_media";
-
 #define FEISHU_API_BASE         "https://open.feishu.cn/open-apis"
 #define FEISHU_MSG_RESOURCE_URL FEISHU_API_BASE "/im/v1/messages/%s/resources/%s?type=%s"
 
@@ -84,8 +81,7 @@ char *feishu_download_message_image(const char *tenant_token,
     daima_err_t err = host_http_request("GET", url, headers, NULL, 15000, &resp);
     curl_slist_free_all(headers);
     if (err != DAIMA_OK || resp.status != 200 || !resp.body || resp.body_len == 0) {
-        DAIMA_LOGW(TAG, "Failed to download Feishu image: msg=%s key=%s http=%ld err=%s",
-                  message_id, image_key, resp.status, daima_err_to_name(err));
+        pr_warn("Failed to download Feishu image: msg=%s key=%s http=%ld err=%s", message_id, image_key, resp.status, daima_err_to_name(err));
         host_http_response_free(&resp);
         return NULL;
     }
@@ -101,7 +97,7 @@ char *feishu_download_message_image(const char *tenant_token,
 
     FILE *f = fopen(path, "wb");
     if (!f) {
-        DAIMA_LOGW(TAG, "Cannot open image cache file: %s", path);
+        pr_warn("Cannot open image cache file: %s", path);
         host_http_response_free(&resp);
         return NULL;
     }
@@ -117,7 +113,7 @@ char *feishu_download_message_image(const char *tenant_token,
 
     char *out = strdup(path);
     if (out) {
-        DAIMA_LOGI(TAG, "Cached Feishu image to %s", path);
+        pr_info("Cached Feishu image to %s", path);
     }
     return out;
 }

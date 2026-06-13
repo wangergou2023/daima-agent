@@ -19,9 +19,6 @@
 #include "linux/printk.h"
 #include "linux/slab.h"
 #include "linux/kernel.h"
-
-static const char *TAG = "session";
-
 static bool is_compaction_summary_content(const cJSON *content)
 {
     const char *text = cJSON_IsString((cJSON *)content) ? content->valuestring : NULL;
@@ -53,7 +50,7 @@ daima_err_t session_store_file_artifact_path(const char *chat_id,
 
 static daima_err_t file_init(void)
 {
-    DAIMA_LOGI(TAG, "Session manager initialized at %s", daima_path_session_dir());
+    pr_info("Session manager initialized at %s", daima_path_session_dir());
     return DAIMA_OK;
 }
 
@@ -70,7 +67,7 @@ static daima_err_t file_append_ex(const char *chat_id,
 
     FILE *f = fopen(path, "a");
     if (!f) {
-        DAIMA_LOGE(TAG, "Cannot open session file %s", path);
+        pr_err("Cannot open session file %s", path);
         return DAIMA_FAIL;
     }
 
@@ -201,7 +198,7 @@ static daima_err_t file_rewrite_from_array(const char *chat_id, const cJSON *mes
 
     FILE *f = fopen(path, "w");
     if (!f) {
-        DAIMA_LOGE(TAG, "Cannot rewrite session file %s", path);
+        pr_err("Cannot rewrite session file %s", path);
         return DAIMA_FAIL;
     }
 
@@ -241,7 +238,7 @@ static daima_err_t file_rewrite_from_array(const char *chat_id, const cJSON *mes
     }
 
     fclose(f);
-    DAIMA_LOGI(TAG, "Session %s rewritten", chat_id);
+    pr_info("Session %s rewritten", chat_id);
     return DAIMA_OK;
 }
 
@@ -267,7 +264,7 @@ static daima_err_t file_clear(const char *chat_id)
     if (remove(path) == 0) {
         remove(facts);
         remove(summary);
-        DAIMA_LOGI(TAG, "Session %s cleared", chat_id);
+        pr_info("Session %s cleared", chat_id);
         return DAIMA_OK;
     }
     return DAIMA_ERR_NOT_FOUND;

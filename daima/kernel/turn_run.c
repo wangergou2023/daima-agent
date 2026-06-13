@@ -16,9 +16,6 @@
 #include "os.h"
 #include "drivers/platform/platform.h"
 #include "linux/slab.h"
-
-static const char *TAG = "agent_run";
-
 #define TOOL_OUTPUT_SIZE  (8 * 1024)
 
 static bool mark_cancelled_if_needed(const daima_msg_t *msg,
@@ -30,7 +27,7 @@ static bool mark_cancelled_if_needed(const daima_msg_t *msg,
         return false;
     }
     *out_cancelled = true;
-    DAIMA_LOGI(TAG, "Agent turn cancelled %s: chat=%s", stage, msg->chat_id);
+    pr_info("Agent turn cancelled %s: chat=%s", stage, msg->chat_id);
     return true;
 }
 
@@ -137,7 +134,7 @@ daima_err_t agent_turn_run(
             if (IS_ENABLED(CONFIG_DAIMA_SESSION_RECOVERY_ENABLED)) {
                 session_recovery_save_crash(msg->chat_id, msg->content, daima_err_to_name(err));
             }
-            DAIMA_LOGE(TAG, "LLM call failed: %s", daima_err_to_name(err));
+            pr_err("LLM call failed: %s", daima_err_to_name(err));
             break;
         }
 
@@ -158,7 +155,7 @@ daima_err_t agent_turn_run(
             break;
         }
 
-        DAIMA_LOGI(TAG, "Tool use iteration %d: %d calls", iteration + 1, resp.call_count);
+        pr_info("Tool use iteration %d: %d calls", iteration + 1, resp.call_count);
 
         cJSON *asst_msg = cJSON_CreateObject();
         cJSON_AddStringToObject(asst_msg, "role", "assistant");
@@ -180,9 +177,7 @@ daima_err_t agent_turn_run(
         }
 
         if (stats.unrecoverable_tool_protocol_error) {
-            DAIMA_LOGW(TAG, "Unrecoverable tool protocol error for chat %s: %s",
-                       msg->chat_id,
-                       stats.tool_protocol_error_reason);
+            pr_warn("Unrecoverable tool protocol error for chat %s: %s", msg->chat_id, stats.tool_protocol_error_reason);
             final_text = agent_turn_generate_forced_final_response(
                 system_prompt,
                 messages,
@@ -194,8 +189,7 @@ daima_err_t agent_turn_run(
 
     if (!*out_cancelled && !final_text && iteration >= DAIMA_AGENT_MAX_TOOL_ITER) {
         *out_tool_budget_exhausted = true;
-        DAIMA_LOGW(TAG, "Tool iteration budget exhausted for chat %s, forcing final response",
-                 msg->chat_id);
+        pr_warn("Tool iteration budget exhausted for chat %s, forcing final response", msg->chat_id);
         final_text = agent_turn_generate_forced_final_response(
             system_prompt,
             messages,

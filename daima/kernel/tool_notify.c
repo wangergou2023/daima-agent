@@ -7,8 +7,6 @@
 #include "cJSON.h"
 #include "linux/printk.h"
 #include "drivers/channel/gateway/ws_server.h"
-
-static const char *TAG = "tool_activity_notifier";
 #define FEISHU_TOOL_ACTIVITY_SLOW_MS 1500
 
 static const char *tool_display_icon(const char *tool_name)

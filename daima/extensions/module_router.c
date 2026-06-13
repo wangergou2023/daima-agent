@@ -7,9 +7,6 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("daima");
 MODULE_DESCRIPTION("Agent Extension: category_router");
-
-static const char *TAG = "ext_category_router";
-
 static daima_err_t before_run(daima_msg_t *msg, const char **model_override,
                               const char *tools_json)
 {
@@ -20,8 +17,7 @@ static daima_err_t before_run(daima_msg_t *msg, const char **model_override,
         const daima_category_profile_t *profile = category_router_resolve(msg->intent);
         if (profile) {
             *model_override = profile->model;
-            DAIMA_LOGI(TAG, "Category routing: intent=%s -> model=%s",
-                       daima_intent_name(msg->intent), profile->model);
+            pr_info("Category routing: intent=%s -> model=%s", daima_intent_name(msg->intent), profile->model);
         }
     }
 #endif

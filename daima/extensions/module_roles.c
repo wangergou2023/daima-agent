@@ -11,9 +11,6 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("daima");
 MODULE_DESCRIPTION("Agent Extension: agent_roles");
-
-static const char *TAG = "ext_agent_roles";
-
 static agent_role_t active_role_for_plan(const agent_role_t roles[3], int role_count)
 {
     if (role_count <= 0) return AGENT_ROLE_FAST;
@@ -31,8 +28,7 @@ static daima_err_t on_intent(daima_msg_t *msg)
     agent_role_t active_role = active_role_for_plan(roles, role_count);
     agent_extension_state_set_roles(roles, role_count, active_role);
     if (role_count > 0) {
-        DAIMA_LOGI(TAG, "Agent roles for intent=%s: %s (chain of %d)",
-                   daima_intent_name(msg->intent), agent_role_name(roles[0]), role_count);
+        pr_info("Agent roles for intent=%s: %s (chain of %d)", daima_intent_name(msg->intent), agent_role_name(roles[0]), role_count);
     }
 #endif
     return DAIMA_OK;
