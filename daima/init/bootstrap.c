@@ -26,6 +26,7 @@
 #include <unistd.h>
 
 #include "autoconf.h"
+#include "linux/kernel.h"
 #include "linux/printk.h"
 
 static const char *TAG = "bootstrap";
@@ -96,24 +97,24 @@ bool daima_bootstrap_get_primary_ipv4(char *out, size_t out_sz)
 void do_basic_setup(void)
 {
     DAIMA_LOGI(TAG, "core_initcall...");
-    DAIMA_ERROR_CHECK(message_bus_init());
+    BUG_ON(message_bus_init() != DAIMA_OK);
     agent_hooks_init();
 
     DAIMA_LOGI(TAG, "postcore_initcall...");
-    DAIMA_ERROR_CHECK(memory_store_init());
-    DAIMA_ERROR_CHECK(session_store_init());
+    BUG_ON(memory_store_init() != DAIMA_OK);
+    BUG_ON(session_store_init() != DAIMA_OK);
 
     DAIMA_LOGI(TAG, "subsys_initcall...");
-    DAIMA_ERROR_CHECK(cron_service_init());
-    DAIMA_ERROR_CHECK(heartbeat_init());
-    DAIMA_ERROR_CHECK(http_proxy_init());
-    DAIMA_ERROR_CHECK(skill_loader_init());
+    BUG_ON(cron_service_init() != DAIMA_OK);
+    BUG_ON(heartbeat_init() != DAIMA_OK);
+    BUG_ON(http_proxy_init() != DAIMA_OK);
+    BUG_ON(skill_loader_init() != DAIMA_OK);
 
     DAIMA_LOGI(TAG, "device_initcall...");
-    DAIMA_ERROR_CHECK(voice_channel_init());
-    DAIMA_ERROR_CHECK(feishu_bot_init());
-    DAIMA_ERROR_CHECK(feishu_bot_start());
-    DAIMA_ERROR_CHECK(vector_channel_init());
+    BUG_ON(voice_channel_init() != DAIMA_OK);
+    BUG_ON(feishu_bot_init() != DAIMA_OK);
+    BUG_ON(feishu_bot_start() != DAIMA_OK);
+    BUG_ON(vector_channel_init() != DAIMA_OK);
 
     cron_service_start();
     heartbeat_start();

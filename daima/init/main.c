@@ -21,6 +21,7 @@
 #include "drivers/memory/memory_store.h"
 #include "drivers/memory/session_store.h"
 #include "autoconf.h"
+#include "linux/kernel.h"
 #include "linux/printk.h"
 #include "os.h"
 #include "drivers/platform/platform.h"
@@ -70,13 +71,13 @@ int main(int argc, char **argv)
 
     do_basic_setup();
 
-    DAIMA_ERROR_CHECK(llm_proxy_init());
-    DAIMA_ERROR_CHECK(tool_registry_init());
-    DAIMA_ERROR_CHECK(agent_loop_init());
+    BUG_ON(llm_proxy_init() != DAIMA_OK);
+    BUG_ON(tool_registry_init() != DAIMA_OK);
+    BUG_ON(agent_loop_init() != DAIMA_OK);
 
-    DAIMA_ERROR_CHECK(channel_router_start());
+    BUG_ON(channel_router_start() != DAIMA_OK);
 
-    DAIMA_ERROR_CHECK(agent_loop_start());
+    BUG_ON(agent_loop_start() != DAIMA_OK);
     daima_err_t ws_err = ws_server_start();
     if (ws_err != DAIMA_OK) {
         DAIMA_LOGW(TAG, "WebSocket server failed to start: %s", daima_err_to_name(ws_err));
