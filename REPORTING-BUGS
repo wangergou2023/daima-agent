@@ -1,0 +1,8 @@
+Please report bugs to the issue tracker at:
+https://github.com/daima-agent/issues
+
+When reporting, include:
+- make version output
+- .config file
+- daima log output
+- Steps to reproduce

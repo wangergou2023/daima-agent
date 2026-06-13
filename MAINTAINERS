@@ -1,0 +1,32 @@
+List of maintainers and how to submit changes.
+
+AGENT CORE
+M: daima-agent developers
+S: Maintained
+F: daima/kernel/
+F: daima/init/
+
+IPC (MESSAGE BUS)
+M: daima-agent developers
+S: Maintained
+F: daima/ipc/
+
+LLM DRIVER
+M: daima-agent developers
+S: Maintained
+F: daima/drivers/llm/
+
+CHANNEL DRIVERS
+M: daima-agent developers
+S: Maintained
+F: daima/drivers/channel/
+
+TOOL DRIVERS
+M: daima-agent developers
+S: Maintained
+F: daima/drivers/tool/
+
+MEMORY DRIVER
+M: daima-agent developers
+S: Maintained
+F: daima/drivers/memory/
