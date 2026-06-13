@@ -7,6 +7,7 @@
 #include "drivers/tool/tool_safe_edit.h"
 #include "paths.h"
 #include "autoconf.h"
+#include "linux/kernel.h"
 #include "linux/printk.h"
 #include "cJSON.h"
 
@@ -228,30 +229,25 @@ static daima_err_t safe_edit_verify_patch_path(const char *path,
                                                char *output,
                                                size_t output_size)
 {
-#ifdef DAIMA_HASHLINE_ENABLED
-    bool saw_hashline = false;
-    daima_err_t hashline_err = hashline_verify_patch_path(path, patch_content, &saw_hashline, output, output_size);
-    if (hashline_err != DAIMA_OK || saw_hashline) {
-        return hashline_err;
+    if (IS_ENABLED(CONFIG_DAIMA_HASHLINE_ENABLED)) {
+        bool saw_hashline = false;
+        daima_err_t hashline_err = hashline_verify_patch_path(path, patch_content, &saw_hashline, output, output_size);
+        if (hashline_err != DAIMA_OK || saw_hashline) {
+            return hashline_err;
+        }
     }
-#endif
-#ifdef DAIMA_SAFE_EDIT_ENABLED
-    char resolved_path[READ_PATH_SIZE];
-    char scratch[128];
-    if (!resolve_write_path_or_fail(path, resolved_path, sizeof(resolved_path), scratch, sizeof(scratch))) {
-        return DAIMA_OK;
+    if (IS_ENABLED(CONFIG_DAIMA_SAFE_EDIT_ENABLED)) {
+        char resolved_path[READ_PATH_SIZE];
+        char scratch[128];
+        if (!resolve_write_path_or_fail(path, resolved_path, sizeof(resolved_path), scratch, sizeof(scratch))) {
+            return DAIMA_OK;
+        }
+        if (safe_edit_verify(resolved_path, patch_content) != DAIMA_OK) {
+            snprintf(output, output_size,
+                     "SafeEdit: 文件自上次读取后已被修改，请重新读取后再编辑");
+            return DAIMA_ERR_INVALID_STATE;
+        }
     }
-    if (safe_edit_verify(resolved_path, patch_content) != DAIMA_OK) {
-        snprintf(output, output_size,
-                 "SafeEdit: 文件自上次读取后已被修改，请重新读取后再编辑");
-        return DAIMA_ERR_INVALID_STATE;
-    }
-#else
-    (void)path;
-    (void)patch_content;
-    (void)output;
-    (void)output_size;
-#endif
     return DAIMA_OK;
 }
 

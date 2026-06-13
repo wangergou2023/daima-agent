@@ -17,6 +17,7 @@
 #include "drivers/memory/session_store.h"
 #include "autoconf.h"
 #include "env.h"
+#include "linux/kernel.h"
 #include "linux/printk.h"
 #ifdef DAIMA_ENABLE_VISION
 #include "drivers/vision/vision_capture.h"
@@ -251,26 +252,26 @@ daima_err_t agent_turn_prepare(
     }
 
     context_build_system_prompt_for_channel(msg->channel, system_prompt, system_prompt_size);
-#ifdef DAIMA_RULES_INJECTION_ENABLED
-    char rules_buf[8192];
-    if (rules_injection_load(rules_buf, sizeof(rules_buf)) == DAIMA_OK && rules_buf[0]) {
-        prepend_rules_prompt(system_prompt, system_prompt_size, rules_buf);
+    if (IS_ENABLED(CONFIG_DAIMA_RULES_INJECTION_ENABLED)) {
+        char rules_buf[8192];
+        if (rules_injection_load(rules_buf, sizeof(rules_buf)) == DAIMA_OK && rules_buf[0]) {
+            prepend_rules_prompt(system_prompt, system_prompt_size, rules_buf);
+        }
     }
-#endif
     append_session_summary_prompt(system_prompt, system_prompt_size, msg->chat_id);
-#ifdef DAIMA_COMPACTION_RECOVERY_ENABLED
-    compaction_recovery_inject(msg->chat_id, system_prompt, system_prompt_size);
-#endif
-#ifdef DAIMA_TODO_ENFORCER_ENABLED
-    todo_enforcer_inject_prompt(msg->chat_id, system_prompt, system_prompt_size);
-#endif
-#ifdef DAIMA_SESSION_RECOVERY_ENABLED
-    session_recovery_t rec = session_recovery_check(msg->chat_id);
-    if (rec.has_crash) {
-        session_recovery_inject_prompt(msg->chat_id, system_prompt, system_prompt_size);
-        session_recovery_clear(msg->chat_id);
+    if (IS_ENABLED(CONFIG_DAIMA_COMPACTION_RECOVERY_ENABLED)) {
+        compaction_recovery_inject(msg->chat_id, system_prompt, system_prompt_size);
     }
-#endif
+    if (IS_ENABLED(CONFIG_DAIMA_TODO_ENFORCER_ENABLED)) {
+        todo_enforcer_inject_prompt(msg->chat_id, system_prompt, system_prompt_size);
+    }
+    if (IS_ENABLED(CONFIG_DAIMA_SESSION_RECOVERY_ENABLED)) {
+        session_recovery_t rec = session_recovery_check(msg->chat_id);
+        if (rec.has_crash) {
+            session_recovery_inject_prompt(msg->chat_id, system_prompt, system_prompt_size);
+            session_recovery_clear(msg->chat_id);
+        }
+    }
     append_session_facts_prompt(system_prompt, system_prompt_size, msg->chat_id);
     append_turn_context_prompt(system_prompt, system_prompt_size, msg);
     agent_channel_policy_append(system_prompt, system_prompt_size, msg);

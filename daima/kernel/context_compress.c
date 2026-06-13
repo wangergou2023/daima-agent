@@ -7,6 +7,7 @@
 #include "runtime.h"
 
 #include "autoconf.h"
+#include "linux/kernel.h"
 #include "linux/printk.h"
 #include "cJSON.h"
 
@@ -166,9 +167,9 @@ daima_err_t context_compressor_maybe_compact(
             n,
             (unsigned)approx_chars);
 
-#ifdef DAIMA_COMPACTION_RECOVERY_ENABLED
-        compaction_recovery_snapshot(chat_id);
-#endif
+        if (IS_ENABLED(CONFIG_DAIMA_COMPACTION_RECOVERY_ENABLED)) {
+            compaction_recovery_snapshot(chat_id);
+        }
 
         daima_err_t err = context_compress_compact_once(chat_id, messages_io, &cfg);
         if (err != DAIMA_OK) {

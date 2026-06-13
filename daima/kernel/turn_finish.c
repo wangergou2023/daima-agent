@@ -11,6 +11,7 @@
 #include "paths.h"
 #include "cJSON.h"
 #include "autoconf.h"
+#include "linux/kernel.h"
 #include "linux/printk.h"
 #include "os.h"
 #include "drivers/platform/platform.h"
@@ -138,24 +139,21 @@ void agent_turn_finish(
         DAIMA_LOGE(TAG, "Agent turn failed: %s", daima_err_to_name(turn_err));
     }
 
-#ifdef DAIMA_COMPACTION_RECOVERY_ENABLED
-    if (turn_err == DAIMA_OK && msg && msg->chat_id[0]) {
+    if (IS_ENABLED(CONFIG_DAIMA_COMPACTION_RECOVERY_ENABLED) &&
+        turn_err == DAIMA_OK && msg && msg->chat_id[0]) {
         compaction_recovery_clear(msg->chat_id);
     }
-#endif
-#ifdef DAIMA_TODO_ENFORCER_ENABLED
-    if (turn_err == DAIMA_OK && msg && msg->chat_id[0]) {
+    if (IS_ENABLED(CONFIG_DAIMA_TODO_ENFORCER_ENABLED) &&
+        turn_err == DAIMA_OK && msg && msg->chat_id[0]) {
         int total_todos = 0;
         int completed_todos = 0;
         read_todo_counts(&total_todos, &completed_todos);
         todo_enforcer_record_progress(msg->chat_id, total_todos, completed_todos);
     }
-#endif
-#ifdef DAIMA_SESSION_RECOVERY_ENABLED
-    if (turn_err == DAIMA_OK && msg && msg->chat_id[0]) {
+    if (IS_ENABLED(CONFIG_DAIMA_SESSION_RECOVERY_ENABLED) &&
+        turn_err == DAIMA_OK && msg && msg->chat_id[0]) {
         session_recovery_clear(msg->chat_id);
     }
-#endif
 
     DAIMA_LOGI(TAG, "Free memory: %d bytes", (int)daima_get_free_memory());
 }

@@ -9,6 +9,7 @@
 
 #include "cJSON.h"
 #include "autoconf.h"
+#include "linux/kernel.h"
 #include "linux/printk.h"
 #include "drivers/tool/tool_hashline.h"
 #include "drivers/tool/tool_safe_edit.h"
@@ -148,8 +149,7 @@ daima_err_t tool_read_file_execute(const char *input_json, char *output, size_t 
         }
 
         size_t original_line_len = strlen(line);
-#ifdef DAIMA_SAFE_EDIT_ENABLED
-        if (st.st_size < (1024 * 1024)) {
+        if (IS_ENABLED(CONFIG_DAIMA_SAFE_EDIT_ENABLED) && st.st_size < (1024 * 1024)) {
             if (fingerprint_len + original_line_len + 1 > fingerprint_cap) {
                 size_t next_cap = fingerprint_cap ? fingerprint_cap : 256;
                 while (next_cap < fingerprint_len + original_line_len + 1) {
@@ -167,7 +167,6 @@ daima_err_t tool_read_file_execute(const char *input_json, char *output, size_t 
                 fingerprint_content[fingerprint_len] = '\0';
             }
         }
-#endif
 
         if (first_emitted_line == 0) {
             first_emitted_line = current_line;
@@ -178,11 +177,11 @@ daima_err_t tool_read_file_execute(const char *input_json, char *output, size_t 
 
         char rendered[DAIMA_READ_FILE_MAX_LINE_CHARS + 64];
         char prefix[HASHLINE_PREFIX_MAX] = {0};
-#ifdef DAIMA_HASHLINE_ENABLED
-        hashline_make_prefix(current_line, line, prefix, sizeof(prefix));
-#else
-        snprintf(prefix, sizeof(prefix), "%6d|", current_line);
-#endif
+        if (IS_ENABLED(CONFIG_DAIMA_HASHLINE_ENABLED)) {
+            hashline_make_prefix(current_line, line, prefix, sizeof(prefix));
+        } else {
+            snprintf(prefix, sizeof(prefix), "%6d|", current_line);
+        }
         if (strlen(line) > DAIMA_READ_FILE_MAX_LINE_CHARS) {
             snprintf(rendered, sizeof(rendered), "%s%.*s... [truncated]\n",
                      prefix, DAIMA_READ_FILE_MAX_LINE_CHARS, line);
@@ -225,11 +224,9 @@ daima_err_t tool_read_file_execute(const char *input_json, char *output, size_t 
 
     remember_last_read(resolved_path, offset, limit, st.st_mtime);
 
-#ifdef DAIMA_SAFE_EDIT_ENABLED
-    if (fingerprint_content && emitted_lines > 0) {
+    if (IS_ENABLED(CONFIG_DAIMA_SAFE_EDIT_ENABLED) && fingerprint_content && emitted_lines > 0) {
         safe_edit_register_read(resolved_path, fingerprint_content, first_emitted_line, last_emitted_line);
     }
-#endif
     free(fingerprint_content);
 
     DAIMA_LOGI(TAG, "read_file: %s lines=%d..%d/%d emitted=%d",

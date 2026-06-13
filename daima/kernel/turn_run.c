@@ -10,6 +10,7 @@
 #include "drivers/llm/llm_proxy.h"
 #include "drivers/llm/model_fallback.h"
 #include "autoconf.h"
+#include "linux/kernel.h"
 #include "linux/printk.h"
 #include "os.h"
 #include "drivers/platform/platform.h"
@@ -120,20 +121,20 @@ daima_err_t agent_turn_run(
 
         llm_response_t resp;
         memset(&resp, 0, sizeof(resp));
-#ifdef DAIMA_MODEL_FALLBACK_ENABLED
-        err = cancellable_model_fallback_chat_tools(msg, cancel_token, system_prompt, messages, tools_json, model_override, &resp);
-#else
-        err = cancellable_llm_chat_tools(msg, cancel_token, system_prompt, messages, tools_json, model_override, &resp);
-#endif
+        if (IS_ENABLED(CONFIG_DAIMA_MODEL_FALLBACK_ENABLED)) {
+            err = cancellable_model_fallback_chat_tools(msg, cancel_token, system_prompt, messages, tools_json, model_override, &resp);
+        } else {
+            err = cancellable_llm_chat_tools(msg, cancel_token, system_prompt, messages, tools_json, model_override, &resp);
+        }
 
         if (err != DAIMA_OK) {
             if (mark_cancelled_if_needed(msg, cancel_token, out_cancelled, "during LLM call")) {
                 err = DAIMA_OK;
                 break;
             }
-#ifdef DAIMA_SESSION_RECOVERY_ENABLED
-            session_recovery_save_crash(msg->chat_id, msg->content, daima_err_to_name(err));
-#endif
+            if (IS_ENABLED(CONFIG_DAIMA_SESSION_RECOVERY_ENABLED)) {
+                session_recovery_save_crash(msg->chat_id, msg->content, daima_err_to_name(err));
+            }
             DAIMA_LOGE(TAG, "LLM call failed: %s", daima_err_to_name(err));
             break;
         }
