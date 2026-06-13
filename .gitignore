@@ -9,3 +9,9 @@
 /spiffs_data/config/config.json
 .DS_Store
 Thumbs.db
+*.o
+build-kbuild/
+build-host/
+build-mips/
+build-arm/
+__pycache__/
