@@ -101,7 +101,9 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/channel_policy.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/intent.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/roles.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/sched.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/sched/core.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/sched/class.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/sched/agent.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/router.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/plan.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/interview.c

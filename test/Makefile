@@ -120,7 +120,7 @@ test_intent_gate: test_intent_gate.c ../daima/kernel/intent.c ../daima/lib/env.c
 test_agent_roles: test_agent_roles.c ../daima/kernel/roles.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
-test_agent_coordinator: test_agent_coordinator.c ../daima/kernel/sched.c ../daima/kernel/roles.c ../third_party/cjson/cJSON.c
+test_agent_coordinator: test_agent_coordinator.c ../daima/kernel/sched/core.c ../daima/kernel/sched/class.c ../daima/kernel/sched/agent.c ../daima/kernel/roles.c ../third_party/cjson/cJSON.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 
