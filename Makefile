@@ -71,10 +71,10 @@ kbuild-doc-check:
 menuconfig:
 	python3 scripts/menuconfig.py
 defconfig:
-	python3 kconfig.py defconfig
+	python3 scripts/kconfig.py defconfig
 	make oldconfig
 config:
-	python3 kconfig.py list
+	python3 scripts/kconfig.py list
 
 host: kbuild
 mips:

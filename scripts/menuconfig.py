@@ -16,7 +16,7 @@ def load_config():
 
 def save(k):
     k.write_config(DOTCONFIG)
-    os.system(f"cd {ROOT} && python3 kconfig.py genconfig > /dev/null 2>&1")
+    os.system(f"cd {ROOT} && python3 scripts/kconfig.py genconfig > /dev/null 2>&1")
 
 def draw(stdscr, syms, cursor, msg):
     stdscr.clear()
