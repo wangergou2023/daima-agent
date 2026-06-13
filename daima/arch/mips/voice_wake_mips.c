@@ -3,10 +3,10 @@
 #include "drivers/voice/voice_wake.h"
 #include "drivers/voice/voice_channel.h"
 #include "drivers/audio/audio_io.h"
-#include "core/runtime.h"
-#include "core/config.h"
-#include "core/os.h"
-#include "core/log.h"
+#include "runtime.h"
+#include "autoconf.h"
+#include "os.h"
+#include "log.h"
 
 #include <string.h>
 #include <stdlib.h>

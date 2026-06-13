@@ -2,9 +2,9 @@
 
 #include "drivers/tool/tool_file_ops.h"
 
-#include "core/fs.h"
-#include "core/paths.h"
-#include "core/config.h"
+#include "fs.h"
+#include "paths.h"
+#include "autoconf.h"
 
 #include <stdbool.h>
 #include <stdio.h>

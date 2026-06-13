@@ -9,12 +9,12 @@
 
 #include "drivers/channel/feishu/feishu_api.h"
 #include "drivers/channel/feishu/feishu_ws_runtime.h"
-#include "core/runtime.h"
-#include "core/config.h"
-#include "core/log.h"
-#include "core/os.h"
-#include "core/text.h"
-#include "core/proxy.h"
+#include "runtime.h"
+#include "autoconf.h"
+#include "log.h"
+#include "os.h"
+#include "text.h"
+#include "proxy.h"
 
 static const char *TAG = "feishu";
 

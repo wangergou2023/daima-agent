@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "core/err.h"
+#include "err.h"
 #include <stddef.h>
 
 /**

@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "core/err.h"
+#include "err.h"
 #include <stddef.h>
 
 #ifdef __cplusplus

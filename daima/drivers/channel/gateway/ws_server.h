@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "core/err.h"
+#include "err.h"
 
 /**
  * 在 runtime config 指定端口上初始化并启动 WebSocket 服务器。

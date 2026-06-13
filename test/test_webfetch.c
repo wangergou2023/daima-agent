@@ -1,4 +1,4 @@
-#include "core/paths.h"
+#include "paths.h"
 #include "cJSON.h"
 #include "drivers/tool/tool_webfetch.h"
 

@@ -2,7 +2,7 @@
 
 #include "drivers/tool/tool_files.h"
 
-#include "core/config.h"
+#include "autoconf.h"
 #include "cJSON.h"
 
 #include <stdio.h>

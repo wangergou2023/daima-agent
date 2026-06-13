@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/bus.h"
+#include "bus.h"
 #include "drivers/llm/llm_proxy.h"
 
 /* Returns a heap-allocated input JSON when middleware changes the tool call. */

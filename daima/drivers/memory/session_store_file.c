@@ -1,9 +1,9 @@
 /* 文件型会话存储后端。 */
 
 #include "session_store.h"
-#include "core/paths.h"
-#include "core/runtime.h"
-#include "core/config.h"
+#include "paths.h"
+#include "runtime.h"
+#include "autoconf.h"
 #include "drivers/memory/session_store_file_internal.h"
 
 #include <dirent.h>
@@ -15,7 +15,7 @@
 #include <sys/stat.h>
 
 #include "cJSON.h"
-#include "core/log.h"
+#include "log.h"
 
 static const char *TAG = "session";
 

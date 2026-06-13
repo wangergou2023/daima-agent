@@ -1,6 +1,6 @@
 #include "drivers/tool/tool_daima_log.h"
 
-#include "core/paths.h"
+#include "paths.h"
 #include "cJSON.h"
 
 #include <ctype.h>

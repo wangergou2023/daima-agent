@@ -5,12 +5,12 @@
 
 #pragma once
 
-#include "core/err.h"
+#include "err.h"
 #include "cJSON.h"
 #include <stddef.h>
 #include <stdbool.h>
 
-#include "core/config.h"
+#include "autoconf.h"
 
 /**
  * 初始化大模型代理。

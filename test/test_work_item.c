@@ -1,7 +1,7 @@
-#include "core/paths.h"
+#include "paths.h"
 #include "cJSON.h"
 #include "drivers/tool/tool_work_item.h"
-#include "core/work_item.h"
+#include "work_item.h"
 
 #include <assert.h>
 #include <stdio.h>

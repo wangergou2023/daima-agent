@@ -2,8 +2,8 @@
 
 #include "drivers/tool/tool_file_ops.h"
 
-#include "core/paths.h"
-#include "core/config.h"
+#include "paths.h"
+#include "autoconf.h"
 
 #include <limits.h>
 #include <stdbool.h>

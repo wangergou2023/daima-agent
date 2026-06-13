@@ -14,8 +14,8 @@
 #include <signal.h>
 
 #include "cJSON.h"
-#include "core/log.h"
-#include "core/config.h"
+#include "log.h"
+#include "autoconf.h"
 
 static bool handle_mcp_notification(mcp_client_t *c, const char *json_str);
 static daima_err_t read_json_line(mcp_client_t *c, char *buf, size_t size, int timeout_ms);

@@ -8,7 +8,7 @@
 #include <string.h>
 
 #include "cJSON.h"
-#include "core/log.h"
+#include "log.h"
 
 static const char *TAG = "tool_vector_audio";
 

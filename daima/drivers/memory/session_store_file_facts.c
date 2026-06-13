@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "core/log.h"
+#include "log.h"
 
 static const char *TAG = "session_facts";
 

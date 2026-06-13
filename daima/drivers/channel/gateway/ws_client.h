@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <sys/select.h>
 
-#include "core/err.h"
+#include "err.h"
 
 typedef struct cJSON cJSON;
 

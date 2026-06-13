@@ -3,10 +3,10 @@
  */
 
 #include "drivers/vision/vision_capture.h"
-#include "core/config.h"
-#include "core/env.h"
-#include "core/log.h"
-#include "core/text.h"
+#include "autoconf.h"
+#include "env.h"
+#include "log.h"
+#include "text.h"
 
 #include "sample-common.h"
 #include "sample-common-framesource.h"

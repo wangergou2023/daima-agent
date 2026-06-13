@@ -1,7 +1,7 @@
 /* 设备音频输入/输出接口（Host 占位实现）。 */
 
 #include "drivers/audio/audio_io.h"
-#include "core/log.h"
+#include "log.h"
 
 static const char *TAG = "audio_io";
 

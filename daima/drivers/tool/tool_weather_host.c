@@ -1,5 +1,5 @@
 #include "drivers/tool/tool_weather.h"
-#include "core/http.h"
+#include "http.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -7,7 +7,7 @@
 #include <string.h>
 
 #include "cJSON.h"
-#include "core/log.h"
+#include "log.h"
 
 static const char *TAG = "tool_weather";
 

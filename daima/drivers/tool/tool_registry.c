@@ -16,8 +16,8 @@
 
 #include <string.h>
 #include <stdio.h>
-#include "core/bus.h"
-#include "core/log.h"
+#include "bus.h"
+#include "log.h"
 #include "cJSON.h"
 
 static const char *TAG = "tools";

@@ -6,7 +6,7 @@
 #include <stddef.h>
 #include <stdio.h>
 
-#include "core/err.h"
+#include "err.h"
 #include "cJSON.h"
 
 int tool_files_clamp_int(int value, int min_value, int max_value);

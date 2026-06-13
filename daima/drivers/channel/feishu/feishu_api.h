@@ -4,7 +4,7 @@
 
 #include <stddef.h>
 
-#include "core/err.h"
+#include "err.h"
 
 typedef struct {
     char url[512];

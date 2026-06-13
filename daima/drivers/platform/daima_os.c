@@ -1,4 +1,4 @@
-#include "core/os.h"
+#include "os.h"
 
 #include <pthread.h>
 #include <stdlib.h>

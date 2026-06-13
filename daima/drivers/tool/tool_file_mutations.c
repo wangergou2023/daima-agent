@@ -5,9 +5,9 @@
 #include "drivers/tool/tool_file_ops.h"
 #include "drivers/tool/tool_hashline.h"
 #include "drivers/tool/tool_safe_edit.h"
-#include "core/paths.h"
-#include "core/config.h"
-#include "core/log.h"
+#include "paths.h"
+#include "autoconf.h"
+#include "log.h"
 #include "cJSON.h"
 
 #include <ctype.h>

@@ -1,10 +1,10 @@
 #include "drivers/tool/tool_webfetch.h"
 
 #include "cJSON.h"
-#include "core/config.h"
-#include "core/log.h"
-#include "core/http.h"
-#include "core/work_item.h"
+#include "autoconf.h"
+#include "log.h"
+#include "http.h"
+#include "work_item.h"
 
 #include <ctype.h>
 #include <curl/curl.h>

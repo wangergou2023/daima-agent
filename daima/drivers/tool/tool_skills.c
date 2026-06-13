@@ -2,8 +2,8 @@
 
 #include "drivers/tool/tool_skills.h"
 #include "drivers/skill/skill_meta.h"
-#include "core/paths.h"
-#include "core/config.h"
+#include "paths.h"
+#include "autoconf.h"
 
 #include <dirent.h>
 #include <stdbool.h>
@@ -12,7 +12,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include "cJSON.h"
-#include "core/log.h"
+#include "log.h"
 
 static const char *TAG = "tool_skills";
 

@@ -10,9 +10,9 @@
 #include <time.h>
 
 #include "cJSON.h"
-#include "core/config.h"
-#include "core/log.h"
-#include "core/http.h"
+#include "autoconf.h"
+#include "log.h"
+#include "http.h"
 #include "drivers/channel/feishu/feishu_http.h"
 
 static const char *TAG = "feishu_api";

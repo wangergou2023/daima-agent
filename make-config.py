@@ -3,7 +3,7 @@
 import sys, os
 
 KCONFIG = os.path.join(os.path.dirname(__file__), "daima/Kconfig")
-HEADER  = os.path.join(os.path.dirname(__file__), "daima/core/config.h")
+HEADER  = os.path.join(os.path.dirname(__file__), "daima/include/autoconf.h")
 
 def parse_kconfig():
     configs = {}

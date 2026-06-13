@@ -1,12 +1,12 @@
 #include "drivers/channel/gateway/ws_http_helpers.h"
 
-#include "core/paths.h"
-#include "core/runtime.h"
-#include "core/context_builder.h"
+#include "paths.h"
+#include "runtime.h"
+#include "context_build.h"
 #include "drivers/llm/llm_proxy.h"
 #include "drivers/memory/session_store.h"
-#include "core/config.h"
-#include "core/log.h"
+#include "autoconf.h"
+#include "log.h"
 #include "cJSON.h"
 
 #include <dirent.h>

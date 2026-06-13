@@ -1,7 +1,7 @@
 /* 语音唤醒按键与录音处理（Host 占位实现）。 */
 
 #include "drivers/voice/voice_wake.h"
-#include "core/log.h"
+#include "log.h"
 
 static const char *TAG = "voice_wake";
 

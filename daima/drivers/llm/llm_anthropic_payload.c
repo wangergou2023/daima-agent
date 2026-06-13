@@ -3,10 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "core/context_builder.h"
+#include "context_build.h"
 #include "cJSON.h"
-#include "core/config.h"
-#include "core/log.h"
+#include "autoconf.h"
+#include "log.h"
 
 static const char *TAG = "llm_parse";
 

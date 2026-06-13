@@ -1,14 +1,14 @@
 /* 记忆存储（长期记忆读写）。 */
 
 #include "memory_store.h"
-#include "core/paths.h"
-#include "core/config.h"
+#include "paths.h"
+#include "autoconf.h"
 
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
 #include <sys/stat.h>
-#include "core/log.h"
+#include "log.h"
 
 static const char *TAG = "memory";
 

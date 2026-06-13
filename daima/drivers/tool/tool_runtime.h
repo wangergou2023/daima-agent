@@ -4,9 +4,9 @@
 
 #include <stddef.h>
 
-#include "core/bus.h"
+#include "bus.h"
 #include "drivers/llm/llm_proxy.h"
-#include "core/err.h"
+#include "err.h"
 
 typedef struct {
     long elapsed_ms;

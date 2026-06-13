@@ -1,6 +1,6 @@
 #include "drivers/tool/tool_get_time.h"
-#include "core/config.h"
-#include "core/http.h"
+#include "autoconf.h"
+#include "http.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -8,7 +8,7 @@
 #include <ctype.h>
 #include <stdbool.h>
 #include <strings.h>
-#include "core/log.h"
+#include "log.h"
 
 static const char *TAG = "tool_time";
 

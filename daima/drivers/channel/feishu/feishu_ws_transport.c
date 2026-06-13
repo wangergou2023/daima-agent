@@ -19,11 +19,11 @@
 #include <openssl/rand.h>
 #include <openssl/sha.h>
 
-#include "core/tls.h"
-#include "core/base64.h"
-#include "core/config.h"
-#include "core/log.h"
-#include "core/text.h"
+#include "tls.h"
+#include "base64.h"
+#include "autoconf.h"
+#include "log.h"
+#include "text.h"
 
 static const char *TAG = "feishu_ws";
 

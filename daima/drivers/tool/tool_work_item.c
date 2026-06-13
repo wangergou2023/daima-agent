@@ -1,6 +1,6 @@
 #include "drivers/tool/tool_work_item.h"
 
-#include "core/work_item.h"
+#include "work_item.h"
 
 #include <stdio.h>
 #include <string.h>

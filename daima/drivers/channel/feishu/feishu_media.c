@@ -1,7 +1,7 @@
 /* 飞书消息图片下载。 */
 
 #include "drivers/channel/feishu/feishu_media.h"
-#include "core/fs.h"
+#include "fs.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,10 +12,10 @@
 
 #include <curl/curl.h>
 
-#include "core/http.h"
-#include "core/paths.h"
-#include "core/config.h"
-#include "core/log.h"
+#include "http.h"
+#include "paths.h"
+#include "autoconf.h"
+#include "log.h"
 
 static const char *TAG = "feishu_media";
 

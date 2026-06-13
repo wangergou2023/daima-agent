@@ -3,7 +3,7 @@
 #include "drivers/tool/tool_file_search.h"
 
 #include "drivers/tool/tool_file_ops.h"
-#include "core/config.h"
+#include "autoconf.h"
 
 #include <dirent.h>
 #include <fnmatch.h>

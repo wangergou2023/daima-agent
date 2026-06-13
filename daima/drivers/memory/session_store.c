@@ -2,7 +2,7 @@
 
 #include "session_store.h"
 
-#include "core/log.h"
+#include "log.h"
 
 static const char *TAG = "session_store";
 static const daima_session_store_ops_t *s_ops = NULL;

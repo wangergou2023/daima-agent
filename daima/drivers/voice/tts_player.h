@@ -2,7 +2,7 @@
 #ifndef DAIMA_TTS_PLAYER_H
 #define DAIMA_TTS_PLAYER_H
 
-#include "core/err.h"
+#include "err.h"
 
 daima_err_t tts_player_speak(const char *text);
 

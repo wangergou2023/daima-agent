@@ -1,6 +1,6 @@
 #include "drivers/skill/skill_meta.h"
 
-#include "core/paths.h"
+#include "paths.h"
 
 #include <ctype.h>
 #include <stdio.h>

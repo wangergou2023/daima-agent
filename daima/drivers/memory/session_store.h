@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "core/err.h"
+#include "err.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <time.h>

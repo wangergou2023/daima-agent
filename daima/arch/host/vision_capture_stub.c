@@ -3,7 +3,7 @@
  */
 
 #include "drivers/vision/vision_capture.h"
-#include "core/log.h"
+#include "log.h"
 
 static const char *TAG = "vision_capture";
 

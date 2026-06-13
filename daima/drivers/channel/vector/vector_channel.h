@@ -7,7 +7,7 @@
  */
 #pragma once
 
-#include "core/err.h"
+#include "err.h"
 #include "drivers/channel/vector/mcp_client.h"
 
 #ifdef __cplusplus

@@ -8,11 +8,11 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "core/http.h"
-#include "core/tls.h"
-#include "core/config.h"
-#include "core/log.h"
-#include "core/proxy.h"
+#include "http.h"
+#include "tls.h"
+#include "autoconf.h"
+#include "log.h"
+#include "proxy.h"
 
 #define LLM_DUMP_MAX_BYTES   (16 * 1024)
 #define LLM_DUMP_CHUNK_BYTES 320

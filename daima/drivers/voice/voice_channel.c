@@ -1,14 +1,14 @@
 /* 语音通道实现：ASR -> LLM -> TTS。 */
 
 #include "drivers/voice/voice_channel.h"
-#include "core/runtime.h"
-#include "core/tls.h"
-#include "core/bus.h"
-#include "core/http.h"
-#include "core/proxy.h"
-#include "core/paths.h"
-#include "core/config.h"
-#include "core/env.h"
+#include "runtime.h"
+#include "tls.h"
+#include "bus.h"
+#include "http.h"
+#include "proxy.h"
+#include "paths.h"
+#include "autoconf.h"
+#include "env.h"
 #include "drivers/audio/audio_io.h"
 
 #include <string.h>
@@ -19,7 +19,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <curl/curl.h>
-#include "core/log.h"
+#include "log.h"
 #include "cJSON.h"
 
 static const char *TAG = "voice";

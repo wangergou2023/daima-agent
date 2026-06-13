@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/agent_turn_common.h"
+#include "turn_common.h"
 
 #include <stdbool.h>
 

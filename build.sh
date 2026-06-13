@@ -18,7 +18,7 @@ case "$BUILD_TYPE" in
         mkdir -p "$BUILD_DIR"
         # 清理缓存，避免切换平台/选项时混淆
         rm -rf "$BUILD_DIR/CMakeCache.txt" "$BUILD_DIR/CMakeFiles"
-        (cd "$BUILD_DIR" && cmake ..)
+        (cd "$BUILD_DIR" && cmake .. -DCMAKE_C_FLAGS="-I$SCRIPT_DIR/daima/init -I$SCRIPT_DIR/daima/kernel -I$SCRIPT_DIR/daima/ipc -I$SCRIPT_DIR/daima/lib -I$SCRIPT_DIR/daima/net -I$SCRIPT_DIR/daima/fs")
         cmake --build "$BUILD_DIR"
         echo "=== Build complete: $BUILD_DIR/daima ==="
         ;;
@@ -29,7 +29,7 @@ case "$BUILD_TYPE" in
         BUILD_DIR="$SCRIPT_DIR/build-mips"
         mkdir -p "$BUILD_DIR"
         rm -rf "$BUILD_DIR/CMakeCache.txt" "$BUILD_DIR/CMakeFiles"
-        (cd "$BUILD_DIR" && cmake -DBUILD_FOR_MIPS=ON -DDAIMA_ENABLE_VISION=ON ..)
+        (cd "$BUILD_DIR" && cmake -DBUILD_FOR_MIPS=ON -DDAIMA_ENABLE_VISION=ON -DCMAKE_C_FLAGS="-I$SCRIPT_DIR/daima/init -I$SCRIPT_DIR/daima/kernel -I$SCRIPT_DIR/daima/ipc -I$SCRIPT_DIR/daima/lib -I$SCRIPT_DIR/daima/net -I$SCRIPT_DIR/daima/fs" ..)
         cmake --build "$BUILD_DIR"
         echo "=== Build complete: $BUILD_DIR/daima ==="
         # 可选查看产物类型（静默失败不影响构建）
@@ -47,6 +47,7 @@ case "$BUILD_TYPE" in
         cmake -B "$BUILD_DIR" \
             -DBUILD_FOR_ARM=ON \
             -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc \
+            -DCMAKE_C_FLAGS="-I$SCRIPT_DIR/daima/init -I$SCRIPT_DIR/daima/kernel -I$SCRIPT_DIR/daima/ipc -I$SCRIPT_DIR/daima/lib -I$SCRIPT_DIR/daima/net -I$SCRIPT_DIR/daima/fs" \
             -DCMAKE_CXX_COMPILER=arm-linux-gnueabihf-g++
         cmake --build "$BUILD_DIR"
         echo "=== Build complete: $BUILD_DIR/daima ==="

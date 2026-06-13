@@ -1,9 +1,9 @@
 #include "drivers/llm/model_fallback.h"
 
-#include "core/paths.h"
-#include "core/runtime.h"
-#include "core/config.h"
-#include "core/log.h"
+#include "paths.h"
+#include "runtime.h"
+#include "autoconf.h"
+#include "log.h"
 
 #include <stdio.h>
 #include <stdlib.h>

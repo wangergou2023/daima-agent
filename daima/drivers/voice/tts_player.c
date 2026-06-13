@@ -12,7 +12,7 @@
 #include <time.h>
 #include <pthread.h>
 
-#include "core/log.h"
+#include "log.h"
 #include "drivers/channel/vector/vector_channel.h"
 
 static const char *TAG = "tts_player";

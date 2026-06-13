@@ -1,8 +1,8 @@
 /* 简化版 todo 工具：维护一个本地 JSON 待办列表。 */
 
 #include "drivers/tool/tool_todo.h"
-#include "core/paths.h"
-#include "core/config.h"
+#include "paths.h"
+#include "autoconf.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,7 +10,7 @@
 #include <stdbool.h>
 #include <errno.h>
 #include "cJSON.h"
-#include "core/log.h"
+#include "log.h"
 
 static const char *TAG = "tool_todo";
 

@@ -2,12 +2,12 @@
 
 #include "drivers/skill/skill_loader.h"
 #include "drivers/skill/skill_meta.h"
-#include "core/config.h"
+#include "autoconf.h"
 #if DAIMA_SKILL_SCOPED_TOOLS_ENABLED
 #include "drivers/skill/skill_tools.h"
 #endif
-#include "core/fs.h"
-#include "core/paths.h"
+#include "fs.h"
+#include "paths.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -16,7 +16,7 @@
 #include <ctype.h>
 #include <sys/stat.h>
 #include <time.h>
-#include "core/log.h"
+#include "log.h"
 
 static const char *TAG = "skills";
 

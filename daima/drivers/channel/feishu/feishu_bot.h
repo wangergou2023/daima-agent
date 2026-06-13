@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/err.h"
+#include "err.h"
 
 #ifdef __cplusplus
 extern "C" {

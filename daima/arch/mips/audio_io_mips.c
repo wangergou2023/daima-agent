@@ -1,9 +1,9 @@
 /* 设备音频输入/输出接口（MIPS/IMP 实现）。 */
 
 #include "drivers/audio/audio_io.h"
-#include "core/runtime.h"
-#include "core/config.h"
-#include "core/log.h"
+#include "runtime.h"
+#include "autoconf.h"
+#include "log.h"
 
 #include <string.h>
 #include <stdlib.h>

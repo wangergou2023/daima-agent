@@ -62,19 +62,19 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 # 源文件集合（Host/MIPS 公共部分）
 set(SRC
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/agent.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/bootstrap.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/fs.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/paths.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/runtime.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/runtime_sections.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/channel_router.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/channel_runtime.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/tool_activity_notifier.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/interactive_requests.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/http.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/tls.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/proxy.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/init/main.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/init/bootstrap.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/fs/fs.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/fs/paths.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/runtime.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/runtime_sections.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/channel_router.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/channel_runtime.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/tool_notify.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/interactive.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/net/http.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/net/tls.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/net/proxy.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/llm/model_fallback.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/llm/llm_anthropic_payload.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/llm/llm_openai_payload.c
@@ -83,65 +83,65 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/tool/tool_get_time_host.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/tool/tool_webfetch.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/tool/tool_daima_log.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/log_file.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/lib/log_file.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/tool/tool_daima_log.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/channel/gateway/ws_http_helpers.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/channel/gateway/ws_client.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/pet/pet_event.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/platform/platform.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/platform/daima_os.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/text.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/utils/json_helpers.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/base64.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/env.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/loop.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/hooks.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/state.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/agent_cancel.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/channel_policy.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/intent_gate.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/roles.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/agent_coordinator.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/category_router.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/plan_review.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/prometheus_interview.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/team_mode.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/agent_turn_common.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/agent_prompt_debug.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/agent_turn_persist.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/agent_turn_prepare.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/agent_turn_run.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/agent_turn_exec_helpers.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/todo_enforcer.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/ralph_loop.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/tool_feedback.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/agent_turn_finish.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/tool_protocol_guard.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/context_compressor.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/compaction_recovery.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/session_recovery.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/context_compress_ops.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/context_builder.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/rules_injection.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/learning_review.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/extensions/ext_intent_gate.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/extensions/ext_agent_roles.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/extensions/ext_plan_review.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/extensions/ext_category_router.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/extensions/ext_prometheus.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/extensions/ext_team_mode.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/extensions/ext_coordinator.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/extensions/ext_ralph_loop.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/bus.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/cron.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/heartbeat.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/lib/text.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/lib/json_helpers.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/lib/base64.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/lib/env.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/loop.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/hooks.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/state.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/cancel.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/channel_policy.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/intent.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/roles.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/sched.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/router.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/plan.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/interview.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/team.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/turn_common.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/debug.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/turn_persist.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/turn_prepare.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/turn_run.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/turn_exec.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/todo.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/ralph.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/tool_feedback.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/turn_finish.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/tool_guard.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/context_compress.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/compaction.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/recovery.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/context_ops.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/context_build.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/rules.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/learning.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/extensions/module_intent.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/extensions/module_roles.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/extensions/module_plan.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/extensions/module_router.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/extensions/module_interview.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/extensions/module_team.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/extensions/module_sched.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/extensions/module_ralph.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/ipc/bus.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/cron.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/heartbeat.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/memory/memory_store.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/memory/session_store.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/memory/session_store_file.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/memory/session_store_file_facts.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/memory/session_store_file_summary.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/memory/session_store_file_common.c
-    ${CMAKE_CURRENT_LIST_DIR}/daima/core/work_item.c
+    ${CMAKE_CURRENT_LIST_DIR}/daima/kernel/work_item.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/tool/tool_registry.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/tool/tool_invocation_context.c
     ${CMAKE_CURRENT_LIST_DIR}/daima/drivers/tool/tool_runtime.c

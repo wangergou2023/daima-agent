@@ -1,9 +1,9 @@
 #include "drivers/channel/gateway/ws_server.h"
 #include "drivers/channel/gateway/ws_client.h"
 #include "drivers/channel/gateway/ws_http_helpers.h"
-#include "core/runtime.h"
+#include "runtime.h"
 #include "drivers/pet/pet_event.h"
-#include "core/config.h"
+#include "autoconf.h"
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -24,7 +24,7 @@
 #include <openssl/evp.h>
 #include <openssl/sha.h>
 
-#include "core/log.h"
+#include "log.h"
 #include "cJSON.h"
 
 static const char *TAG = "ws";

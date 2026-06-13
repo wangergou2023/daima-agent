@@ -1,7 +1,7 @@
 #include "drivers/tool/tool_files.h"
 #include "drivers/tool/tool_file_list.h"
 #include "drivers/tool/tool_file_ops.h"
-#include "core/paths.h"
+#include "paths.h"
 #include "drivers/tool/tool_file_search.h"
 
 #include <stdbool.h>
@@ -10,8 +10,8 @@
 #include <sys/stat.h>
 
 #include "cJSON.h"
-#include "core/config.h"
-#include "core/log.h"
+#include "autoconf.h"
+#include "log.h"
 
 static const char *TAG = "tool_files";
 

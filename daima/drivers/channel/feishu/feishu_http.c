@@ -4,8 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "core/http.h"
-#include "core/log.h"
+#include "http.h"
+#include "log.h"
 
 static const char *TAG = "feishu_http";
 

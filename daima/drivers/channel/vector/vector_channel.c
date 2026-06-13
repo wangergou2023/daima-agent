@@ -11,10 +11,10 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include "core/bus.h"
-#include "core/log.h"
-#include "core/os.h"
-#include "core/config.h"
+#include "bus.h"
+#include "log.h"
+#include "os.h"
+#include "autoconf.h"
 #include "drivers/voice/voice_channel.h"
 #include "cJSON.h"
 

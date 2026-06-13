@@ -1,7 +1,7 @@
-#include "core/err.h"
-#include "core/log.h"
+#include "err.h"
+#include "log.h"
 #include "drivers/platform/platform.h"
-#include "core/log_file.h"
+#include "log_file.h"
 
 #include <stdarg.h>
 #include <stdbool.h>

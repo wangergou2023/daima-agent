@@ -6,7 +6,7 @@
 #include <sys/stat.h>
 
 #include "cJSON.h"
-#include "core/log.h"
+#include "log.h"
 
 static const char *TAG = "skill_tools";
 

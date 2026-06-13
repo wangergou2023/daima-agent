@@ -1,7 +1,7 @@
 /* Vector 机器人工具 — 共享定义 */
 #pragma once
 
-#include "core/err.h"
+#include "err.h"
 #include "drivers/tool/tool_registry.h"
 #include "drivers/channel/vector/vector_channel.h"
 #include "drivers/channel/vector/mcp_client.h"

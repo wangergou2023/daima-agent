@@ -7,8 +7,8 @@
 
 #include "cJSON.h"
 #include "drivers/memory/session_store.h"
-#include "core/config.h"
-#include "core/log.h"
+#include "autoconf.h"
+#include "log.h"
 #include "drivers/tool/tool_session_search_internal.h"
 
 static const char *TAG = "tool_session_search";

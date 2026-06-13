@@ -9,13 +9,13 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "core/bus.h"
+#include "bus.h"
 #include "drivers/channel/feishu/feishu_api.h"
 #include "drivers/channel/feishu/feishu_media.h"
 #include "drivers/channel/feishu/feishu_message.h"
 #include "drivers/channel/feishu/feishu_targets.h"
 #include "cJSON.h"
-#include "core/log.h"
+#include "log.h"
 
 static const char *TAG = "feishu_event";
 

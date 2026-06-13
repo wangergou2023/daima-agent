@@ -5,11 +5,11 @@
 #include <string.h>
 #include <time.h>
 
-#include "core/interactive_requests.h"
+#include "interactive.h"
 #include "drivers/tool/tool_invocation_context.h"
 #include "drivers/tool/tool_registry.h"
 #include "cJSON.h"
-#include "core/log.h"
+#include "log.h"
 
 static const char *TAG = "tool_runtime";
 

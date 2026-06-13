@@ -1,6 +1,6 @@
 #include "drivers/tool/tool_safe_edit.h"
 
-#include "core/log.h"
+#include "log.h"
 
 #include <pthread.h>
 #include <stdio.h>

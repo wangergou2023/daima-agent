@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/err.h"
+#include "err.h"
 #include "drivers/llm/llm_proxy.h"
 #include "cJSON.h"
 

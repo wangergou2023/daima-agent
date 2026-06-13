@@ -5,7 +5,7 @@
 
 #include <curl/curl.h>
 
-#include "core/err.h"
+#include "err.h"
 
 void llm_http_log_payload(const char *tag, const char *label, const char *payload);
 

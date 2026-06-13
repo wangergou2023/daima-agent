@@ -1,14 +1,14 @@
 /* Host 侧 LLM 代理实现：基于 libcurl 的 HTTP 请求 */
 #include "drivers/llm/llm_proxy.h"
-#include "core/runtime.h"
+#include "runtime.h"
 #include "drivers/llm/llm_anthropic_payload.h"
 #include "drivers/llm/llm_openai_payload.h"
 #include "arch/host/llm_http_client_host.h"
-#include "core/base64.h"
-#include "core/text.h"
-#include "core/paths.h"
-#include "core/config.h"
-#include "core/http.h"
+#include "base64.h"
+#include "text.h"
+#include "paths.h"
+#include "autoconf.h"
+#include "http.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -28,9 +28,9 @@ static void *memrchr(const void *s, int c, size_t n) {
 }
 #endif
 #include <stdlib.h>
-#include "core/log.h"
+#include "log.h"
 #include "cJSON.h"
-#include "core/utils/json_helpers.h"
+#include "json_helpers.h"
 
 static const char *TAG = "llm";
 static const char *DEFAULT_LLM_MODEL = "kimi-k2.5";

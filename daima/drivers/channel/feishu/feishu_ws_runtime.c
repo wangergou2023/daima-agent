@@ -7,9 +7,9 @@
 
 #include "drivers/channel/feishu/feishu_api.h"
 #include "drivers/channel/feishu/feishu_event_handler.h"
-#include "core/log.h"
-#include "core/os.h"
-#include "core/text.h"
+#include "log.h"
+#include "os.h"
+#include "text.h"
 #include "cJSON.h"
 
 static const char *TAG = "feishu";

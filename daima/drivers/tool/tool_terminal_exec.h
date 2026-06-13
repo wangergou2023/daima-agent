@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#include "core/err.h"
+#include "err.h"
 
 typedef struct {
     int exit_code;

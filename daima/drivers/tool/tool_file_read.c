@@ -8,8 +8,8 @@
 #include <sys/stat.h>
 
 #include "cJSON.h"
-#include "core/config.h"
-#include "core/log.h"
+#include "autoconf.h"
+#include "log.h"
 #include "drivers/tool/tool_hashline.h"
 #include "drivers/tool/tool_safe_edit.h"
 

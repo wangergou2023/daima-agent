@@ -3,9 +3,9 @@
 #include "drivers/tool/tool_system.h"
 #include "drivers/tool/tool_terminal_exec.h"
 
-#include "core/fs.h"
-#include "core/paths.h"
-#include "core/runtime.h"
+#include "fs.h"
+#include "paths.h"
+#include "runtime.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,7 +14,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "core/log.h"
+#include "log.h"
 #include "cJSON.h"
 
 static const char *TAG = "tool_terminal";

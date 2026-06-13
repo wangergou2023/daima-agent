@@ -13,14 +13,14 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "core/agent_cancel.h"
-#include "core/fs.h"
-#include "core/paths.h"
-#include "core/bus.h"
+#include "cancel.h"
+#include "fs.h"
+#include "paths.h"
+#include "bus.h"
 #include "drivers/channel/gateway/ws_server.h"
 #include "drivers/pet/pet_event.h"
-#include "core/config.h"
-#include "core/log.h"
+#include "autoconf.h"
+#include "log.h"
 #include "cJSON.h"
 
 static const char *TAG = "ws";

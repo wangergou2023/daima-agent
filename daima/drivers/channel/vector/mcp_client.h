@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "core/err.h"
+#include "err.h"
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>

@@ -5,12 +5,12 @@
 #include <string.h>
 #include <time.h>
 
-#include "core/paths.h"
-#include "core/runtime.h"
-#include "core/config.h"
+#include "paths.h"
+#include "runtime.h"
+#include "autoconf.h"
 #include "cJSON.h"
-#include "core/log.h"
-#include "core/utils/json_helpers.h"
+#include "log.h"
+#include "json_helpers.h"
 
 static const char *TAG = "feishu_targets";
 

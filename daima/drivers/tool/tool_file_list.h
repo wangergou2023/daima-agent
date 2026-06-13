@@ -4,7 +4,7 @@
 
 #include <stddef.h>
 
-#include "core/err.h"
+#include "err.h"
 
 daima_err_t tool_files_list_dir(const char *resolved_dir,
                                const char *prefix,
