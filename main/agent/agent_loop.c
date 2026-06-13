@@ -231,7 +231,8 @@ static void agent_loop_task(void *arg)
 
                 daima_err_t launch_err = coordinator_launch_all(system_prompt, messages, tools_json, &coord);
                 if (launch_err == DAIMA_OK) {
-                    coordinator_wait_all(&coord, 120000);
+                    int coord_timeout = runtime_config_get_request_timeout_ms() + 10000;
+                    coordinator_wait_all(&coord, coord_timeout);
                     char *merged = daima_calloc(1, COORDINATOR_RESULT_MAX * COORDINATOR_MAX_SUB_AGENTS);
                     if (merged) {
                         coordinator_merge_results(&coord,
