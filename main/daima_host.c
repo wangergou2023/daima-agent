@@ -10,6 +10,7 @@
 #include "app/daima_bootstrap.h"
 #include "app/runtime_config.h"
 #include "agent/agent_loop.h"
+#include "agent/agent_hooks.h"
 #include "bus/message_bus.h"
 #include "channels/feishu/feishu_bot.h"
 #include "channels/vector/vector_channel.h"
@@ -68,6 +69,7 @@ int main(int argc, char **argv)
     DAIMA_LOGI(TAG, "Timezone: %s", runtime_tz);
 
     DAIMA_ERROR_CHECK(message_bus_init());
+    agent_hooks_init();
     DAIMA_ERROR_CHECK(memory_store_init());
     DAIMA_ERROR_CHECK(skill_loader_init());
     DAIMA_ERROR_CHECK(session_store_init());

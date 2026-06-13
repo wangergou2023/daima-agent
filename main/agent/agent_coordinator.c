@@ -119,6 +119,7 @@ daima_err_t coordinator_merge_results(coordinator_t *coord,
     for (int i = 0; i < coord->agent_count && i < COORDINATOR_MAX_SUB_AGENTS; i++) {
         const sub_agent_t *agent = &coord->agents[i];
         if (!agent->done) continue;
+        if (agent->role == AGENT_ROLE_PLANNER) continue;
         const char *icon = agent->error == DAIMA_OK ? "✅" : "❌";
         used += snprintf(output + used, output_size - used,
                         "%s %s %s\n",

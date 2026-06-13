@@ -83,6 +83,8 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/main/daima_base64.c
     ${CMAKE_CURRENT_LIST_DIR}/main/daima_env.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_loop.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_hooks.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_extension_state.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/agent_cancel.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/channel_policy.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/intent_gate.c
@@ -110,6 +112,14 @@ set(SRC
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/context_builder.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/rules_injection.c
     ${CMAKE_CURRENT_LIST_DIR}/main/agent/learning_review.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/agent/extensions/ext_intent_gate.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/agent/extensions/ext_agent_roles.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/agent/extensions/ext_plan_review.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/agent/extensions/ext_category_router.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/agent/extensions/ext_prometheus.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/agent/extensions/ext_team_mode.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/agent/extensions/ext_coordinator.c
+    ${CMAKE_CURRENT_LIST_DIR}/main/agent/extensions/ext_ralph_loop.c
     ${CMAKE_CURRENT_LIST_DIR}/main/bus/message_bus.c
     ${CMAKE_CURRENT_LIST_DIR}/main/cron/cron_service.c
     ${CMAKE_CURRENT_LIST_DIR}/main/heartbeat/heartbeat.c

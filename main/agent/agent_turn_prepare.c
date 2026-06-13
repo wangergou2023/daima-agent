@@ -283,9 +283,7 @@ daima_err_t agent_turn_prepare(
             }
         }
     }
-#ifdef DAIMA_PLAN_REVIEW_ENABLED
-    plan_review_inject_to_prompt(plan, system_prompt, system_prompt_size);
-#endif
+    (void)plan;
     context_fix_truncated_utf8(system_prompt, strnlen(system_prompt, system_prompt_size));
 
     agent_prompt_dump_snapshot(msg, system_prompt);

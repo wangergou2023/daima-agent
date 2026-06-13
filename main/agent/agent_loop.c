@@ -2,20 +2,14 @@
 
 #include "agent/agent_loop.h"
 #include "agent/agent_cancel.h"
-#include "agent/agent_coordinator.h"
-#include "agent/agent_roles.h"
+#include "agent/agent_hooks.h"
 #include "agent/agent_turn_common.h"
 #include "agent/context_compressor.h"
 #include "agent/learning_review.h"
-#include "agent/plan_review.h"
-#include "agent/prometheus_interview.h"
-#include "agent/ralph_loop.h"
 #include "agent/agent_turn_finish.h"
 #include "agent/agent_turn_prepare.h"
-#include "agent/agent_turn_persist.h"
 #include "agent/agent_turn_run.h"
-#include "agent/intent_gate.h"
-#include "agent/team_mode.h"
+#include "agent/agent_extension_state.h"
 #include "app/runtime_config.h"
 #include "bus/message_bus.h"
 #include "daima_config.h"
@@ -31,73 +25,6 @@
 #include "cJSON.h"
 
 static const char *TAG = "agent";
-
-#ifdef DAIMA_RALPH_LOOP_ENABLED
-static void agent_loop_append_ralph_warning(daima_msg_t *msg, int iteration, char **io_final_text)
-{
-    static const char warning[] = "\n\n⚠️ 还有未完成的任务，请继续。";
-
-    if (!msg || !io_final_text) {
-        return;
-    }
-    const char *final_text = *io_final_text ? *io_final_text : "";
-    if (!ralph_loop_should_continue(msg->chat_id, iteration, final_text)) {
-        return;
-    }
-
-    size_t final_len = strlen(final_text);
-    size_t warning_len = sizeof(warning) - 1;
-    char *with_warning = malloc(final_len + warning_len + 1);
-    if (!with_warning) {
-        return;
-    }
-    memcpy(with_warning, final_text, final_len);
-    memcpy(with_warning + final_len, warning, warning_len + 1);
-
-    free(*io_final_text);
-    *io_final_text = with_warning;
-}
-#endif
-
-#ifdef DAIMA_AGENT_ROLES_ENABLED
-static agent_role_t agent_loop_active_role(const agent_role_t roles[3], int role_count,
-                                           const daima_plan_t *plan)
-{
-    if (role_count <= 0) {
-        return AGENT_ROLE_FAST;
-    }
-#ifdef DAIMA_PLAN_REVIEW_ENABLED
-    if (plan && plan->has_plan && plan->reviewed && role_count > 1) {
-        return roles[1];
-    }
-#else
-    (void)plan;
-#endif
-    return roles[0];
-}
-
-static void agent_loop_append_role_prompt(char *system_prompt, size_t system_prompt_size,
-                                          agent_role_t role)
-{
-    if (!system_prompt || system_prompt_size == 0) {
-        return;
-    }
-
-    size_t prompt_len = strnlen(system_prompt, system_prompt_size - 1);
-    if (prompt_len >= system_prompt_size - 1) {
-        return;
-    }
-
-    int written = snprintf(system_prompt + prompt_len,
-                           system_prompt_size - prompt_len,
-                           "\n\n## 当前角色: %s\n%s\n",
-                           agent_role_name(role),
-                           agent_role_prompt_suffix(role));
-    if (written < 0 || (size_t)written >= system_prompt_size - prompt_len) {
-        system_prompt[system_prompt_size - 1] = '\0';
-    }
-}
-#endif
 
 static void agent_loop_task(void *arg)
 {
@@ -120,55 +47,15 @@ static void agent_loop_task(void *arg)
         if (err != DAIMA_OK) continue;
 
         msg.intent = DAIMA_INTENT_OPEN;
+        agent_extension_state_reset();
 
-#ifdef DAIMA_PLAN_REVIEW_ENABLED
-        daima_plan_t plan = {0};
-#endif
-#ifdef DAIMA_AGENT_ROLES_ENABLED
-        agent_role_t roles[3] = {0};
-        int role_count = 0;
-        agent_role_t active_role = AGENT_ROLE_FAST;
-#endif
-
-#ifdef DAIMA_INTENT_GATE_ENABLED
-        intent_gate_classify(msg.content, &msg.intent);
-        DAIMA_LOGI(TAG, "Intent classified: %s -> %s", msg.content, daima_intent_name(msg.intent));
-#ifdef DAIMA_PLAN_REVIEW_ENABLED
-        if (msg.intent == DAIMA_INTENT_IMPLEMENT || msg.intent == DAIMA_INTENT_FIX) {
-            daima_err_t plan_err = plan_review_generate(msg.intent, msg.content, system_prompt, &plan);
-            if (plan_err == DAIMA_OK && plan.has_plan && plan.reviewed) {
-                DAIMA_LOGI(TAG, "Plan generated and reviewed for intent=%s", daima_intent_name(msg.intent));
-            }
+        err = agent_hooks_trigger_intent(&msg);
+        if (err != DAIMA_OK) {
+            char *final_text = NULL;
+            char *reasoning_text = NULL;
+            agent_turn_finish(&msg, &final_text, &reasoning_text, err, 0, false, false);
+            continue;
         }
-#endif
-#endif
-#ifdef DAIMA_AGENT_ROLES_ENABLED
-        role_count = agent_roles_for_intent(msg.intent, roles);
-        active_role = agent_loop_active_role(roles, role_count,
-#ifdef DAIMA_PLAN_REVIEW_ENABLED
-                                             &plan
-#else
-                                             NULL
-#endif
-        );
-        if (role_count > 0) {
-            DAIMA_LOGI(TAG, "Agent roles for intent=%s: %s (chain of %d)",
-                       daima_intent_name(msg.intent), agent_role_name(roles[0]), role_count);
-        }
-#endif
-#ifdef DAIMA_PROMETHEUS_INTERVIEW_ENABLED
-        if (role_count <= 1 && msg.intent == DAIMA_INTENT_IMPLEMENT) {
-            prometheus_state_t p_state;
-            if (prometheus_check_needs_interview(msg.content, &p_state) == DAIMA_OK &&
-                p_state.needs_interview) {
-                DAIMA_LOGI(TAG, "Prometheus: interview mode, asking questions");
-                char *interview_text = strdup(p_state.questions);
-                char *reasoning_text = NULL;
-                agent_turn_finish(&msg, &interview_text, &reasoning_text, DAIMA_OK, 0, false, false);
-                continue;
-            }
-        }
-#endif
 
         if (agent_msg_is_internal_control(&msg)) {
             DAIMA_LOGI(TAG, "Dropping internal control message for %s:%s", msg.channel, msg.chat_id);
@@ -182,21 +69,15 @@ static void agent_loop_task(void *arg)
 
         uint64_t cancel_token = agent_cancel_begin_turn(msg.chat_id);
         cJSON *messages = NULL;
-#ifdef DAIMA_AGENT_ROLES_ENABLED
         system_prompt[0] = '\0';
-        if (role_count > 0) {
-            agent_loop_append_role_prompt(system_prompt, DAIMA_CONTEXT_BUF_SIZE, active_role);
-        }
-#endif
         err = agent_turn_prepare(&msg,
-#ifdef DAIMA_PLAN_REVIEW_ENABLED
-                                 &plan,
-#else
-                                 NULL,
-#endif
+                                  agent_extension_state_plan(),
                                   system_prompt, DAIMA_CONTEXT_BUF_SIZE,
                                   history_json, DAIMA_LLM_STREAM_BUF_SIZE,
                                   &messages);
+        if (err == DAIMA_OK) {
+            err = agent_hooks_trigger_prepare(&msg, system_prompt, DAIMA_CONTEXT_BUF_SIZE, messages);
+        }
 
         char *final_text = NULL;
         char *reasoning_text = NULL;
@@ -205,95 +86,24 @@ static void agent_loop_task(void *arg)
         bool cancelled = false;
         if (err == DAIMA_OK) {
             const char *tools_json = tool_registry_get_tools_json_for_channel(msg.channel);
-            coordinator_t coord;
-            memset(&coord, 0, sizeof(coord));
-            daima_err_t coord_err = coordinator_decompose(msg.intent,
-#ifdef DAIMA_PLAN_REVIEW_ENABLED
-                                                          &plan,
-#else
-                                                          NULL,
-#endif
-                                                          msg.content,
-                                                          &coord);
-            if (coord_err == DAIMA_OK && coord.agent_count > 1) {
-                DAIMA_LOGI(TAG, "Coordinator: launching %d sub-agents for intent=%s",
-                           coord.agent_count, daima_intent_name(msg.intent));
-
-                char thinking_msg[512];
-                int off = snprintf(thinking_msg, sizeof(thinking_msg),
-                    "🤖 Coordinator 并行处理中 (%d个子Agent", coord.agent_count);
-                for (int i = 0; i < coord.agent_count && i < COORDINATOR_MAX_SUB_AGENTS; i++) {
-                    off += snprintf(thinking_msg + off, sizeof(thinking_msg) - off,
-                        "%s%s", i == 0 ? ": " : " + ", agent_role_name(coord.agents[i].role));
+            err = agent_hooks_trigger_replace_run(&msg, system_prompt, messages, tools_json, &final_text);
+            if (err != DAIMA_OK) {
+                const char *model_override = NULL;
+                err = agent_hooks_trigger_before_run(&msg, &model_override, tools_json);
+                if (err == DAIMA_OK) {
+                    err = agent_turn_run(system_prompt, messages, tools_json, &msg,
+                                  model_override,
+                                  cancel_token,
+                                  &final_text, &reasoning_text, &iteration, &tool_budget_exhausted, &cancelled);
                 }
-                off += snprintf(thinking_msg + off, sizeof(thinking_msg) - off, ")");
-                agent_turn_queue_outbound_text(&msg, strdup(thinking_msg), NULL, true);
-
-                daima_err_t launch_err = coordinator_launch_all(system_prompt, messages, tools_json, &coord);
-                if (launch_err == DAIMA_OK) {
-                    int coord_timeout = runtime_config_get_request_timeout_ms() + 10000;
-                    coordinator_wait_all(&coord, coord_timeout);
-                    char *merged = daima_calloc(1, COORDINATOR_RESULT_MAX * COORDINATOR_MAX_SUB_AGENTS);
-                    if (merged) {
-                        coordinator_merge_results(&coord,
-                                                  merged,
-                                                  COORDINATOR_RESULT_MAX * COORDINATOR_MAX_SUB_AGENTS);
-                        if (merged[0] != '\0') {
-                            final_text = merged;
-                            merged = NULL;
-                        }
-                        free(merged);
-                    } else {
-                        err = DAIMA_ERR_NO_MEM;
-                    }
-                } else {
-                    DAIMA_LOGW(TAG, "Coordinator launch skipped: %s", daima_err_to_name(launch_err));
-                }
-                coordinator_free(&coord);
-                cJSON_Delete(messages);
-#ifdef DAIMA_RALPH_LOOP_ENABLED
-                if (err == DAIMA_OK && !cancelled) {
-                    agent_loop_append_ralph_warning(&msg, iteration, &final_text);
-                }
-#endif
-                agent_turn_finish(&msg, &final_text, &reasoning_text, err, iteration,
-                                   tool_budget_exhausted, cancelled);
-                continue;
+            } else {
+                iteration = 0;
             }
-            if (coord_err != DAIMA_OK) {
-                DAIMA_LOGW(TAG, "Coordinator skipped: %s", daima_err_to_name(coord_err));
-            }
-            coordinator_free(&coord);
-#ifdef DAIMA_TEAM_MODE_ENABLED
-#ifdef DAIMA_PLAN_REVIEW_ENABLED
-            team_orchestrator_t team = {0};
-            if (plan.has_plan && plan.reviewed) {
-                daima_err_t team_err = team_mode_orchestrate(&plan, system_prompt, tools_json, &team);
-                if (team_err == DAIMA_OK && team.completed_count > 0) {
-                    daima_err_t inject_err = team_mode_inject_to_prompt(&team, system_prompt, DAIMA_CONTEXT_BUF_SIZE);
-                    if (inject_err == DAIMA_OK) {
-                        DAIMA_LOGI(TAG, "Team Mode guidance injected: sub_agents=%d timeout_ms=%d",
-                                   team.max_sub_agents, team.sub_agent_timeout_ms);
-                    } else {
-                        DAIMA_LOGW(TAG, "Team Mode prompt injection skipped: %s", daima_err_to_name(inject_err));
-                    }
-                } else if (team_err != DAIMA_OK) {
-                    DAIMA_LOGW(TAG, "Team Mode orchestration skipped: %s", daima_err_to_name(team_err));
-                }
-            }
-#endif
-#endif
-            err = agent_turn_run(system_prompt, messages, tools_json, &msg,
-                                 cancel_token,
-                                 &final_text, &reasoning_text, &iteration, &tool_budget_exhausted, &cancelled);
         }
 
         cJSON_Delete(messages);
-#ifdef DAIMA_RALPH_LOOP_ENABLED
-        if (err == DAIMA_OK && !cancelled) {
-            agent_loop_append_ralph_warning(&msg, iteration, &final_text);
-        }
-#endif
+        const char *finish_response = final_text ? final_text : "";
+        agent_hooks_trigger_finish(&msg, finish_response);
         agent_turn_finish(&msg, &final_text, &reasoning_text, err, iteration, tool_budget_exhausted, cancelled);
     }
 }

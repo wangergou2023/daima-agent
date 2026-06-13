@@ -1,7 +1,6 @@
 #include "agent/agent_turn_run.h"
 #include "agent/agent_turn_exec_helpers.h"
 #include "agent/agent_cancel.h"
-#include "agent/category_router.h"
 #include "agent/session_recovery.h"
 
 #include <stdlib.h>
@@ -84,6 +83,7 @@ daima_err_t agent_turn_run(
     cJSON *messages,
     const char *tools_json,
     const daima_msg_t *msg,
+    const char *model_override,
     uint64_t cancel_token,
     char **out_final_text,
     char **out_reasoning_text,
@@ -117,19 +117,6 @@ daima_err_t agent_turn_run(
         if (mark_cancelled_if_needed(msg, cancel_token, out_cancelled, "before LLM call")) {
             break;
         }
-
-        const char *model_override = NULL;
-#ifdef DAIMA_CATEGORY_ROUTING_ENABLED
-        category_router_cfg_t cfg = category_router_load_and_get_cfg();
-        if (cfg.enabled) {
-            const daima_category_profile_t *profile = category_router_resolve(msg->intent);
-            if (profile) {
-                model_override = profile->model;
-                DAIMA_LOGI(TAG, "Category routing: intent=%s -> model=%s",
-                           daima_intent_name(msg->intent), profile->model);
-            }
-        }
-#endif
 
         llm_response_t resp;
         memset(&resp, 0, sizeof(resp));
