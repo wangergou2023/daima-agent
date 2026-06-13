@@ -1,131 +1,72 @@
-menu "Daima Agent 功能配置"
-
-config AGENT_EXTENSIONS_ENABLED
-	bool "Agent扩展系统"
-	default y
-	help
-	  启用hook-based扩展系统(intent_gate/coordinator/plan_review等)
-
-config DAIMA_INTENT_GATE_ENABLED
-	bool "意图分类门控"
-	default y
-	help
-	  启用意图分类，在Agent主循环前判断请求意图
-
-config DAIMA_PLAN_REVIEW_ENABLED
-	bool "计划评审"
-	default y
-	help
-	  启用计划评审，执行前检查计划质量
-
-config DAIMA_TEAM_MODE_ENABLED
-	bool "Team Mode"
-	default y
-	help
-	  启用多角色Team Mode能力
-
-config DAIMA_RALPH_LOOP_ENABLED
-	bool "Ralph Loop"
-	default y
-	help
-	  启用Ralph自循环执行，任务不完成不停止
-
-config DAIMA_MODEL_FALLBACK_ENABLED
-	bool "模型回退"
-	default y
-	help
-	  主模型失败时自动切换备用模型
-
-config DAIMA_TODO_ENFORCER_ENABLED
-	bool "待办强制执行"
-	default y
-	help
-	  连续N轮无进展时强制提示
-
-config DAIMA_RULES_INJECTION_ENABLED
-	bool "规则注入"
-	default y
-	help
-	  自动加载AGENTS.md到system prompt
-
-config DAIMA_PROMETHEUS_INTERVIEW_ENABLED
-	bool "Prometheus访谈模式"
-	default y
-	help
-	  模糊需求先提问澄清
-
-config DAIMA_SKILL_SCOPED_TOOLS_ENABLED
-	bool "Skill内嵌工具"
-	default y
-	help
-	  Skill可携带专属工具
-
-config DAIMA_COMPACTION_RECOVERY_ENABLED
-	bool "压缩恢复"
-	default y
-	help
-	  上下文压缩前保存状态，压缩后恢复
-
-config DAIMA_SESSION_RECOVERY_ENABLED
-	bool "会话恢复"
-	default y
-	help
-	  LLM崩溃后下一轮自动恢复
-
-endmenu
+# daima-agent Kconfig (内核风格: source 子Kconfig)
+mainmenu "daima-agent Configuration"
 
 source "daima/arch/Kconfig"
 
-menu "驱动"
+menu "Agent Extensions"
+config AGENT_EXTENSIONS_ENABLED
+    bool "Agent扩展系统"
+    default y
 
+config DAIMA_INTENT_GATE_ENABLED
+    bool "意图分类门控"
+    default y
+
+config DAIMA_PLAN_REVIEW_ENABLED
+    bool "计划评审"
+    default y
+
+config DAIMA_TEAM_MODE_ENABLED
+    bool "Team Mode"
+    default y
+
+config DAIMA_RALPH_LOOP_ENABLED
+    bool "Ralph Loop"
+    default y
+
+config DAIMA_MODEL_FALLBACK_ENABLED
+    bool "模型回退"
+    default y
+
+config DAIMA_TODO_ENFORCER_ENABLED
+    bool "待办强制执行"
+    default y
+
+config DAIMA_RULES_INJECTION_ENABLED
+    bool "规则注入"
+    default y
+
+config DAIMA_PROMETHEUS_INTERVIEW_ENABLED
+    bool "Prometheus访谈模式"
+    default y
+
+config DAIMA_SKILL_SCOPED_TOOLS_ENABLED
+    bool "Skill内嵌工具"
+    default y
+
+config DAIMA_COMPACTION_RECOVERY_ENABLED
+    bool "压缩恢复"
+    default y
+
+config DAIMA_SESSION_RECOVERY_ENABLED
+    bool "会话恢复"
+    default y
+endmenu
+
+source "daima/kernel/Kconfig"
+source "daima/drivers/llm/Kconfig"
+source "daima/drivers/channel/Kconfig"
+
+menu "Other Drivers"
 config DAIMA_ENABLE_VISION
-	bool "图像理解"
-	default y
-	help
-	  启用图像抓拍与多模态
-
-config DAIMA_ENABLE_FEISHU
-	bool "飞书通道"
-	default y
-	help
-	  启用飞书WebSocket/事件/媒体接口
-
-config DAIMA_ENABLE_VECTOR
-	bool "Vector机器人"
-	default y
-	help
-	  启用Vector机器人MCP通道
-
-config DAIMA_ENABLE_GATEWAY
-	bool "Web网关"
-	default y
-	help
-	  启用WebSocket/HTTP网关
-
-config DAIMA_ENABLE_CRON
-	bool "定时任务"
-	default y
-	help
-	  启用cron服务
-
-config DAIMA_WORKQUEUE
-	bool "Workqueue support"
-	default y
-
-config DAIMA_TIMER
-	bool "High resolution timer"
-	default y
+    bool "图像理解"
+    default y
 
 config DAIMA_ENABLE_SKILLS
-	bool "Skill系统"
-	default y
-	help
-	  启用Skill加载器
+    bool "Skill系统"
+    default y
 
 config DAIMA_ENABLE_MEMORY
-	bool "会话记忆"
-	default y
-	help
-	  启用会话存储/摘要/事实
-
+    bool "会话记忆"
+    default y
 endmenu

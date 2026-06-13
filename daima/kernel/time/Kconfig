@@ -1,0 +1,3 @@
+config DAIMA_TIMER
+    bool "高精度定时器"
+    default y

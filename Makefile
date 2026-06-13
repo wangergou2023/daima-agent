@@ -9,6 +9,19 @@ ARCH ?= host
 export ARCH
 include $(DAIMA_DIR)/arch/$(ARCH)/Makefile
 
+# 输出目录 (内核风格: make O=build)
+O ?= build-host
+ifeq ($(O),.)
+  O := build-host
+endif
+
+# 详细输出
+ifeq ($(V),1)
+  Q :=
+else
+  Q := @
+endif
+
 .DEFAULT_GOAL := all
 
 menuconfig:
@@ -21,13 +34,14 @@ config:
 
 all: host
 host:
-	@echo "  BUILD   daima ($(ARCH))"
-	cmake -B build-host -DCMAKE_C_FLAGS="$(DAIMA_CFLAGS)" -DCMAKE_BUILD_TYPE=Release
-	cmake --build build-host
+	$(Q)echo "  BUILD   daima ($(ARCH)) → $(O)/"
+	$(Q)cmake -B $(O) -DCMAKE_C_FLAGS="$(DAIMA_CFLAGS)" \
+		-DCMAKE_BUILD_TYPE=Release
+	$(Q)cmake --build $(O)
 mips:
-	$(MAKE) ARCH=mips host
+	$(MAKE) ARCH=mips O=build-mips host
 arm:
-	$(MAKE) ARCH=arm host
+	$(MAKE) ARCH=arm O=build-arm host
 
 modules:
 	@echo "  MODULES  extensions/ (built-in)"
@@ -36,10 +50,11 @@ test:
 	$(MAKE) -C test test PWD=$(CURDIR)
 
 clean:
-	rm -rf build-host build-mips build-arm
-	$(MAKE) -C test clean
+	$(Q)rm -rf build-host build-mips build-arm
+	$(Q)$(MAKE) -C test clean
+
 mrproper: clean
-	rm -f .config .config.old
+	$(Q)rm -f .config .config.old
 distclean: mrproper
 	rm -rf build-*
 

@@ -1,0 +1,11 @@
+menu "Channel Drivers"
+config DAIMA_FEISHU_ENABLED
+    bool "飞书通道"
+    default y
+config DAIMA_VECTOR_ENABLED
+    bool "Vector 机器人通道"
+    default y
+config DAIMA_GATEWAY_ENABLED
+    bool "WebSocket 网关"
+    default y
+endmenu
