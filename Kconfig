@@ -8,47 +8,47 @@ config AGENT_EXTENSIONS_ENABLED
     bool "Agent扩展系统"
     default y
 
-config DAIMA_INTENT_GATE_ENABLED
+config INTENT_GATE_ENABLED
     bool "意图分类门控"
     default y
 
-config DAIMA_PLAN_REVIEW_ENABLED
+config PLAN_REVIEW_ENABLED
     bool "计划评审"
     default y
 
-config DAIMA_TEAM_MODE_ENABLED
+config TEAM_MODE_ENABLED
     bool "Team Mode"
     default y
 
-config DAIMA_RALPH_LOOP_ENABLED
+config RALPH_LOOP_ENABLED
     bool "Ralph Loop"
     default y
 
-config DAIMA_MODEL_FALLBACK_ENABLED
+config MODEL_FALLBACK_ENABLED
     bool "模型回退"
     default y
 
-config DAIMA_TODO_ENFORCER_ENABLED
+config TODO_ENFORCER_ENABLED
     bool "待办强制执行"
     default y
 
-config DAIMA_RULES_INJECTION_ENABLED
+config RULES_INJECTION_ENABLED
     bool "规则注入"
     default y
 
-config DAIMA_PROMETHEUS_INTERVIEW_ENABLED
+config PROMETHEUS_INTERVIEW_ENABLED
     bool "Prometheus访谈模式"
     default y
 
-config DAIMA_SKILL_SCOPED_TOOLS_ENABLED
+config SKILL_SCOPED_TOOLS_ENABLED
     bool "Skill内嵌工具"
     default y
 
-config DAIMA_COMPACTION_RECOVERY_ENABLED
+config COMPACTION_RECOVERY_ENABLED
     bool "压缩恢复"
     default y
 
-config DAIMA_SESSION_RECOVERY_ENABLED
+config SESSION_RECOVERY_ENABLED
     bool "会话恢复"
     default y
 endmenu
