@@ -4,10 +4,10 @@
 import sys, os, re
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-KCONFIG = os.path.join(ROOT, "daima/Kconfig")
+KCONFIG = os.path.join(ROOT, "Kconfig")
 DOTCONFIG = os.path.join(ROOT, ".config")
-HEADER = os.path.join(ROOT, "daima/include/generated/autoconf.h")
-DEFCONFIG = os.path.join(ROOT, "daima/defconfig")
+HEADER = os.path.join(ROOT, "include/generated/autoconf.h")
+DEFCONFIG = os.path.join(ROOT, "defconfig")
 
 def cmd_menuconfig():
     import kconfiglib

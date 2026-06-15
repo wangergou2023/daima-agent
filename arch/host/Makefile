@@ -1,5 +1,5 @@
-# daima/arch/arm/Makefile
-CROSS_COMPILE ?= arm-linux-gnueabihf-
+# arch/host/Makefile
+CROSS_COMPILE ?=
 CC := $(CROSS_COMPILE)gcc
 AGENT_CFLAGS := -I$(AGENT_DIR) -I$(AGENT_DIR)/include -I$(AGENT_DIR)/include/generated \
     -iquote $(AGENT_DIR)/init -iquote $(AGENT_DIR)/kernel \
@@ -10,5 +10,5 @@ AGENT_CFLAGS := -I$(AGENT_DIR) -I$(AGENT_DIR)/include -I$(AGENT_DIR)/include/gen
     -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -DDAIMA_HOST=1 -DENABLE_VISION=1
 LDFLAGS := -lcurl -lssl -lcrypto -ldl -lm -lpthread
 
-obj-y := audio_io_arm.o vision_capture_arm.o voice_wake_arm.o
-obj-y += ../host/ws_server_host.o ../host/llm_http_client_host.o ../host/llm_proxy_host.o
+obj-y := audio_io_stub.o vision_capture_stub.o voice_wake_stub.o
+obj-y += ws_server_host.o llm_http_client_host.o llm_proxy_host.o

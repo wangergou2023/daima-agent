@@ -2,7 +2,7 @@
 
 CC      ?= cc
 AR      ?= ar
-DAIMA   ?= $(CURDIR)/daima
+DAIMA   ?= $(CURDIR)
 BUILD   ?= $(CURDIR)/build
 
 CFLAGS  ?= -std=c11 -Wall -Wextra -O2

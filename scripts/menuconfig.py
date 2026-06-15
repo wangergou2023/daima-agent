@@ -5,7 +5,7 @@ import curses, os
 from kconfiglib import Kconfig
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-KCONFIG = os.path.join(ROOT, "daima", "Kconfig")
+KCONFIG = os.path.join(ROOT, "Kconfig")
 DOTCONFIG = os.path.join(ROOT, ".config")
 
 def load_config():

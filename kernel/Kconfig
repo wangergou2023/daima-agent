@@ -11,8 +11,8 @@ config SYSCTL
     bool "sysctl 运行时参数"
     default y
 
-source "daima/kernel/sched/Kconfig"
-source "daima/kernel/time/Kconfig"
+source "kernel/sched/Kconfig"
+source "kernel/time/Kconfig"
 config DAIMA_KERNEL_WORKQUEUE
     bool "Workqueue 支持"
     default y

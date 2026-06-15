@@ -6,7 +6,7 @@ static bool s_initialized;
 
 void agent_hooks_init(void)
 {
-#if defined(AGENT_HOOKS_TEST_RESET) || defined(DAIMA_AGENT_HOOKS_TEST_RESET)
+#ifdef AGENT_HOOKS_TEST_RESET
     s_extension_count = 0;
     for (size_t i = 0; i < AGENT_MAX_EXTENSIONS; i++) {
         s_extensions[i] = NULL;

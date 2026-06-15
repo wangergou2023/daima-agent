@@ -5,7 +5,8 @@ PATCHLEVEL = 0
 export TOPDIR := $(CURDIR)
 export srctree := $(TOPDIR)
 export objtree := $(TOPDIR)
-export AGENT_DIR := $(TOPDIR)/daima
+export DAIMA_DIR := $(TOPDIR)
+export AGENT_DIR := $(DAIMA_DIR)
 BUILD_DIR := build-kbuild
 export BUILD_DIR
 AGENT_BIN := $(BUILD_DIR)/daima
@@ -37,7 +38,7 @@ core-y += extensions/
 daima-dirs := $(patsubst %/,%,$(core-y))
 agent_builtin := $(foreach d,$(daima-dirs),$(d)/built-in.o)
 
-.PHONY: all daima host mips arm arch-obj cjson modules test clean mrproper distclean help menuconfig defconfig config
+.PHONY: all daima host mips arm arch-obj cjson modules test clean mrproper distclean help menuconfig defconfig config $(daima-dirs)
 
 all: kbuild
 kbuild: daima
@@ -47,7 +48,7 @@ $(BUILD_DIR):
 	$(Q)> $(BUILD_DIR)/objects.list
 
 $(daima-dirs): $(BUILD_DIR)
-	$(Q)$(MAKE) -f $(TOPDIR)/scripts/Makefile.build obj=daima/$@
+	$(Q)$(MAKE) -f $(TOPDIR)/scripts/Makefile.build obj=$@
 
 cjson: $(BUILD_DIR)
 	@echo "  CC      $(BUILD_DIR)/cjson.o"
@@ -55,7 +56,7 @@ cjson: $(BUILD_DIR)
 	@echo $(BUILD_DIR)/cjson.o >> $(BUILD_DIR)/objects.list
 
 arch-obj: $(BUILD_DIR)
-	$(Q)$(MAKE) -f $(TOPDIR)/scripts/Makefile.build obj=daima/arch/$(ARCH)
+	$(Q)$(MAKE) -f $(TOPDIR)/scripts/Makefile.build obj=arch/$(ARCH)
 
 daima: $(daima-dirs) cjson arch-obj
 	@echo "  LD      daima"
@@ -89,12 +90,12 @@ test:
 
 clean:
 	$(Q)rm -rf build-kbuild build-host build-mips build-arm
-	$(Q)find daima -name '*.o' -delete
+	$(Q)find init kernel drivers arch ipc lib net fs include extensions -name '*.o' -delete
 	$(Q)$(MAKE) -C test clean
 
 kbuild-clean:
 	$(Q)rm -rf $(BUILD_DIR)
-	$(Q)find daima -name '*.o' -delete
+	$(Q)find init kernel drivers arch ipc lib net fs include extensions -name '*.o' -delete
 
 mrproper: clean
 	$(Q)rm -f .config .config.old
