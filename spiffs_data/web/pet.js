@@ -490,7 +490,7 @@
         if (destroyed) return;
         detectPetFrameCounts(spritesheet);
         petSprite.style.backgroundImage = `url("${spritesheetUrl}")`;
-        petSprite.setAttribute('aria-label', pet.displayName || 'Daima pet');
+        petSprite.setAttribute('aria-label', pet.displayName || 'Agent pet');
         if (pet.displayName) {
           petDock.setAttribute('title', pet.displayName);
         }
@@ -542,7 +542,7 @@
       if (petSprite) {
         petSprite.style.backgroundImage = '';
         petSprite.style.backgroundPosition = '0px 0px';
-        petSprite.setAttribute('aria-label', 'Daima pet');
+        petSprite.setAttribute('aria-label', 'Agent pet');
       }
       if (petDock) {
         petDock.hidden = true;
@@ -616,7 +616,7 @@
     };
   }
 
-  global.DaimaPet = {
+  global.AgentPet = {
     createPetController,
   };
 })(window);

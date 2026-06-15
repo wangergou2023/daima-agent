@@ -17,7 +17,7 @@ function requirePptxGen() {
       errors.push(`${candidate}: ${err.code || err.message}`);
     }
   }
-  throw new Error(`Cannot load pptxgenjs. Install it in Daima workspace with: npm install pptxgenjs\n${errors.join('\n')}`);
+  throw new Error(`Cannot load pptxgenjs. Install it in Agent workspace with: npm install pptxgenjs\n${errors.join('\n')}`);
 }
 
 const pptxgen = requirePptxGen();
@@ -335,8 +335,8 @@ async function main() {
   const slides = normalizeSlides(spec);
 
   pptx.layout = 'LAYOUT_WIDE';
-  pptx.author = 'Daima';
-  pptx.company = 'Daima';
+  pptx.author = 'Agent';
+  pptx.company = 'Agent';
   pptx.subject = text(spec.topic, 'Generated presentation');
   pptx.title = text(spec.title, text(spec.topic, 'Generated presentation'));
   pptx.lang = text(spec.language, 'zh-CN');

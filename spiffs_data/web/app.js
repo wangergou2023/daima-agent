@@ -379,10 +379,10 @@ function resolveInitialPetPackageId(config) {
 }
 
 function createPetController(packageId) {
-  if (!window.DaimaPet || typeof window.DaimaPet.createPetController !== 'function') {
+  if (!window.AgentPet || typeof window.AgentPet.createPetController !== 'function') {
     return null;
   }
-  return window.DaimaPet.createPetController({
+  return window.AgentPet.createPetController({
     chatId,
     packageId,
     elements: {
@@ -996,7 +996,7 @@ function makeMessageNode(role, text, reasoning = '') {
   if (role === 'assistant') {
     const label = document.createElement('div');
     label.className = 'message-label';
-    label.textContent = 'Daima';
+    label.textContent = 'Agent';
     card.appendChild(label);
 
     if (currentAgentRole && ROLE_LABELS[currentAgentRole]) {
