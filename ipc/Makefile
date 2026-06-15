@@ -1,1 +1,1 @@
-obj-y := bus.o
+obj-y := bus.o bus_device.o
