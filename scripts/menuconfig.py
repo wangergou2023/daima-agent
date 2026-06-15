@@ -19,7 +19,8 @@ if not kconfiglib_menuconfig:
     sys.exit(1)
 
 os.chdir(ROOT)
-ret = subprocess.call([sys.executable, kconfiglib_menuconfig, KCONFIG])
+ret = subprocess.call([sys.executable, kconfiglib_menuconfig, KCONFIG],
+                      env={**os.environ, "MENUCONFIG_STYLE": "aquatic"})
 
 if ret == 0:
     subprocess.call([sys.executable, "scripts/kconfig.py", "genconfig"],
