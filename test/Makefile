@@ -120,7 +120,7 @@ test_agent_hooks: test_agent_hooks.c ../daima/kernel/hooks.c
 	$(CC) $(CFLAGS) -DDAIMA_AGENT_HOOKS_TEST_RESET=1 -o $@ $^ $(LDLIBS)
 
 test_intent_gate: test_intent_gate.c ../daima/kernel/intent.c ../daima/lib/env.c
-	$(CC) $(CFLAGS) -DDAIMA_INTENT_GATE_LLM_FALLBACK=0 -o $@ $^ $(LDLIBS)
+	$(CC) $(CFLAGS) -DINTENT_GATE_LLM_FALLBACK=0 -o $@ $^ $(LDLIBS)
 
 test_agent_roles: test_agent_roles.c ../daima/kernel/roles.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)

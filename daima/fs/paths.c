@@ -12,7 +12,7 @@
 #endif
 
 static const char *DAIMA_HOME_ENV = "DAIMA_HOME";
-static const char *DAIMA_DEFAULT_HOME_NAME = ".daima";
+static const char *DEFAULT_HOME_NAME = ".daima";
 
 typedef struct {
     int initialized;
@@ -127,7 +127,7 @@ static void detect_home_dir(char *out, size_t out_size)
 
     const char *home_env = getenv("HOME");
     if (home_env && home_env[0]) {
-        snprintf(out, out_size, "%s/%s", home_env, DAIMA_DEFAULT_HOME_NAME);
+        snprintf(out, out_size, "%s/%s", home_env, DEFAULT_HOME_NAME);
         return;
     }
 

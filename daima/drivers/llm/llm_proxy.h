@@ -67,7 +67,7 @@ void llm_response_free(llm_response_t *resp);
 
 /* ── 图片理解支持 ──────────────────────────────────────────── */
 
-#ifdef DAIMA_ENABLE_VISION
+#ifdef ENABLE_VISION
 
 /**
  * 图片内容块（用于多模态消息）
@@ -116,7 +116,7 @@ daima_err_t llm_chat_with_images(const char *system_prompt,
                                 int image_count,
                                 llm_response_t *resp);
 
-#endif /* DAIMA_ENABLE_VISION */
+#endif /* ENABLE_VISION */
 
 /**
  * 向配置的大模型 API 发送带工具的对话补全请求（非流式）。

@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-#define DAIMA_WAIT_FOREVER UINT32_MAX
+#define WAIT_FOREVER UINT32_MAX
 
 typedef struct daima_queue daima_queue_t;
 typedef struct daima_event_group daima_event_group_t;

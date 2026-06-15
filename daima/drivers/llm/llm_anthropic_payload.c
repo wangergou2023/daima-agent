@@ -185,7 +185,7 @@ cJSON *llm_anthropic_build_tools_body(const char *system_prompt,
     return body;
 }
 
-#ifdef DAIMA_ENABLE_VISION
+#ifdef ENABLE_VISION
 cJSON *llm_anthropic_build_image_body(const char *system_prompt,
                                       const char *user_text,
                                       const llm_image_content_t *images,

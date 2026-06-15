@@ -35,7 +35,7 @@ static void init_empty_cfg(category_router_cfg_t *cfg)
 {
     memset(cfg, 0, sizeof(*cfg));
     cfg->enabled = true;
-    for (int i = 0; i < DAIMA_INTENT_COUNT; i++) {
+    for (int i = 0; i < INTENT_COUNT; i++) {
         cfg->intent_map[i] = -1;
     }
     for (int i = 0; i < AGENT_ROLE_COUNT; i++) {
@@ -78,14 +78,14 @@ static int find_profile_index(const category_router_cfg_t *cfg, const char *name
 static enum intent intent_from_key(const char *key)
 {
     if (!key) {
-        return DAIMA_INTENT_COUNT;
+        return INTENT_COUNT;
     }
-    if (strcmp(key, "qa") == 0) return DAIMA_INTENT_QA;
-    if (strcmp(key, "implement") == 0) return DAIMA_INTENT_IMPLEMENT;
-    if (strcmp(key, "investigate") == 0) return DAIMA_INTENT_INVESTIGATE;
-    if (strcmp(key, "fix") == 0) return DAIMA_INTENT_FIX;
-    if (strcmp(key, "open") == 0) return DAIMA_INTENT_OPEN;
-    return DAIMA_INTENT_COUNT;
+    if (strcmp(key, "qa") == 0) return INTENT_QA;
+    if (strcmp(key, "implement") == 0) return INTENT_IMPLEMENT;
+    if (strcmp(key, "investigate") == 0) return INTENT_INVESTIGATE;
+    if (strcmp(key, "fix") == 0) return INTENT_FIX;
+    if (strcmp(key, "open") == 0) return INTENT_OPEN;
+    return INTENT_COUNT;
 }
 
 static int role_from_name(const char *name)
@@ -102,11 +102,11 @@ static void set_default_intent_map(category_router_cfg_t *cfg, int deep, int qui
     if (!cfg) {
         return;
     }
-    cfg->intent_map[DAIMA_INTENT_QA] = quick;
-    cfg->intent_map[DAIMA_INTENT_IMPLEMENT] = deep;
-    cfg->intent_map[DAIMA_INTENT_INVESTIGATE] = deep;
-    cfg->intent_map[DAIMA_INTENT_FIX] = deep;
-    cfg->intent_map[DAIMA_INTENT_OPEN] = quick;
+    cfg->intent_map[INTENT_QA] = quick;
+    cfg->intent_map[INTENT_IMPLEMENT] = deep;
+    cfg->intent_map[INTENT_INVESTIGATE] = deep;
+    cfg->intent_map[INTENT_FIX] = deep;
+    cfg->intent_map[INTENT_OPEN] = quick;
 }
 
 static void load_default_cfg(category_router_cfg_t *cfg)
@@ -423,7 +423,7 @@ static bool load_json_cfg(category_router_cfg_t *cfg, const char *json_text)
         cJSON *entry = NULL;
         cJSON_ArrayForEach(entry, intent_map) {
             enum intent intent = intent_from_key(entry->string);
-            if (intent < 0 || intent >= DAIMA_INTENT_COUNT || !cJSON_IsString(entry)) {
+            if (intent < 0 || intent >= INTENT_COUNT || !cJSON_IsString(entry)) {
                 continue;
             }
             cfg->intent_map[intent] = find_profile_index(cfg, entry->valuestring);
@@ -500,7 +500,7 @@ category_router_cfg_t category_router_load_and_get_cfg(void)
 const daima_category_profile_t *category_router_resolve(enum intent intent)
 {
     category_router_load_and_get_cfg();
-    if (!s_cfg.enabled || intent < 0 || intent >= DAIMA_INTENT_COUNT) {
+    if (!s_cfg.enabled || intent < 0 || intent >= INTENT_COUNT) {
         return NULL;
     }
 
@@ -520,7 +520,7 @@ const daima_category_profile_t *category_router_resolve_for_role(agent_role_t ro
 
     int profile_index = s_cfg.role_model_map[role];
     if (profile_index < 0 || profile_index >= s_cfg.profile_count) {
-        return category_router_resolve(DAIMA_INTENT_OPEN);
+        return category_router_resolve(INTENT_OPEN);
     }
     return &s_cfg.profiles[profile_index];
 }

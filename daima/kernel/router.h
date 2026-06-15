@@ -18,7 +18,7 @@ typedef struct {
     bool enabled;
     daima_category_profile_t profiles[CATEGORY_ROUTER_MAX_PROFILES];
     int profile_count;
-    int intent_map[DAIMA_INTENT_COUNT];
+    int intent_map[INTENT_COUNT];
     int role_model_map[AGENT_ROLE_COUNT];
 } category_router_cfg_t;
 

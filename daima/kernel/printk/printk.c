@@ -8,7 +8,7 @@
 #include <sys/time.h>
 #include <time.h>
 
-static int s_log_level = DAIMA_LOG_INFO;
+static int s_log_level = LOG_INFO;
 static daima_log_hook_t s_log_hook = NULL;
 
 void daima_log_level_set(const char *tag, int level)
@@ -25,20 +25,20 @@ void daima_log_set_hook(daima_log_hook_t hook)
 static const char *level_char(int level)
 {
     switch (level) {
-    case DAIMA_LOG_ERROR: return "E";
-    case DAIMA_LOG_WARN: return "W";
-    case DAIMA_LOG_INFO: return "I";
-    case DAIMA_LOG_DEBUG: return "D";
+    case LOG_ERROR: return "E";
+    case LOG_WARN: return "W";
+    case LOG_INFO: return "I";
+    case LOG_DEBUG: return "D";
     default: return "?";
     }
 }
 
 static int kernel_level_to_daima(int level)
 {
-    if (level <= 3) return DAIMA_LOG_ERROR;
-    if (level == 4) return DAIMA_LOG_WARN;
-    if (level == 7) return DAIMA_LOG_DEBUG;
-    return DAIMA_LOG_INFO;
+    if (level <= 3) return LOG_ERROR;
+    if (level == 4) return LOG_WARN;
+    if (level == 7) return LOG_DEBUG;
+    return LOG_INFO;
 }
 
 static int printk_level_from_prefix(const char **fmt)
@@ -48,7 +48,7 @@ static int printk_level_from_prefix(const char **fmt)
         *fmt = p + 3;
         return kernel_level_to_daima(p[1] - '0');
     }
-    return DAIMA_LOG_INFO;
+    return LOG_INFO;
 }
 
 static void daima_log_vwrite(int level, const char *tag, const char *fmt, va_list ap)
@@ -56,7 +56,7 @@ static void daima_log_vwrite(int level, const char *tag, const char *fmt, va_lis
     if (level > s_log_level) return;
 
     bool hook_state = false;
-    if (s_log_hook) s_log_hook(DAIMA_LOG_HOOK_PRE, &hook_state);
+    if (s_log_hook) s_log_hook(LOG_HOOK_PRE, &hook_state);
 
     struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -76,7 +76,7 @@ static void daima_log_vwrite(int level, const char *tag, const char *fmt, va_lis
 
     daima_log_file_write(level, tag, msg_buf);
 
-    if (s_log_hook) s_log_hook(DAIMA_LOG_HOOK_POST, &hook_state);
+    if (s_log_hook) s_log_hook(LOG_HOOK_POST, &hook_state);
 }
 
 void daima_log_write(int level, const char *tag, const char *fmt, ...)

@@ -18,6 +18,6 @@ typedef int (*initcall_t)(void);
     static initcall_t __initcall_##fn __attribute__((used)) \
         __attribute__((section(".initcall" #level ".init"))) = fn
 
-struct daima_driver;
-int daima_driver_probe(struct daima_driver *drv);
+struct driver;
+int daima_driver_probe(struct driver *drv);
 void do_basic_setup(void);

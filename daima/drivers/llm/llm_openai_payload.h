@@ -14,7 +14,7 @@ cJSON *llm_openai_build_tools_body(const char *system_prompt,
                                    const char *reasoning_effort,
                                    bool add_reasoning_content);
 
-#ifdef DAIMA_ENABLE_VISION
+#ifdef ENABLE_VISION
 cJSON *llm_openai_build_image_body(const char *system_prompt,
                                    const char *user_text,
                                    const llm_image_content_t *images,

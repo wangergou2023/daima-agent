@@ -18,10 +18,10 @@
 static const char *level_char(int level)
 {
     switch (level) {
-    case DAIMA_LOG_ERROR: return "E";
-    case DAIMA_LOG_WARN:  return "W";
-    case DAIMA_LOG_INFO:  return "I";
-    case DAIMA_LOG_DEBUG: return "D";
+    case LOG_ERROR: return "E";
+    case LOG_WARN:  return "W";
+    case LOG_INFO:  return "I";
+    case LOG_DEBUG: return "D";
     default: return "?";
     }
 }

@@ -20,7 +20,7 @@ static daima_err_t replace_run(struct message *msg, char *system_prompt,
     (void)messages;
     (void)tools_json;
 #if AGENT_EXTENSIONS_ENABLED
-    if (agent_extension_state_role_count() <= 1 && msg->intent == DAIMA_INTENT_IMPLEMENT) {
+    if (agent_extension_state_role_count() <= 1 && msg->intent == INTENT_IMPLEMENT) {
         prometheus_state_t p_state;
         if (prometheus_check_needs_interview(msg->content, &p_state) == DAIMA_OK &&
             p_state.needs_interview) {

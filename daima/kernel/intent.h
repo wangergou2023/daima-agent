@@ -5,12 +5,12 @@
 #include <stdbool.h>
 
 enum intent {
-    DAIMA_INTENT_QA = 0,          // 问答
-    DAIMA_INTENT_IMPLEMENT,       // 实现
-    DAIMA_INTENT_INVESTIGATE,     // 调研
-    DAIMA_INTENT_FIX,             // 修复
-    DAIMA_INTENT_OPEN,            // 开放
-    DAIMA_INTENT_COUNT
+    INTENT_QA = 0,          // 问答
+    INTENT_IMPLEMENT,       // 实现
+    INTENT_INVESTIGATE,     // 调研
+    INTENT_FIX,             // 修复
+    INTENT_OPEN,            // 开放
+    INTENT_COUNT
 };
 
 typedef struct {

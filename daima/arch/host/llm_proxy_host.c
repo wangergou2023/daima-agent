@@ -741,7 +741,7 @@ int llm_get_context_limit_tokens(void)
     return DEFAULT_CONTEXT_LIMIT_TOKENS;
 }
 
-#ifdef DAIMA_ENABLE_VISION
+#ifdef ENABLE_VISION
 
 #include <stdio.h>
 
@@ -902,4 +902,4 @@ daima_err_t llm_chat_with_images(const char *system_prompt,
     return DAIMA_OK;
 }
 
-#endif /* DAIMA_ENABLE_VISION */
+#endif /* ENABLE_VISION */

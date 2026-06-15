@@ -5,7 +5,7 @@
 
 static bool plan_review_intent_requires_plan(enum intent intent)
 {
-    return intent == DAIMA_INTENT_IMPLEMENT || intent == DAIMA_INTENT_FIX;
+    return intent == INTENT_IMPLEMENT || intent == INTENT_FIX;
 }
 
 static bool plan_review_has_numbered_step(const char *text)

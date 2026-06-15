@@ -64,21 +64,21 @@ int agent_roles_for_intent(enum intent intent, agent_role_t roles_out[3])
     }
 
     switch (intent) {
-    case DAIMA_INTENT_QA:
-    case DAIMA_INTENT_OPEN:
-    case DAIMA_INTENT_INVESTIGATE:
+    case INTENT_QA:
+    case INTENT_OPEN:
+    case INTENT_INVESTIGATE:
         roles_out[0] = AGENT_ROLE_FAST;
         return 1;
-    case DAIMA_INTENT_IMPLEMENT:
+    case INTENT_IMPLEMENT:
         roles_out[0] = AGENT_ROLE_PLANNER;
         roles_out[1] = AGENT_ROLE_EXECUTOR;
         roles_out[2] = AGENT_ROLE_REVIEWER;
         return 3;
-    case DAIMA_INTENT_FIX:
+    case INTENT_FIX:
         roles_out[0] = AGENT_ROLE_PLANNER;
         roles_out[1] = AGENT_ROLE_EXECUTOR;
         return 2;
-    case DAIMA_INTENT_COUNT:
+    case INTENT_COUNT:
     default:
         return 0;
     }

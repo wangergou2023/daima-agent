@@ -23,7 +23,7 @@ struct daima_queue {
 
 static int wait_with_timeout(pthread_cond_t *cond, pthread_mutex_t *mutex, uint32_t timeout_ms)
 {
-    if (timeout_ms == DAIMA_WAIT_FOREVER) {
+    if (timeout_ms == WAIT_FOREVER) {
         return pthread_cond_wait(cond, mutex);
     }
     struct timespec ts;
@@ -213,7 +213,7 @@ bool daima_task_create(daima_task_fn_t task_func, const char *name,
 
 void daima_task_delay(uint32_t delay_ms)
 {
-    if (delay_ms == DAIMA_WAIT_FOREVER) {
+    if (delay_ms == WAIT_FOREVER) {
         while (1) { sleep(1); }
     }
     usleep((useconds_t)delay_ms * 1000U);

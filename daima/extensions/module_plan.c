@@ -11,7 +11,7 @@ MODULE_DESCRIPTION("Agent Extension: plan_review");
 static daima_err_t on_intent(struct message *msg)
 {
 #if AGENT_EXTENSIONS_ENABLED
-    if (msg->intent == DAIMA_INTENT_IMPLEMENT || msg->intent == DAIMA_INTENT_FIX) {
+    if (msg->intent == INTENT_IMPLEMENT || msg->intent == INTENT_FIX) {
         struct plan *plan = agent_extension_state_plan();
         daima_err_t err = plan_review_generate(msg->intent, msg->content, "", plan);
         if (err == DAIMA_OK && plan->has_plan && plan->reviewed) {

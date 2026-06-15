@@ -98,7 +98,7 @@ daima_err_t session_store_file_read_facts(const char *chat_id, char *buf, size_t
 
     char path[BUF_SMALL];
     daima_err_t path_err = session_store_file_artifact_path(
-        chat_id, DAIMA_SESSION_ARTIFACT_FACTS, path, sizeof(path));
+        chat_id, SESSION_ARTIFACT_FACTS, path, sizeof(path));
     if (path_err != DAIMA_OK) {
         return path_err;
     }
@@ -131,7 +131,7 @@ daima_err_t session_store_file_merge_facts(const char *chat_id, const char *fact
 
     char path[BUF_SMALL];
     daima_err_t path_err = session_store_file_artifact_path(
-        chat_id, DAIMA_SESSION_ARTIFACT_FACTS, path, sizeof(path));
+        chat_id, SESSION_ARTIFACT_FACTS, path, sizeof(path));
     if (path_err != DAIMA_OK) {
         return path_err;
     }

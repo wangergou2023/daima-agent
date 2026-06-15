@@ -33,7 +33,7 @@ daima_err_t message_bus_push_inbound(const struct message *msg)
 
 daima_err_t message_bus_pop_inbound(struct message *msg, uint32_t timeout_ms)
 {
-    uint32_t wait_ms = (timeout_ms == UINT32_MAX) ? DAIMA_WAIT_FOREVER : timeout_ms;
+    uint32_t wait_ms = (timeout_ms == UINT32_MAX) ? WAIT_FOREVER : timeout_ms;
     if (!daima_queue_receive(s_inbound_queue, msg, wait_ms)) {
         return DAIMA_ERR_TIMEOUT;
     }
@@ -51,7 +51,7 @@ daima_err_t message_bus_push_outbound(const struct message *msg)
 
 daima_err_t message_bus_pop_outbound(struct message *msg, uint32_t timeout_ms)
 {
-    uint32_t wait_ms = (timeout_ms == UINT32_MAX) ? DAIMA_WAIT_FOREVER : timeout_ms;
+    uint32_t wait_ms = (timeout_ms == UINT32_MAX) ? WAIT_FOREVER : timeout_ms;
     if (!daima_queue_receive(s_outbound_queue, msg, wait_ms)) {
         return DAIMA_ERR_TIMEOUT;
     }

@@ -50,21 +50,21 @@ const struct sched_class *sched_class_for_intent(enum intent intent, int *count)
     int nr = 0;
 
     switch (intent) {
-    case DAIMA_INTENT_IMPLEMENT:
+    case INTENT_IMPLEMENT:
         ids = implement_classes;
         nr = (int)(sizeof(implement_classes) / sizeof(implement_classes[0]));
         break;
-    case DAIMA_INTENT_FIX:
+    case INTENT_FIX:
         ids = fix_classes;
         nr = (int)(sizeof(fix_classes) / sizeof(fix_classes[0]));
         break;
-    case DAIMA_INTENT_QA:
-    case DAIMA_INTENT_OPEN:
-    case DAIMA_INTENT_INVESTIGATE:
+    case INTENT_QA:
+    case INTENT_OPEN:
+    case INTENT_INVESTIGATE:
         ids = single_executor_class;
         nr = 1;
         break;
-    case DAIMA_INTENT_COUNT:
+    case INTENT_COUNT:
     default:
         nr = 0;
         break;

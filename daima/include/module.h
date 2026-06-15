@@ -1,3 +1,3 @@
 #pragma once
 
-#define DAIMA_MODULE(name)
+#define MODULE_NAME(name)

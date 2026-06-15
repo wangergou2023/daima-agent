@@ -13,7 +13,7 @@ daima_err_t session_store_file_read_summary(const char *chat_id, char *buf, size
 
     char path[BUF_SMALL];
     daima_err_t path_err = session_store_file_artifact_path(
-        chat_id, DAIMA_SESSION_ARTIFACT_SUMMARY, path, sizeof(path));
+        chat_id, SESSION_ARTIFACT_SUMMARY, path, sizeof(path));
     if (path_err != DAIMA_OK) {
         return path_err;
     }
@@ -32,7 +32,7 @@ daima_err_t session_store_file_write_summary(const char *chat_id, const char *su
 
     char path[BUF_SMALL];
     daima_err_t path_err = session_store_file_artifact_path(
-        chat_id, DAIMA_SESSION_ARTIFACT_SUMMARY, path, sizeof(path));
+        chat_id, SESSION_ARTIFACT_SUMMARY, path, sizeof(path));
     if (path_err != DAIMA_OK) {
         return path_err;
     }

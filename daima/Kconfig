@@ -58,7 +58,7 @@ source "daima/drivers/llm/Kconfig"
 source "daima/drivers/channel/Kconfig"
 
 menu "Other Drivers"
-config DAIMA_ENABLE_VISION
+config ENABLE_VISION
     bool "图像理解"
     default y
 

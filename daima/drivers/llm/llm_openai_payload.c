@@ -322,7 +322,7 @@ cJSON *llm_openai_build_tools_body(const char *system_prompt,
     return body;
 }
 
-#ifdef DAIMA_ENABLE_VISION
+#ifdef ENABLE_VISION
 cJSON *llm_create_multimodal_content(const char *text, const llm_image_content_t *images, int image_count)
 {
     if (!images || image_count <= 0) {

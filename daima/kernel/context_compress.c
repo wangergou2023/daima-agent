@@ -47,12 +47,12 @@ static context_compress_cfg_t load_cfg(void)
         .max_passes = CONTEXT_COMPRESS_MAX_PASSES,
     };
 
-    cfg.enabled = agent_env_bool_or_default("DAIMA_COMPRESS_ENABLED", cfg.enabled);
+    cfg.enabled = agent_env_bool_or_default("COMPRESS_ENABLED", cfg.enabled);
     cfg.trigger_msgs = runtime_config_get_compress_trigger_msgs();
-    cfg.max_chars = agent_env_int_or_default("DAIMA_COMPRESS_MAX_CHARS", cfg.max_chars);
-    cfg.protect_first = agent_env_int_or_default("DAIMA_COMPRESS_PROTECT_FIRST", cfg.protect_first);
+    cfg.max_chars = agent_env_int_or_default("COMPRESS_MAX_CHARS", cfg.max_chars);
+    cfg.protect_first = agent_env_int_or_default("COMPRESS_PROTECT_FIRST", cfg.protect_first);
     cfg.protect_last = runtime_config_get_compress_keep_msgs();
-    cfg.max_passes = agent_env_int_or_default("DAIMA_COMPRESS_MAX_PASSES", cfg.max_passes);
+    cfg.max_passes = agent_env_int_or_default("COMPRESS_MAX_PASSES", cfg.max_passes);
 
     if (cfg.trigger_msgs < 4) cfg.trigger_msgs = 4;
     if (cfg.max_chars < 4000) cfg.max_chars = 4000;

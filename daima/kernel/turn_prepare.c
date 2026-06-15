@@ -19,7 +19,7 @@
 #include "env.h"
 #include "linux/kernel.h"
 #include "linux/printk.h"
-#ifdef DAIMA_ENABLE_VISION
+#ifdef ENABLE_VISION
 #include "drivers/vision/vision_capture.h"
 #include "linux/slab.h"
 #endif
@@ -73,7 +73,7 @@ static char *build_current_turn_content(const struct message *msg)
     return strdup(content);
 }
 
-#ifdef DAIMA_ENABLE_VISION
+#ifdef ENABLE_VISION
 static cJSON *build_user_vision_content(const char *text, const char *image_path)
 {
     char local_path[256] = {0};
@@ -309,7 +309,7 @@ daima_err_t agent_turn_prepare(
     }
 
     cJSON_AddStringToObject(turn_msg, "role", role);
-#ifdef DAIMA_ENABLE_VISION
+#ifdef ENABLE_VISION
     if (strcmp(role, "user") == 0) {
         cJSON *vision_content = build_user_vision_content(msg->content, msg->image_path);
         if (vision_content) {

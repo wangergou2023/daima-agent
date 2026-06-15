@@ -38,9 +38,9 @@ daima_err_t session_store_file_artifact_path(const char *chat_id,
     }
 
     const char *suffix = ".jsonl";
-    if (kind == DAIMA_SESSION_ARTIFACT_FACTS) {
+    if (kind == SESSION_ARTIFACT_FACTS) {
         suffix = "_facts.md";
-    } else if (kind == DAIMA_SESSION_ARTIFACT_SUMMARY) {
+    } else if (kind == SESSION_ARTIFACT_SUMMARY) {
         suffix = "_summary.md";
     }
 
@@ -60,7 +60,7 @@ static daima_err_t file_append_ex(const char *chat_id,
                                  const char *source)
 {
     char path[BUF_SMALL];
-    daima_err_t path_err = session_store_file_artifact_path(chat_id, DAIMA_SESSION_ARTIFACT_HISTORY, path, sizeof(path));
+    daima_err_t path_err = session_store_file_artifact_path(chat_id, SESSION_ARTIFACT_HISTORY, path, sizeof(path));
     if (path_err != DAIMA_OK) {
         return path_err;
     }
@@ -94,7 +94,7 @@ static daima_err_t file_append_ex(const char *chat_id,
 static daima_err_t file_get_history_json(const char *chat_id, char *buf, size_t size, int max_msgs)
 {
     char path[BUF_SMALL];
-    daima_err_t path_err = session_store_file_artifact_path(chat_id, DAIMA_SESSION_ARTIFACT_HISTORY, path, sizeof(path));
+    daima_err_t path_err = session_store_file_artifact_path(chat_id, SESSION_ARTIFACT_HISTORY, path, sizeof(path));
     if (path_err != DAIMA_OK) {
         return path_err;
     }
@@ -191,7 +191,7 @@ static daima_err_t file_rewrite_from_array(const char *chat_id, const cJSON *mes
     }
 
     char path[BUF_SMALL];
-    daima_err_t path_err = session_store_file_artifact_path(chat_id, DAIMA_SESSION_ARTIFACT_HISTORY, path, sizeof(path));
+    daima_err_t path_err = session_store_file_artifact_path(chat_id, SESSION_ARTIFACT_HISTORY, path, sizeof(path));
     if (path_err != DAIMA_OK) {
         return path_err;
     }
@@ -248,15 +248,15 @@ static daima_err_t file_clear(const char *chat_id)
     char facts[BUF_SMALL];
     char summary[BUF_SMALL];
 
-    daima_err_t path_err = session_store_file_artifact_path(chat_id, DAIMA_SESSION_ARTIFACT_HISTORY, path, sizeof(path));
+    daima_err_t path_err = session_store_file_artifact_path(chat_id, SESSION_ARTIFACT_HISTORY, path, sizeof(path));
     if (path_err != DAIMA_OK) {
         return path_err;
     }
-    path_err = session_store_file_artifact_path(chat_id, DAIMA_SESSION_ARTIFACT_FACTS, facts, sizeof(facts));
+    path_err = session_store_file_artifact_path(chat_id, SESSION_ARTIFACT_FACTS, facts, sizeof(facts));
     if (path_err != DAIMA_OK) {
         return path_err;
     }
-    path_err = session_store_file_artifact_path(chat_id, DAIMA_SESSION_ARTIFACT_SUMMARY, summary, sizeof(summary));
+    path_err = session_store_file_artifact_path(chat_id, SESSION_ARTIFACT_SUMMARY, summary, sizeof(summary));
     if (path_err != DAIMA_OK) {
         return path_err;
     }
@@ -361,11 +361,11 @@ static daima_err_t file_list_records(daima_session_record_t *records, size_t cap
         daima_session_artifact_kind_t kind;
 
         if (parse_session_filename_with_suffix(entry->d_name, ".jsonl", chat_id, sizeof(chat_id))) {
-            kind = DAIMA_SESSION_ARTIFACT_HISTORY;
+            kind = SESSION_ARTIFACT_HISTORY;
         } else if (parse_session_filename_with_suffix(entry->d_name, "_facts.md", chat_id, sizeof(chat_id))) {
-            kind = DAIMA_SESSION_ARTIFACT_FACTS;
+            kind = SESSION_ARTIFACT_FACTS;
         } else if (parse_session_filename_with_suffix(entry->d_name, "_summary.md", chat_id, sizeof(chat_id))) {
-            kind = DAIMA_SESSION_ARTIFACT_SUMMARY;
+            kind = SESSION_ARTIFACT_SUMMARY;
         } else {
             continue;
         }
@@ -380,10 +380,10 @@ static daima_err_t file_list_records(daima_session_record_t *records, size_t cap
             continue;
         }
 
-        if (kind == DAIMA_SESSION_ARTIFACT_HISTORY) {
+        if (kind == SESSION_ARTIFACT_HISTORY) {
             record->has_history = true;
             strscpy(record->history_path, path, sizeof(record->history_path));
-        } else if (kind == DAIMA_SESSION_ARTIFACT_FACTS) {
+        } else if (kind == SESSION_ARTIFACT_FACTS) {
             record->has_facts = true;
             strscpy(record->facts_path, path, sizeof(record->facts_path));
         } else {

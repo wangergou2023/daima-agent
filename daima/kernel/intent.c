@@ -11,14 +11,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include "linux/slab.h"
-#ifndef DAIMA_INTENT_GATE_ENABLED
-#define DAIMA_INTENT_GATE_ENABLED 1
+#ifndef INTENT_GATE_ENABLED
+#define INTENT_GATE_ENABLED 1
 #endif
-#ifndef DAIMA_INTENT_GATE_LLM_FALLBACK
-#define DAIMA_INTENT_GATE_LLM_FALLBACK 1
+#ifndef INTENT_GATE_LLM_FALLBACK
+#define INTENT_GATE_LLM_FALLBACK 1
 #endif
 
-#if DAIMA_INTENT_GATE_LLM_FALLBACK
+#if INTENT_GATE_LLM_FALLBACK
 static daima_err_t intent_gate_classify_llm(const char *user_message,
                                              enum intent *out_intent);
 #endif
@@ -45,24 +45,24 @@ static const char *const QA_KEYWORDS[] = {
 };
 
 static const intent_keyword_group_t KEYWORD_GROUPS[] = {
-    { DAIMA_INTENT_FIX, FIX_KEYWORDS },
-    { DAIMA_INTENT_IMPLEMENT, IMPLEMENT_KEYWORDS },
-    { DAIMA_INTENT_INVESTIGATE, INVESTIGATE_KEYWORDS },
-    { DAIMA_INTENT_QA, QA_KEYWORDS },
+    { INTENT_FIX, FIX_KEYWORDS },
+    { INTENT_IMPLEMENT, IMPLEMENT_KEYWORDS },
+    { INTENT_INVESTIGATE, INVESTIGATE_KEYWORDS },
+    { INTENT_QA, QA_KEYWORDS },
 };
 
 const char *daima_intent_name(enum intent intent)
 {
     switch (intent) {
-    case DAIMA_INTENT_QA:
+    case INTENT_QA:
         return "QA";
-    case DAIMA_INTENT_IMPLEMENT:
+    case INTENT_IMPLEMENT:
         return "IMPLEMENT";
-    case DAIMA_INTENT_INVESTIGATE:
+    case INTENT_INVESTIGATE:
         return "INVESTIGATE";
-    case DAIMA_INTENT_FIX:
+    case INTENT_FIX:
         return "FIX";
-    case DAIMA_INTENT_OPEN:
+    case INTENT_OPEN:
         return "OPEN";
     default:
         return "UNKNOWN";
@@ -72,8 +72,8 @@ const char *daima_intent_name(enum intent intent)
 intent_gate_cfg_t intent_gate_load_cfg(void)
 {
     intent_gate_cfg_t cfg = {
-        .enabled = daima_env_bool_or_default("DAIMA_INTENT_GATE_ENABLED",
-                                             DAIMA_INTENT_GATE_ENABLED != 0),
+        .enabled = daima_env_bool_or_default("INTENT_GATE_ENABLED",
+                                             INTENT_GATE_ENABLED != 0),
     };
     return cfg;
 }
@@ -113,7 +113,7 @@ daima_err_t intent_gate_classify(const char *user_message,
         return DAIMA_ERR_INVALID_ARG;
     }
 
-    enum intent intent = DAIMA_INTENT_OPEN;
+    enum intent intent = INTENT_OPEN;
     char *lower_message = ascii_lower_copy(user_message);
     const char *message_to_scan = lower_message ? lower_message : user_message;
 
@@ -131,8 +131,8 @@ done:
     kfree(lower_message);
     *out_intent = intent;
 
-#if DAIMA_INTENT_GATE_LLM_FALLBACK
-    if (intent == DAIMA_INTENT_OPEN) {
+#if INTENT_GATE_LLM_FALLBACK
+    if (intent == INTENT_OPEN) {
         intent_gate_classify_llm(user_message, out_intent);
     }
 #endif
@@ -141,7 +141,7 @@ done:
     return DAIMA_OK;
 }
 
-#if DAIMA_INTENT_GATE_LLM_FALLBACK
+#if INTENT_GATE_LLM_FALLBACK
 static daima_err_t intent_gate_classify_llm(const char *user_message,
                                              enum intent *out_intent)
 {
@@ -171,10 +171,10 @@ static daima_err_t intent_gate_classify_llm(const char *user_message,
     daima_err_t err = llm_chat_tools(classify_prompt, messages, NULL, &resp);
 
     if (err == DAIMA_OK && resp.text && resp.text[0]) {
-        if (strstr(resp.text, "IMPLEMENT"))      *out_intent = DAIMA_INTENT_IMPLEMENT;
-        else if (strstr(resp.text, "FIX"))        *out_intent = DAIMA_INTENT_FIX;
-        else if (strstr(resp.text, "INVESTIGATE")) *out_intent = DAIMA_INTENT_INVESTIGATE;
-        else if (strstr(resp.text, "QA"))          *out_intent = DAIMA_INTENT_QA;
+        if (strstr(resp.text, "IMPLEMENT"))      *out_intent = INTENT_IMPLEMENT;
+        else if (strstr(resp.text, "FIX"))        *out_intent = INTENT_FIX;
+        else if (strstr(resp.text, "INVESTIGATE")) *out_intent = INTENT_INVESTIGATE;
+        else if (strstr(resp.text, "QA"))          *out_intent = INTENT_QA;
         pr_info("IntentGate LLM reclassified: %s -> %s (raw: %.80s)", user_message, daima_intent_name(*out_intent), resp.text);
     }
 

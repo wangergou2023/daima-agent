@@ -10,9 +10,9 @@
 typedef struct cJSON cJSON;
 
 typedef enum {
-    DAIMA_SESSION_ARTIFACT_HISTORY = 0,
-    DAIMA_SESSION_ARTIFACT_FACTS,
-    DAIMA_SESSION_ARTIFACT_SUMMARY,
+    SESSION_ARTIFACT_HISTORY = 0,
+    SESSION_ARTIFACT_FACTS,
+    SESSION_ARTIFACT_SUMMARY,
 } daima_session_artifact_kind_t;
 
 typedef struct {

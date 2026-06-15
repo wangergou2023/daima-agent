@@ -45,7 +45,7 @@
 #define LLM_LOG_PREVIEW_BYTES   160 /* 0=不输出预览，仅输出长度 */
 
 /* 图片理解 (Vision) */
-#ifdef DAIMA_ENABLE_VISION
+#ifdef ENABLE_VISION
 #define VISION_MAX_IMAGE_SIZE   (10 * 1024 * 1024)  /* 最大图片文件大小 10MB */
 #define VISION_MAX_IMAGES       8                    /* 单次请求最大图片数 */
 #endif
@@ -102,10 +102,10 @@
 #define CONFIG_DAIMA_RULES_INJECTION_ENABLED RULES_INJECTION_ENABLED
 #define CONFIG_DAIMA_HASHLINE_ENABLED        HASHLINE_ENABLED
 #define CONFIG_DAIMA_SAFE_EDIT_ENABLED       SAFE_EDIT_ENABLED
-#ifdef DAIMA_ENABLE_VISION
-#define CONFIG_DAIMA_ENABLE_VISION           1
+#ifdef ENABLE_VISION
+#define CONFIG_ENABLE_VISION           1
 #else
-#define CONFIG_DAIMA_ENABLE_VISION           0
+#define CONFIG_ENABLE_VISION           0
 #endif
 
 /* 上下文压缩

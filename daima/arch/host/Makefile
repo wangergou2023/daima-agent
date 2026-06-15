@@ -7,7 +7,7 @@ DAIMA_CFLAGS := -I$(DAIMA_DIR) -I$(DAIMA_DIR)/include -I$(DAIMA_DIR)/include/gen
     -iquote $(DAIMA_DIR)/lib -iquote $(DAIMA_DIR)/net -iquote $(DAIMA_DIR)/fs \
     -iquote $(DAIMA_DIR)/include/linux \
     -iquote $(DAIMA_DIR)/kernel/printk -iquote $(DAIMA_DIR)/kernel/irq \
-    -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -DDAIMA_HOST=1 -DDAIMA_ENABLE_VISION=1
+    -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -DDAIMA_HOST=1 -DENABLE_VISION=1
 LDFLAGS := -lcurl -lssl -lcrypto -ldl -lm -lpthread
 
 obj-y := audio_io_stub.o vision_capture_stub.o voice_wake_stub.o

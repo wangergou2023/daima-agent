@@ -16,18 +16,18 @@ extern "C" {
 #define KERN_DEBUG   "<7>"
 
 enum {
-    DAIMA_LOG_ERROR = 0,
-    DAIMA_LOG_WARN  = 1,
-    DAIMA_LOG_INFO  = 2,
-    DAIMA_LOG_DEBUG = 3,
+    LOG_ERROR = 0,
+    LOG_WARN  = 1,
+    LOG_INFO  = 2,
+    LOG_DEBUG = 3,
 };
 
 int printk(const char *fmt, ...);
 void daima_log_level_set(const char *tag, int level);
 void daima_log_write(int level, const char *tag, const char *fmt, ...);
 
-#define DAIMA_LOG_HOOK_PRE  0
-#define DAIMA_LOG_HOOK_POST 1
+#define LOG_HOOK_PRE  0
+#define LOG_HOOK_POST 1
 typedef void (*daima_log_hook_t)(int phase, void *ctx);
 void daima_log_set_hook(daima_log_hook_t hook);
 

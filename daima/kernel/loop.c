@@ -45,7 +45,7 @@ static void agent_loop_task(void *arg)
         daima_err_t err = message_bus_pop_inbound(&msg, UINT32_MAX);
         if (unlikely(err != DAIMA_OK)) continue;
 
-        msg.intent = DAIMA_INTENT_OPEN;
+        msg.intent = INTENT_OPEN;
         agent_extension_state_reset();
 
         err = agent_hooks_trigger_intent(&msg);
