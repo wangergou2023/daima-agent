@@ -4,7 +4,6 @@
 #include "driver.h"
 #include <stddef.h>
 
-/* 四条总线全局实例 */
 extern struct bus_type *tool_bus;
 extern struct bus_type *mcp_bus;
 extern struct bus_type *channel_bus;
