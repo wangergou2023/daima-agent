@@ -20,3 +20,9 @@ struct skill_module {
 int skill_module_probe(struct skill_module *sm);
 int skill_module_load(struct skill_module *sm);
 void skill_module_unload(struct skill_module *sm);
+
+/* 检查指定名称的 tool 是否在 tool_bus 上存在 */
+int skill_module_check_tool_exists(const char *tool_name);
+
+/* 批量检查：所有 tool 都存在返回 0，否则返回 -1 */
+int skill_module_check_tools(const char **tool_names, int count);
