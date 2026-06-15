@@ -78,6 +78,10 @@ int main(void)
             printf("FAIL (SSRF wrongly blocked)\n"); failed++;
         } else if (strstr(out, "Example Domain") || strstr(out, "example")) {
             printf("PASS (fetched content)\n"); passed++;
+        } else if (strstr(out, "HTTP 5") || strstr(out, "HTTP 429") ||
+                   strstr(out, "SSL connect error") || strstr(out, "Couldn't connect") ||
+                   strstr(out, "Connection timed out")) {
+            printf("SKIP (upstream unavailable: %.80s)\n", out);
         } else {
             printf("FAIL (unexpected: %.200s)\n", out); failed++;
         }

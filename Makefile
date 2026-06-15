@@ -86,6 +86,7 @@ modules:
 	@echo "  MODULES  extensions/ (built-in)"
 
 test:
+	$(Q)mkdir -p test/build
 	$(MAKE) -C test test PWD=$(CURDIR)
 
 clean:
