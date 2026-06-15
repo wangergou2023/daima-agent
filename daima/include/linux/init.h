@@ -19,5 +19,5 @@ typedef int (*initcall_t)(void);
         __attribute__((section(".initcall" #level ".init"))) = fn
 
 struct driver;
-int daima_driver_probe(struct driver *drv);
+int driver_probe(struct driver *drv);
 void do_basic_setup(void);

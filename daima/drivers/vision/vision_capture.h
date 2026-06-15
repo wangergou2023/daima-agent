@@ -22,7 +22,7 @@ err_t vision_capture_init(void);
  * 抓拍一张 JPEG 并保存到文件。
  * - output_path 当前未使用（使用 sample 默认路径）。
  * - out_path/out_path_len 可选，用于返回实际保存路径。
- * - 失败返回 DAIMA_ERR_*，成功返回 0。
+ * - 失败返回 ERR_**，成功返回 0。
  */
 err_t vision_capture_jpeg(const char *output_path,
                                char *out_path,

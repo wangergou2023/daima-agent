@@ -5,16 +5,16 @@ PATCHLEVEL = 0
 export TOPDIR := $(CURDIR)
 export srctree := $(TOPDIR)
 export objtree := $(TOPDIR)
-export DAIMA_DIR := $(TOPDIR)/daima
+export AGENT_DIR := $(TOPDIR)/daima
 BUILD_DIR := build-kbuild
 export BUILD_DIR
-DAIMA_BIN := $(BUILD_DIR)/daima
+AGENT_BIN := $(BUILD_DIR)/daima
 
 ARCH ?= host
 export ARCH
-include $(DAIMA_DIR)/arch/$(ARCH)/Makefile
+include $(AGENT_DIR)/arch/$(ARCH)/Makefile
 include $(TOPDIR)/scripts/Kbuild.include
-export CC DAIMA_CFLAGS LDFLAGS
+export CC AGENT_CFLAGS LDFLAGS
 
 # 详细输出
 ifeq ($(V),1)
@@ -35,7 +35,7 @@ core-y += drivers/platform/ drivers/pet/
 core-y += extensions/
 
 daima-dirs := $(patsubst %/,%,$(core-y))
-daima_builtin := $(foreach d,$(daima-dirs),$(d)/built-in.o)
+agent_builtin := $(foreach d,$(daima-dirs),$(d)/built-in.o)
 
 .PHONY: all daima host mips arm arch-obj cjson modules test clean mrproper distclean help menuconfig defconfig config
 
@@ -51,7 +51,7 @@ $(daima-dirs): $(BUILD_DIR)
 
 cjson: $(BUILD_DIR)
 	@echo "  CC      $(BUILD_DIR)/cjson.o"
-	$(Q)$(CC) $(DAIMA_CFLAGS) -c -o $(BUILD_DIR)/cjson.o $(TOPDIR)/third_party/cjson/cJSON.c
+	$(Q)$(CC) $(AGENT_CFLAGS) -c -o $(BUILD_DIR)/cjson.o $(TOPDIR)/third_party/cjson/cJSON.c
 	@echo $(BUILD_DIR)/cjson.o >> $(BUILD_DIR)/objects.list
 
 arch-obj: $(BUILD_DIR)
@@ -60,7 +60,7 @@ arch-obj: $(BUILD_DIR)
 daima: $(daima-dirs) cjson arch-obj
 	@echo "  LD      daima"
 	$(Q)awk '!seen[$$0]++' $(BUILD_DIR)/objects.list > $(BUILD_DIR)/objects.link
-	$(Q)$(CC) $(DAIMA_CFLAGS) -o $(DAIMA_BIN) @$(BUILD_DIR)/objects.link $(LDFLAGS)
+	$(Q)$(CC) $(AGENT_CFLAGS) -o $(AGENT_BIN) @$(BUILD_DIR)/objects.link $(LDFLAGS)
 	@echo "  DONE    daima"
 
 kbuild-doc-check:

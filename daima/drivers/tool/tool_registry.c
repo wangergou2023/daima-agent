@@ -9,7 +9,7 @@
 #include "drivers/tool/tool_todo.h"
 #include "drivers/tool/tool_work_item.h"
 #include "drivers/tool/tool_webfetch.h"
-#include "drivers/tool/tool_daima_log.h"
+#include "drivers/tool/tool_log.h"
 #include "drivers/tool/tool_skills.h"
 #include "drivers/tool/tool_session_search.h"
 #include "drivers/tool/tool_vector_common.h"
@@ -148,7 +148,7 @@ err_t tool_registry_init(void)
     register_tool(tool_todo_definition());
     register_tool(tool_work_item_definition());
     register_tool(tool_webfetch_definition());
-    register_tool(tool_daima_log_definition());
+    register_tool(tool_log_definition());
 
     register_tool(tool_skills_definition());
 

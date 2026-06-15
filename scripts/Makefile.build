@@ -18,7 +18,7 @@ obj-files := $(addprefix $(obj)/, $(obj-y))
 $(obj)/%.o: $(src)/%.c
 	@mkdir -p $(dir $@)
 	@echo "  CC      $(obj)/$(*F).o"
-	$(Q)$(CC) $(DAIMA_CFLAGS) -c -o $@ $<
+	$(Q)$(CC) $(AGENT_CFLAGS) -c -o $@ $<
 
 # 子目录递归
 subdirs: $(patsubst %, _subdir_%, $(__subdir-y))

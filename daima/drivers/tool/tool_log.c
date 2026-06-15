@@ -1,4 +1,4 @@
-#include "drivers/tool/tool_daima_log.h"
+#include "drivers/tool/tool_log.h"
 
 #include "paths.h"
 #include "cJSON.h"
@@ -10,7 +10,7 @@
 
 #define LOG_LINE_MAX 2048
 
-static const struct tool s_daima_log_tool = {
+static const struct tool s_log_tool = {
     .name = "log_tool",
     .description = "读取 daima 自身运行日志，用于诊断工具失败、网络错误、系统异常。支持 tail / search / errors。",
     .input_schema_json =
@@ -21,7 +21,7 @@ static const struct tool s_daima_log_tool = {
         "\"lines\":{\"type\":\"integer\",\"description\":\"输出最近多少行，默认 50，最大 200\"}"
         "},"
         "\"required\":[]}",
-    .execute = tool_daima_log_execute,
+    .execute = tool_log_execute,
 };
 
 static int input_lines(const cJSON *input)
@@ -86,7 +86,7 @@ static void sanitize_utf8(char *buf)
     buf[wi] = '\0';
 }
 
-err_t tool_daima_log_execute(const char *input_json, char *output, size_t output_size)
+err_t tool_log_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *input = cJSON_Parse(input_json ? input_json : "{}");
     if (!input || !cJSON_IsObject(input)) {
@@ -169,7 +169,7 @@ err_t tool_daima_log_execute(const char *input_json, char *output, size_t output
     return 0;
 }
 
-const struct tool *tool_daima_log_definition(void)
+const struct tool *tool_log_definition(void)
 {
-    return &s_daima_log_tool;
+    return &s_log_tool;
 }
