@@ -108,6 +108,7 @@ void do_basic_setup(void)
     pr_info("device_initcall...");
     BUG_ON(bus_init() != 0);
     BUG_ON(bus_channel_register_all() != 0);
+    BUG_ON(bus_llm_register_all() != 0);
 
     cron_service_start();
     heartbeat_start();

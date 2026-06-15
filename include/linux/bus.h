@@ -44,3 +44,6 @@ void bus_reprobe(struct bus_type *bus, const char *dev_name);
 
 int bus_device_exists(struct bus_type *bus, const char *name);
 struct device *bus_find_device(struct bus_type *bus, const char *name);
+
+int bus_channel_register_all(void);
+int bus_llm_register_all(void);
