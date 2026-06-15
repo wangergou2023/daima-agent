@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
-static bool plan_review_intent_requires_plan(daima_intent_t intent)
+static bool plan_review_intent_requires_plan(enum intent intent)
 {
     return intent == DAIMA_INTENT_IMPLEMENT || intent == DAIMA_INTENT_FIX;
 }
@@ -33,10 +33,10 @@ static bool plan_review_is_placeholder_only(const char *text)
            strstr(text, "TBD") != NULL;
 }
 
-daima_err_t plan_review_generate(daima_intent_t intent,
+daima_err_t plan_review_generate(enum intent intent,
                                   const char *user_message,
                                   const char *system_prompt,
-                                  daima_plan_t *out_plan)
+                                  struct plan *out_plan)
 {
     (void)system_prompt;
 
@@ -77,7 +77,7 @@ daima_err_t plan_review_generate(daima_intent_t intent,
     return DAIMA_OK;
 }
 
-daima_err_t plan_review_inject_to_prompt(const daima_plan_t *plan,
+daima_err_t plan_review_inject_to_prompt(const struct plan *plan,
                                           char *system_prompt,
                                           size_t system_prompt_size)
 {

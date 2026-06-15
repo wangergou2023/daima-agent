@@ -13,7 +13,7 @@
 #include "linux/printk.h"
 #include "cJSON.h"
 #include "linux/slab.h"
-static bool should_save_assistant_reply(const daima_msg_t *msg, const char *final_text)
+static bool should_save_assistant_reply(const struct message *msg, const char *final_text)
 {
     return msg && final_text && final_text[0] && !agent_msg_is_internal_control(msg);
 }
@@ -33,7 +33,7 @@ static char *build_assistant_session_content_json(const char *text, const char *
     return json;
 }
 
-void agent_turn_queue_outbound_text(const daima_msg_t *msg, char *text, const char *reasoning, bool free_on_fail)
+void agent_turn_queue_outbound_text(const struct message *msg, char *text, const char *reasoning, bool free_on_fail)
 {
     if (!msg || !text) {
         kfree(text);
@@ -45,7 +45,7 @@ void agent_turn_queue_outbound_text(const daima_msg_t *msg, char *text, const ch
         return;
     }
 
-    daima_msg_t out = {0};
+    struct message out = {0};
     strncpy(out.channel, msg->channel, sizeof(out.channel) - 1);
     strncpy(out.chat_id, msg->chat_id, sizeof(out.chat_id) - 1);
     out.content = text;
@@ -61,7 +61,7 @@ void agent_turn_queue_outbound_text(const daima_msg_t *msg, char *text, const ch
     }
 }
 
-void agent_turn_save_session(const daima_msg_t *msg, const char *final_text, const char *reasoning, int iteration)
+void agent_turn_save_session(const struct message *msg, const char *final_text, const char *reasoning, int iteration)
 {
     if (!msg || !msg->chat_id[0] || !final_text || !final_text[0]) {
         return;

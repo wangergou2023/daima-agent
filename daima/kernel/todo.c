@@ -41,7 +41,7 @@ static void build_state_path(const char *chat_id, char *path, size_t path_size)
 
 static bool load_state(const char *chat_id, todo_enforcer_state_t *state)
 {
-    char path[DAIMA_BUF_PATH];
+    char path[BUF_PATH];
     build_state_path(chat_id, path, sizeof(path));
 
     FILE *f = fopen(path, "r");
@@ -86,7 +86,7 @@ static bool load_state(const char *chat_id, todo_enforcer_state_t *state)
 
 static daima_err_t save_state(const char *chat_id, const todo_enforcer_state_t *state)
 {
-    char path[DAIMA_BUF_PATH];
+    char path[BUF_PATH];
     build_state_path(chat_id, path, sizeof(path));
     mkdir(daima_path_spiffs_base(), 0700);
     mkdir(daima_path_session_dir(), 0700);
@@ -208,7 +208,7 @@ daima_err_t todo_enforcer_reset(const char *chat_id)
         return DAIMA_ERR_INVALID_ARG;
     }
 
-    char path[DAIMA_BUF_PATH];
+    char path[BUF_PATH];
     build_state_path(chat_id, path, sizeof(path));
     if (unlink(path) == 0) {
         return DAIMA_OK;

@@ -55,7 +55,7 @@ typedef struct {
     size_t text_len;                             /* 文本长度 */
     char *reasoning_content;                     /* 兼容部分推理模型的 reasoning_content */
     size_t reasoning_content_len;                /* reasoning_content 长度 */
-    llm_tool_call_t calls[DAIMA_MAX_TOOL_CALLS];  /* 工具调用列表 */
+    llm_tool_call_t calls[MAX_TOOL_CALLS];  /* 工具调用列表 */
     int call_count;                              /* 工具调用数量 */
     bool tool_use;                               /* stop_reason == "tool_use" */
 } llm_response_t;

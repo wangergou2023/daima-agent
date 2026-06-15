@@ -266,9 +266,9 @@ static unsigned char *build_wav(const uint8_t *pcm,
 static void fill_default_cfg(audio_stream_cfg_t *cfg)
 {
     if (!cfg) return;
-    cfg->sample_rate = DAIMA_AUDIO_SAMPLE_RATE;
-    cfg->channels = DAIMA_AUDIO_CHANNELS;
-    cfg->bits_per_sample = DAIMA_AUDIO_BITS_PER_SAMPLE;
+    cfg->sample_rate = AUDIO_SAMPLE_RATE;
+    cfg->channels = AUDIO_CHANNELS;
+    cfg->bits_per_sample = AUDIO_BITS_PER_SAMPLE;
 }
 
 static daima_err_t capture_wav(unsigned char **out_wav, size_t *out_len)
@@ -299,7 +299,7 @@ static daima_err_t capture_wav(unsigned char **out_wav, size_t *out_len)
         return err;
     }
 
-    size_t frame_bytes = calc_frame_bytes(&cfg, DAIMA_AUDIO_FRAME_MS);
+    size_t frame_bytes = calc_frame_bytes(&cfg, AUDIO_FRAME_MS);
     if (frame_bytes == 0) frame_bytes = 2048;
     pr_info("Audio frame bytes: %zu", frame_bytes);
 
@@ -357,7 +357,7 @@ static daima_err_t capture_and_send(void)
     if (err != DAIMA_OK) return err;
 
     err = voice_channel_handle_audio(
-        DAIMA_VOICE_CHAT_ID, wav, wav_len, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+        VOICE_CHAT_ID, wav, wav_len, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
     kfree(wav);
     return err;
 }

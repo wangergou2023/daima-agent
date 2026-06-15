@@ -8,8 +8,8 @@
 #include "err.h"
 
 daima_err_t agent_turn_prepare(
-    const daima_msg_t *msg,
-    const daima_plan_t *plan,
+    const struct message *msg,
+    const struct plan *plan,
     char *system_prompt,
     size_t system_prompt_size,
     char *history_json,

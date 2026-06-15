@@ -16,7 +16,7 @@
 #include "drivers/platform/platform.h"
 #include "cJSON.h"
 #include "linux/slab.h"
-#define MAX_CRON_JOBS  DAIMA_CRON_MAX_JOBS
+#define MAX_CRON_JOBS  CRON_MAX_JOBS
 
 static cron_job_t s_jobs[MAX_CRON_JOBS];
 static int s_job_count = 0;
@@ -336,7 +336,7 @@ static void cron_process_due_jobs(void)
         pr_info("Cron job firing: %s (%s)", job->name, job->id);
 
         /* 将消息推入入站队列 */
-        daima_msg_t msg;
+        struct message msg;
         memset(&msg, 0, sizeof(msg));
         strncpy(msg.channel, job->channel, sizeof(msg.channel) - 1);
         strncpy(msg.chat_id, job->chat_id, sizeof(msg.chat_id) - 1);

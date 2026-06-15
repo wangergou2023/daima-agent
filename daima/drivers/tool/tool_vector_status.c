@@ -20,13 +20,13 @@ static daima_err_t tool_robot_get_battery_execute(const char *input_json, char *
     return mcp_client_call_tool(mcp, "robot_get_battery", "{}", output, output_size);
 }
 
-static const daima_tool_t s_get_battery = {
+static const struct tool s_get_battery = {
     .name = "robot_get_battery",
     .description = "获取 Vector 当前电池状态(电压、电量、是否在充电)。",
     .input_schema_json = "{\"type\":\"object\"}",
     .execute = tool_robot_get_battery_execute,
 };
-const daima_tool_t *tool_robot_get_battery_definition(void) { return &s_get_battery; }
+const struct tool *tool_robot_get_battery_definition(void) { return &s_get_battery; }
 
 /* ---- Drive On Charger ---- */
 static daima_err_t tool_robot_drive_on_charger_execute(const char *input_json, char *output, size_t output_size)
@@ -37,13 +37,13 @@ static daima_err_t tool_robot_drive_on_charger_execute(const char *input_json, c
     return mcp_client_call_tool(mcp, "robot_drive_on_charger", "{}", output, output_size);
 }
 
-static const daima_tool_t s_drive_on_charger = {
+static const struct tool s_drive_on_charger = {
     .name = "robot_drive_on_charger",
     .description = "让 Vector 自动回到充电座并开始充电。机器人会自动定位充电座。",
     .input_schema_json = "{\"type\":\"object\"}",
     .execute = tool_robot_drive_on_charger_execute,
 };
-const daima_tool_t *tool_robot_drive_on_charger_definition(void) { return &s_drive_on_charger; }
+const struct tool *tool_robot_drive_on_charger_definition(void) { return &s_drive_on_charger; }
 
 /* ---- Drive Off Charger ---- */
 static daima_err_t tool_robot_drive_off_charger_execute(const char *input_json, char *output, size_t output_size)
@@ -54,10 +54,10 @@ static daima_err_t tool_robot_drive_off_charger_execute(const char *input_json, 
     return mcp_client_call_tool(mcp, "robot_drive_off_charger", "{}", output, output_size);
 }
 
-static const daima_tool_t s_drive_off_charger = {
+static const struct tool s_drive_off_charger = {
     .name = "robot_drive_off_charger",
     .description = "让 Vector 离开充电座。",
     .input_schema_json = "{\"type\":\"object\"}",
     .execute = tool_robot_drive_off_charger_execute,
 };
-const daima_tool_t *tool_robot_drive_off_charger_definition(void) { return &s_drive_off_charger; }
+const struct tool *tool_robot_drive_off_charger_definition(void) { return &s_drive_off_charger; }

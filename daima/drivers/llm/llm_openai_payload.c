@@ -474,7 +474,7 @@ daima_err_t llm_openai_parse_response(const char *json_text, llm_response_t *res
             if (tool_calls && cJSON_IsArray(tool_calls)) {
                 cJSON *tc = NULL;
                 cJSON_ArrayForEach(tc, tool_calls) {
-                    if (resp->call_count >= DAIMA_MAX_TOOL_CALLS) {
+                    if (resp->call_count >= MAX_TOOL_CALLS) {
                         break;
                     }
 

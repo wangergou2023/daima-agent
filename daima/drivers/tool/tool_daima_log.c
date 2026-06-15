@@ -10,7 +10,7 @@
 
 #define LOG_LINE_MAX 2048
 
-static const daima_tool_t s_daima_log_tool = {
+static const struct tool s_daima_log_tool = {
     .name = "daima_log",
     .description = "读取 daima 自身运行日志，用于诊断工具失败、网络错误、系统异常。支持 tail / search / errors。",
     .input_schema_json =
@@ -169,7 +169,7 @@ daima_err_t tool_daima_log_execute(const char *input_json, char *output, size_t 
     return DAIMA_OK;
 }
 
-const daima_tool_t *tool_daima_log_definition(void)
+const struct tool *tool_daima_log_definition(void)
 {
     return &s_daima_log_tool;
 }

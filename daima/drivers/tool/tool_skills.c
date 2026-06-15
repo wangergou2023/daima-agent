@@ -15,7 +15,7 @@
 #include "linux/printk.h"
 #include "linux/kernel.h"
 #define SKILL_PATH_SIZE 1024
-static const daima_tool_t s_skills_tool = {
+static const struct tool s_skills_tool = {
     .name = "skills",
     .description = "统一技能浏览工具。action=list 列出当前已安装技能；action=view 查看某个技能的主说明或关联文件。",
     .input_schema_json =
@@ -327,7 +327,7 @@ daima_err_t tool_skills_execute(const char *input_json, char *output, size_t out
     return err;
 }
 
-const daima_tool_t *tool_skills_definition(void)
+const struct tool *tool_skills_definition(void)
 {
     return &s_skills_tool;
 }

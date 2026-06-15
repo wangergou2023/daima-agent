@@ -20,7 +20,7 @@ static agent_role_t active_role_for_plan(const agent_role_t roles[3], int role_c
     return roles[0];
 }
 
-static daima_err_t on_intent(daima_msg_t *msg)
+static daima_err_t on_intent(struct message *msg)
 {
 #if AGENT_EXTENSIONS_ENABLED
     agent_role_t roles[3] = {0};
@@ -34,7 +34,7 @@ static daima_err_t on_intent(daima_msg_t *msg)
     return DAIMA_OK;
 }
 
-static daima_err_t on_prepare(daima_msg_t *msg, char *system_prompt,
+static daima_err_t on_prepare(struct message *msg, char *system_prompt,
                               size_t system_prompt_size, cJSON *messages)
 {
     (void)msg;

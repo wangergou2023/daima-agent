@@ -83,7 +83,7 @@ static bool heartbeat_send(void)
         return false;
     }
 
-    daima_msg_t msg;
+    struct message msg;
     char prompt[512];
     memset(&msg, 0, sizeof(msg));
     strncpy(msg.channel, DAIMA_CHAN_SYSTEM, sizeof(msg.channel) - 1);

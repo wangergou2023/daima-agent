@@ -23,7 +23,7 @@
 #include "drivers/vision/vision_capture.h"
 #include "linux/slab.h"
 #endif
-static char *build_current_turn_content(const daima_msg_t *msg)
+static char *build_current_turn_content(const struct message *msg)
 {
     const char *source = agent_msg_source_or_default(msg);
     const char *content = (msg && msg->content) ? msg->content : "";
@@ -119,7 +119,7 @@ static cJSON *build_user_vision_content(const char *text, const char *image_path
 }
 #endif
 
-static void append_turn_context_prompt(char *prompt, size_t size, const daima_msg_t *msg)
+static void append_turn_context_prompt(char *prompt, size_t size, const struct message *msg)
 {
     if (!prompt || size == 0 || !msg) {
         return;
@@ -150,14 +150,14 @@ static void append_turn_context_prompt(char *prompt, size_t size, const daima_ms
     }
 }
 
-#ifdef DAIMA_RULES_INJECTION_ENABLED
+#ifdef RULES_INJECTION_ENABLED
 static void prepend_rules_prompt(char *prompt, size_t size, const char *rules)
 {
     if (!prompt || size == 0 || !rules || !rules[0]) {
         return;
     }
 
-    char existing[DAIMA_CONTEXT_BUF_SIZE];
+    char existing[CONTEXT_BUF_SIZE];
     strscpy(existing, prompt, sizeof(existing));
     int n = snprintf(prompt, size, "%s\n%s", rules, existing);
     if (n < 0 || (size_t)n >= size) {
@@ -203,7 +203,7 @@ static void append_session_summary_prompt(char *prompt, size_t size, const char 
         return;
     }
 
-    char summary_buf[DAIMA_BUF_XLARGE];
+    char summary_buf[BUF_XLARGE];
     if (session_store_read_summary(chat_id, summary_buf, sizeof(summary_buf)) != DAIMA_OK || !summary_buf[0]) {
         return;
     }
@@ -229,8 +229,8 @@ static void append_session_summary_prompt(char *prompt, size_t size, const char 
 }
 
 daima_err_t agent_turn_prepare(
-    const daima_msg_t *msg,
-    const daima_plan_t *plan,
+    const struct message *msg,
+    const struct plan *plan,
     char *system_prompt,
     size_t system_prompt_size,
     char *history_json,
@@ -243,7 +243,7 @@ daima_err_t agent_turn_prepare(
 
     *out_messages = NULL;
 
-    char prompt_prefix[DAIMA_BUF_XLARGE] = {0};
+    char prompt_prefix[BUF_XLARGE] = {0};
     if (system_prompt[0]) {
         strscpy(prompt_prefix, system_prompt, sizeof(prompt_prefix));
     }
@@ -287,7 +287,7 @@ daima_err_t agent_turn_prepare(
     agent_prompt_dump_snapshot(msg, system_prompt);
     pr_info("LLM turn context: channel=%s chat_id=%s source=%s", msg->channel, msg->chat_id, agent_msg_source_or_default(msg));
 
-    session_store_get_history_json(msg->chat_id, history_json, history_json_size, DAIMA_AGENT_MAX_HISTORY);
+    session_store_get_history_json(msg->chat_id, history_json, history_json_size, AGENT_MAX_HISTORY);
 
     cJSON *messages = cJSON_Parse(history_json);
     if (!messages) messages = cJSON_CreateArray();

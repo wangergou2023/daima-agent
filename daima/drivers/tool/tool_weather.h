@@ -16,4 +16,4 @@ daima_err_t tool_weather_execute(const char *input_json, char *output, size_t ou
  * 初始化天气工具（wttr.in；无需 API Key）。
  */
 daima_err_t tool_weather_init(void);
-const daima_tool_t *tool_weather_definition(void);
+const struct tool *tool_weather_definition(void);

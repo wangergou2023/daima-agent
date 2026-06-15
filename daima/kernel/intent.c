@@ -20,11 +20,11 @@
 
 #if DAIMA_INTENT_GATE_LLM_FALLBACK
 static daima_err_t intent_gate_classify_llm(const char *user_message,
-                                             daima_intent_t *out_intent);
+                                             enum intent *out_intent);
 #endif
 
 typedef struct {
-    daima_intent_t intent;
+    enum intent intent;
     const char *const *keywords;
 } intent_keyword_group_t;
 
@@ -51,7 +51,7 @@ static const intent_keyword_group_t KEYWORD_GROUPS[] = {
     { DAIMA_INTENT_QA, QA_KEYWORDS },
 };
 
-const char *daima_intent_name(daima_intent_t intent)
+const char *daima_intent_name(enum intent intent)
 {
     switch (intent) {
     case DAIMA_INTENT_QA:
@@ -107,13 +107,13 @@ static bool contains_keyword(const char *lower_message, const char *keyword)
 }
 
 daima_err_t intent_gate_classify(const char *user_message,
-                                  daima_intent_t *out_intent)
+                                  enum intent *out_intent)
 {
     if (!user_message || !out_intent) {
         return DAIMA_ERR_INVALID_ARG;
     }
 
-    daima_intent_t intent = DAIMA_INTENT_OPEN;
+    enum intent intent = DAIMA_INTENT_OPEN;
     char *lower_message = ascii_lower_copy(user_message);
     const char *message_to_scan = lower_message ? lower_message : user_message;
 
@@ -143,7 +143,7 @@ done:
 
 #if DAIMA_INTENT_GATE_LLM_FALLBACK
 static daima_err_t intent_gate_classify_llm(const char *user_message,
-                                             daima_intent_t *out_intent)
+                                             enum intent *out_intent)
 {
     char classify_prompt[1024];
     snprintf(classify_prompt, sizeof(classify_prompt),

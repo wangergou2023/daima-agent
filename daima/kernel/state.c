@@ -2,7 +2,7 @@
 
 #include <string.h>
 
-static daima_plan_t s_plan;
+static struct plan s_plan;
 static agent_role_t s_roles[3];
 static int s_role_count;
 static agent_role_t s_active_role = AGENT_ROLE_FAST;
@@ -15,7 +15,7 @@ void agent_extension_state_reset(void)
     s_active_role = AGENT_ROLE_FAST;
 }
 
-daima_plan_t *agent_extension_state_plan(void)
+struct plan *agent_extension_state_plan(void)
 {
     return &s_plan;
 }

@@ -63,9 +63,9 @@ daima_err_t tool_read_file_execute(const char *input_json, char *output, size_t 
         1,
         1 << 20);
     int limit = tool_files_clamp_int(
-        tool_files_json_get_int_default(root, "limit", DAIMA_READ_FILE_DEFAULT_LIMIT),
+        tool_files_json_get_int_default(root, "limit", READ_FILE_DEFAULT_LIMIT),
         1,
-        DAIMA_READ_FILE_MAX_LIMIT);
+        READ_FILE_MAX_LIMIT);
 
     char resolved_path[TOOL_FILES_PATH_SIZE];
     if (!tool_files_resolve_read_path(path, resolved_path, sizeof(resolved_path))) {
@@ -113,8 +113,8 @@ daima_err_t tool_read_file_execute(const char *input_json, char *output, size_t 
     size_t char_budget = output_size > TOOL_FILES_READ_HEADER_RESERVE
                              ? output_size - TOOL_FILES_READ_HEADER_RESERVE
                              : output_size - 1;
-    if (char_budget > DAIMA_READ_FILE_MAX_CHARS) {
-        char_budget = DAIMA_READ_FILE_MAX_CHARS;
+    if (char_budget > READ_FILE_MAX_CHARS) {
+        char_budget = READ_FILE_MAX_CHARS;
     }
 
     size_t off = snprintf(
@@ -174,16 +174,16 @@ daima_err_t tool_read_file_execute(const char *input_json, char *output, size_t 
 
         tool_files_trim_line_end(line);
 
-        char rendered[DAIMA_READ_FILE_MAX_LINE_CHARS + 64];
+        char rendered[READ_FILE_MAX_LINE_CHARS + 64];
         char prefix[HASHLINE_PREFIX_MAX] = {0};
         if (IS_ENABLED(CONFIG_DAIMA_HASHLINE_ENABLED)) {
             hashline_make_prefix(current_line, line, prefix, sizeof(prefix));
         } else {
             snprintf(prefix, sizeof(prefix), "%6d|", current_line);
         }
-        if (strlen(line) > DAIMA_READ_FILE_MAX_LINE_CHARS) {
+        if (strlen(line) > READ_FILE_MAX_LINE_CHARS) {
             snprintf(rendered, sizeof(rendered), "%s%.*s... [truncated]\n",
-                     prefix, DAIMA_READ_FILE_MAX_LINE_CHARS, line);
+                     prefix, READ_FILE_MAX_LINE_CHARS, line);
         } else {
             snprintf(rendered, sizeof(rendered), "%s%s\n", prefix, line);
         }
@@ -212,7 +212,7 @@ daima_err_t tool_read_file_execute(const char *input_json, char *output, size_t 
         snprintf(
             output + off, output_size - off,
             "\n[Hint] 本次读取超过 %d 字符上限，已提前截断。请减小 limit，或从 offset=%d 继续读取。\n",
-            DAIMA_READ_FILE_MAX_CHARS,
+            READ_FILE_MAX_CHARS,
             next_offset > offset ? next_offset : offset);
     } else if (page_truncated || (total_lines > 0 && requested_end < total_lines)) {
         snprintf(

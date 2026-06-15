@@ -183,13 +183,13 @@ static void append_stack_item(char *stack, size_t stack_size, const char *item)
 
 static size_t append_workspace_context(char *buf, size_t size, size_t offset)
 {
-    char cwd[DAIMA_BUF_LARGE];
+    char cwd[BUF_LARGE];
     if (!getcwd(cwd, sizeof(cwd))) {
         return offset;
     }
 
     char branch[128] = {0};
-    char repo_root[DAIMA_BUF_LARGE] = {0};
+    char repo_root[BUF_LARGE] = {0};
     char commit[256] = {0};
     char *branch_args[] = {"git", "branch", "--show-current", NULL};
     char *root_args[] = {"git", "rev-parse", "--show-toplevel", NULL};

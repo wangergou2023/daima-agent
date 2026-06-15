@@ -66,9 +66,9 @@ daima_err_t feishu_bot_start(void)
     bool ok = daima_task_create(
         feishu_ws_task,
         "feishu_ws",
-        DAIMA_FEISHU_POLL_STACK,
+        FEISHU_POLL_STACK,
         NULL,
-        DAIMA_FEISHU_POLL_PRIO,
+        FEISHU_POLL_PRIO,
         &s_ws_task);
     if (!ok) {
         s_ws_task = NULL;

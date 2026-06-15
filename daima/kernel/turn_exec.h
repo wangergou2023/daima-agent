@@ -23,7 +23,7 @@ char *agent_turn_generate_forced_final_response(const char *system_prompt,
                                                 cJSON *messages,
                                                 const char *reason);
 cJSON *agent_turn_build_tool_results(const llm_response_t *resp,
-                                     const daima_msg_t *msg,
+                                     const struct message *msg,
                                      char *tool_output,
                                      size_t tool_output_size,
                                      turn_exec_stats_t *stats);

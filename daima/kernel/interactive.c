@@ -7,7 +7,7 @@
 #include "drivers/channel/gateway/ws_server.h"
 #include "linux/slab.h"
 
-daima_err_t channel_runtime_request_sudo(const daima_msg_t *msg,
+daima_err_t channel_runtime_request_sudo(const struct message *msg,
                                         const char *request_id,
                                         const char *prompt_text)
 {
@@ -57,7 +57,7 @@ static bool parse_sudo_password_reply(const char *payload,
     return true;
 }
 
-bool channel_runtime_wait_sudo_password(const daima_msg_t *msg,
+bool channel_runtime_wait_sudo_password(const struct message *msg,
                                         const char *request_id,
                                         char *password_out,
                                         size_t password_out_size)
@@ -73,13 +73,13 @@ bool channel_runtime_wait_sudo_password(const daima_msg_t *msg,
     }
 
     time_t deadline = time(NULL) + 180;
-    daima_msg_t deferred[16];
+    struct message deferred[16];
     int deferred_count = 0;
     bool got_password = false;
     bool cancelled = false;
 
     while (time(NULL) < deadline) {
-        daima_msg_t incoming = {0};
+        struct message incoming = {0};
         daima_err_t err = message_bus_pop_inbound(&incoming, 1000);
         if (err != DAIMA_OK) {
             continue;

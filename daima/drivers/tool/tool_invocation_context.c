@@ -17,7 +17,7 @@ static void json_set_string(cJSON *obj, const char *key, const char *value)
     cJSON_AddStringToObject(obj, key, value);
 }
 
-static char *patch_cron_action_add_target(const llm_tool_call_t *call, const daima_msg_t *msg)
+static char *patch_cron_action_add_target(const llm_tool_call_t *call, const struct message *msg)
 {
     cJSON *root = cJSON_Parse(call->input ? call->input : "{}");
     if (!root || !cJSON_IsObject(root)) {
@@ -70,7 +70,7 @@ static char *patch_cron_action_add_target(const llm_tool_call_t *call, const dai
     return patched;
 }
 
-char *tool_invocation_context_patch_input(const llm_tool_call_t *call, const daima_msg_t *msg)
+char *tool_invocation_context_patch_input(const llm_tool_call_t *call, const struct message *msg)
 {
     if (!call || !msg) {
         return NULL;

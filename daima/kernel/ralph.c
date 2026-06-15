@@ -124,7 +124,7 @@ bool ralph_loop_should_continue(const char *chat_id, int iteration, const char *
         return false;
     }
 
-    char path[DAIMA_BUF_PATH];
+    char path[BUF_PATH];
     ralph_loop_build_todo_path(chat_id, path, sizeof(path));
     cJSON *root = ralph_loop_read_json_file(path);
     bool should_continue = ralph_loop_has_unfinished_todo(root);
@@ -134,7 +134,7 @@ bool ralph_loop_should_continue(const char *chat_id, int iteration, const char *
 
 void ralph_loop_reset(const char *chat_id)
 {
-    char path[DAIMA_BUF_PATH];
+    char path[BUF_PATH];
     ralph_loop_build_todo_path(chat_id, path, sizeof(path));
     unlink(path);
 }

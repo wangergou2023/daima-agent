@@ -60,8 +60,8 @@ static int session_recovery_turn_count(const char *chat_id)
         return 0;
     }
 
-    char history[DAIMA_BUF_XLARGE];
-    if (session_store_get_history_json(chat_id, history, sizeof(history), DAIMA_SESSION_MAX_MSGS) != DAIMA_OK) {
+    char history[BUF_XLARGE];
+    if (session_store_get_history_json(chat_id, history, sizeof(history), SESSION_MAX_MSGS) != DAIMA_OK) {
         return 0;
     }
 
@@ -91,7 +91,7 @@ static daima_err_t load_recovery(const char *path, session_recovery_t *recovery)
     }
     memset(recovery, 0, sizeof(*recovery));
 
-    char json[DAIMA_BUF_XLARGE];
+    char json[BUF_XLARGE];
     if (!read_text_file(path, json, sizeof(json))) {
         return DAIMA_FAIL;
     }
@@ -130,7 +130,7 @@ session_recovery_t session_recovery_check(const char *chat_id)
     session_recovery_t recovery;
     memset(&recovery, 0, sizeof(recovery));
 
-    char path[DAIMA_BUF_PATH];
+    char path[BUF_PATH];
     if (recovery_path(chat_id, path, sizeof(path)) != DAIMA_OK) {
         return recovery;
     }
@@ -157,7 +157,7 @@ daima_err_t session_recovery_save_crash(const char *chat_id,
         return DAIMA_ERR_INVALID_ARG;
     }
 
-    char path[DAIMA_BUF_PATH];
+    char path[BUF_PATH];
     daima_err_t path_err = recovery_path(chat_id, path, sizeof(path));
     if (path_err != DAIMA_OK) {
         return path_err;
@@ -241,7 +241,7 @@ daima_err_t session_recovery_inject_prompt(const char *chat_id,
 
 void session_recovery_clear(const char *chat_id)
 {
-    char path[DAIMA_BUF_PATH];
+    char path[BUF_PATH];
     if (recovery_path(chat_id, path, sizeof(path)) != DAIMA_OK) {
         return;
     }

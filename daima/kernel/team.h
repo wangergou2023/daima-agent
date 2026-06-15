@@ -23,7 +23,7 @@ typedef struct {
     int completed_count;
 } team_orchestrator_t;
 
-daima_err_t team_mode_orchestrate(const daima_plan_t *plan,
+daima_err_t team_mode_orchestrate(const struct plan *plan,
                                    const char *system_prompt,
                                    const char *tools_json,
                                    team_orchestrator_t *out);

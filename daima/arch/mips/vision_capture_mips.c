@@ -168,8 +168,8 @@ daima_err_t vision_capture_init(void)
     s_jpeg_ready = true;
 
     /* 4) 可选 JPEG QP 覆盖（环境变量） */
-    int jpeg_qp = daima_env_int_or_default("DAIMA_VISION_JPEG_QP", DAIMA_VISION_JPEG_QP);
-    if (jpeg_qp != DAIMA_VISION_JPEG_QP) pr_info("JPEG QP override: %d", jpeg_qp);
+    int jpeg_qp = daima_env_int_or_default("VISION_JPEG_QP", VISION_JPEG_QP);
+    if (jpeg_qp != VISION_JPEG_QP) pr_info("JPEG QP override: %d", jpeg_qp);
     if (jpeg_qp > 0) {
         for (int i = 0; i < FS_CHN_NUM; i++) {
             if (chn[i].enable) {
@@ -197,8 +197,8 @@ daima_err_t vision_capture_init(void)
     s_stream_on = true;
 
     /* 7) 预热等待，确保首帧可用 */
-    int warm_ms = daima_env_int_or_default("DAIMA_VISION_JPEG_WARMUP_MS", DAIMA_VISION_JPEG_WARMUP_MS);
-    if (warm_ms != DAIMA_VISION_JPEG_WARMUP_MS) pr_info("Warmup override: %d ms", warm_ms);
+    int warm_ms = daima_env_int_or_default("VISION_JPEG_WARMUP_MS", VISION_JPEG_WARMUP_MS);
+    if (warm_ms != VISION_JPEG_WARMUP_MS) pr_info("Warmup override: %d ms", warm_ms);
     if (warm_ms > 0) {
         usleep((useconds_t)warm_ms * 1000);
     }

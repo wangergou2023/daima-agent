@@ -68,15 +68,15 @@ daima_err_t tool_search_files_execute(const char *input_json, char *output, size
     int context = tool_files_clamp_int(
         tool_files_json_get_int_default(root, "context", 0),
         0,
-        DAIMA_SEARCH_FILES_MAX_CONTEXT);
+        SEARCH_FILES_MAX_CONTEXT);
     int offset = tool_files_clamp_int(
         tool_files_json_get_int_default(root, "offset", 0),
         0,
         1 << 20);
     int limit = tool_files_clamp_int(
-        tool_files_json_get_int_default(root, "limit", DAIMA_SEARCH_FILES_DEFAULT_LIMIT),
+        tool_files_json_get_int_default(root, "limit", SEARCH_FILES_DEFAULT_LIMIT),
         1,
-        DAIMA_SEARCH_FILES_MAX_LIMIT);
+        SEARCH_FILES_MAX_LIMIT);
 
     if (!pattern || !pattern[0]) {
         snprintf(output, output_size, "错误：缺少 'pattern' 字段");

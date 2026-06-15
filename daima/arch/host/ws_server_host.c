@@ -202,7 +202,7 @@ daima_err_t ws_server_start(void)
         return DAIMA_FAIL;
     }
 
-    if (listen(s_server_fd, DAIMA_WS_MAX_CLIENTS) != 0) {
+    if (listen(s_server_fd, WS_MAX_CLIENTS) != 0) {
         pr_err("Failed to listen");
         close(s_server_fd);
         s_server_fd = -1;

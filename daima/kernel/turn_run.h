@@ -11,7 +11,7 @@ daima_err_t agent_turn_run(
     const char *system_prompt,
     cJSON *messages,
     const char *tools_json,
-    const daima_msg_t *msg,
+    const struct message *msg,
     const char *model_override,
     uint64_t cancel_token,
     char **out_final_text,

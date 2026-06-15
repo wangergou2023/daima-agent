@@ -26,8 +26,8 @@
 #include "text.h"
 #include "linux/slab.h"
 #define FEISHU_WS_MAX_PAYLOAD      (512 * 1024)
-#define FEISHU_WS_READ_TIMEOUT     DAIMA_TIMEOUT_SHORT
-#define FEISHU_WS_CONNECT_TIMEOUT  DAIMA_TIMEOUT_SHORT
+#define FEISHU_WS_READ_TIMEOUT     TIMEOUT_SHORT
+#define FEISHU_WS_CONNECT_TIMEOUT  TIMEOUT_SHORT
 
 typedef struct {
     char scheme[8];

@@ -24,7 +24,7 @@ typedef struct {
 
 
 static void log_tool_payload_preview(const char *phase,
-                                     const daima_msg_t *msg,
+                                     const struct message *msg,
                                      const char *tool_name,
                                      const char *tool_id,
                                      const char *input,
@@ -109,7 +109,7 @@ static void add_string_array_item(cJSON *obj, const char *key, const char *value
 }
 
 static void collect_tool_failure_work_item(tool_failure_observer_t *observer,
-                                           const daima_msg_t *msg,
+                                           const struct message *msg,
                                            const char *tool_name,
                                            const char *tool_input,
                                            const char *tool_output,
@@ -532,7 +532,7 @@ void agent_turn_maybe_run_auto_verification(const turn_exec_stats_t *stats, char
 }
 
 cJSON *agent_turn_build_tool_results(const llm_response_t *resp,
-                                     const daima_msg_t *msg,
+                                     const struct message *msg,
                                      char *tool_output,
                                      size_t tool_output_size,
                                      turn_exec_stats_t *stats)

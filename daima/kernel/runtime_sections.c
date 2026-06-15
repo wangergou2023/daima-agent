@@ -19,7 +19,7 @@ static void apply_common_values(runtime_config_state_t *cfg, const cJSON *common
         cfg->web_port = runtime_config_clamp_int(value, 1, 65535, cfg->web_port);
     }
     if (runtime_config_json_read_int(common, "session_max_msgs", &value)) {
-        cfg->session_max_msgs = runtime_config_clamp_int(value, 8, DAIMA_SESSION_MAX_MSGS, cfg->session_max_msgs);
+        cfg->session_max_msgs = runtime_config_clamp_int(value, 8, SESSION_MAX_MSGS, cfg->session_max_msgs);
     }
     if (runtime_config_json_read_int(common, "context_limit_tokens", &value) && value >= 1 && value <= 2000000) {
         cfg->common_context_limit_tokens = value;

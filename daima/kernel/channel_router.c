@@ -17,7 +17,7 @@ static void dispatch_outbound_task(void *arg)
     pr_info("Outbound dispatch started");
 
     while (1) {
-        daima_msg_t msg;
+        struct message msg;
         if (message_bus_pop_outbound(&msg, UINT32_MAX) != DAIMA_OK) continue;
 
         pr_info("Dispatching response to %s:%s", msg.channel, msg.chat_id);
@@ -36,7 +36,7 @@ daima_err_t channel_router_start(void)
 {
     return daima_task_create(
         dispatch_outbound_task, "outbound",
-        DAIMA_OUTBOUND_STACK, NULL,
-        DAIMA_OUTBOUND_PRIO, NULL)
+        OUTBOUND_STACK, NULL,
+        OUTBOUND_PRIO, NULL)
         ? DAIMA_OK : DAIMA_FAIL;
 }

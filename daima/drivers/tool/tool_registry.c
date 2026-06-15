@@ -23,11 +23,11 @@
 #include "linux/slab.h"
 #define MAX_TOOLS 32
 
-static daima_tool_t s_tools[MAX_TOOLS];
+static struct tool s_tools[MAX_TOOLS];
 static int s_tool_count = 0;
 typedef struct {
     struct list_head list;
-    daima_tool_t tool;
+    struct tool tool;
 } dynamic_tool_node_t;
 
 static dynamic_tool_node_t s_dynamic_tools[TOOL_REGISTRY_MAX_DYNAMIC];
@@ -41,7 +41,7 @@ static bool is_vector_tool_name(const char *name)
     return name && strncmp(name, "robot_", 6) == 0;
 }
 
-static void register_tool(const daima_tool_t *tool)
+static void register_tool(const struct tool *tool)
 {
     if (s_tool_count >= MAX_TOOLS) {
         pr_err("Tool registry full");
@@ -70,7 +70,7 @@ static bool tool_name_exists(const char *name)
     return false;
 }
 
-static void add_tool_json(cJSON *arr, const daima_tool_t *def)
+static void add_tool_json(cJSON *arr, const struct tool *def)
 {
     if (!arr || !def) {
         return;
@@ -180,7 +180,7 @@ daima_err_t tool_registry_init(void)
     return DAIMA_OK;
 }
 
-daima_err_t tool_registry_register_dynamic(const daima_tool_t *tool)
+daima_err_t tool_registry_register_dynamic(const struct tool *tool)
 {
     if (!tool || !tool->name || !tool->name[0] || !tool->description || !tool->input_schema_json || !tool->execute) {
         return DAIMA_ERR_INVALID_ARG;

@@ -41,7 +41,7 @@ static void reset_defaults(void)
 {
     memset(&s_cfg, 0, sizeof(s_cfg));
     s_cfg.web_port = DEFAULT_WEB_PORT;
-    s_cfg.session_max_msgs = DAIMA_SESSION_MAX_MSGS;
+    s_cfg.session_max_msgs = SESSION_MAX_MSGS;
     s_cfg.compress_trigger_msgs = DEFAULT_COMPRESS_TRIGGER_MSGS;
     s_cfg.compress_keep_msgs = DEFAULT_COMPRESS_KEEP_MSGS;
     s_cfg.learning_review_enabled = false;
@@ -385,7 +385,7 @@ int runtime_config_get_max_output_tokens(void)
     if (s_cfg.common_max_output_tokens > 0) {
         return s_cfg.common_max_output_tokens;
     }
-    return DAIMA_LLM_MAX_TOKENS;
+    return LLM_MAX_TOKENS;
 }
 
 int runtime_config_get_request_timeout_ms(void)

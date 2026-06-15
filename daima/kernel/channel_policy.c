@@ -78,7 +78,7 @@ static void append_feishu_policy(char *prompt, size_t size, size_t off)
     }
 }
 
-void agent_channel_policy_append(char *prompt, size_t size, const daima_msg_t *msg)
+void agent_channel_policy_append(char *prompt, size_t size, const struct message *msg)
 {
     if (!prompt || size == 0 || !msg) {
         return;

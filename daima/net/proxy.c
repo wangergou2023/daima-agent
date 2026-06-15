@@ -10,11 +10,11 @@ static char s_proxy_type[8] = "http";
 
 daima_err_t http_proxy_init(void)
 {
-    if (DAIMA_SECRET_PROXY_HOST[0] != '\0' && DAIMA_SECRET_PROXY_PORT[0] != '\0') {
-        strncpy(s_proxy_host, DAIMA_SECRET_PROXY_HOST, sizeof(s_proxy_host) - 1);
-        s_proxy_port = (uint16_t)atoi(DAIMA_SECRET_PROXY_PORT);
-        if (DAIMA_SECRET_PROXY_TYPE[0] != '\0') {
-            strncpy(s_proxy_type, DAIMA_SECRET_PROXY_TYPE, sizeof(s_proxy_type) - 1);
+    if (SECRET_PROXY_HOST[0] != '\0' && SECRET_PROXY_PORT[0] != '\0') {
+        strncpy(s_proxy_host, SECRET_PROXY_HOST, sizeof(s_proxy_host) - 1);
+        s_proxy_port = (uint16_t)atoi(SECRET_PROXY_PORT);
+        if (SECRET_PROXY_TYPE[0] != '\0') {
+            strncpy(s_proxy_type, SECRET_PROXY_TYPE, sizeof(s_proxy_type) - 1);
         }
     }
 

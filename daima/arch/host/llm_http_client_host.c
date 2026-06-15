@@ -265,7 +265,7 @@ void llm_http_log_payload(const char *tag, const char *label, const char *payloa
     }
 
     size_t total = strlen(payload);
-#if DAIMA_LLM_LOG_VERBOSE_PAYLOAD
+#if LLM_LOG_VERBOSE_PAYLOAD
     size_t shown = total > LLM_DUMP_MAX_BYTES ? LLM_DUMP_MAX_BYTES : total;
     pr_info("%s (%u bytes)%s", label, (unsigned)total, (shown < total) ? " [truncated]" : "");
 
@@ -280,9 +280,9 @@ void llm_http_log_payload(const char *tag, const char *label, const char *payloa
         pr_info("%s[%u]: %s", label, (unsigned)off, chunk);
     }
 #else
-    if (DAIMA_LLM_LOG_PREVIEW_BYTES > 0) {
-        size_t shown = total > DAIMA_LLM_LOG_PREVIEW_BYTES ? DAIMA_LLM_LOG_PREVIEW_BYTES : total;
-        char preview[DAIMA_LLM_LOG_PREVIEW_BYTES + 1];
+    if (LLM_LOG_PREVIEW_BYTES > 0) {
+        size_t shown = total > LLM_LOG_PREVIEW_BYTES ? LLM_LOG_PREVIEW_BYTES : total;
+        char preview[LLM_LOG_PREVIEW_BYTES + 1];
         memcpy(preview, payload, shown);
         preview[shown] = '\0';
         for (size_t i = 0; i < shown; i++) {

@@ -11,7 +11,7 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("daima");
 MODULE_DESCRIPTION("Agent Extension: ralph_loop");
 
-static daima_err_t on_prepare(daima_msg_t *msg, char *system_prompt,
+static daima_err_t on_prepare(struct message *msg, char *system_prompt,
                               size_t system_prompt_size, cJSON *messages)
 {
     (void)system_prompt;
@@ -21,13 +21,13 @@ static daima_err_t on_prepare(daima_msg_t *msg, char *system_prompt,
     return DAIMA_OK;
 }
 
-static void on_finish(daima_msg_t *msg, const char *response)
+static void on_finish(struct message *msg, const char *response)
 {
     (void)msg;
     (void)response;
 }
 
-bool agent_extension_ralph_should_append_warning(daima_msg_t *msg, int iteration, char **io_final_text)
+bool agent_extension_ralph_should_append_warning(struct message *msg, int iteration, char **io_final_text)
 {
 #if AGENT_EXTENSIONS_ENABLED
     static const char warning[] = "\n\n⚠️ 还有未完成的任务，请继续。";

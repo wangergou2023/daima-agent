@@ -108,15 +108,15 @@ static bool emit_search_content_line(search_ctx_t *ctx,
         return false;
     }
 
-    char trimmed[DAIMA_SEARCH_FILES_MAX_LINE_CHARS + 32];
-    if (strlen(line) > DAIMA_SEARCH_FILES_MAX_LINE_CHARS) {
+    char trimmed[SEARCH_FILES_MAX_LINE_CHARS + 32];
+    if (strlen(line) > SEARCH_FILES_MAX_LINE_CHARS) {
         snprintf(trimmed, sizeof(trimmed), "%.*s... [truncated]",
-                 DAIMA_SEARCH_FILES_MAX_LINE_CHARS, line);
+                 SEARCH_FILES_MAX_LINE_CHARS, line);
     } else {
         strscpy(trimmed, line, sizeof(trimmed));
     }
 
-    char row[TOOL_SEARCH_PATH_SIZE + DAIMA_SEARCH_FILES_MAX_LINE_CHARS + 64];
+    char row[TOOL_SEARCH_PATH_SIZE + SEARCH_FILES_MAX_LINE_CHARS + 64];
     snprintf(row, sizeof(row), "%s:%d: %s\n", path, line_no, trimmed);
     return append_search_line(ctx, row);
 }
@@ -132,8 +132,8 @@ static void search_file_content(const char *path, search_ctx_t *ctx)
         return;
     }
 
-    char *prev_lines[DAIMA_SEARCH_FILES_MAX_CONTEXT] = {0};
-    int prev_nums[DAIMA_SEARCH_FILES_MAX_CONTEXT] = {0};
+    char *prev_lines[SEARCH_FILES_MAX_CONTEXT] = {0};
+    int prev_nums[SEARCH_FILES_MAX_CONTEXT] = {0};
     int prev_count = 0;
     char *line = NULL;
     size_t cap = 0;

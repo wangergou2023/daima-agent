@@ -17,7 +17,7 @@
  *          {"action":"search","pattern":"agent_loop","target":"content","path":"./main"}
  */
 daima_err_t tool_files_execute(const char *input_json, char *output, size_t output_size);
-const daima_tool_t *tool_files_definition(void);
+const struct tool *tool_files_definition(void);
 
 /* Internal helpers reused by the files action dispatcher. */
 daima_err_t tool_read_file_execute(const char *input_json, char *output, size_t output_size);
@@ -28,7 +28,7 @@ daima_err_t tool_read_file_execute(const char *input_json, char *output, size_t 
  * - 输入 JSON：{"patch":"*** Begin Patch\n*** Add File: a.txt\n+hello\n*** End Patch\n"}
  */
 daima_err_t tool_apply_patch_execute(const char *input_json, char *output, size_t output_size);
-const daima_tool_t *tool_apply_patch_definition(void);
+const struct tool *tool_apply_patch_definition(void);
 
 /**
  * 将文件恢复到最近一次检查点，或恢复到指定 checkpoint_path。
@@ -37,7 +37,7 @@ const daima_tool_t *tool_apply_patch_definition(void);
  * 输入 JSON：{"path":"./main.c"} 或 {"path":"./main.c","checkpoint_path":"./spiffs_data/cache/checkpoints/...bak"}
  */
 daima_err_t tool_restore_file_execute(const char *input_json, char *output, size_t output_size);
-const daima_tool_t *tool_restore_file_definition(void);
+const struct tool *tool_restore_file_definition(void);
 
 /**
  * 列出目录文件。

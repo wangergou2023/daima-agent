@@ -411,14 +411,14 @@ daima_err_t voice_channel_handle_audio_base64(const char *chat_id,
         sess->last_used = time(NULL);
     }
 
-    char text[DAIMA_BUF_LARGE] = {0};
+    char text[BUF_LARGE] = {0};
     daima_err_t err = voice_asr_mime(NULL, 0, audio_base64, asr_model, prompt, hotwords_json,
                                request_id, user_id, text, sizeof(text));
     if (err != DAIMA_OK) {
         return err;
     }
 
-    daima_msg_t msg = {0};
+    struct message msg = {0};
     strncpy(msg.channel, DAIMA_CHAN_VOICE, sizeof(msg.channel) - 1);
     strncpy(msg.chat_id, chat_id, sizeof(msg.chat_id) - 1);
     strncpy(msg.source, DAIMA_MSG_SOURCE_USER, sizeof(msg.source) - 1);
@@ -581,7 +581,7 @@ daima_err_t voice_channel_handle_audio(const char *chat_id,
         sess->last_used = time(NULL);
     }
 
-    char text[DAIMA_BUF_LARGE] = {0};
+    char text[BUF_LARGE] = {0};
     daima_err_t err = voice_asr_mime(audio_bytes, audio_len, NULL,
                                     asr_model, prompt, hotwords_json,
                                     request_id, user_id, text, sizeof(text));
@@ -596,7 +596,7 @@ daima_err_t voice_channel_handle_audio(const char *chat_id,
     if (!*t) return DAIMA_OK;
     if (strlen(t) <= 1 && (*t < 'A' || *t > 'z')) return DAIMA_OK;
 
-    daima_msg_t msg = {0};
+    struct message msg = {0};
     strncpy(msg.channel, DAIMA_CHAN_VOICE, sizeof(msg.channel) - 1);
     strncpy(msg.chat_id, chat_id, sizeof(msg.chat_id) - 1);
     strncpy(msg.source, DAIMA_MSG_SOURCE_USER, sizeof(msg.source) - 1);

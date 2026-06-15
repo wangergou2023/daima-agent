@@ -22,7 +22,7 @@
 #define FEISHU_REPLY_MSG_URL FEISHU_API_BASE "/im/v1/messages/%s/reply"
 #define FEISHU_WS_CONFIG_URL "https://open.feishu.cn/callback/ws/endpoint"
 #define FEISHU_CARD_CHUNK_MAX_BYTES 6000
-static char s_tenant_token[DAIMA_BUF_MEDIUM] = {0};
+static char s_tenant_token[BUF_MEDIUM] = {0};
 static time_t s_token_expire_time = 0;
 static pthread_mutex_t s_token_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -77,7 +77,7 @@ static daima_err_t feishu_get_tenant_token_locked(const char *app_id, const char
     }
 
     feishu_http_response_t resp = {0};
-    daima_err_t err = feishu_http_post_json(FEISHU_AUTH_URL, NULL, json_str, DAIMA_TIMEOUT_SHORT, &resp);
+    daima_err_t err = feishu_http_post_json(FEISHU_AUTH_URL, NULL, json_str, TIMEOUT_SHORT, &resp);
     kfree(json_str);
 
     if (err != DAIMA_OK) {
@@ -154,7 +154,7 @@ daima_err_t feishu_api_pull_ws_config(const char *app_id,
     if (!json_str) return DAIMA_ERR_NO_MEM;
 
     feishu_http_response_t resp = {0};
-    daima_err_t err = feishu_http_post_json(FEISHU_WS_CONFIG_URL, NULL, json_str, DAIMA_TIMEOUT_MEDIUM, &resp);
+    daima_err_t err = feishu_http_post_json(FEISHU_WS_CONFIG_URL, NULL, json_str, TIMEOUT_MEDIUM, &resp);
     kfree(json_str);
 
     if (err != DAIMA_OK || resp.status != 200) {
@@ -314,7 +314,7 @@ static daima_err_t feishu_send_payload_json(const char *token,
     }
 
     feishu_http_response_t resp = {0};
-    daima_err_t err = feishu_http_post_json(url, token, json_str, DAIMA_TIMEOUT_MEDIUM, &resp);
+    daima_err_t err = feishu_http_post_json(url, token, json_str, TIMEOUT_MEDIUM, &resp);
     kfree(json_str);
     if (err != DAIMA_OK) {
         feishu_http_response_free(&resp);
@@ -403,7 +403,7 @@ daima_err_t feishu_api_send_card(const char *app_id,
         id_type = "open_id";
     }
 
-    char url[DAIMA_BUF_SMALL];
+    char url[BUF_SMALL];
     snprintf(url, sizeof(url), "%s?receive_id_type=%s", FEISHU_SEND_MSG_URL, id_type);
     return feishu_send_card_chunks(token, url, chat_id, markdown, "Send card");
 }
@@ -424,7 +424,7 @@ daima_err_t feishu_api_reply_card(const char *app_id,
         return token_err;
     }
 
-    char url[DAIMA_BUF_SMALL];
+    char url[BUF_SMALL];
     snprintf(url, sizeof(url), FEISHU_REPLY_MSG_URL, message_id);
     return feishu_send_card_chunks(token, url, NULL, markdown, "Reply card");
 }

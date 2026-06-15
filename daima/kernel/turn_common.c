@@ -40,7 +40,7 @@ bool agent_env_bool_or_default(const char *name, bool fallback)
 }
 
 
-const char *agent_msg_source_or_default(const daima_msg_t *msg)
+const char *agent_msg_source_or_default(const struct message *msg)
 {
     if (!msg) {
         return DAIMA_MSG_SOURCE_USER;
@@ -51,12 +51,12 @@ const char *agent_msg_source_or_default(const daima_msg_t *msg)
     return DAIMA_MSG_SOURCE_USER;
 }
 
-bool agent_msg_is_internal_control(const daima_msg_t *msg)
+bool agent_msg_is_internal_control(const struct message *msg)
 {
     return strcmp(agent_msg_source_or_default(msg), DAIMA_MSG_SOURCE_INTERNAL) == 0;
 }
 
-bool agent_msg_is_synthetic_event(const daima_msg_t *msg)
+bool agent_msg_is_synthetic_event(const struct message *msg)
 {
     const char *source = agent_msg_source_or_default(msg);
     if (strcmp(source, DAIMA_MSG_SOURCE_CRON) == 0 ||
@@ -67,12 +67,12 @@ bool agent_msg_is_synthetic_event(const daima_msg_t *msg)
     return msg && strcmp(msg->channel, DAIMA_CHAN_SYSTEM) == 0;
 }
 
-const char *agent_msg_role_for_current_turn(const daima_msg_t *msg)
+const char *agent_msg_role_for_current_turn(const struct message *msg)
 {
     return agent_msg_is_synthetic_event(msg) ? "system" : "user";
 }
 
-const char *agent_session_role_for_inbound_msg(const daima_msg_t *msg)
+const char *agent_session_role_for_inbound_msg(const struct message *msg)
 {
     if (!msg || !msg->content || !msg->content[0]) {
         return NULL;
@@ -117,7 +117,7 @@ void agent_chat_id_to_slug(const char *chat_id, char *buf, size_t size)
     }
 }
 
-void agent_cleanup_inbound_msg(daima_msg_t *msg)
+void agent_cleanup_inbound_msg(struct message *msg)
 {
     if (!msg) {
         return;
@@ -133,7 +133,7 @@ void agent_cleanup_inbound_msg(daima_msg_t *msg)
     msg->image_path = NULL;
 }
 
-void agent_cleanup_outbound_msg(daima_msg_t *msg)
+void agent_cleanup_outbound_msg(struct message *msg)
 {
     if (!msg) {
         return;

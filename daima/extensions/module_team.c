@@ -8,7 +8,7 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("daima");
 MODULE_DESCRIPTION("Agent Extension: team_mode");
-static daima_err_t replace_run(daima_msg_t *msg, char *system_prompt,
+static daima_err_t replace_run(struct message *msg, char *system_prompt,
                                cJSON *messages, const char *tools_json,
                                char **out_final_text)
 {
@@ -16,12 +16,12 @@ static daima_err_t replace_run(daima_msg_t *msg, char *system_prompt,
     (void)messages;
     (void)out_final_text;
 #if AGENT_EXTENSIONS_ENABLED
-    daima_plan_t *plan = agent_extension_state_plan();
+    struct plan *plan = agent_extension_state_plan();
     if (plan->has_plan && plan->reviewed) {
         team_orchestrator_t team = {0};
         daima_err_t team_err = team_mode_orchestrate(plan, system_prompt, tools_json, &team);
         if (team_err == DAIMA_OK && team.completed_count > 0) {
-            daima_err_t inject_err = team_mode_inject_to_prompt(&team, system_prompt, DAIMA_CONTEXT_BUF_SIZE);
+            daima_err_t inject_err = team_mode_inject_to_prompt(&team, system_prompt, CONTEXT_BUF_SIZE);
             if (inject_err == DAIMA_OK) {
                 pr_info("Team Mode guidance injected: sub_agents=%d timeout_ms=%d", team.max_sub_agents, team.sub_agent_timeout_ms);
             } else {

@@ -41,7 +41,7 @@ static daima_err_t channel_runtime_send_text(const char *channel,
     return DAIMA_ERR_INVALID_ARG;
 }
 
-daima_err_t channel_runtime_dispatch_outbound(const daima_msg_t *msg)
+daima_err_t channel_runtime_dispatch_outbound(const struct message *msg)
 {
     if (!msg || !msg->content) {
         return DAIMA_ERR_INVALID_ARG;

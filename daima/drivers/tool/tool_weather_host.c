@@ -12,7 +12,7 @@
 #define WEATHER_API_TIMEOUT_MS  6000
 #define WEATHER_API_URL         "https://uapis.cn/api/v1/misc/weather"
 
-static const daima_tool_t s_weather_tool = {
+static const struct tool s_weather_tool = {
     .name = "weather",
     .description = "查询当前天气、未来 1-7 天预报或逐小时天气（无需 API Key）。可传 location 或 adcode；若都不传，则按调用方 IP 自动定位。",
     .input_schema_json =
@@ -342,7 +342,7 @@ daima_err_t tool_weather_execute(const char *input_json, char *output, size_t ou
     return DAIMA_OK;
 }
 
-const daima_tool_t *tool_weather_definition(void)
+const struct tool *tool_weather_definition(void)
 {
     return &s_weather_tool;
 }

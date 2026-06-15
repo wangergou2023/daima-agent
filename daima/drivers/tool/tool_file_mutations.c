@@ -67,7 +67,7 @@ static bool path_has_prefix(const char *path, const char *prefix)
 
 static char *next_patch_line(char **cursor);
 
-#ifdef DAIMA_HASHLINE_ENABLED
+#ifdef HASHLINE_ENABLED
 static bool parse_hashline_reference(const char *line, int *line_number, char expected_hash[5])
 {
     if (!line || !isdigit((unsigned char)line[0]) || !line_number || !expected_hash) {

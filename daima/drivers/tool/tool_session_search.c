@@ -10,7 +10,7 @@
 #include "autoconf.h"
 #include "linux/printk.h"
 #include "drivers/tool/tool_session_search_internal.h"
-static const daima_tool_t s_session_search_tool = {
+static const struct tool s_session_search_tool = {
     .name = "session_search",
     .description = "搜索历史会话消息和事实卡片，也可列出已有会话。适合回忆之前聊过什么、查看上下文压缩摘要或事实卡片。",
     .input_schema_json =
@@ -41,9 +41,9 @@ daima_err_t tool_session_search_execute(const char *input_json, char *output, si
     const char *output_mode = cJSON_GetStringValue(cJSON_GetObjectItem(root, "output_mode"));
     int offset = tool_session_search_clamp_int(tool_session_search_json_get_int_default(root, "offset", 0), 0, 1 << 20);
     int limit = tool_session_search_clamp_int(
-        tool_session_search_json_get_int_default(root, "limit", DAIMA_SESSION_SEARCH_DEFAULT_LIMIT),
+        tool_session_search_json_get_int_default(root, "limit", SESSION_SEARCH_DEFAULT_LIMIT),
         1,
-        DAIMA_SESSION_SEARCH_MAX_LIMIT);
+        SESSION_SEARCH_MAX_LIMIT);
 
     if (!target || !target[0]) {
         target = "both";
@@ -152,7 +152,7 @@ daima_err_t tool_session_search_execute(const char *input_json, char *output, si
     return DAIMA_OK;
 }
 
-const daima_tool_t *tool_session_search_definition(void)
+const struct tool *tool_session_search_definition(void)
 {
     return &s_session_search_tool;
 }

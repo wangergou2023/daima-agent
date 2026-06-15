@@ -184,7 +184,7 @@ daima_err_t prometheus_check_needs_interview(const char *user_message,
     memset(out, 0, sizeof(*out));
     out->enabled = true;
 
-#if !DAIMA_PROMETHEUS_INTERVIEW_ENABLED
+#if !PROMETHEUS_INTERVIEW_ENABLED
     return DAIMA_OK;
 #else
     if (prometheus_message_is_specific(user_message)) {

@@ -18,7 +18,7 @@
 #include "linux/slab.h"
 #define TOOL_OUTPUT_SIZE  (8 * 1024)
 
-static bool mark_cancelled_if_needed(const daima_msg_t *msg,
+static bool mark_cancelled_if_needed(const struct message *msg,
                                      uint64_t cancel_token,
                                      bool *out_cancelled,
                                      const char *stage)
@@ -31,7 +31,7 @@ static bool mark_cancelled_if_needed(const daima_msg_t *msg,
     return true;
 }
 
-static daima_err_t cancellable_llm_chat_tools(const daima_msg_t *msg,
+static daima_err_t cancellable_llm_chat_tools(const struct message *msg,
                                                uint64_t cancel_token,
                                                const char *system_prompt,
                                                cJSON *messages,
@@ -45,7 +45,7 @@ static daima_err_t cancellable_llm_chat_tools(const daima_msg_t *msg,
     return err;
 }
 
-static daima_err_t cancellable_model_fallback_chat_tools(const daima_msg_t *msg,
+static daima_err_t cancellable_model_fallback_chat_tools(const struct message *msg,
                                                          uint64_t cancel_token,
                                                          const char *system_prompt,
                                                          cJSON *messages,
@@ -65,7 +65,7 @@ static daima_err_t cancellable_model_fallback_chat_tools(const daima_msg_t *msg,
     return err;
 }
 
-static cJSON *cancellable_build_tool_results(const daima_msg_t *msg,
+static cJSON *cancellable_build_tool_results(const struct message *msg,
                                              uint64_t cancel_token,
                                              const llm_response_t *resp,
                                              char *tool_output,
@@ -82,7 +82,7 @@ daima_err_t agent_turn_run(
     const char *system_prompt,
     cJSON *messages,
     const char *tools_json,
-    const daima_msg_t *msg,
+    const struct message *msg,
     const char *model_override,
     uint64_t cancel_token,
     char **out_final_text,
@@ -113,7 +113,7 @@ daima_err_t agent_turn_run(
     turn_exec_stats_t stats;
     memset(&stats, 0, sizeof(stats));
 
-    while (iteration < DAIMA_AGENT_MAX_TOOL_ITER) {
+    while (iteration < AGENT_MAX_TOOL_ITER) {
         if (mark_cancelled_if_needed(msg, cancel_token, out_cancelled, "before LLM call")) {
             break;
         }
@@ -187,7 +187,7 @@ daima_err_t agent_turn_run(
         }
     }
 
-    if (!*out_cancelled && !final_text && iteration >= DAIMA_AGENT_MAX_TOOL_ITER) {
+    if (!*out_cancelled && !final_text && iteration >= AGENT_MAX_TOOL_ITER) {
         *out_tool_budget_exhausted = true;
         pr_warn("Tool iteration budget exhausted for chat %s, forcing final response", msg->chat_id);
         final_text = agent_turn_generate_forced_final_response(

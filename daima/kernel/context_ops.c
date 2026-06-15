@@ -70,11 +70,11 @@ bool context_compress_needed(const cJSON *messages,
 
 cJSON *context_compress_load_session_messages(const char *chat_id)
 {
-    char *history_json = kzalloc(DAIMA_LLM_STREAM_BUF_SIZE, GFP_KERNEL);
+    char *history_json = kzalloc(LLM_STREAM_BUF_SIZE, GFP_KERNEL);
     if (!history_json) {
         return NULL;
     }
-    if (session_store_get_history_json(chat_id, history_json, DAIMA_LLM_STREAM_BUF_SIZE, DAIMA_AGENT_MAX_HISTORY) != DAIMA_OK) {
+    if (session_store_get_history_json(chat_id, history_json, LLM_STREAM_BUF_SIZE, AGENT_MAX_HISTORY) != DAIMA_OK) {
         kfree(history_json);
         return NULL;
     }

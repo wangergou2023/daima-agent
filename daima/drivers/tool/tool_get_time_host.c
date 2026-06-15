@@ -10,7 +10,7 @@
 #include <strings.h>
 #include "linux/printk.h"
 #include "linux/kernel.h"
-static const daima_tool_t s_get_time_tool = {
+static const struct tool s_get_time_tool = {
     .name = "get_current_time",
     .description = "获取当前日期和时间（并同步系统时钟）。需要知道日期/时间时使用。",
     .input_schema_json =
@@ -125,7 +125,7 @@ daima_err_t tool_get_time_execute(const char *input_json, char *output, size_t o
     return DAIMA_OK;
 }
 
-const daima_tool_t *tool_get_time_definition(void)
+const struct tool *tool_get_time_definition(void)
 {
     return &s_get_time_tool;
 }

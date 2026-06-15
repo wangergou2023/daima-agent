@@ -39,12 +39,12 @@ static bool s_worker_started = false;
 static context_compress_cfg_t load_cfg(void)
 {
     context_compress_cfg_t cfg = {
-        .enabled = DAIMA_CONTEXT_COMPRESS_ENABLED != 0,
+        .enabled = CONTEXT_COMPRESS_ENABLED != 0,
         .trigger_msgs = DEFAULT_COMPRESS_TRIGGER_MSGS,
-        .max_chars = DAIMA_CONTEXT_COMPRESS_MAX_CHARS,
-        .protect_first = DAIMA_CONTEXT_COMPRESS_PROTECT_FIRST,
+        .max_chars = CONTEXT_COMPRESS_MAX_CHARS,
+        .protect_first = CONTEXT_COMPRESS_PROTECT_FIRST,
         .protect_last = DEFAULT_COMPRESS_PROTECT_LAST,
-        .max_passes = DAIMA_CONTEXT_COMPRESS_MAX_PASSES,
+        .max_passes = CONTEXT_COMPRESS_MAX_PASSES,
     };
 
     cfg.enabled = agent_env_bool_or_default("DAIMA_COMPRESS_ENABLED", cfg.enabled);

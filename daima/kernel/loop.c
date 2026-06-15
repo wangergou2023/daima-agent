@@ -30,8 +30,8 @@ static void agent_loop_task(void *arg)
     (void)arg;
     pr_info("Agent loop started");
 
-    char *system_prompt = daima_calloc(1, DAIMA_CONTEXT_BUF_SIZE);
-    char *history_json = daima_calloc(1, DAIMA_LLM_STREAM_BUF_SIZE);
+    char *system_prompt = daima_calloc(1, CONTEXT_BUF_SIZE);
+    char *history_json = daima_calloc(1, LLM_STREAM_BUF_SIZE);
 
     if (unlikely(!system_prompt || !history_json)) {
         pr_err("Failed to allocate PSRAM buffers");
@@ -41,7 +41,7 @@ static void agent_loop_task(void *arg)
     }
 
     while (1) {
-        daima_msg_t msg;
+        struct message msg;
         daima_err_t err = message_bus_pop_inbound(&msg, UINT32_MAX);
         if (unlikely(err != DAIMA_OK)) continue;
 
@@ -69,11 +69,11 @@ static void agent_loop_task(void *arg)
         system_prompt[0] = '\0';
         err = agent_turn_prepare(&msg,
                                   agent_extension_state_plan(),
-                                  system_prompt, DAIMA_CONTEXT_BUF_SIZE,
-                                  history_json, DAIMA_LLM_STREAM_BUF_SIZE,
+                                  system_prompt, CONTEXT_BUF_SIZE,
+                                  history_json, LLM_STREAM_BUF_SIZE,
                                   &messages);
         if (likely(err == DAIMA_OK)) {
-            err = agent_hooks_trigger_prepare(&msg, system_prompt, DAIMA_CONTEXT_BUF_SIZE, messages);
+            err = agent_hooks_trigger_prepare(&msg, system_prompt, CONTEXT_BUF_SIZE, messages);
         }
 
         char *final_text = NULL;
@@ -126,7 +126,7 @@ daima_err_t agent_loop_init(void)
 daima_err_t agent_loop_start(void)
 {
     const uint32_t stack_candidates[] = {
-        DAIMA_AGENT_STACK,
+        AGENT_STACK,
         20 * 1024,
         16 * 1024,
         14 * 1024,
@@ -138,7 +138,7 @@ daima_err_t agent_loop_start(void)
         bool ok = daima_task_create(
             agent_loop_task, "agent_loop",
             stack_size, NULL,
-            DAIMA_AGENT_PRIO, NULL);
+            AGENT_PRIO, NULL);
 
         if (ok) {
             pr_info("agent_loop task created with stack=%u bytes", (unsigned)stack_size);

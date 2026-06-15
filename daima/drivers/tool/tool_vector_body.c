@@ -26,7 +26,7 @@ static daima_err_t tool_robot_set_head_angle_execute(const char *input_json, cha
     return call_mcp_with_args(mcp, "robot_set_head_angle", args, output, output_size);
 }
 
-static const daima_tool_t s_head_angle = {
+static const struct tool s_head_angle = {
     .name = "robot_set_head_angle",
     .description = "控制 Vector 头部倾斜角度。angle_rad: 角度(弧度), 0=正前, 负=低头, 正=抬头。范围约 -0.38 到 0.68。",
     .input_schema_json =
@@ -36,7 +36,7 @@ static const daima_tool_t s_head_angle = {
     .execute = tool_robot_set_head_angle_execute,
 };
 
-const daima_tool_t *tool_robot_set_head_angle_definition(void) { return &s_head_angle; }
+const struct tool *tool_robot_set_head_angle_definition(void) { return &s_head_angle; }
 
 /* ---- Set Lift Height ---- */
 static daima_err_t tool_robot_set_lift_height_execute(const char *input_json, char *output, size_t output_size)
@@ -56,7 +56,7 @@ static daima_err_t tool_robot_set_lift_height_execute(const char *input_json, ch
     return call_mcp_with_args(mcp, "robot_set_lift_height", args, output, output_size);
 }
 
-static const daima_tool_t s_lift_height = {
+static const struct tool s_lift_height = {
     .name = "robot_set_lift_height",
     .description = "控制 Vector 升降臂高度。height_mm: 高度 mm, 0=最低, 90=最高。",
     .input_schema_json =
@@ -66,7 +66,7 @@ static const daima_tool_t s_lift_height = {
     .execute = tool_robot_set_lift_height_execute,
 };
 
-const daima_tool_t *tool_robot_set_lift_height_definition(void) { return &s_lift_height; }
+const struct tool *tool_robot_set_lift_height_definition(void) { return &s_lift_height; }
 
 /* ---- Stop All Motors ---- */
 static daima_err_t tool_robot_stop_execute(const char *input_json, char *output, size_t output_size)
@@ -77,11 +77,11 @@ static daima_err_t tool_robot_stop_execute(const char *input_json, char *output,
     return mcp_client_call_tool(mcp, "robot_stop", "{}", output, output_size);
 }
 
-static const daima_tool_t s_stop = {
+static const struct tool s_stop = {
     .name = "robot_stop",
     .description = "立即停止 Vector 所有电机(轮子、头部、升降臂)。",
     .input_schema_json = "{\"type\":\"object\"}",
     .execute = tool_robot_stop_execute,
 };
 
-const daima_tool_t *tool_robot_stop_definition(void) { return &s_stop; }
+const struct tool *tool_robot_stop_definition(void) { return &s_stop; }

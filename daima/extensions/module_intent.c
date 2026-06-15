@@ -7,7 +7,7 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("daima");
 MODULE_DESCRIPTION("Agent Extension: intent_gate");
-static daima_err_t on_intent(daima_msg_t *msg)
+static daima_err_t on_intent(struct message *msg)
 {
 #if AGENT_EXTENSIONS_ENABLED
     intent_gate_classify(msg->content, &msg->intent);

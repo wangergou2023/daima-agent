@@ -15,13 +15,13 @@
 #include <string.h>
 #include "linux/slab.h"
 
-#define WEBFETCH_TIMEOUT_MS  DAIMA_TIMEOUT_DEFAULT
+#define WEBFETCH_TIMEOUT_MS  TIMEOUT_DEFAULT
 #define WEBFETCH_MAX_BODY    (512 * 1024)
 
 static void strip_html_remove_tags(char *buf, size_t max_body);
 static void strip_html_collapse_whitespace(char *buf);
 
-static const daima_tool_t s_webfetch_tool = {
+static const struct tool s_webfetch_tool = {
     .name = "webfetch",
     .description = "从指定 URL 获取网页内容，支持返回纯文本或原始 HTML。用于搜索信息、阅读文档、查阅 API 参考等。",
     .input_schema_json =
@@ -157,7 +157,7 @@ static void sanitize_utf8(char *buf)
 
 static void webfetch_report_error(const char *url, const char *error, char *output, size_t output_size)
 {
-    char title[DAIMA_BUF_SMALL];
+    char title[BUF_SMALL];
     snprintf(title, sizeof(title), "webfetch 请求失败: %.200s", url);
     work_item_store_collect("defect", "test", title, "webfetch 工具 HTTP 请求超时或网络错误");
     if (error && error[0]) {
@@ -169,8 +169,8 @@ static void webfetch_report_error(const char *url, const char *error, char *outp
 
 static void webfetch_report_http_error(const char *url, long status, char *output, size_t output_size)
 {
-    char title[DAIMA_BUF_SMALL];
-    char desc[DAIMA_BUF_MEDIUM];
+    char title[BUF_SMALL];
+    char desc[BUF_MEDIUM];
     snprintf(title, sizeof(title), "webfetch 返回异常状态码: %.200s", url);
     snprintf(desc, sizeof(desc), "webfetch 访问 %.200s 返回 HTTP %ld", url, status);
     work_item_store_collect("defect", "test", title, desc);
@@ -323,7 +323,7 @@ daima_err_t tool_webfetch_execute(const char *input_json, char *output, size_t o
         return DAIMA_ERR_INVALID_ARG;
     }
 
-    char url[DAIMA_BUF_MEDIUM * 4];
+    char url[BUF_MEDIUM * 4];
     strscpy(url, raw_url, sizeof(url));
     clean_url(url, sizeof(url));
 
@@ -375,7 +375,7 @@ daima_err_t tool_webfetch_execute(const char *input_json, char *output, size_t o
     return result;
 }
 
-const daima_tool_t *tool_webfetch_definition(void)
+const struct tool *tool_webfetch_definition(void)
 {
     return &s_webfetch_tool;
 }

@@ -57,7 +57,7 @@ static void log_tool_runtime_result(const char *tool_name,
 }
 
 static void maybe_retry_terminal_with_web_sudo(const llm_tool_call_t *call,
-                                               const daima_msg_t *msg,
+                                               const struct message *msg,
                                                char *tool_output,
                                                size_t tool_output_size)
 {
@@ -111,7 +111,7 @@ static void maybe_retry_terminal_with_web_sudo(const llm_tool_call_t *call,
 }
 
 daima_err_t tool_runtime_execute_call(const llm_tool_call_t *call,
-                                     const daima_msg_t *msg,
+                                     const struct message *msg,
                                      char *tool_output,
                                      size_t tool_output_size,
                                      daima_tool_runtime_result_t *out_result)

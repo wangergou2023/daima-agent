@@ -158,7 +158,7 @@ generic_success:
     }
 }
 
-daima_err_t channel_runtime_send_tool_activity(const daima_msg_t *msg,
+daima_err_t channel_runtime_send_tool_activity(const struct message *msg,
                                               const daima_tool_activity_event_t *event)
 {
     if (!msg || !event || !event->default_text) {

@@ -34,7 +34,7 @@ static daima_err_t tool_robot_play_animation_execute(const char *input_json, cha
     return call_mcp_with_args(mcp, "robot_play_animation", args, output, output_size);
 }
 
-static const daima_tool_t s_play_animation = {
+static const struct tool s_play_animation = {
     .name = "robot_play_animation",
     .description = "在 Vector 脸部屏幕上播放动画效果。常用: WeatherStars01(星星/烟花), WeatherRain01, WeatherSnow01, WeatherSunny01, WeatherThunderstorm01, Greeting01, Happy01, Sad01, Surprise01, Sleep01, WakeUp01, Celebrating01, Love01, LevelUp01。",
     .input_schema_json =
@@ -46,4 +46,4 @@ static const daima_tool_t s_play_animation = {
     .execute = tool_robot_play_animation_execute,
 };
 
-const daima_tool_t *tool_robot_play_animation_definition(void) { return &s_play_animation; }
+const struct tool *tool_robot_play_animation_definition(void) { return &s_play_animation; }

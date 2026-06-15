@@ -34,7 +34,7 @@ static bool extension_enabled(const agent_extension_hooks_t *hooks)
     return hooks && hooks->enabled;
 }
 
-daima_err_t agent_hooks_trigger_intent(daima_msg_t *msg)
+daima_err_t agent_hooks_trigger_intent(struct message *msg)
 {
     for (size_t i = 0; i < s_extension_count; i++) {
         agent_extension_hooks_t *hooks = s_extensions[i];
@@ -45,7 +45,7 @@ daima_err_t agent_hooks_trigger_intent(daima_msg_t *msg)
     return DAIMA_OK;
 }
 
-daima_err_t agent_hooks_trigger_prepare(daima_msg_t *msg,
+daima_err_t agent_hooks_trigger_prepare(struct message *msg,
     char *system_prompt, size_t system_prompt_size, cJSON *messages)
 {
     for (size_t i = 0; i < s_extension_count; i++) {
@@ -57,7 +57,7 @@ daima_err_t agent_hooks_trigger_prepare(daima_msg_t *msg,
     return DAIMA_OK;
 }
 
-daima_err_t agent_hooks_trigger_before_run(daima_msg_t *msg,
+daima_err_t agent_hooks_trigger_before_run(struct message *msg,
     const char **model_override, const char *tools_json)
 {
     for (size_t i = 0; i < s_extension_count; i++) {
@@ -69,7 +69,7 @@ daima_err_t agent_hooks_trigger_before_run(daima_msg_t *msg,
     return DAIMA_OK;
 }
 
-daima_err_t agent_hooks_trigger_replace_run(daima_msg_t *msg,
+daima_err_t agent_hooks_trigger_replace_run(struct message *msg,
     char *system_prompt, cJSON *messages, const char *tools_json,
     char **out_final_text)
 {
@@ -82,7 +82,7 @@ daima_err_t agent_hooks_trigger_replace_run(daima_msg_t *msg,
     return DAIMA_FAIL;
 }
 
-void agent_hooks_trigger_finish(daima_msg_t *msg, const char *response)
+void agent_hooks_trigger_finish(struct message *msg, const char *response)
 {
     for (size_t i = 0; i < s_extension_count; i++) {
         agent_extension_hooks_t *hooks = s_extensions[i];

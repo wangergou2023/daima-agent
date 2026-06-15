@@ -14,7 +14,7 @@
 #include "linux/kernel.h"
 static category_router_cfg_t s_cfg;
 static bool s_loaded = false;
-static char s_loaded_home[DAIMA_BUF_PATH];
+static char s_loaded_home[BUF_PATH];
 
 typedef struct {
     char provider_name[64];
@@ -75,7 +75,7 @@ static int find_profile_index(const category_router_cfg_t *cfg, const char *name
     return -1;
 }
 
-static daima_intent_t intent_from_key(const char *key)
+static enum intent intent_from_key(const char *key)
 {
     if (!key) {
         return DAIMA_INTENT_COUNT;
@@ -422,7 +422,7 @@ static bool load_json_cfg(category_router_cfg_t *cfg, const char *json_text)
     if (cJSON_IsObject(intent_map)) {
         cJSON *entry = NULL;
         cJSON_ArrayForEach(entry, intent_map) {
-            daima_intent_t intent = intent_from_key(entry->string);
+            enum intent intent = intent_from_key(entry->string);
             if (intent < 0 || intent >= DAIMA_INTENT_COUNT || !cJSON_IsString(entry)) {
                 continue;
             }
@@ -453,7 +453,7 @@ static char *read_category_config(char *out_path, size_t out_path_size)
 {
     const char *env_home = getenv("DAIMA_HOME");
     const char *config_dir = NULL;
-    char env_config_dir[DAIMA_BUF_PATH];
+    char env_config_dir[BUF_PATH];
 
     if (env_home && env_home[0]) {
         snprintf(env_config_dir, sizeof(env_config_dir), "%s/spiffs_data/config", env_home);
@@ -480,7 +480,7 @@ category_router_cfg_t category_router_load_and_get_cfg(void)
         return s_cfg;
     }
 
-    char path[DAIMA_BUF_PATH];
+    char path[BUF_PATH];
     char *json_text = read_category_config(path, sizeof(path));
     if (json_text) {
         if (!load_json_cfg(&s_cfg, json_text)) {
@@ -497,7 +497,7 @@ category_router_cfg_t category_router_load_and_get_cfg(void)
     return s_cfg;
 }
 
-const daima_category_profile_t *category_router_resolve(daima_intent_t intent)
+const daima_category_profile_t *category_router_resolve(enum intent intent)
 {
     category_router_load_and_get_cfg();
     if (!s_cfg.enabled || intent < 0 || intent >= DAIMA_INTENT_COUNT) {

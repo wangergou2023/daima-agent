@@ -12,7 +12,7 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("daima");
 MODULE_DESCRIPTION("Agent Extension: prometheus_interview");
-static daima_err_t replace_run(daima_msg_t *msg, char *system_prompt,
+static daima_err_t replace_run(struct message *msg, char *system_prompt,
                                cJSON *messages, const char *tools_json,
                                char **out_final_text)
 {

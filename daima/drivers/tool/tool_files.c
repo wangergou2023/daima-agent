@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 
-static const daima_tool_t s_files_tool = {
+static const struct tool s_files_tool = {
     .name = "files",
     .description = "统一文件查看工具。action=read 分页读取文本文件；action=list 列目录；action=search 搜索文件名或文本内容。文件修改只使用 apply_patch。",
     .input_schema_json =
@@ -29,7 +29,7 @@ static const daima_tool_t s_files_tool = {
     .execute = tool_files_execute,
 };
 
-static const daima_tool_t s_apply_patch_tool = {
+static const struct tool s_apply_patch_tool = {
     .name = "apply_patch",
     .description = "应用 Codex 风格文本补丁，是新建、修改、删除代码或文本文件的唯一文件修改工具。patch 字符串必须以 *** Begin Patch 开始、以 *** End Patch 结束，支持 *** Add File、*** Update File、*** Delete File。修改前先用 files action=read/search 看上下文。",
     .input_schema_json =
@@ -39,7 +39,7 @@ static const daima_tool_t s_apply_patch_tool = {
     .execute = tool_apply_patch_execute,
 };
 
-static const daima_tool_t s_restore_file_tool = {
+static const struct tool s_restore_file_tool = {
     .name = "restore_file",
     .description = "将文件恢复到最近一次检查点，或恢复到指定 checkpoint_path。适合在 apply_patch 后验证失败时快速回退。",
     .input_schema_json =
@@ -82,17 +82,17 @@ daima_err_t tool_files_execute(const char *input_json, char *output, size_t outp
     return err;
 }
 
-const daima_tool_t *tool_files_definition(void)
+const struct tool *tool_files_definition(void)
 {
     return &s_files_tool;
 }
 
-const daima_tool_t *tool_apply_patch_definition(void)
+const struct tool *tool_apply_patch_definition(void)
 {
     return &s_apply_patch_tool;
 }
 
-const daima_tool_t *tool_restore_file_definition(void)
+const struct tool *tool_restore_file_definition(void)
 {
     return &s_restore_file_tool;
 }

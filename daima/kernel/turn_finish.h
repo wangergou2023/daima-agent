@@ -6,7 +6,7 @@
 #include "err.h"
 
 void agent_turn_finish(
-    daima_msg_t *msg,
+    struct message *msg,
     char **io_final_text,
     char **io_reasoning_text,
     daima_err_t turn_err,

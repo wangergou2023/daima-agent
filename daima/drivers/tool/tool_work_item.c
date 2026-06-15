@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 
-static const daima_tool_t s_work_item_tool = {
+static const struct tool s_work_item_tool = {
     .name = "work_item",
     .description = "收集和管理结构化 work item。用于记录 bug、功能缺失、改进、技术债、文档缺口和测试缺口。",
     .input_schema_json =
@@ -304,7 +304,7 @@ daima_err_t tool_work_item_execute(const char *input_json, char *output, size_t 
     return err;
 }
 
-const daima_tool_t *tool_work_item_definition(void)
+const struct tool *tool_work_item_definition(void)
 {
     return &s_work_item_tool;
 }

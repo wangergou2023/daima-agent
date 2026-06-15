@@ -23,6 +23,6 @@ typedef struct {
 } category_router_cfg_t;
 
 category_router_cfg_t category_router_load_and_get_cfg(void);
-const daima_category_profile_t *category_router_resolve(daima_intent_t intent);
+const daima_category_profile_t *category_router_resolve(enum intent intent);
 const daima_category_profile_t *category_router_resolve_for_role(agent_role_t role);
 void category_router_reset_for_test(void);

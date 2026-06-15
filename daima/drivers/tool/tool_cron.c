@@ -120,7 +120,7 @@ static void format_weekdays(uint8_t weekdays, char *buf, size_t buf_size)
     if (off == 0) snprintf(buf, buf_size, "-");
 }
 
-static const daima_tool_t s_cron_tool = {
+static const struct tool s_cron_tool = {
     .name = "cron",
     .description = "统一定时任务工具。action=add 创建周期、每日/每周或一次性任务；action=list 列出任务；action=remove 按 ID 删除任务。",
     .input_schema_json =
@@ -440,7 +440,7 @@ daima_err_t tool_cron_execute(const char *input_json, char *output, size_t outpu
     return err;
 }
 
-const daima_tool_t *tool_cron_definition(void)
+const struct tool *tool_cron_definition(void)
 {
     return &s_cron_tool;
 }

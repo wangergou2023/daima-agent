@@ -19,10 +19,10 @@ static audio_stream_cfg_t s_ai_cfg = {0};
 static audio_stream_cfg_t s_ao_cfg = {0};
 static size_t s_ao_frame_bytes = 0;
 
-static int imp_ai_dev(void) { return DAIMA_AUDIO_AI_DEV_ID; }
-static int imp_ai_chn(void) { return DAIMA_AUDIO_AI_CHN_ID; }
-static int imp_ao_dev(void) { return DAIMA_AUDIO_AO_DEV_ID; }
-static int imp_ao_chn(void) { return DAIMA_AUDIO_AO_CHN_ID; }
+static int imp_ai_dev(void) { return AUDIO_AI_DEV_ID; }
+static int imp_ai_chn(void) { return AUDIO_AI_CHN_ID; }
+static int imp_ao_dev(void) { return AUDIO_AO_DEV_ID; }
+static int imp_ao_chn(void) { return AUDIO_AO_CHN_ID; }
 
 static int bytes_per_frame(const audio_stream_cfg_t *cfg, int frame_ms)
 {
@@ -49,8 +49,8 @@ daima_err_t audio_input_start(const audio_stream_cfg_t *cfg)
     attr.samplerate = (IMPAudioSampleRate)cfg->sample_rate;
     attr.bitwidth = (IMPAudioBitWidth)cfg->bits_per_sample;
     attr.soundmode = (cfg->channels == 1) ? AUDIO_SOUND_MODE_MONO : AUDIO_SOUND_MODE_STEREO;
-    attr.frmNum = DAIMA_AUDIO_AI_FRM_NUM;
-    attr.numPerFrm = (cfg->sample_rate * DAIMA_AUDIO_FRAME_MS) / 1000;
+    attr.frmNum = AUDIO_AI_FRM_NUM;
+    attr.numPerFrm = (cfg->sample_rate * AUDIO_FRAME_MS) / 1000;
     attr.chnCnt = 1;
 
     ret = IMP_AI_SetPubAttr(devID, &attr);
@@ -67,7 +67,7 @@ daima_err_t audio_input_start(const audio_stream_cfg_t *cfg)
 
     IMPAudioIChnParam chnParam;
     memset(&chnParam, 0, sizeof(chnParam));
-    chnParam.usrFrmDepth = DAIMA_AUDIO_AI_FRM_NUM;
+    chnParam.usrFrmDepth = AUDIO_AI_FRM_NUM;
     chnParam.aecChn = 0;
     ret = IMP_AI_SetChnParam(devID, chnID, &chnParam);
     if (ret != 0) {
@@ -154,8 +154,8 @@ daima_err_t audio_output_start(const audio_stream_cfg_t *cfg)
     attr.samplerate = (IMPAudioSampleRate)cfg->sample_rate;
     attr.bitwidth = (IMPAudioBitWidth)cfg->bits_per_sample;
     attr.soundmode = (cfg->channels == 1) ? AUDIO_SOUND_MODE_MONO : AUDIO_SOUND_MODE_STEREO;
-    attr.frmNum = DAIMA_AUDIO_AO_FRM_NUM;
-    attr.numPerFrm = (cfg->sample_rate * DAIMA_AUDIO_FRAME_MS) / 1000;
+    attr.frmNum = AUDIO_AO_FRM_NUM;
+    attr.numPerFrm = (cfg->sample_rate * AUDIO_FRAME_MS) / 1000;
     attr.chnCnt = 1;
 
     ret = IMP_AO_SetPubAttr(devID, &attr);
@@ -184,7 +184,7 @@ daima_err_t audio_output_start(const audio_stream_cfg_t *cfg)
 
     s_ao_started = true;
     s_ao_cfg = *cfg;
-    s_ao_frame_bytes = (size_t)bytes_per_frame(cfg, DAIMA_AUDIO_FRAME_MS);
+    s_ao_frame_bytes = (size_t)bytes_per_frame(cfg, AUDIO_FRAME_MS);
     pr_info("Audio output started: %d Hz, %d ch, %d bit", cfg->sample_rate, cfg->channels, cfg->bits_per_sample);
     return DAIMA_OK;
 }

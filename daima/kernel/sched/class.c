@@ -43,7 +43,7 @@ const struct sched_class *sched_class_for_id(enum sched_class_id id)
     return &sched_classes[id];
 }
 
-const struct sched_class *sched_class_for_intent(daima_intent_t intent, int *count)
+const struct sched_class *sched_class_for_intent(enum intent intent, int *count)
 {
     static struct sched_class selected[SCHED_MAX_AGENTS];
     const enum sched_class_id *ids = NULL;

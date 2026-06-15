@@ -25,11 +25,11 @@
 #include "cJSON.h"
 #include "linux/slab.h"
 #include "linux/kernel.h"
-#define WS_PING_INTERVAL DAIMA_WS_PING_INTERVAL_SEC
-#define WS_PONG_TIMEOUT  DAIMA_WS_PONG_TIMEOUT_SEC
+#define WS_PING_INTERVAL WS_PING_INTERVAL_SEC
+#define WS_PONG_TIMEOUT  WS_PONG_TIMEOUT_SEC
 #define WS_MAX_TEXT_BYTES (64 * 1024)
 #ifdef DAIMA_ENABLE_VISION
-#define WS_MAX_UPLOAD_BYTES DAIMA_VISION_MAX_IMAGE_SIZE
+#define WS_MAX_UPLOAD_BYTES VISION_MAX_IMAGE_SIZE
 #else
 #define WS_MAX_UPLOAD_BYTES (10 * 1024 * 1024)
 #endif
@@ -50,7 +50,7 @@ typedef struct {
     bool awaiting_pong;
 } ws_client_t;
 
-static ws_client_t s_clients[DAIMA_WS_MAX_CLIENTS];
+static ws_client_t s_clients[WS_MAX_CLIENTS];
 static LIST_HEAD(s_client_list);
 static pthread_mutex_t s_clients_mutex = PTHREAD_MUTEX_INITIALIZER;
 static char s_pending_response[65536];
@@ -452,7 +452,7 @@ bool ws_client_session_add(int fd)
     time_t max_idle = 0;
 
     pthread_mutex_lock(&s_clients_mutex);
-    for (int i = 0; i < DAIMA_WS_MAX_CLIENTS; i++) {
+    for (int i = 0; i < WS_MAX_CLIENTS; i++) {
         if (!s_clients[i].active) {
             slot = i;
             break;
@@ -650,7 +650,7 @@ static void ws_handle_chat_message(int fd, ws_client_t *client, cJSON *root)
     pr_info("WS message from %s: %.40s... image=%s", chat_id, content->valuestring, valid_image_path ? "yes" : "no");
     agent_cancel_request(chat_id, "new_web_message");
 
-    daima_msg_t msg = {0};
+    struct message msg = {0};
     strncpy(msg.channel, DAIMA_CHAN_WEBSOCKET, sizeof(msg.channel) - 1);
     strncpy(msg.chat_id, chat_id, sizeof(msg.chat_id) - 1);
     strncpy(msg.source, DAIMA_MSG_SOURCE_USER, sizeof(msg.source) - 1);
@@ -713,7 +713,7 @@ static void ws_handle_pet_action(int fd, ws_client_t *client, cJSON *root)
 
     char *pet_prompt = pet_build_action_prompt(action, pet_id);
     if (pet_prompt) {
-        daima_msg_t msg = {0};
+        struct message msg = {0};
         strncpy(msg.channel, DAIMA_CHAN_PET, sizeof(msg.channel) - 1);
         strncpy(msg.chat_id, pet_chat_id, sizeof(msg.chat_id) - 1);
         strncpy(msg.source, DAIMA_MSG_SOURCE_USER, sizeof(msg.source) - 1);
@@ -740,7 +740,7 @@ static void ws_handle_sudo_password(int fd, ws_client_t *client, cJSON *root)
                      req->valuestring,
                      pwd->valuestring,
                      (cancelled && cJSON_IsTrue(cancelled)) ? 1 : 0);
-            daima_msg_t msg = {0};
+            struct message msg = {0};
             strncpy(msg.channel, DAIMA_CHAN_WEBSOCKET, sizeof(msg.channel) - 1);
             strncpy(msg.chat_id, chat_id, sizeof(msg.chat_id) - 1);
             strncpy(msg.source, DAIMA_MSG_SOURCE_INTERNAL, sizeof(msg.source) - 1);
@@ -828,7 +828,7 @@ void ws_client_session_init(void)
 {
     memset(s_clients, 0, sizeof(s_clients));
     INIT_LIST_HEAD(&s_client_list);
-    for (int i = 0; i < DAIMA_WS_MAX_CLIENTS; i++) {
+    for (int i = 0; i < WS_MAX_CLIENTS; i++) {
         INIT_LIST_HEAD(&s_clients[i].list);
         s_clients[i].fd = -1;
     }
@@ -868,8 +868,8 @@ void ws_client_session_handle_ready(const fd_set *readfds)
 void ws_client_session_keepalive_tick(void)
 {
     time_t now = time(NULL);
-    int ping_fds[DAIMA_WS_MAX_CLIENTS];
-    int stale_fds[DAIMA_WS_MAX_CLIENTS];
+    int ping_fds[WS_MAX_CLIENTS];
+    int stale_fds[WS_MAX_CLIENTS];
     int ping_count = 0;
     int stale_count = 0;
 

@@ -43,8 +43,8 @@ static const int DEFAULT_CONTEXT_LIMIT_TOKENS = 128000;
 #define LLM_AUTH_HEADER_MAX 352
 static char s_api_key[LLM_API_KEY_MAX_LEN] = {0};
 static char s_model[LLM_MODEL_MAX_LEN] = "kimi-k2.5";
-static char s_openai_base_url[DAIMA_BUF_SMALL] = {0};
-static char s_openai_api_url[DAIMA_BUF_MEDIUM] = {0};
+static char s_openai_base_url[BUF_SMALL] = {0};
+static char s_openai_api_url[BUF_MEDIUM] = {0};
 static bool s_use_anthropic_api = false;
 static bool s_api_key_set = false;
 static bool s_model_set = false;
@@ -67,7 +67,7 @@ static void ensure_dir_path(const char *path)
     if (!path || !path[0]) {
         return;
     }
-    char tmp[DAIMA_BUF_MEDIUM];
+    char tmp[BUF_MEDIUM];
     strscpy(tmp, path, sizeof(tmp));
     for (char *p = tmp + 1; *p; p++) {
         if (*p == '/') {
@@ -382,7 +382,7 @@ static const char *llm_api_url(void)
     if (s_openai_api_url[0]) {
         return s_openai_api_url;
     }
-    return DAIMA_OPENAI_API_URL;
+    return OPENAI_API_URL;
 }
 
 static char *build_request_body(const char *system_prompt,
@@ -542,8 +542,8 @@ void llm_response_free(llm_response_t *resp)
     if (call_count < 0) {
         call_count = 0;
     }
-    if (call_count > DAIMA_MAX_TOOL_CALLS) {
-        call_count = DAIMA_MAX_TOOL_CALLS;
+    if (call_count > MAX_TOOL_CALLS) {
+        call_count = MAX_TOOL_CALLS;
     }
     for (int i = 0; i < call_count; i++) {
         kfree(resp->calls[i].input);
@@ -777,7 +777,7 @@ daima_err_t llm_image_read_file(const char *image_path, llm_image_content_t *out
     fseek(fp, 0, SEEK_SET);
     
     /* 通过配置限制图片大小，避免占用过多内存 */
-    const long max_size = (long)DAIMA_VISION_MAX_IMAGE_SIZE;
+    const long max_size = (long)VISION_MAX_IMAGE_SIZE;
     if (file_size <= 0 || file_size > max_size) {
         pr_err("Invalid image file size: %ld (max %ld)", file_size, max_size);
         fclose(fp);

@@ -63,7 +63,7 @@ struct sched_runqueue {
 };
 
 void sched_init(void);
-daima_err_t sched_dispatch(daima_intent_t intent, const daima_plan_t *plan,
+daima_err_t sched_dispatch(enum intent intent, const struct plan *plan,
                            const char *user_msg, struct sched_runqueue *rq);
 void sched_start(struct sched_runqueue *rq,
                  const char *system_prompt, cJSON *messages, const char *tools);
@@ -72,7 +72,7 @@ void sched_merge(struct sched_runqueue *rq, char *output, size_t size);
 void sched_exit(struct sched_runqueue *rq);
 
 const struct sched_class *sched_class_for_id(enum sched_class_id id);
-const struct sched_class *sched_class_for_intent(daima_intent_t intent, int *count);
+const struct sched_class *sched_class_for_intent(enum intent intent, int *count);
 const char *sched_class_name(enum sched_class_id id);
 
 void sched_enqueue(struct sched_runqueue *rq, const struct sched_class *cls,

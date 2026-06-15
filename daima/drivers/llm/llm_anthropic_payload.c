@@ -297,7 +297,7 @@ daima_err_t llm_anthropic_parse_response(const char *json_text, llm_response_t *
             }
 
             if (strcmp(type->valuestring, "tool_use") == 0 &&
-                resp->call_count < DAIMA_MAX_TOOL_CALLS) {
+                resp->call_count < MAX_TOOL_CALLS) {
                 llm_tool_call_t *call = &resp->calls[resp->call_count];
                 cJSON *id = cJSON_GetObjectItem(block, "id");
                 cJSON *name = cJSON_GetObjectItem(block, "name");

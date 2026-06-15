@@ -10,12 +10,12 @@
 #include "turn_common.h"
 #include "autoconf.h"
 
-void agent_prompt_dump_snapshot(const daima_msg_t *msg, const char *system_prompt)
+void agent_prompt_dump_snapshot(const struct message *msg, const char *system_prompt)
 {
     if (!msg || !system_prompt || !system_prompt[0]) {
         return;
     }
-    if (!agent_env_bool_or_default("DAIMA_DEBUG_PROMPT_DUMP", DAIMA_DEBUG_PROMPT_DUMP != 0)) {
+    if (!agent_env_bool_or_default("DEBUG_PROMPT_DUMP", DEBUG_PROMPT_DUMP != 0)) {
         return;
     }
 
@@ -33,7 +33,7 @@ void agent_prompt_dump_snapshot(const daima_msg_t *msg, const char *system_promp
     char ts_buf[64];
     strftime(ts_buf, sizeof(ts_buf), "%Y-%m-%d %H:%M:%S %Z", &tm_info);
 
-    char paths_block[DAIMA_BUF_LARGE];
+    char paths_block[BUF_LARGE];
     snprintf(paths_block,
              sizeof(paths_block),
              "## 相关路径\n\n"

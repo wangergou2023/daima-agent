@@ -14,4 +14,4 @@
  * - {"output_mode":"sessions"}  // 不传 query 时列出会话概览
  */
 daima_err_t tool_session_search_execute(const char *input_json, char *output, size_t output_size);
-const daima_tool_t *tool_session_search_definition(void);
+const struct tool *tool_session_search_definition(void);

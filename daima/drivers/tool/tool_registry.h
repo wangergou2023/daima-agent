@@ -5,12 +5,12 @@
 #include "err.h"
 #include <stddef.h>
 
-typedef struct {
+struct tool {
     const char *name;
     const char *description;
     const char *input_schema_json;  /* 输入参数的 JSON Schema 字符串 */
     daima_err_t (*execute)(const char *input_json, char *output, size_t output_size);
-} daima_tool_t;
+};
 
 #define TOOL_REGISTRY_MAX_DYNAMIC 32
 
@@ -19,7 +19,7 @@ typedef struct {
  */
 daima_err_t tool_registry_init(void);
 
-daima_err_t tool_registry_register_dynamic(const daima_tool_t *tool);
+daima_err_t tool_registry_register_dynamic(const struct tool *tool);
 daima_err_t tool_registry_unregister_dynamic(const char *tool_name);
 
 /**

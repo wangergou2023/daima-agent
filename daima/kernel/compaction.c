@@ -161,8 +161,8 @@ static void extract_last_user_message(const char *chat_id, char *out, size_t out
     }
     out[0] = '\0';
 
-    char history[DAIMA_BUF_XLARGE];
-    if (session_store_get_history_json(chat_id, history, sizeof(history), DAIMA_SESSION_MAX_MSGS) != DAIMA_OK) {
+    char history[BUF_XLARGE];
+    if (session_store_get_history_json(chat_id, history, sizeof(history), SESSION_MAX_MSGS) != DAIMA_OK) {
         return;
     }
 
@@ -193,7 +193,7 @@ static daima_err_t load_recovery(const char *path, compaction_recovery_t *recove
     }
     memset(recovery, 0, sizeof(*recovery));
 
-    char json[DAIMA_BUF_LARGE];
+    char json[BUF_LARGE];
     if (!read_text_file(path, json, sizeof(json))) {
         return DAIMA_FAIL;
     }
@@ -237,7 +237,7 @@ daima_err_t compaction_recovery_snapshot(const char *chat_id)
     memset(&recovery, 0, sizeof(recovery));
 
     char facts[COMPACTION_RECOVERY_MAX_TODOS];
-    char summary[DAIMA_BUF_LARGE];
+    char summary[BUF_LARGE];
     facts[0] = '\0';
     summary[0] = '\0';
     session_store_read_facts(chat_id, facts, sizeof(facts));
@@ -249,7 +249,7 @@ daima_err_t compaction_recovery_snapshot(const char *chat_id)
     recovery.snapshot_at = time(NULL);
     recovery.is_valid = recovery.active_todos[0] || recovery.current_task[0] || recovery.last_user_message[0];
 
-    char path[DAIMA_BUF_SMALL];
+    char path[BUF_SMALL];
     daima_err_t path_err = recovery_path(chat_id, path, sizeof(path));
     if (path_err != DAIMA_OK) {
         return path_err;
@@ -288,7 +288,7 @@ daima_err_t compaction_recovery_inject(const char *chat_id, char *system_prompt,
         return DAIMA_ERR_INVALID_ARG;
     }
 
-    char path[DAIMA_BUF_SMALL];
+    char path[BUF_SMALL];
     daima_err_t path_err = recovery_path(chat_id, path, sizeof(path));
     if (path_err != DAIMA_OK) {
         return path_err;
@@ -333,7 +333,7 @@ daima_err_t compaction_recovery_clear(const char *chat_id)
     if (!chat_id || !chat_id[0]) {
         return DAIMA_ERR_INVALID_ARG;
     }
-    char path[DAIMA_BUF_SMALL];
+    char path[BUF_SMALL];
     daima_err_t path_err = recovery_path(chat_id, path, sizeof(path));
     if (path_err != DAIMA_OK) {
         return path_err;

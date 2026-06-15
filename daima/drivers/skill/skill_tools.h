@@ -7,7 +7,7 @@
 
 typedef struct {
     char skill_name[64];
-    daima_tool_t tools[SKILL_TOOLS_MAX];
+    struct tool tools[SKILL_TOOLS_MAX];
     int tool_count;
     bool active;
 } skill_tool_bundle_t;

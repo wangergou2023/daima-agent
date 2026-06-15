@@ -33,7 +33,7 @@ static daima_err_t tool_robot_drive_straight_execute(const char *input_json, cha
     return call_mcp_with_args(mcp, "robot_drive_straight", args, output, output_size);
 }
 
-static const daima_tool_t s_drive_straight = {
+static const struct tool s_drive_straight = {
     .name = "robot_drive_straight",
     .description = "让 Vector 机器人直行前进或后退。speed_mmps: 速度 mm/s (正向前进，负向后腿，推荐 50-200)。dist_mm: 距离 mm。",
     .input_schema_json =
@@ -45,7 +45,7 @@ static const daima_tool_t s_drive_straight = {
     .execute = tool_robot_drive_straight_execute,
 };
 
-const daima_tool_t *tool_robot_drive_straight_definition(void) { return &s_drive_straight; }
+const struct tool *tool_robot_drive_straight_definition(void) { return &s_drive_straight; }
 
 /* ---- Turn In Place ---- */
 static daima_err_t tool_robot_turn_in_place_execute(const char *input_json, char *output, size_t output_size)
@@ -68,7 +68,7 @@ static daima_err_t tool_robot_turn_in_place_execute(const char *input_json, char
     return call_mcp_with_args(mcp, "robot_turn_in_place", args, output, output_size);
 }
 
-static const daima_tool_t s_turn_in_place = {
+static const struct tool s_turn_in_place = {
     .name = "robot_turn_in_place",
     .description = "让 Vector 机器人原地转向。angle_rad: 角度(弧度), pi/2=右转90°。",
     .input_schema_json =
@@ -79,7 +79,7 @@ static const daima_tool_t s_turn_in_place = {
     .execute = tool_robot_turn_in_place_execute,
 };
 
-const daima_tool_t *tool_robot_turn_in_place_definition(void) { return &s_turn_in_place; }
+const struct tool *tool_robot_turn_in_place_definition(void) { return &s_turn_in_place; }
 
 /* ---- Drive Wheels ---- */
 static daima_err_t tool_robot_drive_wheels_execute(const char *input_json, char *output, size_t output_size)
@@ -103,7 +103,7 @@ static daima_err_t tool_robot_drive_wheels_execute(const char *input_json, char 
     return call_mcp_with_args(mcp, "robot_drive_wheels", args, output, output_size);
 }
 
-static const daima_tool_t s_drive_wheels = {
+static const struct tool s_drive_wheels = {
     .name = "robot_drive_wheels",
     .description = "控制 Vector 左右轮速度实现曲线或原地旋转。left_mmps: 左轮速度 mm/s, right_mmps: 右轮速度 mm/s。",
     .input_schema_json =
@@ -115,4 +115,4 @@ static const daima_tool_t s_drive_wheels = {
     .execute = tool_robot_drive_wheels_execute,
 };
 
-const daima_tool_t *tool_robot_drive_wheels_definition(void) { return &s_drive_wheels; }
+const struct tool *tool_robot_drive_wheels_definition(void) { return &s_drive_wheels; }

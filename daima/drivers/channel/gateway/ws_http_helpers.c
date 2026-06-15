@@ -305,8 +305,8 @@ static int estimate_prompt_tokens_rough(const char *system_prompt, const cJSON *
 
 static char *build_context_stats_json(const char *chat_id)
 {
-    char history_json[DAIMA_LLM_STREAM_BUF_SIZE];
-    char system_prompt[DAIMA_CONTEXT_BUF_SIZE];
+    char history_json[LLM_STREAM_BUF_SIZE];
+    char system_prompt[CONTEXT_BUF_SIZE];
     history_json[0] = '\0';
     system_prompt[0] = '\0';
 
@@ -314,7 +314,7 @@ static char *build_context_stats_json(const char *chat_id)
         chat_id && chat_id[0] ? chat_id : "web_unknown",
         history_json,
         sizeof(history_json),
-        DAIMA_AGENT_MAX_HISTORY);
+        AGENT_MAX_HISTORY);
     context_build_system_prompt(system_prompt, sizeof(system_prompt));
 
     cJSON *messages = cJSON_Parse(history_json);
@@ -382,7 +382,7 @@ static char *build_ui_config_json(void)
             const char *suffix = ".codex-pet";
             size_t name_len = strlen(name);
             size_t suffix_len = strlen(suffix);
-            char pet_json_path[DAIMA_BUF_LARGE];
+            char pet_json_path[BUF_LARGE];
             char *pet_json_text = NULL;
             cJSON *pet_meta = NULL;
             cJSON *item = NULL;
@@ -484,9 +484,9 @@ static char *build_session_history_json(const char *chat_id)
         return NULL;
     }
 
-    char history_json[DAIMA_LLM_STREAM_BUF_SIZE];
+    char history_json[LLM_STREAM_BUF_SIZE];
     history_json[0] = '\0';
-    if (session_store_get_history_json(chat_id, history_json, sizeof(history_json), DAIMA_AGENT_MAX_HISTORY) != DAIMA_OK) {
+    if (session_store_get_history_json(chat_id, history_json, sizeof(history_json), AGENT_MAX_HISTORY) != DAIMA_OK) {
         return NULL;
     }
 
@@ -627,7 +627,7 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
     }
 
     if (strcmp(path, "/pet.js") == 0) {
-        char asset_path[DAIMA_BUF_LARGE];
+        char asset_path[BUF_LARGE];
         snprintf(asset_path, sizeof(asset_path), "%s/web/pet.js", daima_path_spiffs_base());
         http_send_static_file_or_fallback(
             client_fd,
@@ -645,7 +645,7 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
             return 0;
         }
 
-        char asset_path[DAIMA_BUF_LARGE];
+        char asset_path[BUF_LARGE];
         snprintf(asset_path, sizeof(asset_path), "%s/%s",
                  daima_path_spiffs_base(), relative);
         http_send_binary_file(client_fd, asset_path);

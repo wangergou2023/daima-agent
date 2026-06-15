@@ -158,7 +158,7 @@ static const char *config_dir_for_load(char *env_config_dir, size_t env_config_d
 
 static char *read_fallback_config(char *out_path, size_t out_path_size)
 {
-    char env_config_dir[DAIMA_BUF_PATH];
+    char env_config_dir[BUF_PATH];
     const char *config_dir = config_dir_for_load(env_config_dir, sizeof(env_config_dir));
 
     snprintf(out_path, out_path_size, "%s/category_routing.json", config_dir);
@@ -180,14 +180,14 @@ static char *read_fallback_config(char *out_path, size_t out_path_size)
 model_fallback_cfg_t model_fallback_load_cfg(void)
 {
     model_fallback_cfg_t cfg;
-    const char *env_enabled = getenv("DAIMA_MODEL_FALLBACK_ENABLED");
+    const char *env_enabled = getenv("MODEL_FALLBACK_ENABLED");
     if (env_enabled && strcmp(env_enabled, "0") == 0) {
         memset(&cfg, 0, sizeof(cfg));
         cfg.enabled = false;
         return cfg;
     }
 
-    char path[DAIMA_BUF_PATH];
+    char path[BUF_PATH];
     char *json_text = read_fallback_config(path, sizeof(path));
     if (json_text) {
         if (!load_json_cfg(&cfg, json_text)) {

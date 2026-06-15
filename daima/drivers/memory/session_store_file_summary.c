@@ -11,7 +11,7 @@ daima_err_t session_store_file_read_summary(const char *chat_id, char *buf, size
         return DAIMA_ERR_INVALID_ARG;
     }
 
-    char path[DAIMA_BUF_SMALL];
+    char path[BUF_SMALL];
     daima_err_t path_err = session_store_file_artifact_path(
         chat_id, DAIMA_SESSION_ARTIFACT_SUMMARY, path, sizeof(path));
     if (path_err != DAIMA_OK) {
@@ -30,7 +30,7 @@ daima_err_t session_store_file_write_summary(const char *chat_id, const char *su
         return DAIMA_ERR_INVALID_ARG;
     }
 
-    char path[DAIMA_BUF_SMALL];
+    char path[BUF_SMALL];
     daima_err_t path_err = session_store_file_artifact_path(
         chat_id, DAIMA_SESSION_ARTIFACT_SUMMARY, path, sizeof(path));
     if (path_err != DAIMA_OK) {
@@ -43,7 +43,7 @@ daima_err_t session_store_file_write_summary(const char *chat_id, const char *su
     char time_buf[64];
     strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S %Z", &tm_info);
 
-    char content[DAIMA_BUF_XLARGE];
+    char content[BUF_XLARGE];
     snprintf(content, sizeof(content),
              "## 最近一次上下文压缩摘要\n"
              "更新时间：%s\n\n"

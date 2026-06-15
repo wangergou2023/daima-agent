@@ -96,7 +96,7 @@ daima_err_t session_store_file_read_facts(const char *chat_id, char *buf, size_t
         return DAIMA_ERR_INVALID_ARG;
     }
 
-    char path[DAIMA_BUF_SMALL];
+    char path[BUF_SMALL];
     daima_err_t path_err = session_store_file_artifact_path(
         chat_id, DAIMA_SESSION_ARTIFACT_FACTS, path, sizeof(path));
     if (path_err != DAIMA_OK) {
@@ -129,7 +129,7 @@ daima_err_t session_store_file_merge_facts(const char *chat_id, const char *fact
         return DAIMA_OK;
     }
 
-    char path[DAIMA_BUF_SMALL];
+    char path[BUF_SMALL];
     daima_err_t path_err = session_store_file_artifact_path(
         chat_id, DAIMA_SESSION_ARTIFACT_FACTS, path, sizeof(path));
     if (path_err != DAIMA_OK) {

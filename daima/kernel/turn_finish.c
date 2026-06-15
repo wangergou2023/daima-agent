@@ -15,11 +15,11 @@
 #include "linux/printk.h"
 #include "os.h"
 #include "drivers/platform/platform.h"
-#if DAIMA_SKILL_SCOPED_TOOLS_ENABLED
+#if SKILL_SCOPED_TOOLS_ENABLED
 #include "drivers/skill/skill_tools.h"
 #include "linux/slab.h"
 #endif
-#ifdef DAIMA_TODO_ENFORCER_ENABLED
+#ifdef TODO_ENFORCER_ENABLED
 static void read_todo_counts(int *out_total, int *out_completed)
 {
     *out_total = 0;
@@ -71,7 +71,7 @@ static void read_todo_counts(int *out_total, int *out_completed)
 #endif
 
 void agent_turn_finish(
-    daima_msg_t *msg,
+    struct message *msg,
     char **io_final_text,
     char **io_reasoning_text,
     daima_err_t turn_err,
@@ -94,7 +94,7 @@ void agent_turn_finish(
             *io_reasoning_text = NULL;
         }
         pr_info("Skip final response for cancelled turn %s:%s", msg ? msg->channel : "-", msg ? msg->chat_id : "-");
-#if DAIMA_SKILL_SCOPED_TOOLS_ENABLED
+#if SKILL_SCOPED_TOOLS_ENABLED
         skill_tools_unregister_all();
 #endif
         agent_cleanup_inbound_msg(msg);
@@ -127,7 +127,7 @@ void agent_turn_finish(
 
     agent_cleanup_inbound_msg(msg);
 
-#if DAIMA_SKILL_SCOPED_TOOLS_ENABLED
+#if SKILL_SCOPED_TOOLS_ENABLED
     skill_tools_unregister_all();
 #endif
 

@@ -17,7 +17,7 @@ void sched_init(void)
 }
 
 static void sched_set_task_description(struct sched_agent *agent,
-                                       const daima_plan_t *plan,
+                                       const struct plan *plan,
                                        const char *user_msg)
 {
     const char *message = user_msg ? user_msg : "";
@@ -107,7 +107,7 @@ void sched_complete(struct sched_runqueue *rq, struct sched_agent *agent,
     }
 }
 
-daima_err_t sched_dispatch(daima_intent_t intent, const daima_plan_t *plan,
+daima_err_t sched_dispatch(enum intent intent, const struct plan *plan,
                            const char *user_msg, struct sched_runqueue *rq)
 {
     if (unlikely(!rq)) {
@@ -142,7 +142,7 @@ void sched_start(struct sched_runqueue *rq,
     const char *base_prompt = system_prompt ? system_prompt : "";
     struct sched_agent *agent = NULL;
     while ((agent = sched_pick_next(rq)) != NULL) {
-        char scoped_prompt[DAIMA_CONTEXT_BUF_SIZE];
+        char scoped_prompt[CONTEXT_BUF_SIZE];
         int written = snprintf(scoped_prompt,
                                sizeof(scoped_prompt),
                                "%s\n%s\n\n## 子任务\n%s",

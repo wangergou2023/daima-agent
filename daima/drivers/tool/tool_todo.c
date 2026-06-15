@@ -12,7 +12,7 @@
 #include "cJSON.h"
 #include "linux/printk.h"
 #include "linux/slab.h"
-static const daima_tool_t s_todo_tool = {
+static const struct tool s_todo_tool = {
     .name = "todo",
     .description = "管理本地待办列表。支持 list、add、set、update、remove、clear，适合先列计划再执行。",
     .input_schema_json =
@@ -371,7 +371,7 @@ todo_cleanup:
     return err;
 }
 
-const daima_tool_t *tool_todo_definition(void)
+const struct tool *tool_todo_definition(void)
 {
     return &s_todo_tool;
 }

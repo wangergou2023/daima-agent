@@ -22,7 +22,7 @@ static void targets_path(char *buf, size_t size)
 
 static cJSON *load_targets_root(void)
 {
-    char path[DAIMA_BUF_SMALL];
+    char path[BUF_SMALL];
     targets_path(path, sizeof(path));
 
     FILE *f = fopen(path, "rb");
@@ -67,7 +67,7 @@ static bool save_targets_root(cJSON *root)
     char *json = cJSON_Print(root);
     if (!json) return false;
 
-    char path[DAIMA_BUF_SMALL];
+    char path[BUF_SMALL];
     targets_path(path, sizeof(path));
     FILE *f = fopen(path, "w");
     if (!f) {

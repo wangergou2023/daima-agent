@@ -151,7 +151,7 @@ static daima_err_t init_tool_from_json(skill_tool_bundle_slot_t *slot, cJSON *it
     strscpy(storage->description, description, sizeof(storage->description));
     strscpy(storage->input_schema_json, schema, sizeof(storage->input_schema_json));
 
-    daima_tool_t tool = {
+    struct tool tool = {
         .name = storage->name,
         .description = storage->description,
         .input_schema_json = storage->input_schema_json,

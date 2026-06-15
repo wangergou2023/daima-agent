@@ -21,7 +21,7 @@
 #define TERMINAL_MAX_TIMEOUT     1800
 #define SUDO_ENV_NAME            "DAIMA_SUDO_PASSWORD"
 
-static const daima_tool_t s_terminal_tool = {
+static const struct tool s_terminal_tool = {
     .name = "terminal",
     .description = "执行本地 shell 命令并返回结构化结果。默认 workdir 是 Daima 自己的 workspace，不是启动目录；临时脚本、生成文件和 npm install 等依赖安装默认应留在该 workspace。只有需要操作明确项目时才传入项目 workdir。返回 JSON 字符串，包含 output、exit_code、timed_out、workdir。对于 apt-get/apt/yum/dnf/pip install/npm install 等安装、更新命令，请显式设置更长 timeout（如 300 或 600 秒），避免默认 120 秒超时。",
     .input_schema_json =
@@ -323,7 +323,7 @@ daima_err_t tool_terminal_execute(const char *input_json, char *output, size_t o
     return err;
 }
 
-const daima_tool_t *tool_terminal_definition(void)
+const struct tool *tool_terminal_definition(void)
 {
     return &s_terminal_tool;
 }
