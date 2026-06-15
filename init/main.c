@@ -68,6 +68,8 @@ int main(int argc, char **argv)
 
     do_basic_setup();
 
+    BUG_ON(bus_init() != 0);
+
     BUG_ON(llm_proxy_init() != 0);
     BUG_ON(tool_registry_init() != 0);
     BUG_ON(agent_loop_init() != 0);

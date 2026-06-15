@@ -20,4 +20,8 @@ typedef int (*initcall_t)(void);
 
 struct driver;
 int driver_probe(struct driver *drv);
+
+/* bus subsystem */
+int bus_init(void);
+
 void do_basic_setup(void);
