@@ -8,4 +8,4 @@ AGENT_HOME="${AGENT_HOME:-$HOME/.agent-data}"
 export AGENT_SEED_DIR
 export AGENT_HOME
 "$APP_DIR/init-home.sh"
-exec "$APP_DIR/bin/daima" "$@"
+exec "$APP_DIR/bin/agent" "$@"

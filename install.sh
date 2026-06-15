@@ -52,7 +52,7 @@ mkdir -p "$BIN_DIR" "$CONFIG_DIR" "$WEB_DIR" "$SKILLS_DIR" "$CA_DIR"
 mkdir -p "$AGENT_HOME/spiffs_data/memory" "$AGENT_HOME/spiffs_data/sessions" "$AGENT_HOME/spiffs_data/cache"
 
 rm -f "$TARGET_BIN"
-install -m755 "./build-kbuild/daima" "$TARGET_BIN"
+install -m755 "./build-kbuild/agent" "$TARGET_BIN"
 install -m644 "./spiffs_data/ca/cacert.pem" "$CA_DIR/cacert.pem"
 
 cp -a "./spiffs_data/web/." "$WEB_DIR/"

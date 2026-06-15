@@ -8,7 +8,7 @@
 make menuconfig    # 配置功能
 make               # 编译
 make test          # 测试
-./build-kbuild/daima  # 运行
+./build-kbuild/agent  # 运行
 ```
 
 ## 架构 (Linux 内核 1:1 映射)
@@ -70,7 +70,7 @@ scripts/
 ## 构建
 
 ```bash
-make               # Kbuild 编译 → build-kbuild/daima
+make               # Kbuild 编译 → build-kbuild/agent
 make clean         # 清理
 make mrproper      # 清理 + 删除 .config
 make menuconfig    # ncurses 交互配置
