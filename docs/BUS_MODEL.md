@@ -7,10 +7,11 @@
 ```
 核心 struct + API         ✅  include/linux/bus.h + ipc/bus_device.c
 3 条总线实例               ✅  ipc/bus_init.c
-tool_bus (25 个工具)       ✅  catch-all match → tool_generic driver
+tool_bus (25 个工具)       ✅  name-match → 独立 driver 绑定
+tool_device / tool_driver  ✅  声明层/执行层拆分，container_of 执行
 channel_bus (4 个通道)     ✅  feishu/vector/voice/gateway → name match
 llm_bus (2 个协议驱动)      ✅  openai_compatible + anthropic_compatible
-skill_module (三层模型)     ❌ 概念已定义，待实现
+skill_module (三层模型)     ✅  probe/load/unload，bus_device_exists 依赖检查
 JSON 设备树解析             ❌ 待实现
 热插拔 reprobe 链          ❌ 待实现
 ```
@@ -370,7 +371,7 @@ main()
        ├── cron / heartbeat / proxy
        │
        ├── bus_init()                 ← 创建 3 条设备总线实例
-       │    ├── tool_bus     (catch-all match)
+        │    ├── tool_bus     (name match)
        │    ├── channel_bus  (name match)
        │    └── llm_bus      (name match)
        │
@@ -385,9 +386,9 @@ main()
             └── anthropic_compatible
 
   └─ llm_proxy_init()                 ← 读运行时配置（API key / model / URL）
-  └─ tool_registry_init()             ← 25 个工具注册到 tool_bus
-       ├── register_tool() → s_tools[]   (原数组，兼容)
-       └── device_register() → tool_bus  (新总线)
+   └─ tool_registry_init()             ← 25 个工具注册到 tool_bus
+        ├── driver_register() → 独立 tool_driver  (name match 绑定)
+        └── device_register() → tool_bus           (自动 probe)
 ```
 
 ### 总线架构
@@ -402,19 +403,19 @@ main()
                     │                                         │
     ┌───────────────┴──────────────┐    ┌──────────────────────┴──────────────┐
     │        tool_bus              │    │           channel_bus                │
-    │  match: catch-all            │    │  match: name match                   │
+    │  match: name match            │    │  match: name match                   │
     │                              │    │                                      │
-    │  drivers:                    │    │  drivers:                            │
-    │    tool_generic              │    │    feishu   → bot_init + bot_start   │
-    │                              │    │    vector   → channel_init           │
-    │  devices:                    │    │    voice    → channel_init           │
-    │    weather  ──bound──┐       │    │    gateway  → (no-op)               │
-    │    files    ──bound──┤       │    │                                      │
-    │    terminal ──bound──┤       │    │  devices:                            │
-    │    todo     ──bound──┼──→ tool_generic   │    feishu   ──bound──→ feishu         │
-    │    webfetch ──bound──┤       │    │    vector   ──bound──→ vector         │
-    │    ... 25 tools ────┘       │    │    voice    ──bound──→ voice          │
-    │                              │    │    gateway  ──bound──→ gateway        │
+    │  drivers (25 个独立):         │    │  drivers:                            │
+    │    weather  ←→ weather       │    │    feishu   → bot_init + bot_start   │
+    │    terminal ←→ terminal      │    │    vector   → channel_init           │
+    │    todo     ←→ todo          │    │    voice    → channel_init           │
+    │    files    ←→ files         │    │    gateway  → (no-op)               │
+    │    webfetch ←→ webfetch      │    │                                      │
+    │    ...                        │    │  devices:                            │
+    │                              │    │    feishu   ──bound──→ feishu         │
+    │  devices:                    │    │    vector   ──bound──→ vector         │
+    │    weather  ──bound──→ weather│   │    voice    ──bound──→ voice          │
+    │    files    ──bound──→ files │    │    gateway  ──bound──→ gateway        │
     └──────────────────────────────┘    └──────────────────────────────────────┘
 
     ┌──────────────────────────────┐    ┌──────────────────────────────────────┐

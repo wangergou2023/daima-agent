@@ -57,7 +57,8 @@ REPORTING-BUGS  ✅ Bug 报告指南                  ✅                    完
 | kernel/exit.c | Agent 销毁 (do_exit 风格) | 0.5h |
 | kernel/sysctl.c | 运行时参数 (/proc/sys 风格) | 1h |
 | scripts/kernel-doc | 内核文档生成工具 | 0.5h |
-| skill_module | 三层模型：容器管理 device 的 load/unload | 3h |
+| JSON 设备树解析 | 统一 JSON → bus/device/driver 解析入口 | 2h |
+| 热插拔 reprobe 链 | python 上线 → pptx 自动可用 | 1h |
 
 ### 🟡 中优先级
 
@@ -143,10 +144,11 @@ ipc/bus_init.c         ✅ 3 条总线实例 (tool/channel/llm)
 ipc/bus_channel.c      ✅ feishu/vector/voice/gateway 通道驱动
 ipc/bus_llm.c          ✅ openai_compatible + anthropic_compatible
 
-tool_bus:  25 个工具 → tool_generic (catch-all driver)
+tool_bus:  25 tool_driver + 25 tool_device → name match 独立绑定
 channel_bus: feishu/vector/voice/gateway → name match
 llm_bus:   openai_compatible + anthropic_compatible
-skill_module: 概念已定义，三层模型 (device/driver/module)
+skill_module: ✅ probe/load/unload, bus_device_exists 依赖检查
+tool_device/tool_driver: ✅ 声明层/执行层拆分, container_of 执行
 ```
 
 ### 细节对齐
