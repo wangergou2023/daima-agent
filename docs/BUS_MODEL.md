@@ -6,12 +6,11 @@
 
 ```
 核心 struct + API         ✅  include/linux/bus.h + ipc/bus_device.c
-4 条总线实例               ✅  ipc/bus_init.c
+3 条总线实例               ✅  ipc/bus_init.c
 tool_bus (25 个工具)       ✅  catch-all match → tool_generic driver
 channel_bus (4 个通道)     ✅  feishu/vector/voice/gateway → name match
 llm_bus (2 个协议驱动)      ✅  openai_compatible + anthropic_compatible
-mcp_bus                   ❌ 空，待实现
-skill_module (三层模型)     ❌ 概念已定义，待实现（需 mcp_bus 先就位）
+skill_module (三层模型)     ❌ 概念已定义，待实现
 JSON 设备树解析             ❌ 待实现
 热插拔 reprobe 链          ❌ 待实现
 ```
@@ -49,11 +48,11 @@ Agent 拿到的工具和读文件一样：
 ```
 read_file    → tool_bus → name match → probe → execute
 write_file   → tool_bus → name match → probe → execute
-pptx         → tool_bus → name match → probe(检查python MCP) → execute
+pptx         → tool_bus → name match → probe(检查terminal是否可用) → execute
 webfetch     → tool_bus → name match → probe → execute
 ```
 
-## 四条总线
+## 三条总线
 
 ```
 ┌─ tool_bus ─────────────────────────────────────────────┐
@@ -66,19 +65,11 @@ webfetch     → tool_bus → name match → probe → execute
 │                                                        │
 │ skill 工具 (带依赖):                                     │
 │   device: {name:"pptx",                                 │
-│            dependencies:[{bus:"mcp",name:"python"}]}    │
+│            dependencies:[{bus:"tool",name:"terminal"}]} │
 │   driver: skill_pptx.probe()                            │
-│   probe: 检查 mcp_bus 是否有 "python" → bind            │
+│   probe: 检查 tool_bus 是否有 "terminal" → bind         │
 │                                                        │
 │ match: 字符串精确匹配 (类似 platform_bus)                 │
-└────────────────────────────────────────────────────────┘
-
-┌─ mcp_bus ─────────────────────────────────────────────┐
-│ 底层执行能力 (不直接暴露给 Agent)                         │
-│                                                        │
-│ device: {name:"python", path:"/usr/bin/python3"}        │
-│ driver: mcp_python.probe()                              │
-│ match: 字符串精确匹配                                    │
 └────────────────────────────────────────────────────────┘
 
 ┌─ channel_bus ─────────────────────────────────────────┐
@@ -110,7 +101,7 @@ Skill（如 pptx）是**模块层**的东西——它既不是 device 也不是 
   pptx_to_pdf    → 需要 libreoffice
   pptx_thumbnail → 需要 imagemagick
 
-这些 tool 共享一组 mcp_bus 依赖，需要统一的加载/卸载生命周期。
+这些 tool 共享依赖，需要统一的加载/卸载生命周期。
 ```
 
 ### skill_module — 对应内核 `struct module`
@@ -123,7 +114,7 @@ struct skill_module {
     int device_count;
     struct dependency *deps;       // 跨 bus 的全局依赖
 
-    int (*probe)(void);            // 检查所有依赖的 mcp 是否就位
+    int (*probe)(void);            // 检查所有依赖的 tool 是否就位
     int (*load)(void);             // 注册所有 device 到对应 bus
     void (*unload)(void);          // 卸载所有 device
 };
@@ -137,13 +128,13 @@ struct skill_module {
   ├── skill_router: 匹配到 skill_module "pptx"
   │
   ├── skill_module->probe()
-  │     └── bus_device_exists("mcp_bus", "python")     → ✅
-  │     └── bus_device_exists("mcp_bus", "libreoffice") → ✅
+  │     └── bus_device_exists("tool_bus", "terminal")    → ✅
+  │     └── bus_device_exists("tool_bus", "files")       → ✅
   │     └── 全满足 → return 0
   │
   ├── skill_module->load()
   │     ├── device_register("pptx_generate", tool_bus)
-  │     │     └── bus_probe: match → driver "python_mcp_executor"
+  │     │     └── bus_probe: match → driver "terminal_exec"
   │     ├── device_register("pptx_to_pdf", tool_bus)
   │     │     └── bus_probe: match → driver "libreoffice_executor"
   │     └── LLM 工具列表自动增加这 2 个 tool
@@ -162,7 +153,7 @@ struct skill_module {
 ✅ 正确理解:
   skill_module "pptx"          ← 容器层：加载/卸载/依赖管理
     ├── device "pptx_generate"  ← 声明层
-    │    └── driver "python_mcp_executor"  ← 执行层
+    │    └── driver "terminal_exec"           ← 执行层
     └── device "pptx_to_pdf"    ← 声明层
          └── driver "libreoffice_executor"  ← 执行层
 ```
@@ -188,7 +179,7 @@ struct device {
 };
 
 struct dependency {
-    const char *bus_name;   // "mcp_bus"
+    const char *bus_name;   // "tool_bus"
     const char *dev_name;   // "python"
 };
 
@@ -208,7 +199,7 @@ struct skill_module {
     struct dependency *deps;       // 跨 bus 全局依赖
     int dep_count;
 
-    int (*probe)(void);            // 检查所有 mcp 依赖是否就位
+    int (*probe)(void);            // 检查所有依赖是否就位
     int (*load)(void);             // 注册所有 device
     void (*unload)(void);          // 卸载所有 device
 };
@@ -227,14 +218,10 @@ struct skill_module {
     {"bus":"tool", "name":"write_file", "driver":"tool_files_write", "schema":{...}},
     {"bus":"tool", "name":"terminal",   "driver":"tool_terminal",    "schema":{...}},
 
-    // tool bus - skill (带依赖)
+    // tool bus - skill (带依赖，依赖 tool_bus 上的 terminal/files)
     {"bus":"tool", "name":"pptx",
      "driver":"skill_pptx",
-     "dependencies":[{"bus":"mcp","name":"python"}, {"bus":"mcp","name":"terminal"}]},
-
-    // mcp bus
-    {"bus":"mcp", "name":"python",   "driver":"mcp_python", "path":"/usr/bin/python3"},
-    {"bus":"mcp", "name":"terminal", "driver":"mcp_terminal"},
+     "dependencies":[{"bus":"tool","name":"terminal"}, {"bus":"tool","name":"files"}]},
 
     // llm bus
     {"bus":"llm", "name":"deepseek-v4",
@@ -250,7 +237,7 @@ struct skill_module {
 ```c
 // of_populate_all("spiffs_data/device.json")
 //   {"bus":"tool", ...} → tool_bus.add_device()
-//   {"bus":"mcp", ...}  → mcp_bus.add_device()
+//   {"bus":"llm", ...}  → llm_bus.add_device()
 //   {"bus":"llm", ...}  → llm_bus.add_device()
 ```
 
@@ -259,16 +246,16 @@ struct skill_module {
 ### 热插拔
 
 ```c
-// 安装: python 上线 → pptx 自动可用
-mcp_bus.add_device(device_python)
-  → bus_probe(&mcp_bus, device_python)  ← python MCP 绑定
-  → bus_reprobe(&tool_bus, "pptx")      ← 重新 probe pptx
+// 安装: terminal 上线 → pptx 自动可用
+tool_bus.add_device(device_terminal)
+  → bus_probe(&tool_bus, device_terminal)  ← terminal 绑定
+  → bus_reprobe(&tool_bus, "pptx")         ← 重新 probe pptx
   → probe OK → bind ✅
   → Agent 工具列表自动出现 pptx
 
-// 卸载: python 下线 → pptx 自动消失
-mcp_bus.remove_device("python")
-  → tool_bus.each_device(depends_on("mcp", "python"))
+// 卸载: terminal 下线 → pptx 自动消失
+tool_bus.remove_device("terminal")
+  → tool_bus.each_device(depends_on("tool", "terminal"))
   → driver.remove() → unbind
   → Agent 工具列表自动移除 pptx
 ```
@@ -278,16 +265,16 @@ mcp_bus.remove_device("python")
 和内核一模一样 —— probe 失败的设备保留在总线上，等依赖满足后自动重新绑定：
 
 ```c
-// python 不存在时
-probe(pptx) → bus_device_exists("mcp", "python") → false
+// terminal 不存在时
+probe(pptx) → bus_device_exists("tool", "terminal") → false
   → return -ENODEV
   → dev->drv = NULL          ← 设备保留，不清理
-  → pr_warn("pptx: probe failed, waiting for python MCP")
+  → pr_warn("pptx: probe failed, waiting for terminal")
 
-// python 安装后
-mcp_bus.add_device(python)
+// terminal 安装后
+tool_bus.add_device(terminal)
   → tool_bus.reprobe("pptx")
-  → bus_device_exists("mcp", "python") → true ✅
+  → bus_device_exists("tool", "terminal") → true ✅
   → probe OK → bind ✅
 ```
 
@@ -298,14 +285,12 @@ mcp_bus.add_device(python)
 ```c
 // 1. 总线创建
 bus_create(&tool_bus);     // Agent 可调用的工具
-bus_create(&mcp_bus);      // 底层能力 (不暴露给 Agent)
 bus_create(&channel_bus);  // 消息通道
 bus_create(&llm_bus);      // LLM 后端
 
 // 2. 驱动注册
 driver_register(&tool_files_read_driver, &tool_bus);
 driver_register(&skill_pptx_driver, &tool_bus);
-driver_register(&mcp_python_driver, &mcp_bus);
 
 // 3. 设备树解析（普通 tool）
 parse_device_tree("spiffs_data/tools/device.json", &tool_bus);
@@ -314,8 +299,8 @@ parse_device_tree("spiffs_data/tools/device.json", &tool_bus);
 skill_module_load(&skill_pptx);
 //   ↓ 内部流程:
 //   skill_module->probe()
-//     → bus_device_exists("mcp_bus", "python")     ✅
-//     → bus_device_exists("mcp_bus", "libreoffice") ✅
+//     → bus_device_exists("tool_bus", "terminal")    ✅
+//     → bus_device_exists("tool_bus", "files")       ✅
 //   skill_module->load()
 //     → device_register("pptx_generate", tool_bus)
 //     → device_register("pptx_to_pdf", tool_bus)
@@ -358,10 +343,9 @@ OpenAI plugin:
 
 Daima Agent:
   tool_bus:    "你叫 pptx? device 在 bus 上，driver 也在 bus 上"
-  mcp_bus:     "python 就是 python，不关心谁用它"
-  skill_pptx:  "我有依赖 [python]，probe 时检查"
+  skill_pptx:  "我有依赖 [terminal]，probe 时检查"
 
-  三层互不感知 —— 改 python 路径不改 pptx 一行代码
+  两层互不感知 —— 改 terminal 路径不改 pptx 一行代码
 ```
 
 ### 核心优势
@@ -385,9 +369,8 @@ main()
        ├── skill_loader_init()
        ├── cron / heartbeat / proxy
        │
-       ├── bus_init()                 ← 创建 4 条设备总线实例
+       ├── bus_init()                 ← 创建 3 条设备总线实例
        │    ├── tool_bus     (catch-all match)
-       │    ├── mcp_bus      (name match)
        │    ├── channel_bus  (name match)
        │    └── llm_bus      (name match)
        │
@@ -435,17 +418,16 @@ main()
     └──────────────────────────────┘    └──────────────────────────────────────┘
 
     ┌──────────────────────────────┐    ┌──────────────────────────────────────┐
-    │        mcp_bus               │    │           llm_bus                     │
-    │  match: name match           │    │  match: name match                    │
-    │  (空，待实现)                 │    │                                      │
-    │                              │    │  drivers:                            │
-    │  drivers: []                 │    │    openai_compatible                  │
-    │  devices: []                 │    │    anthropic_compatible               │
-    │                              │    │                                      │
-    │  未来:                       │    │  devices: (模型实例，待注册)            │
-    │    python ─→ mcp_python      │    │    deepseek-v4 ─→ openai_compatible   │
-    │    terminal ─→ mcp_terminal  │    │                                      │
-    └──────────────────────────────┘    └──────────────────────────────────────┘
+    │           llm_bus             │
+    │  match: name match            │
+    │                               │
+    │  drivers:                     │
+    │    openai_compatible          │
+    │    anthropic_compatible       │
+    │                               │
+    │  devices: (模型实例，待注册)     │
+    │    deepseek-v4 → openai       │
+    └──────────────────────────────┘
 ```
 
 ### Probe 流程
@@ -477,7 +459,7 @@ device_register(dev, bus)
 ```
                         ┌─────────────────────────┐
                         │    skill_module "pptx"   │  ← 容器层
-                        │  probe() → 检查 mcp 依赖  │
+                        │  probe() → 检查 tool 依赖 │
                         │  load()  → 注册所有 device│
                         │  unload()→ 卸载所有 device│
                         └──────────┬──────────────┘
@@ -494,15 +476,14 @@ device_register(dev, bus)
              │                    │                    │
     ┌────────┴──────────┐ ┌───────┴──────────┐ ┌───────┴──────────┐
     │ driver            │ │ driver           │ │ driver           │  ← 执行层
-    │ "python_mcp"      │ │ "libreoffice_mcp"│ │ "imagemagick_mcp" │
+    │ "terminal_exec"   │ │ "terminal_exec"  │ │ "terminal_exec"   │
     └───────────────────┘ └──────────────────┘ └───────────────────┘
              │                    │                    │
              └────────────────────┼────────────────────┘
                                   │
                          ┌────────┴──────────┐
-                         │     mcp_bus       │  ← 这些 driver 实际
-                         │ python/libreoffice│     挂在 mcp_bus 上
-                         │ imagemagick       │
+                         │     tool_bus       │  ← 这些 driver 挂在
+                         │ terminal/files/... │     tool_bus 上
                          └───────────────────┘
 ```
 
@@ -513,7 +494,7 @@ ipc/
 ├── bus.h                消息总线（队列型，入站/出站）
 ├── bus.c                消息总线实现
 ├── bus_device.c   ✨    设备总线核心（10 个 API 函数）
-├── bus_init.c     ✨    4 条总线实例创建
+├── bus_init.c     ✨    3 条总线实例创建
 ├── bus_channel.c  ✨    通道驱动注册
 ├── bus_llm.c      ✨    LLM 协议驱动注册
 └── Makefile
