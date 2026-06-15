@@ -15,3 +15,5 @@
  */
 err_t tool_session_search_execute(const char *input_json, char *output, size_t output_size);
 const struct tool *tool_session_search_definition(void);
+const struct tool_device *tool_session_search_device(void);
+const struct tool_driver *tool_session_search_driver(void);

@@ -13,3 +13,5 @@
  */
 err_t tool_skills_execute(const char *input_json, char *output, size_t output_size);
 const struct tool *tool_skills_definition(void);
+const struct tool_device *tool_skills_device(void);
+const struct tool_driver *tool_skills_driver(void);

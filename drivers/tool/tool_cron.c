@@ -440,6 +440,50 @@ err_t tool_cron_execute(const char *input_json, char *output, size_t output_size
     return err;
 }
 
+static int cron_tool_probe(struct device *dev)
+{
+    (void)dev;
+    return 0;
+}
+
+static struct tool_device s_cron_device = {
+    .name = "cron",
+    .description = "统一定时任务工具。action=add 创建周期、每日/每周或一次性任务；action=list 列出任务；action=remove 按 ID 删除任务。",
+    .input_schema_json =
+        "{\"type\":\"object\","
+        "\"properties\":{"
+        "\"action\":{\"type\":\"string\",\"description\":\"add、list 或 remove\"},"
+        "\"name\":{\"type\":\"string\",\"description\":\"任务名称\"},"
+        "\"schedule_type\":{\"type\":\"string\",\"description\":\"'every' 固定间隔；'at' 指定 unix 时间戳；'daily'/'weekly' 按本地时钟触发\"},"
+        "\"interval_s\":{\"type\":\"integer\",\"description\":\"间隔秒数（'every' 必填）\"},"
+        "\"at_epoch\":{\"type\":\"integer\",\"description\":\"触发时间的 unix 时间戳（'at' 必填）\"},"
+        "\"time\":{\"type\":\"string\",\"description\":\"本地时间 HH:MM 或 HH:MM:SS（'daily'/'weekly' 必填）\"},"
+        "\"time_of_day_s\":{\"type\":\"integer\",\"description\":\"当天秒数（可替代 time）\"},"
+        "\"weekdays\":{\"description\":\"星期列表或位图，0=Sun..6=Sat；工作日用 [1,2,3,4,5]\"},"
+        "\"message\":{\"type\":\"string\",\"description\":\"任务触发时注入的消息\"},"
+        "\"channel\":{\"type\":\"string\",\"description\":\"可选回复通道（'websocket' / 'feishu' / 'system'）。未填时优先使用当前通道\"},"
+        "\"chat_id\":{\"type\":\"string\",\"description\":\"可选回复 chat_id。websocket 未填时使用当前会话；feishu 未填时优先使用配置或最近飞书会话\"},"
+        "\"job_id\":{\"type\":\"string\",\"description\":\"remove 时要删除的 8 位任务 ID\"}"
+        "},"
+        "\"required\":[\"action\"]}",
+};
+
+static struct tool_driver s_cron_driver = {
+    .name = "cron",
+    .probe = cron_tool_probe,
+    .execute = tool_cron_execute,
+};
+
+const struct tool_device *tool_cron_device(void)
+{
+    return &s_cron_device;
+}
+
+const struct tool_driver *tool_cron_driver(void)
+{
+    return &s_cron_driver;
+}
+
 const struct tool *tool_cron_definition(void)
 {
     return &s_cron_tool;

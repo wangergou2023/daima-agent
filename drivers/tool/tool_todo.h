@@ -18,3 +18,5 @@
  */
 err_t tool_todo_execute(const char *input_json, char *output, size_t output_size);
 const struct tool *tool_todo_definition(void);
+const struct tool_device *tool_todo_device(void);
+const struct tool_driver *tool_todo_driver(void);

@@ -18,6 +18,8 @@
  */
 err_t tool_files_execute(const char *input_json, char *output, size_t output_size);
 const struct tool *tool_files_definition(void);
+const struct tool_device *tool_files_device(void);
+const struct tool_driver *tool_files_driver(void);
 
 /* Internal helpers reused by the files action dispatcher. */
 err_t tool_read_file_execute(const char *input_json, char *output, size_t output_size);
@@ -29,6 +31,8 @@ err_t tool_read_file_execute(const char *input_json, char *output, size_t output
  */
 err_t tool_apply_patch_execute(const char *input_json, char *output, size_t output_size);
 const struct tool *tool_apply_patch_definition(void);
+const struct tool_device *tool_apply_patch_device(void);
+const struct tool_driver *tool_apply_patch_driver(void);
 
 /**
  * 将文件恢复到最近一次检查点，或恢复到指定 checkpoint_path。
@@ -38,6 +42,8 @@ const struct tool *tool_apply_patch_definition(void);
  */
 err_t tool_restore_file_execute(const char *input_json, char *output, size_t output_size);
 const struct tool *tool_restore_file_definition(void);
+const struct tool_device *tool_restore_file_device(void);
+const struct tool_driver *tool_restore_file_driver(void);
 
 /**
  * 列出目录文件。

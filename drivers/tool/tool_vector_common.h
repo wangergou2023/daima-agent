@@ -50,16 +50,38 @@ static inline mcp_client_t *tool_get_mcp(char *output, size_t size)
 
 /* 工具定义访问器 */
 const struct tool *tool_robot_drive_straight_definition(void);
+const struct tool_device *tool_robot_drive_straight_device(void);
+const struct tool_driver *tool_robot_drive_straight_driver(void);
 const struct tool *tool_robot_turn_in_place_definition(void);
+const struct tool_device *tool_robot_turn_in_place_device(void);
+const struct tool_driver *tool_robot_turn_in_place_driver(void);
 const struct tool *tool_robot_drive_wheels_definition(void);
+const struct tool_device *tool_robot_drive_wheels_device(void);
+const struct tool_driver *tool_robot_drive_wheels_driver(void);
 const struct tool *tool_robot_set_head_angle_definition(void);
+const struct tool_device *tool_robot_set_head_angle_device(void);
+const struct tool_driver *tool_robot_set_head_angle_driver(void);
 const struct tool *tool_robot_set_lift_height_definition(void);
+const struct tool_device *tool_robot_set_lift_height_device(void);
+const struct tool_driver *tool_robot_set_lift_height_driver(void);
 const struct tool *tool_robot_stop_definition(void);
+const struct tool_device *tool_robot_stop_device(void);
+const struct tool_driver *tool_robot_stop_driver(void);
 const struct tool *tool_robot_set_volume_definition(void);
+const struct tool_device *tool_robot_set_volume_device(void);
+const struct tool_driver *tool_robot_set_volume_driver(void);
 const struct tool *tool_robot_drive_on_charger_definition(void);
+const struct tool_device *tool_robot_drive_on_charger_device(void);
+const struct tool_driver *tool_robot_drive_on_charger_driver(void);
 const struct tool *tool_robot_drive_off_charger_definition(void);
+const struct tool_device *tool_robot_drive_off_charger_device(void);
+const struct tool_driver *tool_robot_drive_off_charger_driver(void);
 const struct tool *tool_robot_play_animation_definition(void);
+const struct tool_device *tool_robot_play_animation_device(void);
+const struct tool_driver *tool_robot_play_animation_driver(void);
 const struct tool *tool_robot_get_battery_definition(void);
+const struct tool_device *tool_robot_get_battery_device(void);
+const struct tool_driver *tool_robot_get_battery_driver(void);
 
 #ifdef __cplusplus
 }
