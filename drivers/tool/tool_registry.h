@@ -5,10 +5,28 @@
 #include "err.h"
 #include <stddef.h>
 
+struct device;
+
 struct tool {
     const char *name;
     const char *description;
     const char *input_schema_json;  /* 输入参数的 JSON Schema 字符串 */
+    err_t (*execute)(const char *input_json, char *output, size_t output_size);
+};
+
+/* 拆分后的独立 device 和 driver。
+ * tool_device: 能力声明（device 层）
+ * tool_driver: 执行逻辑（driver 层）
+ */
+struct tool_device {
+    const char *name;
+    const char *description;
+    const char *input_schema_json;
+};
+
+struct tool_driver {
+    const char *name;
+    int (*probe)(struct device *dev);
     err_t (*execute)(const char *input_json, char *output, size_t output_size);
 };
 

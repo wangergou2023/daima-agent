@@ -342,6 +342,42 @@ err_t tool_weather_execute(const char *input_json, char *output, size_t output_s
     return 0;
 }
 
+static int weather_probe(struct device *dev)
+{
+    (void)dev;
+    return 0;
+}
+
+static struct tool_device s_weather_device = {
+    .name = "weather",
+    .description = "查询当前天气、未来 1-7 天预报或逐小时天气（无需 API Key）。可传 location 或 adcode；若都不传，则按调用方 IP 自动定位。",
+    .input_schema_json =
+        "{\"type\":\"object\","
+        "\"properties\":{"
+        "\"location\":{\"type\":\"string\",\"description\":\"城市/地区名称，支持中文或英文，如 北京 / Tokyo；可选\"},"
+        "\"adcode\":{\"type\":\"string\",\"description\":\"可选行政区编码，如 110000；若提供则优先按 adcode 查询\"},"
+        "\"type\":{\"type\":\"string\",\"description\":\"current、forecast 或 hourly；默认 current\"},"
+        "\"days\":{\"type\":\"integer\",\"description\":\"预报天数（1-7，仅 forecast 时有效，可选）\"}"
+        "},"
+        "\"required\":[]}",
+};
+
+static struct tool_driver s_weather_driver = {
+    .name = "weather",
+    .probe = weather_probe,
+    .execute = tool_weather_execute,
+};
+
+const struct tool_device *tool_weather_device(void)
+{
+    return &s_weather_device;
+}
+
+const struct tool_driver *tool_weather_driver(void)
+{
+    return &s_weather_driver;
+}
+
 const struct tool *tool_weather_definition(void)
 {
     return &s_weather_tool;

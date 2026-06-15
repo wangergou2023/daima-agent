@@ -17,3 +17,7 @@ err_t tool_weather_execute(const char *input_json, char *output, size_t output_s
  */
 err_t tool_weather_init(void);
 const struct tool *tool_weather_definition(void);
+
+/* 拆分后的独立 device + driver */
+const struct tool_device *tool_weather_device(void);
+const struct tool_driver *tool_weather_driver(void);
