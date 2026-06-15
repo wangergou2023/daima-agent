@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "cJSON.h"
+#include "cjson.h"
 #include "linux/printk.h"
 static err_t tool_robot_set_volume_execute(const char *input_json, char *output, size_t output_size)
 {

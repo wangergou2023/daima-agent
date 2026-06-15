@@ -1,7 +1,7 @@
 #include "drivers/tool/tool_log.h"
 
 #include "paths.h"
-#include "cJSON.h"
+#include "cjson.h"
 
 #include <ctype.h>
 #include <stdio.h>

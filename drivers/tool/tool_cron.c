@@ -12,7 +12,7 @@
 #include <string.h>
 #include <time.h>
 #include "linux/printk.h"
-#include "cJSON.h"
+#include "cjson.h"
 static void format_epoch_local(int64_t epoch, char *buf, size_t buf_size)
 {
     if (!buf || buf_size == 0) {

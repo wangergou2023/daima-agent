@@ -20,7 +20,7 @@
 #include <unistd.h>
 #include <curl/curl.h>
 #include "linux/printk.h"
-#include "cJSON.h"
+#include "cjson.h"
 #include "linux/slab.h"
 /* BigModel API endpoints */
 static const char *BIGMODEL_ASR_URL = "https://open.bigmodel.cn/api/paas/v4/audio/transcriptions";

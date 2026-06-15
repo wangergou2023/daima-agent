@@ -14,7 +14,7 @@
 #include <time.h>
 #include <sys/stat.h>
 
-#include "cJSON.h"
+#include "cjson.h"
 #include "linux/list.h"
 #include "linux/printk.h"
 #include "linux/slab.h"

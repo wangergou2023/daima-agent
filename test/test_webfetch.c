@@ -1,5 +1,5 @@
 #include "paths.h"
-#include "cJSON.h"
+#include "cjson.h"
 #include "drivers/tool/tool_webfetch.h"
 
 #include <assert.h>

@@ -14,7 +14,7 @@
 #include <time.h>
 #include "linux/printk.h"
 #include "drivers/platform/platform.h"
-#include "cJSON.h"
+#include "cjson.h"
 #include "linux/slab.h"
 #define MAX_CRON_JOBS  CRON_MAX_JOBS
 

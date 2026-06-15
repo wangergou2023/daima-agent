@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include "cJSON.h"
+#include "cjson.h"
 #include "linux/printk.h"
 #include "linux/kernel.h"
 #define SKILL_PATH_SIZE 1024

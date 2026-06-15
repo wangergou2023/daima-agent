@@ -19,7 +19,7 @@
 #include "bus.h"
 #include "linux/list.h"
 #include "linux/printk.h"
-#include "cJSON.h"
+#include "cjson.h"
 #include "linux/slab.h"
 #define MAX_TOOLS 32
 

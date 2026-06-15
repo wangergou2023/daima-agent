@@ -1,5 +1,5 @@
 #include "paths.h"
-#include "cJSON.h"
+#include "cjson.h"
 #include "drivers/tool/tool_work_item.h"
 #include "work_item.h"
 

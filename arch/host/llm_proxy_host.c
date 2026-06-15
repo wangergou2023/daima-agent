@@ -31,7 +31,7 @@ static void *memrchr(const void *s, int c, size_t n) {
 #endif
 #include <stdlib.h>
 #include "linux/printk.h"
-#include "cJSON.h"
+#include "cjson.h"
 #include "json_helpers.h"
 
 static const char *DEFAULT_LLM_MODEL = "kimi-k2.5";

@@ -5,7 +5,7 @@
 #include <string.h>
 #include <strings.h>
 
-#include "cJSON.h"
+#include "cjson.h"
 #include "drivers/memory/session_store.h"
 #include "linux/kernel.h"
 

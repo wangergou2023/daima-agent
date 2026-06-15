@@ -3,7 +3,7 @@
 #include "drivers/tool/tool_files.h"
 
 #include "autoconf.h"
-#include "cJSON.h"
+#include "cjson.h"
 
 #include <stdio.h>
 #include <string.h>

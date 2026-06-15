@@ -7,7 +7,7 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#include "cJSON.h"
+#include "cjson.h"
 #include "autoconf.h"
 #include "linux/kernel.h"
 #include "linux/printk.h"

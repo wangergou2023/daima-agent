@@ -6,7 +6,7 @@
 #include <stdarg.h>
 #include <string.h>
 
-#include "cJSON.h"
+#include "cjson.h"
 #include "linux/printk.h"
 #include "linux/kernel.h"
 #define WEATHER_API_TIMEOUT_MS  6000

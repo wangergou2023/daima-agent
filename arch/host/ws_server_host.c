@@ -25,7 +25,7 @@
 #include <openssl/sha.h>
 
 #include "linux/printk.h"
-#include "cJSON.h"
+#include "cjson.h"
 static const char *UI_FALLBACK_HTML =
     "<!doctype html>\n"
     "<html lang=\"en\">\n"

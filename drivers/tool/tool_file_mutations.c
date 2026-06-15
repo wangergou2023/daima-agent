@@ -9,7 +9,7 @@
 #include "autoconf.h"
 #include "linux/kernel.h"
 #include "linux/printk.h"
-#include "cJSON.h"
+#include "cjson.h"
 
 #include <ctype.h>
 #include <stdbool.h>

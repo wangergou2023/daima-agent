@@ -15,7 +15,7 @@
 #include <unistd.h>
 
 #include "linux/printk.h"
-#include "cJSON.h"
+#include "cjson.h"
 #include "linux/slab.h"
 #define TERMINAL_DEFAULT_TIMEOUT 120
 #define TERMINAL_MAX_TIMEOUT     1800

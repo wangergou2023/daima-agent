@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "cJSON.h"
+#include "cjson.h"
 #include "err.h"
 
 #include <stdbool.h>

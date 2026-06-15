@@ -52,7 +52,7 @@ $(agent-dirs): $(BUILD_DIR)
 
 cjson: $(BUILD_DIR)
 	@echo "  CC      $(BUILD_DIR)/cjson.o"
-	$(Q)$(CC) $(AGENT_CFLAGS) -c -o $(BUILD_DIR)/cjson.o $(TOPDIR)/include/cJSON.c
+	$(Q)$(CC) $(AGENT_CFLAGS) -c -o $(BUILD_DIR)/cjson.o $(TOPDIR)/lib/cjson.c
 	@echo $(BUILD_DIR)/cjson.o >> $(BUILD_DIR)/objects.list
 
 arch-obj: $(BUILD_DIR)

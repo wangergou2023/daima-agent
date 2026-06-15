@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "cJSON.h"
+#include "cjson.h"
 #include "linux/printk.h"
 err_t tool_vector_init(void) { return 0; }
 

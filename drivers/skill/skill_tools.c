@@ -5,7 +5,7 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#include "cJSON.h"
+#include "cjson.h"
 #include "linux/printk.h"
 #include "linux/slab.h"
 #include "linux/kernel.h"

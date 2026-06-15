@@ -14,7 +14,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "cJSON.h"
+#include "cjson.h"
 #include "linux/slab.h"
 
 static bool is_word_boundary(char c)

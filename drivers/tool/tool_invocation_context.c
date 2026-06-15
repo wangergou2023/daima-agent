@@ -6,7 +6,7 @@
 #include <string.h>
 
 #include "drivers/channel/feishu/feishu_targets.h"
-#include "cJSON.h"
+#include "cjson.h"
 #include "linux/printk.h"
 static void json_set_string(cJSON *obj, const char *key, const char *value)
 {

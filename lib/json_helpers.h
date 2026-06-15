@@ -1,6 +1,6 @@
 #pragma once
 
-#include "cJSON.h"
+#include "cjson.h"
 
 const char *json_string(cJSON *obj, const char *key);
 int json_number(cJSON *obj, const char *key);

@@ -9,7 +9,7 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#include "cJSON.h"
+#include "cjson.h"
 #include "autoconf.h"
 #include "linux/printk.h"
 err_t tool_list_dir_execute(const char *input_json, char *output, size_t output_size)

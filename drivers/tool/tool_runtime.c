@@ -8,7 +8,7 @@
 #include "interactive.h"
 #include "drivers/tool/tool_invocation_context.h"
 #include "drivers/tool/tool_registry.h"
-#include "cJSON.h"
+#include "cjson.h"
 #include "linux/printk.h"
 #include "linux/slab.h"
 static void log_tool_runtime_input(const char *phase,

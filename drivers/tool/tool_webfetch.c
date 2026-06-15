@@ -1,6 +1,6 @@
 #include "drivers/tool/tool_webfetch.h"
 
-#include "cJSON.h"
+#include "cjson.h"
 #include "autoconf.h"
 #include "linux/kernel.h"
 #include "linux/printk.h"
