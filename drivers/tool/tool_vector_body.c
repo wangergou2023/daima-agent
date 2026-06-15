@@ -358,17 +358,17 @@ static struct tool_device s_head_angle_device = {
 };
 
 static struct tool_driver s_head_angle_driver = {
-    .name = "robot_set_head_angle",
-    .probe = head_angle_tool_probe,
+    .drv.name = "robot_set_head_angle",
+    .drv.probe = head_angle_tool_probe,
     .execute = tool_robot_set_head_angle_execute,
 };
 
-const struct tool_device *tool_head_angle_device(void)
+const struct tool_device *tool_robot_set_head_angle_device(void)
 {
     return &s_head_angle_device;
 }
 
-const struct tool_driver *tool_head_angle_driver(void)
+const struct tool_driver *tool_robot_set_head_angle_driver(void)
 {
     return &s_head_angle_driver;
 }
@@ -387,17 +387,17 @@ static struct tool_device s_lift_height_device = {
 };
 
 static struct tool_driver s_lift_height_driver = {
-    .name = "robot_set_lift_height",
-    .probe = lift_height_tool_probe,
+    .drv.name = "robot_set_lift_height",
+    .drv.probe = lift_height_tool_probe,
     .execute = tool_robot_set_lift_height_execute,
 };
 
-const struct tool_device *tool_lift_height_device(void)
+const struct tool_device *tool_robot_set_lift_height_device(void)
 {
     return &s_lift_height_device;
 }
 
-const struct tool_driver *tool_lift_height_driver(void)
+const struct tool_driver *tool_robot_set_lift_height_driver(void)
 {
     return &s_lift_height_driver;
 }
@@ -416,17 +416,17 @@ static struct tool_device s_stop_device = {
 };
 
 static struct tool_driver s_stop_driver = {
-    .name = "robot_stop",
-    .probe = stop_tool_probe,
+    .drv.name = "robot_stop",
+    .drv.probe = stop_tool_probe,
     .execute = tool_robot_stop_execute,
 };
 
-const struct tool_device *tool_stop_device(void)
+const struct tool_device *tool_robot_stop_device(void)
 {
     return &s_stop_device;
 }
 
-const struct tool_driver *tool_stop_driver(void)
+const struct tool_driver *tool_robot_stop_driver(void)
 {
     return &s_stop_driver;
 }

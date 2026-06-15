@@ -94,17 +94,17 @@ static struct tool_device s_set_volume_device = {
 };
 
 static struct tool_driver s_set_volume_driver = {
-    .name = "robot_set_volume",
-    .probe = set_volume_tool_probe,
+    .drv.name = "robot_set_volume",
+    .drv.probe = set_volume_tool_probe,
     .execute = tool_robot_set_volume_execute,
 };
 
-const struct tool_device *tool_set_volume_device(void)
+const struct tool_device *tool_robot_set_volume_device(void)
 {
     return &s_set_volume_device;
 }
 
-const struct tool_driver *tool_set_volume_driver(void)
+const struct tool_driver *tool_robot_set_volume_driver(void)
 {
     return &s_set_volume_driver;
 }

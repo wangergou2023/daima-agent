@@ -208,17 +208,17 @@ static struct tool_device s_filetool_device = {
 };
 
 static struct tool_driver s_filetool_driver = {
-    .name = "files",
-    .probe = filetool_tool_probe,
+    .drv.name = "files",
+    .drv.probe = filetool_tool_probe,
     .execute = tool_files_execute,
 };
 
-const struct tool_device *tool_filetool_device(void)
+const struct tool_device *tool_files_device(void)
 {
     return &s_filetool_device;
 }
 
-const struct tool_driver *tool_filetool_driver(void)
+const struct tool_driver *tool_files_driver(void)
 {
     return &s_filetool_driver;
 }
@@ -237,8 +237,8 @@ static struct tool_device s_apply_patch_device = {
 };
 
 static struct tool_driver s_apply_patch_driver = {
-    .name = "apply_patch",
-    .probe = apply_patch_tool_probe,
+    .drv.name = "apply_patch",
+    .drv.probe = apply_patch_tool_probe,
     .execute = tool_apply_patch_execute,
 };
 
@@ -266,8 +266,8 @@ static struct tool_device s_restore_file_device = {
 };
 
 static struct tool_driver s_restore_file_driver = {
-    .name = "restore_file",
-    .probe = restore_file_tool_probe,
+    .drv.name = "restore_file",
+    .drv.probe = restore_file_tool_probe,
     .execute = tool_restore_file_execute,
 };
 

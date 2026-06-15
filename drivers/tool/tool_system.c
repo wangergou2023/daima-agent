@@ -670,8 +670,8 @@ static struct tool_device s_terminal_device = {
 };
 
 static struct tool_driver s_terminal_driver = {
-    .name = "terminal",
-    .probe = terminal_tool_probe,
+    .drv.name = "terminal",
+    .drv.probe = terminal_tool_probe,
     .execute = tool_terminal_execute,
 };
 

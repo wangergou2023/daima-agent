@@ -110,17 +110,17 @@ static struct tool_device s_play_animation_device = {
 };
 
 static struct tool_driver s_play_animation_driver = {
-    .name = "robot_play_animation",
-    .probe = play_animation_tool_probe,
+    .drv.name = "robot_play_animation",
+    .drv.probe = play_animation_tool_probe,
     .execute = tool_robot_play_animation_execute,
 };
 
-const struct tool_device *tool_play_animation_device(void)
+const struct tool_device *tool_robot_play_animation_device(void)
 {
     return &s_play_animation_device;
 }
 
-const struct tool_driver *tool_play_animation_driver(void)
+const struct tool_driver *tool_robot_play_animation_driver(void)
 {
     return &s_play_animation_driver;
 }

@@ -362,8 +362,8 @@ static struct tool_device s_log_device = {
 };
 
 static struct tool_driver s_log_driver = {
-    .name = "log_tool",
-    .probe = log_tool_probe,
+    .drv.name = "log_tool",
+    .drv.probe = log_tool_probe,
     .execute = tool_log_execute,
 };
 

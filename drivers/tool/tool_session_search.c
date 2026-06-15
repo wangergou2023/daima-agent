@@ -328,8 +328,8 @@ static struct tool_device s_session_search_device = {
 };
 
 static struct tool_driver s_session_search_driver = {
-    .name = "session_search",
-    .probe = session_search_tool_probe,
+    .drv.name = "session_search",
+    .drv.probe = session_search_tool_probe,
     .execute = tool_session_search_execute,
 };
 

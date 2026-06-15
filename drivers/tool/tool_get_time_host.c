@@ -274,8 +274,8 @@ static struct tool_device s_get_time_device = {
 };
 
 static struct tool_driver s_get_time_driver = {
-    .name = "get_current_time",
-    .probe = get_time_tool_probe,
+    .drv.name = "get_current_time",
+    .drv.probe = get_time_tool_probe,
     .execute = tool_get_time_execute,
 };
 

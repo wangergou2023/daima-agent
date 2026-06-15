@@ -469,8 +469,8 @@ static struct tool_device s_cron_device = {
 };
 
 static struct tool_driver s_cron_driver = {
-    .name = "cron",
-    .probe = cron_tool_probe,
+    .drv.name = "cron",
+    .drv.probe = cron_tool_probe,
     .execute = tool_cron_execute,
 };
 

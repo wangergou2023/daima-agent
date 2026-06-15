@@ -766,8 +766,8 @@ static struct tool_device s_todo_device = {
 };
 
 static struct tool_driver s_todo_driver = {
-    .name = "todo",
-    .probe = todo_tool_probe,
+    .drv.name = "todo",
+    .drv.probe = todo_tool_probe,
     .execute = tool_todo_execute,
 };
 

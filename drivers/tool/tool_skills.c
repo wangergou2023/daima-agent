@@ -678,17 +678,17 @@ static struct tool_device s_skilltool_device = {
 };
 
 static struct tool_driver s_skilltool_driver = {
-    .name = "skills",
-    .probe = skilltool_tool_probe,
+    .drv.name = "skills",
+    .drv.probe = skilltool_tool_probe,
     .execute = tool_skills_execute,
 };
 
-const struct tool_device *tool_skilltool_device(void)
+const struct tool_device *tool_skills_device(void)
 {
     return &s_skilltool_device;
 }
 
-const struct tool_driver *tool_skilltool_driver(void)
+const struct tool_driver *tool_skills_driver(void)
 {
     return &s_skilltool_driver;
 }

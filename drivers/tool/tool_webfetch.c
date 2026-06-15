@@ -774,8 +774,8 @@ static struct tool_device s_webfetch_device = {
 };
 
 static struct tool_driver s_webfetch_driver = {
-    .name = "webfetch",
-    .probe = webfetch_tool_probe,
+    .drv.name = "webfetch",
+    .drv.probe = webfetch_tool_probe,
     .execute = tool_webfetch_execute,
 };
 

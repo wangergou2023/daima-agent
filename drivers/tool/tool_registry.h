@@ -4,8 +4,7 @@
 
 #include "err.h"
 #include <stddef.h>
-
-struct device;
+#include "linux/driver.h"
 
 struct tool {
     const char *name;
@@ -25,8 +24,7 @@ struct tool_device {
 };
 
 struct tool_driver {
-    const char *name;
-    int (*probe)(struct device *dev);
+    struct driver drv;   /* 嵌入 bus driver，必须是首字段，用于 container_of */
     err_t (*execute)(const char *input_json, char *output, size_t output_size);
 };
 

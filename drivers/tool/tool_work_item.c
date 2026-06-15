@@ -632,8 +632,8 @@ static struct tool_device s_work_item_device = {
 };
 
 static struct tool_driver s_work_item_driver = {
-    .name = "work_item",
-    .probe = work_item_tool_probe,
+    .drv.name = "work_item",
+    .drv.probe = work_item_tool_probe,
     .execute = tool_work_item_execute,
 };
 

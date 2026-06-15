@@ -262,17 +262,17 @@ static struct tool_device s_get_battery_device = {
 };
 
 static struct tool_driver s_get_battery_driver = {
-    .name = "robot_get_battery",
-    .probe = get_battery_tool_probe,
+    .drv.name = "robot_get_battery",
+    .drv.probe = get_battery_tool_probe,
     .execute = tool_robot_get_battery_execute,
 };
 
-const struct tool_device *tool_get_battery_device(void)
+const struct tool_device *tool_robot_get_battery_device(void)
 {
     return &s_get_battery_device;
 }
 
-const struct tool_driver *tool_get_battery_driver(void)
+const struct tool_driver *tool_robot_get_battery_driver(void)
 {
     return &s_get_battery_driver;
 }
@@ -291,17 +291,17 @@ static struct tool_device s_drive_on_charger_device = {
 };
 
 static struct tool_driver s_drive_on_charger_driver = {
-    .name = "robot_drive_on_charger",
-    .probe = drive_on_charger_tool_probe,
+    .drv.name = "robot_drive_on_charger",
+    .drv.probe = drive_on_charger_tool_probe,
     .execute = tool_robot_drive_on_charger_execute,
 };
 
-const struct tool_device *tool_drive_on_charger_device(void)
+const struct tool_device *tool_robot_drive_on_charger_device(void)
 {
     return &s_drive_on_charger_device;
 }
 
-const struct tool_driver *tool_drive_on_charger_driver(void)
+const struct tool_driver *tool_robot_drive_on_charger_driver(void)
 {
     return &s_drive_on_charger_driver;
 }
@@ -320,17 +320,17 @@ static struct tool_device s_drive_off_charger_device = {
 };
 
 static struct tool_driver s_drive_off_charger_driver = {
-    .name = "robot_drive_off_charger",
-    .probe = drive_off_charger_tool_probe,
+    .drv.name = "robot_drive_off_charger",
+    .drv.probe = drive_off_charger_tool_probe,
     .execute = tool_robot_drive_off_charger_execute,
 };
 
-const struct tool_device *tool_drive_off_charger_device(void)
+const struct tool_device *tool_robot_drive_off_charger_device(void)
 {
     return &s_drive_off_charger_device;
 }
 
-const struct tool_driver *tool_drive_off_charger_driver(void)
+const struct tool_driver *tool_robot_drive_off_charger_driver(void)
 {
     return &s_drive_off_charger_driver;
 }

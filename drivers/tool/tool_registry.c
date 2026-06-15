@@ -148,11 +148,29 @@ err_t tool_registry_init(void)
 
     /* 在 tool_bus 上注册通用工具驱动 */
     if (tool_bus) {
-        static struct driver tool_drv = {
-            .name = "tool_generic",
-            .probe = NULL,
-        };
-        driver_register(&tool_drv, tool_bus);
+        driver_register(&tool_weather_driver()->drv, tool_bus);
+        driver_register(&tool_get_time_driver()->drv, tool_bus);
+        driver_register(&tool_apply_patch_driver()->drv, tool_bus);
+        driver_register(&tool_restore_file_driver()->drv, tool_bus);
+        driver_register(&tool_todo_driver()->drv, tool_bus);
+        driver_register(&tool_work_item_driver()->drv, tool_bus);
+        driver_register(&tool_webfetch_driver()->drv, tool_bus);
+        driver_register(&tool_log_driver()->drv, tool_bus);
+        driver_register(&tool_skills_driver()->drv, tool_bus);
+        driver_register(&tool_session_search_driver()->drv, tool_bus);
+        driver_register(&tool_cron_driver()->drv, tool_bus);
+        driver_register(&tool_terminal_driver()->drv, tool_bus);
+        driver_register(&tool_robot_drive_straight_driver()->drv, tool_bus);
+        driver_register(&tool_robot_turn_in_place_driver()->drv, tool_bus);
+        driver_register(&tool_robot_drive_wheels_driver()->drv, tool_bus);
+        driver_register(&tool_robot_set_head_angle_driver()->drv, tool_bus);
+        driver_register(&tool_robot_set_lift_height_driver()->drv, tool_bus);
+        driver_register(&tool_robot_stop_driver()->drv, tool_bus);
+        driver_register(&tool_robot_set_volume_driver()->drv, tool_bus);
+        driver_register(&tool_robot_drive_on_charger_driver()->drv, tool_bus);
+        driver_register(&tool_robot_drive_off_charger_driver()->drv, tool_bus);
+        driver_register(&tool_robot_play_animation_driver()->drv, tool_bus);
+        driver_register(&tool_robot_get_battery_driver()->drv, tool_bus);
     }
 
     tool_weather_init();
@@ -286,8 +304,8 @@ err_t tool_registry_execute(const char *name, const char *input_json,
     /* 优先从 tool_bus 查找 */
     if (tool_bus) {
         struct device *dev = bus_find_device(tool_bus, name);
-        if (dev && dev->drv && dev->drv->priv) {
-            struct tool_driver *tdrv = (struct tool_driver *)dev->drv->priv;
+        if (dev && dev->drv) {
+            struct tool_driver *tdrv = container_of(dev->drv, struct tool_driver, drv);
             pr_info("Executing tool via bus: %s", name);
             return tdrv->execute(input_json, output, output_size);
         }

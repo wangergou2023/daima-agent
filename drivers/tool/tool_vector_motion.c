@@ -248,17 +248,17 @@ static struct tool_device s_drive_straight_device = {
 };
 
 static struct tool_driver s_drive_straight_driver = {
-    .name = "robot_drive_straight",
-    .probe = drive_straight_tool_probe,
+    .drv.name = "robot_drive_straight",
+    .drv.probe = drive_straight_tool_probe,
     .execute = tool_robot_drive_straight_execute,
 };
 
-const struct tool_device *tool_drive_straight_device(void)
+const struct tool_device *tool_robot_drive_straight_device(void)
 {
     return &s_drive_straight_device;
 }
 
-const struct tool_driver *tool_drive_straight_driver(void)
+const struct tool_driver *tool_robot_drive_straight_driver(void)
 {
     return &s_drive_straight_driver;
 }
@@ -277,17 +277,17 @@ static struct tool_device s_turn_in_place_device = {
 };
 
 static struct tool_driver s_turn_in_place_driver = {
-    .name = "robot_turn_in_place",
-    .probe = turn_in_place_tool_probe,
+    .drv.name = "robot_turn_in_place",
+    .drv.probe = turn_in_place_tool_probe,
     .execute = tool_robot_turn_in_place_execute,
 };
 
-const struct tool_device *tool_turn_in_place_device(void)
+const struct tool_device *tool_robot_turn_in_place_device(void)
 {
     return &s_turn_in_place_device;
 }
 
-const struct tool_driver *tool_turn_in_place_driver(void)
+const struct tool_driver *tool_robot_turn_in_place_driver(void)
 {
     return &s_turn_in_place_driver;
 }
@@ -306,17 +306,17 @@ static struct tool_device s_drive_wheels_device = {
 };
 
 static struct tool_driver s_drive_wheels_driver = {
-    .name = "robot_drive_wheels",
-    .probe = drive_wheels_tool_probe,
+    .drv.name = "robot_drive_wheels",
+    .drv.probe = drive_wheels_tool_probe,
     .execute = tool_robot_drive_wheels_execute,
 };
 
-const struct tool_device *tool_drive_wheels_device(void)
+const struct tool_device *tool_robot_drive_wheels_device(void)
 {
     return &s_drive_wheels_device;
 }
 
-const struct tool_driver *tool_drive_wheels_driver(void)
+const struct tool_driver *tool_robot_drive_wheels_driver(void)
 {
     return &s_drive_wheels_driver;
 }

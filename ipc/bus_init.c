@@ -2,23 +2,15 @@
 #include "linux/bus.h"
 #include "linux/printk.h"
 
-/* 三条总线全局实例 */
 struct bus_type *tool_bus;
 struct bus_type *channel_bus;
 struct bus_type *llm_bus;
-
-static int tool_bus_match(struct device *dev, struct driver *drv)
-{
-    (void)dev;
-    (void)drv;
-    return 0;
-}
 
 int bus_init(void)
 {
     pr_info("Initializing bus subsystem...");
 
-    tool_bus = bus_create("tool_bus", tool_bus_match);
+    tool_bus = bus_create("tool_bus", NULL);
     if (!tool_bus) return -1;
 
     channel_bus = bus_create("channel_bus", NULL);

@@ -363,8 +363,8 @@ static struct tool_device s_weather_device = {
 };
 
 static struct tool_driver s_weather_driver = {
-    .name = "weather",
-    .probe = weather_probe,
+    .drv.name = "weather",
+    .drv.probe = weather_probe,
     .execute = tool_weather_execute,
 };
 
