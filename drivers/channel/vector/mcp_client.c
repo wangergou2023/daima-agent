@@ -13,7 +13,7 @@
 #include <sys/wait.h>
 #include <signal.h>
 
-#include "cJSON.h"
+#include "cjson.h"
 #include "linux/printk.h"
 #include "autoconf.h"
 #include "linux/slab.h"

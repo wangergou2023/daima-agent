@@ -10,7 +10,7 @@
 #include "linux/printk.h"
 #include "os.h"
 #include "text.h"
-#include "cJSON.h"
+#include "cjson.h"
 #include "linux/slab.h"
 static int64_t now_ms(void)
 {

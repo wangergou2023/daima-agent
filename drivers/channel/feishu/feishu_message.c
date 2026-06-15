@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "cJSON.h"
+#include "cjson.h"
 #include "linux/kernel.h"
 
 static void trim_ascii_in_place(char *s)

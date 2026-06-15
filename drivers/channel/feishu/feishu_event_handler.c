@@ -14,7 +14,7 @@
 #include "drivers/channel/feishu/feishu_media.h"
 #include "drivers/channel/feishu/feishu_message.h"
 #include "drivers/channel/feishu/feishu_targets.h"
-#include "cJSON.h"
+#include "cjson.h"
 #include "linux/printk.h"
 #include "linux/slab.h"
 #define FEISHU_DEDUP_CACHE_SIZE 64

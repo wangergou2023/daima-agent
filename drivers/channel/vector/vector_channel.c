@@ -16,7 +16,7 @@
 #include "os.h"
 #include "autoconf.h"
 #include "drivers/voice/voice_channel.h"
-#include "cJSON.h"
+#include "cjson.h"
 #include "linux/slab.h"
 #include "linux/kernel.h"
 #define VAD_SAMPLE_RATE       16000

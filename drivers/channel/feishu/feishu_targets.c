@@ -8,7 +8,7 @@
 #include "paths.h"
 #include "runtime.h"
 #include "autoconf.h"
-#include "cJSON.h"
+#include "cjson.h"
 #include "linux/printk.h"
 #include "json_helpers.h"
 #include "linux/slab.h"

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "err.h"
-#include "cJSON.h"
+#include "cjson.h"
 
 typedef struct {
     long status;

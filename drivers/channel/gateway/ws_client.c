@@ -22,7 +22,7 @@
 #include "autoconf.h"
 #include "linux/list.h"
 #include "linux/printk.h"
-#include "cJSON.h"
+#include "cjson.h"
 #include "linux/slab.h"
 #include "linux/kernel.h"
 #define WS_PING_INTERVAL WS_PING_INTERVAL_SEC
