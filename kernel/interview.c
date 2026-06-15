@@ -1,6 +1,6 @@
 #include "interview.h"
 
-#include "cJSON.h"
+#include "cjson.h"
 #include "autoconf.h"
 #include "drivers/llm/llm_proxy.h"
 

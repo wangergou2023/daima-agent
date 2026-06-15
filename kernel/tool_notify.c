@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include "drivers/channel/feishu/feishu_bot.h"
-#include "cJSON.h"
+#include "cjson.h"
 #include "linux/printk.h"
 #include "drivers/channel/gateway/ws_server.h"
 #define FEISHU_TOOL_ACTIVITY_SLOW_MS 1500

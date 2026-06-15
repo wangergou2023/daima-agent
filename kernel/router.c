@@ -2,7 +2,7 @@
 
 #include "paths.h"
 #include "runtime.h"
-#include "cJSON.h"
+#include "cjson.h"
 #include "autoconf.h"
 #include "linux/printk.h"
 #include "text.h"

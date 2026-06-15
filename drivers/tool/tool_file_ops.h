@@ -7,7 +7,7 @@
 #include <stdio.h>
 
 #include "err.h"
-#include "cJSON.h"
+#include "cjson.h"
 
 int tool_files_clamp_int(int value, int min_value, int max_value);
 int tool_files_json_get_int_default(cJSON *obj, const char *key, int default_value);

@@ -2,7 +2,7 @@
 
 #include "err.h"
 #include "drivers/llm/llm_proxy.h"
-#include "cJSON.h"
+#include "cjson.h"
 
 #include <stdbool.h>
 

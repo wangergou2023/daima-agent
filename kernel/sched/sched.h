@@ -9,7 +9,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#include "cJSON.h"
+#include "cjson.h"
 
 #define SCHED_MAX_AGENTS 4
 #define SCHED_CLASSES 3

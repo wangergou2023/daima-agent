@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#include "cJSON.h"
+#include "cjson.h"
 
 #define RUNTIME_PROVIDER_NAME_MAX 64
 #define RUNTIME_STRING_SMALL_MAX  32

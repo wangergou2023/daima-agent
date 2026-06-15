@@ -4,7 +4,7 @@
 
 #include "plan.h"
 #include "bus.h"
-#include "cJSON.h"
+#include "cjson.h"
 #include "err.h"
 
 err_t agent_turn_prepare(

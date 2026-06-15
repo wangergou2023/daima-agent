@@ -6,7 +6,7 @@
 #pragma once
 
 #include "err.h"
-#include "cJSON.h"
+#include "cjson.h"
 #include <stddef.h>
 #include <stdbool.h>
 

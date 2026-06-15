@@ -5,7 +5,7 @@
 #include <string.h>
 
 #include "tool_notify.h"
-#include "cJSON.h"
+#include "cjson.h"
 #include "linux/printk.h"
 #include "text.h"
 #include "linux/kernel.h"

@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "cJSON.h"
+#include "cjson.h"
 #include "linux/slab.h"
 
 #ifdef __cplusplus

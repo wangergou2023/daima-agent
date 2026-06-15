@@ -7,7 +7,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "cJSON.h"
+#include "cjson.h"
 #include "autoconf.h"
 #include "linux/printk.h"
 #include "linux/slab.h"

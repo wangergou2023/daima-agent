@@ -23,7 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "cJSON.h"
+#include "cjson.h"
 #include "linux/slab.h"
 static void agent_loop_task(void *arg)
 {

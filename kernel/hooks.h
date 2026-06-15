@@ -2,7 +2,7 @@
 
 #include "turn_common.h"
 #include "err.h"
-#include "cJSON.h"
+#include "cjson.h"
 
 #include <stdbool.h>
 #include <stddef.h>

@@ -1,7 +1,7 @@
 #include "ralph.h"
 
 #include "paths.h"
-#include "cJSON.h"
+#include "cjson.h"
 #include "autoconf.h"
 
 #include <stdio.h>

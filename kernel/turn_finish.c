@@ -9,7 +9,7 @@
 #include "recovery.h"
 #include "todo.h"
 #include "paths.h"
-#include "cJSON.h"
+#include "cjson.h"
 #include "autoconf.h"
 #include "linux/kernel.h"
 #include "linux/printk.h"

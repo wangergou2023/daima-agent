@@ -4,7 +4,7 @@
 #include "env.h"
 #include "linux/printk.h"
 #include "drivers/llm/llm_proxy.h"
-#include "cJSON.h"
+#include "cjson.h"
 
 #include <ctype.h>
 #include <stddef.h>

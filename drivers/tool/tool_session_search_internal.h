@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <time.h>
 
-#include "cJSON.h"
+#include "cjson.h"
 
 #define SESSION_SEARCH_CHAT_ID_SIZE  64
 #define SESSION_SEARCH_ROLE_SIZE     24

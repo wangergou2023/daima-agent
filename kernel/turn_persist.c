@@ -11,7 +11,7 @@
 #include "bus.h"
 #include "drivers/memory/session_store.h"
 #include "linux/printk.h"
-#include "cJSON.h"
+#include "cjson.h"
 #include "linux/slab.h"
 static bool should_save_assistant_reply(const struct message *msg, const char *final_text)
 {
