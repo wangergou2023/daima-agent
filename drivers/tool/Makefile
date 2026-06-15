@@ -9,3 +9,4 @@ obj-y += tool_session_search_scan.o tool_session_search_render.o
 obj-y += tool_weather_host.o tool_get_time_host.o
 obj-y += tool_vector_motion.o tool_vector_body.o tool_vector_audio.o tool_vector_anim.o tool_vector_status.o
 obj-y += tool_hashline.o tool_safe_edit.o
+obj-y += tool_custom.o

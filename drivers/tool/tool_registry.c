@@ -13,6 +13,7 @@
 #include "drivers/tool/tool_skills.h"
 #include "drivers/tool/tool_session_search.h"
 #include "drivers/tool/tool_vector_common.h"
+#include "drivers/tool/tool_custom.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -215,6 +216,9 @@ err_t tool_registry_init(void)
 
     build_tools_json();
 
+    /* 加载自定义工具 (spiffs_data/custom_tools.json) */
+    tool_custom_load_default();
+
     pr_info("Tool registry initialized");
     return 0;
 }
@@ -305,6 +309,10 @@ err_t tool_registry_execute(const char *name, const char *input_json,
     if (tool_bus) {
         struct device *dev = bus_find_device(tool_bus, name);
         if (dev && dev->drv) {
+            /* 先检查是否自定义 tool */
+            err_t custom_err = tool_custom_execute(name, input_json, output, output_size);
+            if (custom_err != ERR_NOT_FOUND) return custom_err;
+
             struct tool_driver *tdrv = container_of(dev->drv, struct tool_driver, drv);
             pr_info("Executing tool via bus: %s", name);
             return tdrv->execute(input_json, output, output_size);
