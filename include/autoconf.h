@@ -2,7 +2,7 @@
 
 #pragma once
 
-/* Daima 全局配置
+/* Agent 全局配置
  * - 以编译期宏为默认
  * - 运行时业务配置统一来自 spiffs_data/config/config.json
  */

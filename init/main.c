@@ -61,7 +61,7 @@ int main(int argc, char **argv)
     tzset();
 
     pr_info("========================================");
-    pr_info("  Daima - Host AI Agent (Linux)");
+    pr_info("  Agent - Host AI Agent (Linux)");
     pr_info("========================================");
     pr_info("Free memory: %d bytes", (int)platform_free_memory());
     pr_info("Timezone: %s", runtime_tz);
@@ -83,7 +83,7 @@ int main(int argc, char **argv)
     pr_info("All services started!");
     char host_ip[INET_ADDRSTRLEN] = "0.0.0.0";
     bootstrap_get_primary_ipv4(host_ip, sizeof(host_ip));
-    pr_info("代马 Daima 已就绪，Web UI: http://%s:%d", host_ip, runtime_config_get_web_port());
+    pr_info("Agent 已就绪，Web UI: http://%s:%d", host_ip, runtime_config_get_web_port());
 
     while (1) {
         sleep(1);

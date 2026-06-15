@@ -16,7 +16,7 @@ license: Proprietary. LICENSE.txt has complete terms
 
 ---
 
-## Daima Tool Rules
+## Agent Tool Rules
 
 For ordinary create-from-scratch requests such as "帮我生成一个ppt,内容是关于三角函数的", do not read the entire `pptxgenjs.md` tutorial and do not write a large custom `make_pptx.js`. Use the fixed generator workflow first:
 
@@ -82,7 +82,7 @@ Then run:
 {"command":"node check_deps.js","timeout":30}
 ```
 
-If dependencies are missing, install them in Daima workspace:
+If dependencies are missing, install them in Agent workspace:
 
 ```json
 {"command":"npm install pptxgenjs react react-dom react-icons sharp","timeout":300}
@@ -91,9 +91,9 @@ If dependencies are missing, install them in Daima workspace:
 Do not use:
 
 - Calling tools with `{}` or placeholder paths such as `/path/to/file`.
-- `terminal` commands using `node -e`, `node --eval`, `python -c`, `python3 -c`, `perl -e`, or `ruby -e`; Daima blocks inline code execution. Put code in a script file, then run the file.
+- `terminal` commands using `node -e`, `node --eval`, `python -c`, `python3 -c`, `perl -e`, or `ruby -e`; Agent blocks inline code execution. Put code in a script file, then run the file.
 - `cd ... && node ...`; prefer `terminal`'s `workdir` field.
-- Project repo paths as dependency install targets unless the user explicitly asks to modify that project. Use Daima workspace for generated PPT helper dependencies.
+- Project repo paths as dependency install targets unless the user explicitly asks to modify that project. Use Agent workspace for generated PPT helper dependencies.
 
 ## Reading Content
 
@@ -121,7 +121,7 @@ python scripts/office/unpack.py presentation.pptx unpacked/
 
 ## Creating from Scratch
 
-For ordinary no-template decks, create `deck_spec.json` and run `scripts/generate_deck.js` as described in Daima Tool Rules.
+For ordinary no-template decks, create `deck_spec.json` and run `scripts/generate_deck.js` as described in Agent Tool Rules.
 
 Read [pptxgenjs.md](pptxgenjs.md) only for advanced custom generation that the fixed generator cannot handle.
 
@@ -306,6 +306,6 @@ pdftoppm -jpeg -r 150 -f N -l N output.pdf slide-fixed
 
 - `pip install "markitdown[pptx]"` - text extraction
 - `pip install Pillow` - thumbnail grids
-- `npm install pptxgenjs react react-dom react-icons sharp` - creating from scratch in Daima workspace
+- `npm install pptxgenjs react react-dom react-icons sharp` - creating from scratch in Agent workspace
 - LibreOffice (`soffice`) - PDF conversion (auto-configured for sandboxed environments via `scripts/office/soffice.py`)
 - Poppler (`pdftoppm`) - PDF to images

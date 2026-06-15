@@ -236,7 +236,7 @@ static void run_review_for_chat(const char *chat_id)
     snprintf(
         prompt,
         REVIEW_PROMPT_BUF_SIZE,
-        "你是代马（Daima）的后台学习复盘助手。请根据最近会话，提炼两类内容：\n"
+        "你是Agent的后台学习复盘助手。请根据最近会话，提炼两类内容：\n"
         "1. 值得写入长期记忆的稳定事实（用户偏好、环境信息、长期约束）\n"
         "2. 值得更新/创建技能的可复用经验\n\n"
         "规则：\n"

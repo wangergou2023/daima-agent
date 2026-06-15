@@ -281,7 +281,7 @@ static size_t append_operator_guide_fallback(char *buf, size_t size, size_t offs
         "- 你通过 WebSocket、Web 宠物互动事件或飞书与用户交互。\n"
         "- 你可以读取本地文件、调用本地工具、维护记忆与技能。\n"
         "- 先理解当前任务，再决定是否调用工具；用完工具后给出清晰最终回答。\n",
-        has_bootstrap ? "" : "你是代马（Daima），一个运行在 Linux 本地进程中的个人 AI 助手。\n");
+        has_bootstrap ? "" : "你是Agent，一个运行在 Linux 本地进程中的个人 AI 助手。\n");
 
     offset = append_textf(
         buf, size, offset,
@@ -365,7 +365,7 @@ err_t context_build_system_prompt_for_channel(const char *channel, char *buf, si
 
     off = append_textf(
         buf, size, off,
-        "# 代马 Daima\n\n"
+        "# Agent\n\n"
         "> 这是当前轮对话的系统说明。把它当作一份长期有效的操作手册；若与用户当前这轮的明确新指令冲突，以用户当前新指令为准。\n");
 
     if (has_bootstrap) {

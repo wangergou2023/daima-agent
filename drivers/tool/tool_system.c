@@ -23,14 +23,14 @@
 
 static const struct tool s_terminal_tool = {
     .name = "terminal",
-    .description = "执行本地 shell 命令并返回结构化结果。默认 workdir 是 Daima 自己的 workspace，不是启动目录；临时脚本、生成文件和 npm install 等依赖安装默认应留在该 workspace。只有需要操作明确项目时才传入项目 workdir。返回 JSON 字符串，包含 output、exit_code、timed_out、workdir。对于 apt-get/apt/yum/dnf/pip install/npm install 等安装、更新命令，请显式设置更长 timeout（如 300 或 600 秒），避免默认 120 秒超时。",
+    .description = "执行本地 shell 命令并返回结构化结果。默认 workdir 是 Agent 自己的 workspace，不是启动目录；临时脚本、生成文件和 npm install 等依赖安装默认应留在该 workspace。只有需要操作明确项目时才传入项目 workdir。返回 JSON 字符串，包含 output、exit_code、timed_out、workdir。对于 apt-get/apt/yum/dnf/pip install/npm install 等安装、更新命令，请显式设置更长 timeout（如 300 或 600 秒），避免默认 120 秒超时。",
     .input_schema_json =
         "{\"type\":\"object\","
         "\"properties\":{"
         "\"command\":{\"type\":\"string\",\"description\":\"要执行的 shell 命令\"},"
         "\"cmd\":{\"type\":\"string\",\"description\":\"兼容字段（同 command）\"},"
         "\"timeout\":{\"type\":\"integer\",\"description\":\"超时秒数，默认 120。安装软件、更新包索引、构建大项目时建议设置为 300 或 600\"},"
-        "\"workdir\":{\"type\":\"string\",\"description\":\"可选工作目录；为空则使用 Daima workspace。只有明确要操作某个项目时才传项目路径\"}"
+        "\"workdir\":{\"type\":\"string\",\"description\":\"可选工作目录；为空则使用 Agent workspace。只有明确要操作某个项目时才传项目路径\"}"
         "},"
         "\"required\":[\"command\"]}",
     .execute = tool_terminal_execute,

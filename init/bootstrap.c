@@ -32,7 +32,7 @@ void bootstrap_print_usage(const char *prog)
 {
     printf("Usage: %s [--help]\n", prog);
     printf("\n");
-    printf("Daima home: %s\n", path_home());
+    printf("Agent home: %s\n", path_home());
     printf("Runtime configuration is loaded from %s\n", path_runtime_config_file());
     printf("Example template: %s/config.example.json\n", path_config_dir());
 }

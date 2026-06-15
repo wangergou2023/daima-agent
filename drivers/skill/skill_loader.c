@@ -82,7 +82,7 @@ static skill_summary_cache_entry_t s_summary_cache[SKILL_SUMMARY_CACHE_MAX];
 #define BUILTIN_SKILL_CREATOR \
     "# 技能创建器\n" \
     "\n" \
-    "这是 Claude Skill Creator 插件工作流在 Daima 中的本地适配版。Daima 不能直接执行 Claude Code 的 `/skill-creator` 插件命令；遇到创建或维护技能的请求时，按下面四种模式工作，并输出适合 Daima 的技能文件。\n" \
+    "这是 Claude Skill Creator 插件工作流在 Agent 中的本地适配版。Agent 不能直接执行 Claude Code 的 `/skill-creator` 插件命令；遇到创建或维护技能的请求时，按下面四种模式工作，并输出适合 Agent 的技能文件。\n" \
     "\n" \
     "## 何时使用\n" \
     "\n" \
@@ -101,7 +101,7 @@ static skill_summary_cache_entry_t s_summary_cache[SKILL_SUMMARY_CACHE_MAX];
     "\n" \
     "1. 明确技能目标、触发条件、输入输出、可用工具和保存位置。\n" \
     "2. 选择简短、清晰的目录名：小写英文，可用连字符，例如 `code-review`。\n" \
-    "3. 写出 Daima 技能文件，路径固定为 `spiffs_data/skills/<name>/SKILL.md`；运行时绝对路径可用当前 Daima skills 目录。\n" \
+    "3. 写出 Agent 技能文件，路径固定为 `spiffs_data/skills/<name>/SKILL.md`；运行时绝对路径可用当前 Agent skills 目录。\n" \
     "4. `SKILL.md` 必须包含 YAML front matter：\n" \
     "   - `---`\n" \
     "   - `name: <技能名>`\n" \
@@ -121,7 +121,7 @@ static skill_summary_cache_entry_t s_summary_cache[SKILL_SUMMARY_CACHE_MAX];
     "1. 使用 `skills action=view` 读取目标技能；必要时用 `files action=read` 查看关联文件。\n" \
     "2. 检查 front matter 是否包含可解析的 `name` 和 `description`。\n" \
     "3. 检查触发条件是否具体：既不能宽到抢占无关任务，也不能窄到常见表达无法触发。\n" \
-    "4. 检查步骤是否引用 Daima 中真实可用的工具，例如 `files`、`apply_patch`、`terminal`、`skills`。\n" \
+    "4. 检查步骤是否引用 Agent 中真实可用的工具，例如 `files`、`apply_patch`、`terminal`、`skills`。\n" \
     "5. 检查路径是否符合当前环境，技能应保存到 `spiffs_data/skills/<name>/SKILL.md` 或运行时 skills 目录。\n" \
     "6. 输出结论：通过、需要改进，或不建议使用；列出具体问题和修改建议。\n" \
     "\n" \
@@ -129,7 +129,7 @@ static skill_summary_cache_entry_t s_summary_cache[SKILL_SUMMARY_CACHE_MAX];
     "\n" \
     "1. 先用 Eval 找出问题，不要盲目重写。\n" \
     "2. 保留技能原本目标，只改触发条件、步骤、工具名、路径或示例中会导致失败的部分。\n" \
-    "3. 删除过度泛化、重复、和 Daima 环境不匹配的内容。\n" \
+    "3. 删除过度泛化、重复、和 Agent 环境不匹配的内容。\n" \
     "4. 用 `apply_patch` 写回原路径；或在用户要求时另存为新技能。\n" \
     "5. 给出改动摘要和建议的 Benchmark 提示。\n" \
     "\n" \
@@ -145,8 +145,8 @@ static skill_summary_cache_entry_t s_summary_cache[SKILL_SUMMARY_CACHE_MAX];
     "- 技能描述必须能帮助系统判断“何时使用”。\n" \
     "- 技能正文写操作规则，不写泛泛的能力宣传。\n" \
     "- 工具名和路径必须真实可用；优先使用 `skills`、`files`、`apply_patch`、`terminal`。\n" \
-    "- 需要临时执行代码时，先用 `apply_patch` 新建脚本文件，再用 `terminal` 执行脚本；默认工作目录是 Daima workspace。只有明确操作某个项目时才传项目 `workdir`。不要使用 `node -e`、`python -c` 或 `cd ... && ...`。\n" \
-    "- 不要把 Claude Code 专属命令写成 Daima 可执行命令；`/skill-creator` 只作为参考工作流名称。\n" \
+    "- 需要临时执行代码时，先用 `apply_patch` 新建脚本文件，再用 `terminal` 执行脚本；默认工作目录是 Agent workspace。只有明确操作某个项目时才传项目 `workdir`。不要使用 `node -e`、`python -c` 或 `cd ... && ...`。\n" \
+    "- 不要把 Claude Code 专属命令写成 Agent 可执行命令；`/skill-creator` 只作为参考工作流名称。\n" \
     "- 技能要短而具体，避免把完整项目计划塞进单个技能。\n"
 
 #define BUILTIN_MENU_XIANREN \

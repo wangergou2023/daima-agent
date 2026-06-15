@@ -34,11 +34,11 @@ path.write_text(text[:start] + text[finish:])
 PY
 }
 
-echo "=== Uninstalling Daima from $AGENT_HOME ==="
+echo "=== Uninstalling Agent from $AGENT_HOME ==="
 rm -rf "$AGENT_HOME"
 remove_path_snippet "$BASHRC"
 
 echo ""
-echo "Daima removed."
+echo "Agent removed."
 echo "Reload your shell to refresh PATH:"
 echo "  source ~/.bashrc"

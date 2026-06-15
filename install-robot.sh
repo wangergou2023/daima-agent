@@ -8,7 +8,7 @@ AGENT_HOME="${AGENT_HOME:-/data/agent-data}"
 BIN_DIR="$AGENT_HOME/bin"
 SPIFFS_DIR="$AGENT_HOME/spiffs_data"
 
-echo "=== Daima Robot Install ==="
+echo "=== Agent Robot Install ==="
 echo "Home: $AGENT_HOME"
 
 mkdir -p "$BIN_DIR" "$SPIFFS_DIR"/{config,web,skills,ca,memory,sessions,cache}

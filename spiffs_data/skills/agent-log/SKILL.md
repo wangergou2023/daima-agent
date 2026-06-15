@@ -1,11 +1,11 @@
 ---
-name: Daima 日志诊断
+name: Agent 日志诊断
 description: 当用户遇到工具执行失败、系统异常、LLM API 报错或追问失败原因时使用。
 ---
 
-# Daima 日志诊断
+# Agent 日志诊断
 
-Daima 运行日志会写入环形日志文件，可通过 `log_tool` 工具按 tail、search、errors 等方式读取。
+Agent 运行日志会写入环形日志文件，可通过 `log_tool` 工具按 tail、search、errors 等方式读取。
 
 ## 何时使用
 

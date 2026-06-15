@@ -32,11 +32,11 @@ static const char *UI_FALLBACK_HTML =
     "<head>\n"
     "  <meta charset=\"utf-8\" />\n"
     "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n"
-    "  <title>代马 Daima</title>\n"
+    "  <title>Agent</title>\n"
     "</head>\n"
     "<body>\n"
-    "  <h1>代马 Daima</h1>\n"
-    "  <p>Web UI assets are missing. Please make sure index.html, app.css, and app.js exist under the Daima web data directory.</p>\n"
+    "  <h1>Agent</h1>\n"
+    "  <p>Web UI assets are missing. Please make sure index.html, app.css, and app.js exist under the Agent web data directory.</p>\n"
     "</body>\n"
     "</html>\n";
 
