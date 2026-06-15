@@ -57,6 +57,8 @@ REPORTING-BUGS  ✅ Bug 报告指南                  ✅                    完
 | kernel/exit.c | Agent 销毁 (do_exit 风格) | 0.5h |
 | kernel/sysctl.c | 运行时参数 (/proc/sys 风格) | 1h |
 | scripts/kernel-doc | 内核文档生成工具 | 0.5h |
+| mcp_bus (python/terminal/...) | MCP 底层能力注册到 mcp_bus | 2h |
+| skill_module | 三层模型：容器管理 device 的 load/unload | 3h |
 
 ### 🟡 中优先级
 
@@ -146,6 +148,7 @@ tool_bus:  25 个工具 → tool_generic (catch-all driver)
 channel_bus: feishu/vector/voice/gateway → name match
 llm_bus:   openai_compatible + anthropic_compatible
 mcp_bus:   (空，待实现)
+skill_module: 概念已定义，三层模型 (device/driver/module)
 ```
 
 ### 细节对齐

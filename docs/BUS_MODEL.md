@@ -11,12 +11,24 @@ tool_bus (25 个工具)       ✅  catch-all match → tool_generic driver
 channel_bus (4 个通道)     ✅  feishu/vector/voice/gateway → name match
 llm_bus (2 个协议驱动)      ✅  openai_compatible + anthropic_compatible
 mcp_bus                   ❌ 空，待实现
-Skill 依赖 probe           ❌ 待实现（需 mcp_bus 先就位）
+skill_module (三层模型)     ❌ 概念已定义，待实现（需 mcp_bus 先就位）
 JSON 设备树解析             ❌ 待实现
 热插拔 reprobe 链          ❌ 待实现
 ```
 
 ## 核心概念
+
+### 三层模型
+
+和 Linux 内核一样，Agent 架构也分三层：
+
+| 层 | 内核对应 | Agent 对应 | 是什么 |
+|----|---------|-----------|--------|
+| 设备层 | `struct device` | `struct device` | **被发现的事实**。不是代码，只声明"我存在，我需要 XXX"。几乎零代码量。 |
+| 驱动层 | `struct driver` | `struct driver` | **执行逻辑**。全是代码：怎么 probe、怎么执行、怎么 remove。 |
+| 模块层 | `struct module` / `insmod` | `struct skill_module` | **容器**。打包一组 device，管理加载/卸载/跨 bus 依赖。 |
+
+### 总线匹配
 
 | 内核概念 | Agent 实现 | 含义 |
 |----------|-----------|------|
@@ -26,6 +38,7 @@ JSON 设备树解析             ❌ 待实现
 | `probe()` | `probe()` | 检查依赖是否满足 → 绑定 |
 | device tree | `spiffs_data/` | JSON 文件描述设备资源 |
 | name match | name match | 字符串精确匹配 |
+| `insmod/rmmod` | `skill_module.{load,unload}` | 加载/卸载一组设备 |
 
 ## 设计原则
 
@@ -85,25 +98,76 @@ webfetch     → tool_bus → name match → probe → execute
 └────────────────────────────────────────────────────────┘
 ```
 
-## Skill 的特殊之处: 有依赖的 probe
+## Skill 不是设备，也不是驱动
 
-普通 tool 的 probe 什么也不检查，skill 的 probe 会验证依赖是否满足：
+Skill（如 pptx）是**模块层**的东西——它既不是 device 也不是 driver，而是它们的容器。
 
-```c
-// 普通 tool: probe 直接 bind
-static int tool_files_probe(struct device *dev) {
-    return 0;
-}
+### 为什么需要第三层
 
-// skill tool: probe 检查依赖
-static int skill_pptx_probe(struct device *dev) {
-    if (!bus_device_exists("mcp_bus", "python"))
-        return -ENODEV;   // python 不可用 → 不注册
-    return 0;              // python 可用 → 注册为 Agent 工具
-}
+```
+一个 Skill "pptx" 要往 tool_bus 上挂多个 tool:
+  pptx_generate  → 需要 python
+  pptx_to_pdf    → 需要 libreoffice
+  pptx_thumbnail → 需要 imagemagick
+
+这些 tool 共享一组 mcp_bus 依赖，需要统一的加载/卸载生命周期。
 ```
 
-对 Agent 完全透明 —— python 不可用时，pptx 直接从工具列表消失。
+### skill_module — 对应内核 `struct module`
+
+```c
+struct skill_module {
+    const char *name;              // "pptx"
+    const char *description;       // from SKILL.md front matter
+    struct device *devices;        // 要注册到 tool_bus 的 device 列表
+    int device_count;
+    struct dependency *deps;       // 跨 bus 的全局依赖
+
+    int (*probe)(void);            // 检查所有依赖的 mcp 是否就位
+    int (*load)(void);             // 注册所有 device 到对应 bus
+    void (*unload)(void);          // 卸载所有 device
+};
+```
+
+### 三层调用链
+
+```
+用户说"做个PPT"
+  │
+  ├── skill_router: 匹配到 skill_module "pptx"
+  │
+  ├── skill_module->probe()
+  │     └── bus_device_exists("mcp_bus", "python")     → ✅
+  │     └── bus_device_exists("mcp_bus", "libreoffice") → ✅
+  │     └── 全满足 → return 0
+  │
+  ├── skill_module->load()
+  │     ├── device_register("pptx_generate", tool_bus)
+  │     │     └── bus_probe: match → driver "python_mcp_executor"
+  │     ├── device_register("pptx_to_pdf", tool_bus)
+  │     │     └── bus_probe: match → driver "libreoffice_executor"
+  │     └── LLM 工具列表自动增加这 2 个 tool
+  │
+  └── turn 结束: skill_module->unload()
+        ├── device_unregister("pptx_generate")
+        └── device_unregister("pptx_to_pdf")
+```
+
+### 对比: Skill 不是 driver
+
+```
+❌ 错误理解:
+  skill = driver (probe → execute)
+
+✅ 正确理解:
+  skill_module "pptx"          ← 容器层：加载/卸载/依赖管理
+    ├── device "pptx_generate"  ← 声明层
+    │    └── driver "python_mcp_executor"  ← 执行层
+    └── device "pptx_to_pdf"    ← 声明层
+         └── driver "libreoffice_executor"  ← 执行层
+```
+
+普通 tool（weather, terminal）没有模块层——它们是单 device，不需要容器管理。只有 skill 这种"一组 tool + 共享依赖"的才需要 skill_module。
 
 ## 数据结构
 
@@ -134,6 +198,19 @@ struct driver {
     int (*probe)(struct device *dev);
     void (*remove)(struct device *dev);
     void *ops;              // execute 函数等
+};
+
+struct skill_module {
+    const char *name;              // "pptx"
+    const char *description;       // 来自 SKILL.md front matter
+    struct device *devices;        // 要注册的 device 列表
+    int device_count;
+    struct dependency *deps;       // 跨 bus 全局依赖
+    int dep_count;
+
+    int (*probe)(void);            // 检查所有 mcp 依赖是否就位
+    int (*load)(void);             // 注册所有 device
+    void (*unload)(void);          // 卸载所有 device
 };
 ```
 
@@ -230,17 +307,33 @@ driver_register(&tool_files_read_driver, &tool_bus);
 driver_register(&skill_pptx_driver, &tool_bus);
 driver_register(&mcp_python_driver, &mcp_bus);
 
-// 3. 设备树解析
+// 3. 设备树解析（普通 tool）
 parse_device_tree("spiffs_data/tools/device.json", &tool_bus);
-parse_device_tree("spiffs_data/skills/*/device.json", &tool_bus);
-parse_device_tree("spiffs_data/config/config.json", &llm_bus);
 
-// 4. 自动 probe
+// 4. Skill 模块加载（通过 skill_module）
+skill_module_load(&skill_pptx);
+//   ↓ 内部流程:
+//   skill_module->probe()
+//     → bus_device_exists("mcp_bus", "python")     ✅
+//     → bus_device_exists("mcp_bus", "libreoffice") ✅
+//   skill_module->load()
+//     → device_register("pptx_generate", tool_bus)
+//     → device_register("pptx_to_pdf", tool_bus)
+//     → bus_probe_all(tool_bus)
+
+// 5. 自动 probe
 bus_probe_all(&tool_bus);
 // 结果:
-//   read_file → bind ✅
-//   pptx      → python 可用 → bind ✅
-//   pdf       → libreoffice 不可用 → unbind ❌
+//   read_file      → bind ✅
+//   pptx_generate  → bind ✅  (python 可用)
+//   pptx_to_pdf    → bind ✅  (libreoffice 可用)
+//   pdf_generate   → probe 失败 ❌ (libreoffice 不可用)
+
+// 6. 模块卸载 — turn 结束时
+skill_module_unload(&skill_pptx);
+//   → device_unregister("pptx_generate")
+//   → device_unregister("pptx_to_pdf")
+//   → LLM 工具列表自动移除这 2 个 tool
 ```
 
 ## 为什么是创新
@@ -377,6 +470,40 @@ device_register(dev, bus)
               │     └── ≠0 (不匹配) → 继续下一个 driver
               │
               └── 无 driver 匹配 → 设备保留在总线，等待 driver 注册
+```
+
+### 三层架构 (Skill Module 生命周期)
+
+```
+                        ┌─────────────────────────┐
+                        │    skill_module "pptx"   │  ← 容器层
+                        │  probe() → 检查 mcp 依赖  │
+                        │  load()  → 注册所有 device│
+                        │  unload()→ 卸载所有 device│
+                        └──────────┬──────────────┘
+                                   │
+              ┌────────────────────┼────────────────────┐
+              │                    │                    │
+    ┌─────────┴─────────┐ ┌───────┴──────────┐ ┌───────┴──────────┐
+    │ device            │ │ device           │ │ device           │  ← 声明层
+    │ "pptx_generate"   │ │ "pptx_to_pdf"    │ │ "pptx_thumbnail"  │
+    │ deps: [python]    │ │ deps: [libreoff] │ │ deps: [imagemag]  │
+    └────────┬──────────┘ └───────┬──────────┘ └───────┬──────────┘
+             │                    │                    │
+    tool_bus ┤            tool_bus ┤            tool_bus ┤
+             │                    │                    │
+    ┌────────┴──────────┐ ┌───────┴──────────┐ ┌───────┴──────────┐
+    │ driver            │ │ driver           │ │ driver           │  ← 执行层
+    │ "python_mcp"      │ │ "libreoffice_mcp"│ │ "imagemagick_mcp" │
+    └───────────────────┘ └──────────────────┘ └───────────────────┘
+             │                    │                    │
+             └────────────────────┼────────────────────┘
+                                  │
+                         ┌────────┴──────────┐
+                         │     mcp_bus       │  ← 这些 driver 实际
+                         │ python/libreoffice│     挂在 mcp_bus 上
+                         │ imagemagick       │
+                         └───────────────────┘
 ```
 
 ### 当前文件结构
