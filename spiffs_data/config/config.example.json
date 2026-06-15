@@ -1,88 +1,70 @@
 {
-  "common": {
-    "timezone": "CST-8",
-    "context_limit_tokens": 0,
-    "session_max_msgs": 96,
-    "max_output_tokens": 4096,
-    "compress_trigger_msgs": 12,
-    "compress_keep_msgs": 6,
-    "learning_review_enabled": false,
-    "web_port": 1234,
-    "terminal_security_level": "build",
-    "cron_check_interval_ms": 60000,
-    "heartbeat_interval_ms": 1800000
-  },
-  "web": {
-    "default_pet_package_id": "guga.codex-pet"
-  },
-  "active_provider": "ingenic_local",
-  "providers": {
-    "moonshot": {
-      "api_key": "<your-moonshot-api-key>",
-      "openai_base_url": "https://api.moonshot.cn/v1",
-      "model": "kimi-k2.6",
-      "api_mode": "chat_completions",
-      "context_limit_tokens": 256000,
-      "thinking_mode": "omit",
-      "reasoning_effort": "medium",
-      "needs_reasoning_content": true,
-      "max_output_tokens": 8192,
-      "request_timeout_ms": 300000
+    "common": {
+        "timezone": "UTC",
+        "context_limit_tokens": 0,
+        "session_max_msgs": 96,
+        "compress_trigger_msgs": 12,
+        "compress_keep_msgs": 6,
+        "web_port": 1234,
+        "cron_check_interval_ms": 60000,
+        "heartbeat_interval_ms": 1800000
     },
-    "ingenic_local": {
-      "api_key": "<your-local-proxy-api-key>",
-      "openai_base_url": "http://127.0.0.1:4000/v1",
-      "model": "deepseek-v4-pro-hermes",
-      "api_mode": "chat_completions",
-      "context_limit_tokens": 128000,
-      "thinking_mode": "enabled",
-      "reasoning_effort": "high",
-      "needs_reasoning_content": true,
-      "max_output_tokens": 16384,
-      "request_timeout_ms": 300000
+    "web": {
+        "default_pet_package_id": ""
     },
-    "ingenic_local_deepseek": {
-      "api_key": "<your-local-proxy-api-key>",
-      "openai_base_url": "http://10.3.20.46:4000",
-      "model": "deepseek-v4-pro",
-      "api_mode": "anthropic_messages",
-      "context_limit_tokens": 128000,
-      "thinking_mode": "omit",
-      "reasoning_effort": "medium",
-      "needs_reasoning_content": false,
-      "max_output_tokens": 16384,
-      "request_timeout_ms": 300000
+    "vector": {
+        "enabled": false
     },
-    "deepseek_anthropic": {
-      "api_key": "<your-deepseek-api-key>",
-      "openai_base_url": "https://api.deepseek.com/anthropic",
-      "model": "deepseek-v4-pro",
-      "api_mode": "anthropic_messages",
-      "context_limit_tokens": 128000,
-      "thinking_mode": "omit",
-      "reasoning_effort": "medium",
-      "needs_reasoning_content": false,
-      "max_output_tokens": 16384,
-      "request_timeout_ms": 300000
+    "category_routing": {
+        "enabled": true,
+        "categories": {
+            "deep":  "your_deep_provider",
+            "quick": "your_quick_provider"
+        },
+        "intent_map": {
+            "qa":           "quick",
+            "implement":    "deep",
+            "investigate":  "deep",
+            "fix":          "deep",
+            "open":         "quick"
+        },
+        "role_model_map": {
+            "FAST":         "quick",
+            "PLANNER":      "deep",
+            "EXECUTOR":     "deep",
+            "REVIEWER":     "deep"
+        }
+    },
+    "active_provider": "your_provider_name",
+    "providers": {
+        "your_provider_name": {
+            "api_key": "sk-xxxxxxxxxxxxxxxxxxxxx",
+            "openai_base_url": "https://api.openai.com/v1",
+            "model": "gpt-4o-mini",
+            "context_limit_tokens": 128000,
+            "thinking_mode": "omit",
+            "needs_reasoning_content": true,
+            "max_output_tokens": 16384,
+            "request_timeout_ms": 300000
+        }
+    },
+    "feishu": {
+        "app_id": "",
+        "app_secret": "",
+        "default_chat_id": ""
+    },
+    "audio": {
+        "bigmodel_api_key": "",
+        "ao_vol": 60,
+        "ao_gain": 20,
+        "ai_vol": 60,
+        "ai_gain": 23,
+        "voice_record_ms": 3000
+    },
+    "mips": {
+        "wake_gpio_num": 64,
+        "wake_gpio_active_low": 1,
+        "wake_gpio_poll_ms": 20,
+        "wake_gpio_debounce_ms": 200
     }
-  },
-  "feishu": {
-    "app_id": "<your-feishu-app-id>",
-    "app_secret": "<your-feishu-app-secret>",
-    "default_chat_id": ""
-  },
-  "audio": {
-    "bigmodel_api_key": "<your-bigmodel-api-key>",
-    "ao_vol": 60,
-    "ao_gain": 20,
-    "ai_vol": 60,
-    "ai_gain": 23,
-    "voice_record_ms": 3000
-  },
-  "mips": {
-    "wake_gpio_num": 64,
-    "wake_gpio_active_low": 1,
-    "wake_gpio_poll_ms": 20,
-    "wake_gpio_debounce_ms": 200
-  }
 }
