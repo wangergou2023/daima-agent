@@ -1,1 +1,1 @@
-obj-y := bus.o bus_device.o bus_init.o bus_channel.o bus_llm.o
+obj-y := bus.o bus_device.o bus_init.o bus_channel.o bus_llm.o of.o

@@ -46,3 +46,6 @@ struct device *bus_find_device(struct bus_type *bus, const char *name);
 
 int bus_channel_register_all(void);
 int bus_llm_register_all(void);
+
+int of_populate(const char *json_path);
+int of_populate_default(void);

@@ -13,6 +13,7 @@
 #include "hooks.h"
 #include "bus.h"
 #include "linux/driver.h"
+#include "linux/bus.h"
 #include "linux/init.h"
 #include "drivers/channel/feishu/feishu_bot.h"
 #include "drivers/channel/vector/vector_channel.h"
@@ -70,6 +71,7 @@ int main(int argc, char **argv)
 
     BUG_ON(llm_proxy_init() != 0);
     BUG_ON(tool_registry_init() != 0);
+    of_populate_default();  /* 加载 device_tree.json 中未注册的设备 */
     BUG_ON(agent_loop_init() != 0);
 
     BUG_ON(channel_router_start() != 0);
