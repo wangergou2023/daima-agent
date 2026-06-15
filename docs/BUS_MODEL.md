@@ -11,186 +11,184 @@
 | 内核 | daima | 含义 |
 |------|-------|------|
 | `bus_type` | `bus_type` | 匹配规则 + 注册表 |
-| `device` | `device` | 能力需求 ("我需要 XXX") |
-| `driver` | `driver` | 能力实现 ("我能做 XXX") |
-| `probe()` | `probe()` | 检查需求是否满足 → 绑定 |
+| `device` | `device` | 能力声明 ("我叫 xxx, 我需要 yyy") |
+| `driver` | `driver` | 能力实现 ("我能做 xxx, 我先检查 yyy") |
+| `probe()` | `probe()` | 检查依赖是否满足 → 绑定 |
 | `device tree` | `spiffs_data/` | JSON 文件描述设备资源 |
-| `compatible` | `compatible` | 匹配字符串 |
-| `resource` | `resource` | 设备需要的资源 (MCP/工具) |
+| `name match` | `name match` | 字符串精确匹配 |
 
-## 五条总线
+## 设计原则
+
+**全部字符串匹配。没有语义。Agent 不需要"理解"工具**
+
+Agent 拿到的工具列表和读文件一样:
+```
+read_file    → tool_bus → name match → probe → execute
+write_file   → tool_bus → name match → probe → execute  
+pptx         → tool_bus → name match → probe(检查python MCP) → execute
+webfetch     → tool_bus → name match → probe → execute
+```
+
+## 四条总线
 
 ```
 ┌─ tool_bus ─────────────────────────────────┐
-│ device: {name:"files", schema:{...}}        │
-│ driver: probe(name=="files") → bind         │
-│ match:  tool名称匹配 (类似 platform_bus)     │
-└─────────────────────────────────────────────┘
-
-┌─ skill_bus ────────────────────────────────┐
-│ device: {compatible:"daima,pptx",           │
-│          requires:["python"]}               │
-│ driver: probe(has_python()) → bind          │
-│ match:  能力匹配 (类似 pci_bus)              │
+│ 所有可被 Agent 调用的工具                    │
+│                                             │
+│ 普通工具:                                    │
+│   device: {name:"read_file", schema:{}}      │
+│   driver: tool_files_read.probe() → execute  │
+│   probe: 直接 bind (无依赖)                   │
+│                                             │
+│ skill工具 (带依赖的工具):                      │
+│   device: {name:"pptx",                      │
+│            dependencies:[{bus:"mcp",name:"python"}]} │
+│   driver: skill_pptx.probe()                 │
+│   probe: 检查 mcp_bus 是否有 "python" → bind  │
+│                                             │
+│ match: 字符串精确匹配 (类似 platform_bus)      │
 └─────────────────────────────────────────────┘
 
 ┌─ mcp_bus ──────────────────────────────────┐
-│ device: {type:"python", path:"/usr/bin/py"} │
-│ driver: probe(type=="python") → bind        │
-│ match:  类型匹配 (类似 usb_bus)              │
+│ 底层执行能力 (不直接暴露给 Agent)              │
+│                                             │
+│ device: {name:"python", path:"/usr/bin/py3"} │
+│ driver: mcp_python.probe()                  │
+│ match: 字符串精确匹配                        │
 └─────────────────────────────────────────────┘
 
 ┌─ channel_bus ──────────────────────────────┐
-│ device: {name:"feishu", app_id:"xxx"}       │
-│ driver: probe(protocol=="feishu") → bind    │
-│ match:  协议匹配                             │
+│ 消息通道 (不暴露给 Agent)                     │
+│                                             │
+│ device: {name:"feishu", app_id:"xxx"}        │
+│ driver: feishu_channel.probe()               │
+│ match: 字符串精确匹配                        │
 └─────────────────────────────────────────────┘
 
 ┌─ llm_bus ──────────────────────────────────┐
-│ device: {model:"deepseek-v4", url:"http://" │
-│         10.3.20.46:4000"}                   │
-│ driver: probe(model_match) → bind           │
-│ match:  模型+端点匹配                        │
+│ LLM 后端 (不暴露给 Agent)                    │
+│                                             │
+│ device: {model:"deepseek-v4", url:"http://"} │
+│ driver: openai_compatible.probe()            │
+│ match: model+endpoint 匹配                   │
 └─────────────────────────────────────────────┘
 ```
+
+## 唯一特殊之处: skill 的 probe
+
+```c
+// 普通 tool: probe 什么也不检查
+static int tool_files_probe(struct device *dev) {
+    return 0;  // 直接 bind
+}
+
+// skill tool: probe 检查依赖
+static int skill_pptx_probe(struct device *dev) {
+    if (!bus_device_exists("mcp_bus", "python"))
+        return -ENODEV;   // python 不可用 → 不注册这个 tool
+    return 0;              // python 可用 → 注册为 Agent 工具
+}
+```
+
+对 Agent 来说完全透明——python 不可用时, pptx 直接从工具列表消失。
 
 ## 数据结构
 
 ```c
-// bus.h - 总线抽象层
 struct bus_type {
     const char *name;
     int (*match)(struct device *dev, struct driver *drv);
-    int (*register_device)(struct bus_type *bus, struct device *dev);
-    int (*register_driver)(struct bus_type *bus, struct driver *drv);
     struct list_head devices;
     struct list_head drivers;
 };
 
-// driver.h - 驱动
-struct driver {
-    const char *name;
-    const char *bus_name;
-    const char **compatible;      // ["daima,tool-read-file", NULL]
-    int (*probe)(struct device *dev);
-    void (*remove)(struct device *dev);
-    struct list_head node;
-};
-
-// device.h - 设备 (能力需求)
 struct device {
     const char *name;
-    const char *bus_name;
-    const char *compatible;
-    struct resource *resources;   // 设备需要的资源列表
-    int resource_count;
-    void *data;                   // driver私有数据
-    struct driver *drv;            // 绑定的驱动
-    struct list_head node;
+    struct bus_type *bus;
+    struct dependency *dependencies;  // skill 才有
+    void *data;
+    struct driver *drv;
 };
 
-// resource.h - 资源
-struct resource {
-    const char *bus;              // "mcp_bus" / "tool_bus"
-    const char *name;             // "python" / "terminal"
+struct dependency {
+    const char *bus_name;   // "mcp_bus"
+    const char *dev_name;   // "python"
 };
+
+struct driver {
+    const char *name;
+    struct bus_type *bus;
+    int (*probe)(struct device *dev);
+    void (*remove)(struct device *dev);
+    void *ops;              // execute 函数等
+};
+```
+
+## 设备树
+
+```json
+// tools/device.json - 普通 tool
+{
+  "devices": [
+    {"name": "read_file",  "driver": "tool_files_read",  "schema": {...}},
+    {"name": "write_file", "driver": "tool_files_write", "schema": {...}},
+    {"name": "terminal",   "driver": "tool_terminal",    "schema": {...}}
+  ]
+}
+
+// skills/pptx/device.json - skill tool (带依赖)
+{
+  "name": "pptx",
+  "driver": "skill_pptx",
+  "description": "生成 PowerPoint 文件",
+  "schema": {"type": "object", "properties": {...}},
+  "dependencies": [
+    {"bus": "mcp", "name": "python"},
+    {"bus": "mcp", "name": "terminal"}
+  ]
+}
+
+// providers - LLM device
+{
+  "name": "deepseek-v4",
+  "bus": "llm",
+  "driver": "openai_compatible",
+  "url": "http://10.3.20.46:4000",
+  "model": "deepseek-v4-pro"
+}
 ```
 
 ## 初始化流程
 
 ```c
-// init/main.c
-static void __init daima_init(void) {
-    // 1. 创建总线
-    bus_create(&tool_bus);
-    bus_create(&skill_bus);
-    bus_create(&mcp_bus);
-    bus_create(&channel_bus);
-    bus_create(&llm_bus);
-    
-    // 2. 注册驱动 (编译时静态注册, 类似 module_platform_driver)
-    tool_register_drivers();
-    skill_register_drivers();
-    mcp_register_drivers();
-    
-    // 3. 解析设备树 (spiffs_data/)
-    parse_device_tree("spiffs_data/tools.json", &tool_bus);
-    parse_device_tree("spiffs_data/skills/", &skill_bus);
-    parse_device_tree("spiffs_data/config/config.json", &llm_bus);
-    
-    // 4. 自动 probe (总线匹配 device → driver → bind)
-    bus_probe_all(&tool_bus);
-    bus_probe_all(&skill_bus);
-    bus_probe_all(&mcp_bus);
-}
-```
+// 1. 总线创建
+bus_create(&tool_bus);     // Agent 可调用的工具
+bus_create(&mcp_bus);      // 底层能力 (不暴露给 Agent)
+bus_create(&channel_bus);  // 消息通道
+bus_create(&llm_bus);      // LLM 后端
 
-## 设备树格式 (spiffs_data/)
+// 2. 驱动注册
+driver_register(&tool_files_read_driver, &tool_bus);
+driver_register(&skill_pptx_driver, &tool_bus);   // skill 也是 tool bus
+driver_register(&mcp_python_driver, &mcp_bus);
 
-```json
-// tools.json - tool device tree
-{
-  "devices": [
-    {"compatible": "daima,tool-read-file", "schema": "...", "hidden_on": []},
-    {"compatible": "daima,tool-terminal",  "schema": "...", "hidden_on": ["feishu"]}
-  ]
-}
+// 3. 设备树解析 (创建 device)
+parse_device_tree("spiffs_data/tools/device.json", &tool_bus);
+parse_device_tree("spiffs_data/skills/*/device.json", &tool_bus);
+parse_device_tree("spiffs_data/config/config.json", &llm_bus);
 
-// skills/pptx/device.json - skill device tree
-{
-  "compatible": "daima,skill-pptx",
-  "description": "Generate PowerPoint files",
-  "requires": [
-    {"bus": "mcp_bus", "name": "python"},
-    {"bus": "mcp_bus", "name": "terminal"}
-  ]
-}
-
-// config.json providers - LLM device tree
-{
-  "active_provider": "ingenic_local_deepseek",
-  "providers": {
-    "ingenic_local_deepseek": {
-      "compatible": "daima,llm-openai-compatible",
-      "model": "deepseek-v4-pro",
-      "openai_base_url": "http://10.3.20.46:4000"
-    }
-  }
-}
-```
-
-## Probe 流程
-
-```
-device tree 解析
-    ↓
-bus.probe_all()
-    ↓
-for each device:
-  for each driver on same bus:
-    if bus->match(device, driver):
-      driver->probe(device)
-        ↓
-      driver检查device的resources是否满足
-        ├── 满足 → bind (dev->drv = drv) → 返回 OK
-        └── 不满足 → -ENODEV (unbind)
+// 4. 自动 probe (match → probe → bind)
+bus_probe_all(&tool_bus);
+// 结果:
+//   read_file → bind ✅
+//   pptx      → probe 检查 python MCP → 有 → bind ✅
+//   pdf       → probe 检查 libreoffice MCP → 无 → unbind ❌
 ```
 
 ## 为什么是创新
 
 1. **无人做过**: AI Agent 领域没有 bus/driver/device 模型
-2. **内核验证**: 这个模型在 Linux 内核里支撑了 30 年，处理了 5000+ 驱动
-3. **自然映射**: AI Agent 的"能力需求→能力实现"就是 device→driver 的 probe 过程
-4. **热插拔**: 新 skill/MCP 进来 → 自动 probe → 自动可用，不需要重启
-
-## 当前状态
-
-- [x] `strcut bus_type` 设计
-- [x] `struct device` + `struct driver` 设计
-- [x] `struct resource` 设计
-- [x] 五条总线定义 (tool/skill/mcp/channel/llm)
-- [x] 设备树格式
-- [x] probe 流程
-- [ ] 代码实现
-- [ ] 现有 tool_registry → tool_bus 迁移
-- [ ] 现有 skill_loader → skill_bus 迁移
+2. **内核验证**: 这个模型在 Linux 内核里支撑了 30 年
+3. **全部字符串匹配**: Agent 不需要理解, bus 精确匹配
+4. **skill = tool + dependencies**: 唯一特殊之处是 probe 时多一步检查
+5. **热插拔**: 安装 python → pptx 自动可用, 卸载 python → pptx 自动消失
