@@ -21,6 +21,7 @@
 #include "linux/printk.h"
 #include "cjson.h"
 #include "linux/slab.h"
+#include "linux/bus.h"
 #define MAX_TOOLS 32
 
 static struct tool s_tools[MAX_TOOLS];
@@ -49,6 +50,17 @@ static void register_tool(const struct tool *tool)
     }
     s_tools[s_tool_count++] = *tool;
     pr_info("Registered tool: %s", tool->name);
+
+    /* 同时在 tool_bus 上注册 device */
+    if (tool_bus) {
+        struct device *dev = kmalloc(sizeof(*dev), GFP_KERNEL);
+        if (dev) {
+            memset(dev, 0, sizeof(*dev));
+            dev->name = tool->name;
+            dev->data = (void *)&s_tools[s_tool_count - 1];
+            device_register(dev, tool_bus);
+        }
+    }
 }
 
 static bool tool_name_exists(const char *name)
@@ -132,6 +144,15 @@ err_t tool_registry_init(void)
     for (int i = 0; i < TOOL_REGISTRY_MAX_DYNAMIC; i++) {
         INIT_LIST_HEAD(&s_dynamic_tools[i].list);
         memset(&s_dynamic_tools[i].tool, 0, sizeof(s_dynamic_tools[i].tool));
+    }
+
+    /* 在 tool_bus 上注册通用工具驱动 */
+    if (tool_bus) {
+        static struct driver tool_drv = {
+            .name = "tool_generic",
+            .probe = NULL,
+        };
+        driver_register(&tool_drv, tool_bus);
     }
 
     tool_weather_init();
