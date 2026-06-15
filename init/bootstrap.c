@@ -4,14 +4,12 @@
 #include "runtime.h"
 
 #include "bus.h"
+#include "linux/bus.h"
 #include "hooks.h"
 #include "drivers/memory/memory_store.h"
 #include "drivers/memory/session_store.h"
 #include "proxy.h"
 #include "drivers/skill/skill_loader.h"
-#include "drivers/voice/voice_channel.h"
-#include "drivers/channel/feishu/feishu_bot.h"
-#include "drivers/channel/vector/vector_channel.h"
 #include "linux/init.h"
 #include "kernel/time/timer.h"
 #include "linux/workqueue.h"
@@ -108,10 +106,8 @@ void do_basic_setup(void)
     BUG_ON(skill_loader_init() != 0);
 
     pr_info("device_initcall...");
-    BUG_ON(voice_channel_init() != 0);
-    BUG_ON(feishu_bot_init() != 0);
-    BUG_ON(feishu_bot_start() != 0);
-    BUG_ON(vector_channel_init() != 0);
+    BUG_ON(bus_init() != 0);
+    BUG_ON(bus_channel_register_all() != 0);
 
     cron_service_start();
     heartbeat_start();
