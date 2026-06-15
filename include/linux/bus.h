@@ -5,7 +5,6 @@
 #include <stddef.h>
 
 extern struct bus_type *tool_bus;
-extern struct bus_type *mcp_bus;
 extern struct bus_type *channel_bus;
 extern struct bus_type *llm_bus;
 
