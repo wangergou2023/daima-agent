@@ -199,16 +199,16 @@ static void write_blocked_terminal_result(char *output,
     }
 }
 
-daima_err_t tool_terminal_execute(const char *input_json, char *output, size_t output_size)
+err_t tool_terminal_execute(const char *input_json, char *output, size_t output_size)
 {
     if (!output || output_size == 0) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     cJSON *root = cJSON_Parse(input_json);
     if (!root) {
         snprintf(output, output_size, "{\"error\":\"invalid_input_json\"}");
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     const char *command = cJSON_GetStringValue(cJSON_GetObjectItem(root, "command"));
@@ -223,12 +223,12 @@ daima_err_t tool_terminal_execute(const char *input_json, char *output, size_t o
     if (!command || !command[0]) {
         snprintf(output, output_size, "{\"error\":\"missing_command\"}");
         cJSON_Delete(root);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
     if (strlen(command) > 4000) {
         snprintf(output, output_size, "{\"error\":\"command_too_long\"}");
         cJSON_Delete(root);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
     const char *blocked_reason = NULL;
     if (!terminal_command_allowed(command, &blocked_reason)) {
@@ -239,7 +239,7 @@ daima_err_t tool_terminal_execute(const char *input_json, char *output, size_t o
                                       blocked_reason ? blocked_reason : "command_blocked");
         pr_warn("terminal command blocked: reason=%s cmd=%.120s", blocked_reason ? blocked_reason : "command_blocked", command);
         cJSON_Delete(root);
-        return DAIMA_ERR_INVALID_STATE;
+        return ERR_INVALID_STATE;
     }
     if (timeout_seconds < 1) timeout_seconds = TERMINAL_DEFAULT_TIMEOUT;
     if (timeout_seconds > TERMINAL_MAX_TIMEOUT) timeout_seconds = TERMINAL_MAX_TIMEOUT;
@@ -264,13 +264,13 @@ daima_err_t tool_terminal_execute(const char *input_json, char *output, size_t o
                 snprintf(output, output_size, "{\"status\":\"sudo_password_required\"}");
             }
             cJSON_Delete(root);
-            return DAIMA_OK;
+            return 0;
         }
         effective_command = terminal_rewrite_sudo_command(command);
         if (!effective_command) {
             snprintf(output, output_size, "{\"error\":\"sudo_rewrite_failed\"}");
             cJSON_Delete(root);
-            return DAIMA_ERR_NO_MEM;
+            return ERR_NO_MEM;
         }
         size_t pw_len = strlen(sudo_password);
         stdin_payload = kzalloc(pw_len + 2, GFP_KERNEL);
@@ -278,7 +278,7 @@ daima_err_t tool_terminal_execute(const char *input_json, char *output, size_t o
             kfree(effective_command);
             snprintf(output, output_size, "{\"error\":\"sudo_password_buffer_failed\"}");
             cJSON_Delete(root);
-            return DAIMA_ERR_NO_MEM;
+            return ERR_NO_MEM;
         }
         memcpy(stdin_payload, sudo_password, pw_len);
         stdin_payload[pw_len] = '\n';
@@ -287,7 +287,7 @@ daima_err_t tool_terminal_execute(const char *input_json, char *output, size_t o
     terminal_exec_result_t result;
     memset(&result, 0, sizeof(result));
     daima_fs_ensure_dir(effective_workdir);
-    daima_err_t err = terminal_execute_local_shell(
+    err_t err = terminal_execute_local_shell(
         effective_command ? effective_command : command,
         effective_workdir,
         timeout_seconds,
@@ -296,7 +296,7 @@ daima_err_t tool_terminal_execute(const char *input_json, char *output, size_t o
         &result);
 
     char *json = NULL;
-    if (err == DAIMA_OK) {
+    if (err == 0) {
         json = terminal_json_result_string(command, effective_workdir, &result, "");
     } else {
         terminal_exec_result_t empty = { .exit_code = -1, .timed_out = false, .truncated = false, .signal_num = 0, .output = "" };
@@ -309,10 +309,10 @@ daima_err_t tool_terminal_execute(const char *input_json, char *output, size_t o
         kfree(json);
     } else {
         snprintf(output, output_size, "{\"error\":\"result_encode_failed\"}");
-        err = DAIMA_ERR_NO_MEM;
+        err = ERR_NO_MEM;
     }
 
-    if (err == DAIMA_OK) {
+    if (err == 0) {
         pr_info("terminal: cmd=%.120s exit=%d timeout=%d workdir=%s", command, result.exit_code, timeout_seconds, effective_workdir);
     }
 

@@ -189,12 +189,12 @@ static void scan_skill_dir(skill_info_t *infos,
     closedir(dir);
 }
 
-static daima_err_t skills_action_list_execute(const char *input_json, char *output, size_t output_size)
+static err_t skills_action_list_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *root = cJSON_Parse(input_json);
     if (!root) {
         snprintf(output, output_size, "错误：输入 JSON 无效");
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     const char *pattern = cJSON_GetStringValue(cJSON_GetObjectItem(root, "pattern"));
@@ -202,13 +202,13 @@ static daima_err_t skills_action_list_execute(const char *input_json, char *outp
     if (channel && channel[0] && !skill_meta_validate_name(channel)) {
         snprintf(output, output_size, "错误：channel 非法，不能使用绝对路径或 '..'");
         cJSON_Delete(root);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
     DIR *dir = opendir(daima_path_skills_dir());
     if (!dir) {
         snprintf(output, output_size, "错误：无法打开技能目录 %s", daima_path_skills_dir());
         cJSON_Delete(root);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     skill_info_t infos[128];
@@ -242,15 +242,15 @@ static daima_err_t skills_action_list_execute(const char *input_json, char *outp
 
     pr_info("skills list: channel=%s pattern=%s count=%d", channel ? channel : "(all)", pattern ? pattern : "(none)", count);
     cJSON_Delete(root);
-    return DAIMA_OK;
+    return 0;
 }
 
-static daima_err_t skills_action_view_execute(const char *input_json, char *output, size_t output_size)
+static err_t skills_action_view_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *root = cJSON_Parse(input_json);
     if (!root) {
         snprintf(output, output_size, "错误：输入 JSON 无效");
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     const char *name = cJSON_GetStringValue(cJSON_GetObjectItem(root, "name"));
@@ -258,26 +258,26 @@ static daima_err_t skills_action_view_execute(const char *input_json, char *outp
     if (!skill_meta_validate_name(name)) {
         snprintf(output, output_size, "错误：name 只能包含字母、数字、-、_、/，且不能使用绝对路径或 '..'");
         cJSON_Delete(root);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     char resolved[SKILL_PATH_SIZE];
     if (!skill_meta_resolve_path(name, file_path, resolved, sizeof(resolved))) {
         snprintf(output, output_size, "错误：file_path 非法，不能使用绝对路径或 '..'");
         cJSON_Delete(root);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
     if (!file_exists_regular(resolved)) {
         snprintf(output, output_size, "错误：技能文件不存在：%s", resolved);
         cJSON_Delete(root);
-        return DAIMA_ERR_NOT_FOUND;
+        return ERR_NOT_FOUND;
     }
 
     FILE *f = fopen(resolved, "r");
     if (!f) {
         snprintf(output, output_size, "错误：无法读取技能文件：%s", resolved);
         cJSON_Delete(root);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     size_t off = snprintf(output, output_size, "SKILL: %s\nFILE: %s\n\n", name, resolved);
@@ -294,33 +294,33 @@ static daima_err_t skills_action_view_execute(const char *input_json, char *outp
 
     pr_info("skills view: name=%s file=%s", name, file_path ? file_path : "SKILL.md");
     cJSON_Delete(root);
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t tool_skills_execute(const char *input_json, char *output, size_t output_size)
+err_t tool_skills_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *root = cJSON_Parse(input_json);
     if (!root || !cJSON_IsObject(root)) {
         snprintf(output, output_size, "错误：输入 JSON 无效");
         cJSON_Delete(root);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     const char *action = cJSON_GetStringValue(cJSON_GetObjectItem(root, "action"));
     if (!action || !action[0]) {
         snprintf(output, output_size, "错误：缺少 action 字段（list/view）");
         cJSON_Delete(root);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
-    daima_err_t err;
+    err_t err;
     if (strcmp(action, "list") == 0) {
         err = skills_action_list_execute(input_json, output, output_size);
     } else if (strcmp(action, "view") == 0) {
         err = skills_action_view_execute(input_json, output, output_size);
     } else {
         snprintf(output, output_size, "错误：action 必须是 list 或 view");
-        err = DAIMA_ERR_INVALID_ARG;
+        err = ERR_INVALID_ARG;
     }
 
     cJSON_Delete(root);

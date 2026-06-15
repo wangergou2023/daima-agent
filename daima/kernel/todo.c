@@ -84,7 +84,7 @@ static bool load_state(const char *chat_id, todo_enforcer_state_t *state)
     return true;
 }
 
-static daima_err_t save_state(const char *chat_id, const todo_enforcer_state_t *state)
+static err_t save_state(const char *chat_id, const todo_enforcer_state_t *state)
 {
     char path[BUF_PATH];
     build_state_path(chat_id, path, sizeof(path));
@@ -93,7 +93,7 @@ static daima_err_t save_state(const char *chat_id, const todo_enforcer_state_t *
 
     cJSON *root = cJSON_CreateObject();
     if (!root) {
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
 
     cJSON_AddNumberToObject(root, "todo_count", state->todo_count);
@@ -103,20 +103,20 @@ static daima_err_t save_state(const char *chat_id, const todo_enforcer_state_t *
     char *json = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
     if (!json) {
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
 
     FILE *f = fopen(path, "w");
     if (!f) {
         kfree(json);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     size_t len = strlen(json);
     size_t written = fwrite(json, 1, len, f);
     fclose(f);
     kfree(json);
-    return written == len ? DAIMA_OK : DAIMA_FAIL;
+    return written == len ? 0 : ERR_FAIL;
 }
 
 todo_enforcer_cfg_t todo_enforcer_load_cfg(void)
@@ -128,10 +128,10 @@ todo_enforcer_cfg_t todo_enforcer_load_cfg(void)
     return cfg;
 }
 
-daima_err_t todo_enforcer_record_progress(const char *chat_id, int todo_count, int completed_count)
+err_t todo_enforcer_record_progress(const char *chat_id, int todo_count, int completed_count)
 {
     if (!chat_id || !chat_id[0]) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     if (todo_count < 0) {
@@ -161,25 +161,25 @@ daima_err_t todo_enforcer_record_progress(const char *chat_id, int todo_count, i
     return save_state(chat_id, &next);
 }
 
-daima_err_t todo_enforcer_inject_prompt(const char *chat_id, char *system_prompt, size_t system_prompt_size)
+err_t todo_enforcer_inject_prompt(const char *chat_id, char *system_prompt, size_t system_prompt_size)
 {
     if (!chat_id || !chat_id[0] || !system_prompt || system_prompt_size == 0) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     todo_enforcer_cfg_t cfg = todo_enforcer_load_cfg();
     if (!cfg.enabled) {
-        return DAIMA_OK;
+        return 0;
     }
 
     todo_enforcer_state_t state = {0};
     if (!load_state(chat_id, &state) || state.stale_count < cfg.max_stale_turns) {
-        return DAIMA_OK;
+        return 0;
     }
 
     size_t off = strnlen(system_prompt, system_prompt_size - 1);
     if (off >= system_prompt_size - 1) {
-        return DAIMA_OK;
+        return 0;
     }
 
     int n = snprintf(
@@ -199,19 +199,19 @@ daima_err_t todo_enforcer_inject_prompt(const char *chat_id, char *system_prompt
     if (n < 0 || (size_t)n >= system_prompt_size - off) {
         system_prompt[system_prompt_size - 1] = '\0';
     }
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t todo_enforcer_reset(const char *chat_id)
+err_t todo_enforcer_reset(const char *chat_id)
 {
     if (!chat_id || !chat_id[0]) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     char path[BUF_PATH];
     build_state_path(chat_id, path, sizeof(path));
     if (unlink(path) == 0) {
-        return DAIMA_OK;
+        return 0;
     }
-    return DAIMA_OK;
+    return 0;
 }

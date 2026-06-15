@@ -31,7 +31,7 @@ static bool mark_cancelled_if_needed(const struct message *msg,
     return true;
 }
 
-static daima_err_t cancellable_llm_chat_tools(const struct message *msg,
+static err_t cancellable_llm_chat_tools(const struct message *msg,
                                                uint64_t cancel_token,
                                                const char *system_prompt,
                                                cJSON *messages,
@@ -40,12 +40,12 @@ static daima_err_t cancellable_llm_chat_tools(const struct message *msg,
                                                llm_response_t *resp)
 {
     agent_cancel_enter_current_turn(msg->chat_id, cancel_token);
-    daima_err_t err = llm_chat_tools_with_model(system_prompt, messages, tools_json, model_override, resp);
+    err_t err = llm_chat_tools_with_model(system_prompt, messages, tools_json, model_override, resp);
     agent_cancel_leave_current_turn();
     return err;
 }
 
-static daima_err_t cancellable_model_fallback_chat_tools(const struct message *msg,
+static err_t cancellable_model_fallback_chat_tools(const struct message *msg,
                                                          uint64_t cancel_token,
                                                          const char *system_prompt,
                                                          cJSON *messages,
@@ -59,7 +59,7 @@ static daima_err_t cancellable_model_fallback_chat_tools(const struct message *m
     if (model_override && model_override[0]) {
         llm_set_model(model_override);
     }
-    daima_err_t err = model_fallback_chat_with_fallback(system_prompt, messages, tools_json, resp);
+    err_t err = model_fallback_chat_with_fallback(system_prompt, messages, tools_json, resp);
     llm_set_model(previous_model);
     agent_cancel_leave_current_turn();
     return err;
@@ -78,7 +78,7 @@ static cJSON *cancellable_build_tool_results(const struct message *msg,
     return tool_results;
 }
 
-daima_err_t agent_turn_run(
+err_t agent_turn_run(
     const char *system_prompt,
     cJSON *messages,
     const char *tools_json,
@@ -92,7 +92,7 @@ daima_err_t agent_turn_run(
     bool *out_cancelled)
 {
     if (unlikely(!system_prompt || !messages || !msg || !out_final_text || !out_reasoning_text || !out_iteration || !out_tool_budget_exhausted || !out_cancelled)) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     *out_final_text = NULL;
@@ -103,10 +103,10 @@ daima_err_t agent_turn_run(
 
     char *tool_output = daima_calloc(1, TOOL_OUTPUT_SIZE);
     if (unlikely(!tool_output)) {
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
 
-    daima_err_t err = DAIMA_OK;
+    err_t err = 0;
     int iteration = 0;
     char *final_text = NULL;
     char *final_reasoning_text = NULL;
@@ -126,15 +126,15 @@ daima_err_t agent_turn_run(
             err = cancellable_llm_chat_tools(msg, cancel_token, system_prompt, messages, tools_json, model_override, &resp);
         }
 
-        if (unlikely(err != DAIMA_OK)) {
+        if (unlikely(err != 0)) {
             if (mark_cancelled_if_needed(msg, cancel_token, out_cancelled, "during LLM call")) {
-                err = DAIMA_OK;
+                err = 0;
                 break;
             }
             if (IS_ENABLED(CONFIG_DAIMA_SESSION_RECOVERY_ENABLED)) {
-                session_recovery_save_crash(msg->chat_id, msg->content, daima_err_to_name(err));
+                session_recovery_save_crash(msg->chat_id, msg->content, err_name(err));
             }
-            pr_err("LLM call failed: %s", daima_err_to_name(err));
+            pr_err("LLM call failed: %s", err_name(err));
             break;
         }
 
@@ -151,7 +151,7 @@ daima_err_t agent_turn_run(
                 final_reasoning_text = strdup(resp.reasoning_content);
             }
             llm_response_free(&resp);
-            err = DAIMA_OK;
+            err = 0;
             break;
         }
 
@@ -182,7 +182,7 @@ daima_err_t agent_turn_run(
                 system_prompt,
                 messages,
                 "工具调用协议出现不可恢复错误。");
-            err = DAIMA_OK;
+            err = 0;
             break;
         }
     }
@@ -194,7 +194,7 @@ daima_err_t agent_turn_run(
             system_prompt,
             messages,
             "工具调用轮次已达上限。");
-        err = DAIMA_OK;
+        err = 0;
     }
 
     if (!*out_cancelled) {

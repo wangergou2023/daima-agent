@@ -67,10 +67,10 @@ static void *tts_thread(void *arg)
     struct timespec ts, te;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     uint32_t rate = PCM_TARGET_RATE;
-    daima_err_t err = voice_channel_get_tts_pcm(job->text, &job->pcm, &job->pcm_len, &rate);
+    err_t err = voice_channel_get_tts_pcm(job->text, &job->pcm, &job->pcm_len, &rate);
     clock_gettime(CLOCK_MONOTONIC, &te);
     job->tts_ms = (te.tv_sec - ts.tv_sec) * 1000 + (te.tv_nsec - ts.tv_nsec) / 1000000;
-    if (err == DAIMA_OK && job->pcm && job->pcm_len > 0) {
+    if (err == 0 && job->pcm && job->pcm_len > 0) {
         size_t count = job->pcm_len / sizeof(int16_t);
         apply_gain((int16_t *)job->pcm, count, GAIN_FACTOR);
         apply_lowpass((int16_t *)job->pcm, count, LOWPASS_CUTOFF, (int)rate);
@@ -78,9 +78,9 @@ static void *tts_thread(void *arg)
     return NULL;
 }
 
-daima_err_t tts_player_speak(const char *text)
+err_t tts_player_speak(const char *text)
 {
-    if (!text || !*text) return DAIMA_ERR_INVALID_ARG;
+    if (!text || !*text) return ERR_INVALID_ARG;
 
     pr_info("Speak start: len=%zu text=[%s]", strlen(text), text);
 
@@ -92,7 +92,7 @@ daima_err_t tts_player_speak(const char *text)
 
     size_t text_len = strlen(text);
     char *buf = kmalloc(text_len + 1, GFP_KERNEL);
-    if (!buf) return DAIMA_ERR_NO_MEM;
+    if (!buf) return ERR_NO_MEM;
     memcpy(buf, text, text_len + 1);
 
     /* Collect sentences */
@@ -181,7 +181,7 @@ daima_err_t tts_player_speak(const char *text)
     if (n == 0) {
         pr_info("Speak done: no valid sentences");
         vector_channel_mute_mic(false);
-        return DAIMA_OK;
+        return 0;
     }
 
     /* Serial TTS — BigModel concurrency causes corrupted audio */
@@ -215,5 +215,5 @@ daima_err_t tts_player_speak(const char *text)
     }
 
     vector_channel_mute_mic(false);
-    return DAIMA_OK;
+    return 0;
 }

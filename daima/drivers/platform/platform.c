@@ -11,23 +11,23 @@
 
 static int s_rand_seeded = 0;
 
-const char *daima_err_to_name(daima_err_t err)
+const char *err_name(err_t err)
 {
     switch (err) {
-    case DAIMA_OK: return "DAIMA_OK";
-    case DAIMA_FAIL: return "DAIMA_FAIL";
-    case DAIMA_ERR_NO_MEM: return "DAIMA_ERR_NO_MEM";
-    case DAIMA_ERR_INVALID_ARG: return "DAIMA_ERR_INVALID_ARG";
-    case DAIMA_ERR_INVALID_STATE: return "DAIMA_ERR_INVALID_STATE";
-    case DAIMA_ERR_INVALID_SIZE: return "DAIMA_ERR_INVALID_SIZE";
-    case DAIMA_ERR_TIMEOUT: return "DAIMA_ERR_TIMEOUT";
-    case DAIMA_ERR_NOT_FOUND: return "DAIMA_ERR_NOT_FOUND";
-    case DAIMA_ERR_HTTP_CONNECT: return "DAIMA_ERR_HTTP_CONNECT";
-    case DAIMA_ERR_HTTP_WRITE_DATA: return "DAIMA_ERR_HTTP_WRITE_DATA";
-    case DAIMA_ERR_HTTP_FETCH_HEADER: return "DAIMA_ERR_HTTP_FETCH_HEADER";
-    case DAIMA_ERR_NVS_NOT_FOUND: return "DAIMA_ERR_NVS_NOT_FOUND";
-    case DAIMA_ERR_NVS_NO_FREE_PAGES: return "DAIMA_ERR_NVS_NO_FREE_PAGES";
-    case DAIMA_ERR_NVS_NEW_VERSION_FOUND: return "DAIMA_ERR_NVS_NEW_VERSION_FOUND";
+    case 0: return "DAIMA_OK";
+    case ERR_FAIL: return "DAIMA_FAIL";
+    case ERR_NO_MEM: return "DAIMA_ERR_NO_MEM";
+    case ERR_INVALID_ARG: return "DAIMA_ERR_INVALID_ARG";
+    case ERR_INVALID_STATE: return "DAIMA_ERR_INVALID_STATE";
+    case ERR_INVALID_SIZE: return "DAIMA_ERR_INVALID_SIZE";
+    case ERR_TIMEOUT: return "DAIMA_ERR_TIMEOUT";
+    case ERR_NOT_FOUND: return "DAIMA_ERR_NOT_FOUND";
+    case ERR_HTTP_CONNECT: return "DAIMA_ERR_HTTP_CONNECT";
+    case ERR_HTTP_WRITE_DATA: return "DAIMA_ERR_HTTP_WRITE_DATA";
+    case ERR_HTTP_FETCH_HEADER: return "DAIMA_ERR_HTTP_FETCH_HEADER";
+    case ERR_NVS_NOT_FOUND: return "DAIMA_ERR_NVS_NOT_FOUND";
+    case ERR_NVS_NO_FREE_PAGES: return "DAIMA_ERR_NVS_NO_FREE_PAGES";
+    case ERR_NVS_NEW_VERSION_FOUND: return "DAIMA_ERR_NVS_NEW_VERSION_FOUND";
     default: return "DAIMA_ERR_UNKNOWN";
     }
 }

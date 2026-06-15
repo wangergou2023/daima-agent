@@ -74,7 +74,7 @@ void agent_turn_finish(
     struct message *msg,
     char **io_final_text,
     char **io_reasoning_text,
-    daima_err_t turn_err,
+    err_t turn_err,
     int iteration,
     bool tool_budget_exhausted,
     bool cancelled)
@@ -131,23 +131,23 @@ void agent_turn_finish(
     skill_tools_unregister_all();
 #endif
 
-    if (turn_err != DAIMA_OK) {
-        pr_err("Agent turn failed: %s", daima_err_to_name(turn_err));
+    if (turn_err != 0) {
+        pr_err("Agent turn failed: %s", err_name(turn_err));
     }
 
     if (IS_ENABLED(CONFIG_DAIMA_COMPACTION_RECOVERY_ENABLED) &&
-        turn_err == DAIMA_OK && msg && msg->chat_id[0]) {
+        turn_err == 0 && msg && msg->chat_id[0]) {
         compaction_recovery_clear(msg->chat_id);
     }
     if (IS_ENABLED(CONFIG_DAIMA_TODO_ENFORCER_ENABLED) &&
-        turn_err == DAIMA_OK && msg && msg->chat_id[0]) {
+        turn_err == 0 && msg && msg->chat_id[0]) {
         int total_todos = 0;
         int completed_todos = 0;
         read_todo_counts(&total_todos, &completed_todos);
         todo_enforcer_record_progress(msg->chat_id, total_todos, completed_todos);
     }
     if (IS_ENABLED(CONFIG_DAIMA_SESSION_RECOVERY_ENABLED) &&
-        turn_err == DAIMA_OK && msg && msg->chat_id[0]) {
+        turn_err == 0 && msg && msg->chat_id[0]) {
         session_recovery_clear(msg->chat_id);
     }
 

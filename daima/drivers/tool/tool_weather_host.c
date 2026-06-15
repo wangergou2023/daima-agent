@@ -95,7 +95,7 @@ static bool appendf(char *buf, size_t size, size_t *off, const char *fmt, ...)
     return true;
 }
 
-static daima_err_t fetch_weather_json(const char *location, const char *adcode,
+static err_t fetch_weather_json(const char *location, const char *adcode,
                                      bool want_forecast, bool want_hourly,
                                      cJSON **root_out, char *output, size_t output_size)
 {
@@ -124,8 +124,8 @@ static daima_err_t fetch_weather_json(const char *location, const char *adcode,
 
     host_http_response_t resp = {0};
     pr_info("UAPI weather request: %s", url);
-    daima_err_t err = host_http_request("GET", url, NULL, NULL, WEATHER_API_TIMEOUT_MS, &resp);
-    if (err != DAIMA_OK) {
+    err_t err = host_http_request("GET", url, NULL, NULL, WEATHER_API_TIMEOUT_MS, &resp);
+    if (err != 0) {
         host_http_response_free(&resp);
         snprintf(output, output_size, "错误：天气请求失败");
         return err;
@@ -135,7 +135,7 @@ static daima_err_t fetch_weather_json(const char *location, const char *adcode,
         long status = resp.status;
         host_http_response_free(&resp);
         snprintf(output, output_size, "错误：天气服务返回状态码 %ld", status);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     cJSON *root = cJSON_Parse(resp.body);
@@ -143,11 +143,11 @@ static daima_err_t fetch_weather_json(const char *location, const char *adcode,
     if (!root || !cJSON_IsObject(root)) {
         cJSON_Delete(root);
         snprintf(output, output_size, "错误：天气服务返回了无效 JSON");
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     *root_out = root;
-    return DAIMA_OK;
+    return 0;
 }
 
 static void format_current_weather(cJSON *root, char *output, size_t output_size)
@@ -282,18 +282,18 @@ static void log_output_snippet(const char *output)
     pr_info("weather output (%d bytes): %s", (int)len, tmp);
 }
 
-daima_err_t tool_weather_init(void)
+err_t tool_weather_init(void)
 {
     pr_info("Weather initialized (UAPI weather, no API key required)");
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t tool_weather_execute(const char *input_json, char *output, size_t output_size)
+err_t tool_weather_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *input = cJSON_Parse(input_json);
     if (!input) {
         snprintf(output, output_size, "错误：输入 JSON 无效");
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     const char *location = json_get_string(input, "location");
@@ -314,7 +314,7 @@ daima_err_t tool_weather_execute(const char *input_json, char *output, size_t ou
     if (days > 7) days = 7;
 
     cJSON *root = NULL;
-    daima_err_t err = fetch_weather_json(
+    err_t err = fetch_weather_json(
         location,
         adcode,
         want_forecast,
@@ -322,7 +322,7 @@ daima_err_t tool_weather_execute(const char *input_json, char *output, size_t ou
         &root,
         output,
         output_size);
-    if (err != DAIMA_OK) {
+    if (err != 0) {
         cJSON_Delete(input);
         pr_warn("UAPI weather failed: %s", output);
         return err;
@@ -339,7 +339,7 @@ daima_err_t tool_weather_execute(const char *input_json, char *output, size_t ou
     log_output_snippet(output);
     cJSON_Delete(root);
     cJSON_Delete(input);
-    return DAIMA_OK;
+    return 0;
 }
 
 const struct tool *tool_weather_definition(void)

@@ -19,7 +19,7 @@
 #endif
 
 #if INTENT_GATE_LLM_FALLBACK
-static daima_err_t intent_gate_classify_llm(const char *user_message,
+static err_t intent_gate_classify_llm(const char *user_message,
                                              enum intent *out_intent);
 #endif
 
@@ -106,11 +106,11 @@ static bool contains_keyword(const char *lower_message, const char *keyword)
     return matched;
 }
 
-daima_err_t intent_gate_classify(const char *user_message,
+err_t intent_gate_classify(const char *user_message,
                                   enum intent *out_intent)
 {
     if (!user_message || !out_intent) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     enum intent intent = INTENT_OPEN;
@@ -138,11 +138,11 @@ done:
 #endif
 
     pr_info("IntentGate classified: %s", daima_intent_name(*out_intent));
-    return DAIMA_OK;
+    return 0;
 }
 
 #if INTENT_GATE_LLM_FALLBACK
-static daima_err_t intent_gate_classify_llm(const char *user_message,
+static err_t intent_gate_classify_llm(const char *user_message,
                                              enum intent *out_intent)
 {
     char classify_prompt[1024];
@@ -168,9 +168,9 @@ static daima_err_t intent_gate_classify_llm(const char *user_message,
 
     llm_response_t resp;
     memset(&resp, 0, sizeof(resp));
-    daima_err_t err = llm_chat_tools(classify_prompt, messages, NULL, &resp);
+    err_t err = llm_chat_tools(classify_prompt, messages, NULL, &resp);
 
-    if (err == DAIMA_OK && resp.text && resp.text[0]) {
+    if (err == 0 && resp.text && resp.text[0]) {
         if (strstr(resp.text, "IMPLEMENT"))      *out_intent = INTENT_IMPLEMENT;
         else if (strstr(resp.text, "FIX"))        *out_intent = INTENT_FIX;
         else if (strstr(resp.text, "INVESTIGATE")) *out_intent = INTENT_INVESTIGATE;

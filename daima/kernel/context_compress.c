@@ -131,7 +131,7 @@ static void *compression_worker_loop(void *arg)
     return NULL;
 }
 
-daima_err_t context_compressor_maybe_compact(
+err_t context_compressor_maybe_compact(
     const char *chat_id,
     const char *system_prompt,
     cJSON **messages_io,
@@ -141,12 +141,12 @@ daima_err_t context_compressor_maybe_compact(
         *did_compact = false;
     }
     if (!chat_id || !messages_io || !*messages_io || !cJSON_IsArray(*messages_io)) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     context_compress_cfg_t cfg = load_cfg();
     if (!cfg.enabled) {
-        return DAIMA_OK;
+        return 0;
     }
 
     for (int pass = 0; pass < cfg.max_passes; pass++) {
@@ -163,8 +163,8 @@ daima_err_t context_compressor_maybe_compact(
             compaction_recovery_snapshot(chat_id);
         }
 
-        daima_err_t err = context_compress_compact_once(chat_id, messages_io, &cfg);
-        if (err != DAIMA_OK) {
+        err_t err = context_compress_compact_once(chat_id, messages_io, &cfg);
+        if (err != 0) {
             return err;
         }
         if (did_compact) {
@@ -172,32 +172,32 @@ daima_err_t context_compressor_maybe_compact(
         }
     }
 
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t context_compressor_init(void)
+err_t context_compressor_init(void)
 {
     pthread_mutex_lock(&s_worker_mutex);
     if (s_worker_started) {
         pthread_mutex_unlock(&s_worker_mutex);
-        return DAIMA_OK;
+        return 0;
     }
     if (pthread_create(&s_worker_thread, NULL, compression_worker_loop, NULL) != 0) {
         pthread_mutex_unlock(&s_worker_mutex);
         pr_err("Failed to start background compression worker");
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
     pthread_detach(s_worker_thread);
     s_worker_started = true;
     pthread_mutex_unlock(&s_worker_mutex);
     pr_info("Background compression worker started");
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t context_compressor_schedule(const char *chat_id)
+err_t context_compressor_schedule(const char *chat_id)
 {
     if (!chat_id || !chat_id[0]) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     pthread_mutex_lock(&s_worker_mutex);
@@ -205,7 +205,7 @@ daima_err_t context_compressor_schedule(const char *chat_id)
     if (!job) {
         pthread_mutex_unlock(&s_worker_mutex);
         pr_warn("Compression queue full, skip schedule for %s", chat_id);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     if (job->running) {
@@ -215,23 +215,23 @@ daima_err_t context_compressor_schedule(const char *chat_id)
     }
     pthread_cond_signal(&s_worker_cond);
     pthread_mutex_unlock(&s_worker_mutex);
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t context_compressor_schedule_if_needed(const char *chat_id)
+err_t context_compressor_schedule_if_needed(const char *chat_id)
 {
     if (!chat_id || !chat_id[0]) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     context_compress_cfg_t cfg = load_cfg();
     if (!cfg.enabled) {
-        return DAIMA_OK;
+        return 0;
     }
 
     cJSON *messages = context_compress_load_session_messages(chat_id);
     if (!messages) {
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     size_t approx_chars = context_compress_estimate_chars("", messages);
@@ -241,7 +241,7 @@ daima_err_t context_compressor_schedule_if_needed(const char *chat_id)
 
     if (!needed) {
         pr_debug("Skip background compression schedule for %s: msgs=%d approx_chars=%u below threshold", chat_id, n, (unsigned)approx_chars);
-        return DAIMA_OK;
+        return 0;
     }
 
     return context_compressor_schedule(chat_id);

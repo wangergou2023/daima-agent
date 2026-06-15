@@ -27,12 +27,12 @@ static const struct tool s_session_search_tool = {
     .execute = tool_session_search_execute,
 };
 
-daima_err_t tool_session_search_execute(const char *input_json, char *output, size_t output_size)
+err_t tool_session_search_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *root = cJSON_Parse(input_json);
     if (!root) {
         snprintf(output, output_size, "错误：输入 JSON 无效");
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     const char *query = cJSON_GetStringValue(cJSON_GetObjectItem(root, "query"));
@@ -54,7 +54,7 @@ daima_err_t tool_session_search_execute(const char *input_json, char *output, si
         strcmp(target, "both") != 0) {
         snprintf(output, output_size, "错误：target 只支持 messages / facts / summaries / both");
         cJSON_Delete(root);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     if (!output_mode || !output_mode[0]) {
@@ -63,16 +63,16 @@ daima_err_t tool_session_search_execute(const char *input_json, char *output, si
     if (strcmp(output_mode, "hits") != 0 && strcmp(output_mode, "sessions") != 0) {
         snprintf(output, output_size, "错误：output_mode 只支持 hits / sessions");
         cJSON_Delete(root);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     daima_session_record_t records[SESSION_SEARCH_MAX_SESSIONS];
     int record_count = 0;
     memset(records, 0, sizeof(records));
-    if (session_store_list_records(records, SESSION_SEARCH_MAX_SESSIONS, &record_count) != DAIMA_OK) {
+    if (session_store_list_records(records, SESSION_SEARCH_MAX_SESSIONS, &record_count) != 0) {
         snprintf(output, output_size, "错误：无法枚举会话记录");
         cJSON_Delete(root);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     session_stat_t stats[SESSION_SEARCH_MAX_SESSIONS];
@@ -149,7 +149,7 @@ daima_err_t tool_session_search_execute(const char *input_json, char *output, si
     pr_info("session_search: query=%s chat_id=%s target=%s mode=%s stats=%d hits=%d", query && query[0] ? query : "(none)", chat_id_filter && chat_id_filter[0] ? chat_id_filter : "(all)", target, output_mode, stats_count, hit_count);
 
     cJSON_Delete(root);
-    return DAIMA_OK;
+    return 0;
 }
 
 const struct tool *tool_session_search_definition(void)

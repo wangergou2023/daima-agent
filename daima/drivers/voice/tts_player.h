@@ -4,6 +4,6 @@
 
 #include "err.h"
 
-daima_err_t tts_player_speak(const char *text);
+err_t tts_player_speak(const char *text);
 
 #endif

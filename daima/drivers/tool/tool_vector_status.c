@@ -9,14 +9,14 @@
 
 #include "cJSON.h"
 #include "linux/printk.h"
-daima_err_t tool_vector_init(void) { return DAIMA_OK; }
+err_t tool_vector_init(void) { return 0; }
 
 /* ---- Get Battery ---- */
-static daima_err_t tool_robot_get_battery_execute(const char *input_json, char *output, size_t output_size)
+static err_t tool_robot_get_battery_execute(const char *input_json, char *output, size_t output_size)
 {
     (void)input_json;
     mcp_client_t *mcp = tool_get_mcp(output, output_size);
-    if (!mcp) return DAIMA_FAIL;
+    if (!mcp) return ERR_FAIL;
     return mcp_client_call_tool(mcp, "robot_get_battery", "{}", output, output_size);
 }
 
@@ -29,11 +29,11 @@ static const struct tool s_get_battery = {
 const struct tool *tool_robot_get_battery_definition(void) { return &s_get_battery; }
 
 /* ---- Drive On Charger ---- */
-static daima_err_t tool_robot_drive_on_charger_execute(const char *input_json, char *output, size_t output_size)
+static err_t tool_robot_drive_on_charger_execute(const char *input_json, char *output, size_t output_size)
 {
     (void)input_json;
     mcp_client_t *mcp = tool_get_mcp(output, output_size);
-    if (!mcp) return DAIMA_FAIL;
+    if (!mcp) return ERR_FAIL;
     return mcp_client_call_tool(mcp, "robot_drive_on_charger", "{}", output, output_size);
 }
 
@@ -46,11 +46,11 @@ static const struct tool s_drive_on_charger = {
 const struct tool *tool_robot_drive_on_charger_definition(void) { return &s_drive_on_charger; }
 
 /* ---- Drive Off Charger ---- */
-static daima_err_t tool_robot_drive_off_charger_execute(const char *input_json, char *output, size_t output_size)
+static err_t tool_robot_drive_off_charger_execute(const char *input_json, char *output, size_t output_size)
 {
     (void)input_json;
     mcp_client_t *mcp = tool_get_mcp(output, output_size);
-    if (!mcp) return DAIMA_FAIL;
+    if (!mcp) return ERR_FAIL;
     return mcp_client_call_tool(mcp, "robot_drive_off_charger", "{}", output, output_size);
 }
 

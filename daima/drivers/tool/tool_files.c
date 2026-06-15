@@ -50,23 +50,23 @@ static const struct tool s_restore_file_tool = {
     .execute = tool_restore_file_execute,
 };
 
-daima_err_t tool_files_execute(const char *input_json, char *output, size_t output_size)
+err_t tool_files_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *root = cJSON_Parse(input_json);
     if (!root || !cJSON_IsObject(root)) {
         snprintf(output, output_size, "错误：输入 JSON 无效");
         cJSON_Delete(root);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     const char *action = cJSON_GetStringValue(cJSON_GetObjectItem(root, "action"));
     if (!action || !action[0]) {
         snprintf(output, output_size, "错误：缺少 action 字段（read/list/search）");
         cJSON_Delete(root);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
-    daima_err_t err;
+    err_t err;
     if (strcmp(action, "read") == 0) {
         err = tool_read_file_execute(input_json, output, output_size);
     } else if (strcmp(action, "list") == 0) {
@@ -75,7 +75,7 @@ daima_err_t tool_files_execute(const char *input_json, char *output, size_t outp
         err = tool_search_files_execute(input_json, output, output_size);
     } else {
         snprintf(output, output_size, "错误：action 必须是 read、list 或 search");
-        err = DAIMA_ERR_INVALID_ARG;
+        err = ERR_INVALID_ARG;
     }
 
     cJSON_Delete(root);

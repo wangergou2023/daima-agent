@@ -132,9 +132,9 @@ void vision_capture_shutdown(void)
     s_inited = false;
 }
 
-daima_err_t vision_capture_init(void)
+err_t vision_capture_init(void)
 {
-    if (s_inited) return DAIMA_OK;
+    if (s_inited) return 0;
 
     /* 1) 系统/FrameSource 初始化 */
     if (sample_system_init() < 0) {
@@ -205,14 +205,14 @@ daima_err_t vision_capture_init(void)
 
     s_inited = true;
     pr_info("Vision capture initialized");
-    return DAIMA_OK;
+    return 0;
 
 fail:
     vision_capture_shutdown();
-    return DAIMA_FAIL;
+    return ERR_FAIL;
 }
 
-daima_err_t vision_capture_jpeg(const char *output_path,
+err_t vision_capture_jpeg(const char *output_path,
                                char *out_path,
                                size_t out_path_len)
 {
@@ -220,24 +220,24 @@ daima_err_t vision_capture_jpeg(const char *output_path,
     (void)output_path;
     if (out_path && out_path_len > 0) out_path[0] = '\0';
 
-    daima_err_t err = vision_capture_init();
-    if (err != DAIMA_OK) return err;
+    err_t err = vision_capture_init();
+    if (err != 0) return err;
 
     /* 选择 JPEG 通道并触发抓拍 */
     int chnNum = pick_jpeg_channel();
     if (chnNum < 0) {
         pr_err("No enabled JPEG channel");
-        return DAIMA_ERR_INVALID_STATE;
+        return ERR_INVALID_STATE;
     }
 
     get_jpeg_stream((void *)((PT_JPEG << 16) | (chnNum & 0xffff)));
 
     int last = NR_JPEG_TO_SAVE - 1;
-    if (last < 0) return DAIMA_FAIL;
+    if (last < 0) return ERR_FAIL;
 
     char snap_path[256];
     if (!build_sample_snap_path(chnNum, last, snap_path, sizeof(snap_path))) {
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     /* 清理旧的历史抓拍，保留最后一张 */
@@ -252,5 +252,5 @@ daima_err_t vision_capture_jpeg(const char *output_path,
     if (out_path && out_path_len > 0) {
         daima_safe_copy(out_path, out_path_len, snap_path);
     }
-    return DAIMA_OK;
+    return 0;
 }

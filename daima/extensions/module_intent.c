@@ -7,13 +7,13 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("daima");
 MODULE_DESCRIPTION("Agent Extension: intent_gate");
-static daima_err_t on_intent(struct message *msg)
+static err_t on_intent(struct message *msg)
 {
 #if AGENT_EXTENSIONS_ENABLED
     intent_gate_classify(msg->content, &msg->intent);
     pr_info("Intent classified: %s -> %s", msg->content, daima_intent_name(msg->intent));
 #endif
-    return DAIMA_OK;
+    return 0;
 }
 
 static agent_extension_hooks_t ext = {

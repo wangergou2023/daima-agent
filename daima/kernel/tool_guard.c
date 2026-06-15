@@ -18,11 +18,11 @@ static bool is_placeholder_tool_name(const char *tool_name)
 bool agent_tool_protocol_failure_should_stop(const char *tool_name,
                                              const char *tool_input,
                                              const char *tool_output,
-                                             daima_err_t tool_err)
+                                             err_t tool_err)
 {
     (void)tool_output;
 
-    if (tool_err == DAIMA_OK) {
+    if (tool_err == 0) {
         return false;
     }
 
@@ -30,7 +30,7 @@ bool agent_tool_protocol_failure_should_stop(const char *tool_name,
         return true;
     }
 
-    if (tool_err == DAIMA_ERR_NOT_FOUND && tool_name && tool_name[0] == '$') {
+    if (tool_err == ERR_NOT_FOUND && tool_name && tool_name[0] == '$') {
         return true;
     }
 

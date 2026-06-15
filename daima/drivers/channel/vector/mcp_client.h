@@ -60,7 +60,7 @@ void mcp_client_destroy(mcp_client_t *c);
  * response_out: 响应文本的输出缓冲区
  * response_size: 缓冲区大小
  */
-daima_err_t mcp_client_call_tool(mcp_client_t *c, const char *tool_name,
+err_t mcp_client_call_tool(mcp_client_t *c, const char *tool_name,
                                 const char *args_json,
                                 char *response_out, size_t response_size);
 
@@ -69,17 +69,17 @@ daima_err_t mcp_client_call_tool(mcp_client_t *c, const char *tool_name,
  * tools_json_out: 输出的工具列表 JSON 字符串
  * tools_size: 缓冲区大小
  */
-daima_err_t mcp_client_list_tools(mcp_client_t *c, char *tools_json_out, size_t tools_size);
+err_t mcp_client_list_tools(mcp_client_t *c, char *tools_json_out, size_t tools_size);
 
 /**
  * 订阅音频流 (robot_subscribe_audio)。
  */
-daima_err_t mcp_client_subscribe_audio(mcp_client_t *c);
+err_t mcp_client_subscribe_audio(mcp_client_t *c);
 
 /**
  * 取消音频订阅 (robot_unsubscribe_audio)。
  */
-daima_err_t mcp_client_unsubscribe_audio(mcp_client_t *c);
+err_t mcp_client_unsubscribe_audio(mcp_client_t *c);
 
 /**
  * 注册音频通知回调。收到音频时调用 cb。

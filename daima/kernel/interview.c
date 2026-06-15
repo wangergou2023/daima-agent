@@ -120,12 +120,12 @@ static bool prometheus_llm_reply_is_specific(const char *text)
     return strncmp(text, "SPECIFIC", 8) == 0;
 }
 
-static daima_err_t prometheus_generate_questions_with_llm(const char *user_message,
+static err_t prometheus_generate_questions_with_llm(const char *user_message,
                                                           char *out,
                                                           size_t out_size)
 {
     if (!out || out_size == 0) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     char prompt[4096];
@@ -137,7 +137,7 @@ static daima_err_t prometheus_generate_questions_with_llm(const char *user_messa
                      "如果已经够具体，只回复\"SPECIFIC\"。",
                      user_message ? user_message : "");
     if (n < 0 || (size_t)n >= sizeof(prompt)) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     cJSON *messages = cJSON_CreateArray();
@@ -145,7 +145,7 @@ static daima_err_t prometheus_generate_questions_with_llm(const char *user_messa
     if (!messages || !user) {
         cJSON_Delete(messages);
         cJSON_Delete(user);
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
 
     cJSON_AddStringToObject(user, "role", "user");
@@ -153,50 +153,50 @@ static daima_err_t prometheus_generate_questions_with_llm(const char *user_messa
     cJSON_AddItemToArray(messages, user);
 
     llm_response_t resp = {0};
-    daima_err_t err = llm_chat_tools("你是 Prometheus Interview Mode，负责在执行前澄清模糊需求。",
+    err_t err = llm_chat_tools("你是 Prometheus Interview Mode，负责在执行前澄清模糊需求。",
                                      messages,
                                      NULL,
                                      &resp);
     cJSON_Delete(messages);
-    if (err != DAIMA_OK) {
+    if (err != 0) {
         llm_response_free(&resp);
         return err;
     }
 
     if (!resp.text || !resp.text[0]) {
         llm_response_free(&resp);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     strscpy(out, resp.text, out_size);
     out[out_size - 1] = '\0';
     llm_response_free(&resp);
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t prometheus_check_needs_interview(const char *user_message,
+err_t prometheus_check_needs_interview(const char *user_message,
                                              prometheus_state_t *out)
 {
     if (!user_message || !out) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     memset(out, 0, sizeof(*out));
     out->enabled = true;
 
 #if !PROMETHEUS_INTERVIEW_ENABLED
-    return DAIMA_OK;
+    return 0;
 #else
     if (prometheus_message_is_specific(user_message)) {
         snprintf(out->questions, sizeof(out->questions), "SPECIFIC");
         out->needs_interview = false;
-        return DAIMA_OK;
+        return 0;
     }
 
-    daima_err_t err = prometheus_generate_questions_with_llm(user_message,
+    err_t err = prometheus_generate_questions_with_llm(user_message,
                                                             out->questions,
                                                             sizeof(out->questions));
-    if (err != DAIMA_OK) {
+    if (err != 0) {
         prometheus_fallback_questions(user_message, out->questions, sizeof(out->questions));
     }
 
@@ -204,6 +204,6 @@ daima_err_t prometheus_check_needs_interview(const char *user_message,
     if (!out->needs_interview) {
         snprintf(out->questions, sizeof(out->questions), "SPECIFIC");
     }
-    return DAIMA_OK;
+    return 0;
 #endif
 }

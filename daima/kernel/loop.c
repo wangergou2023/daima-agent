@@ -42,14 +42,14 @@ static void agent_loop_task(void *arg)
 
     while (1) {
         struct message msg;
-        daima_err_t err = message_bus_pop_inbound(&msg, UINT32_MAX);
-        if (unlikely(err != DAIMA_OK)) continue;
+        err_t err = message_bus_pop_inbound(&msg, UINT32_MAX);
+        if (unlikely(err != 0)) continue;
 
         msg.intent = INTENT_OPEN;
         agent_extension_state_reset();
 
         err = agent_hooks_trigger_intent(&msg);
-        if (unlikely(err != DAIMA_OK)) {
+        if (unlikely(err != 0)) {
             char *final_text = NULL;
             char *reasoning_text = NULL;
             agent_turn_finish(&msg, &final_text, &reasoning_text, err, 0, false, false);
@@ -72,7 +72,7 @@ static void agent_loop_task(void *arg)
                                   system_prompt, CONTEXT_BUF_SIZE,
                                   history_json, LLM_STREAM_BUF_SIZE,
                                   &messages);
-        if (likely(err == DAIMA_OK)) {
+        if (likely(err == 0)) {
             err = agent_hooks_trigger_prepare(&msg, system_prompt, CONTEXT_BUF_SIZE, messages);
         }
 
@@ -81,13 +81,13 @@ static void agent_loop_task(void *arg)
         int iteration = 0;
         bool tool_budget_exhausted = false;
         bool cancelled = false;
-        if (likely(err == DAIMA_OK)) {
+        if (likely(err == 0)) {
             const char *tools_json = tool_registry_get_tools_json_for_channel(msg.channel);
             err = agent_hooks_trigger_replace_run(&msg, system_prompt, messages, tools_json, &final_text);
-            if (unlikely(err != DAIMA_OK)) {
+            if (unlikely(err != 0)) {
                 const char *model_override = NULL;
                 err = agent_hooks_trigger_before_run(&msg, &model_override, tools_json);
-                if (likely(err == DAIMA_OK)) {
+                if (likely(err == 0)) {
                     err = agent_turn_run(system_prompt, messages, tools_json, &msg,
                                   model_override,
                                   cancel_token,
@@ -105,25 +105,25 @@ static void agent_loop_task(void *arg)
     }
 }
 
-daima_err_t agent_loop_init(void)
+err_t agent_loop_init(void)
 {
-    daima_err_t err = context_compressor_init();
-    if (unlikely(err != DAIMA_OK)) {
+    err_t err = context_compressor_init();
+    if (unlikely(err != 0)) {
         return err;
     }
     if (runtime_config_get_learning_review_enabled()) {
         err = learning_review_init();
-        if (unlikely(err != DAIMA_OK)) {
+        if (unlikely(err != 0)) {
             return err;
         }
     } else {
         pr_info("Learning review disabled");
     }
     pr_info("Agent loop initialized");
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t agent_loop_start(void)
+err_t agent_loop_start(void)
 {
     const uint32_t stack_candidates[] = {
         AGENT_STACK,
@@ -142,11 +142,11 @@ daima_err_t agent_loop_start(void)
 
         if (ok) {
             pr_info("agent_loop task created with stack=%u bytes", (unsigned)stack_size);
-            return DAIMA_OK;
+            return 0;
         }
 
         pr_warn("agent_loop create failed (stack=%u, free_mem=%u, largest_free=%u), retrying...", (unsigned)stack_size, (unsigned)daima_get_free_memory(), (unsigned)daima_get_largest_free_block());
     }
 
-    return DAIMA_FAIL;
+    return ERR_FAIL;
 }

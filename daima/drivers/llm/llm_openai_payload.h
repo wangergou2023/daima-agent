@@ -26,4 +26,4 @@ cJSON *llm_openai_build_image_body(const char *system_prompt,
                                    const char *reasoning_effort);
 #endif
 
-daima_err_t llm_openai_parse_response(const char *json_text, llm_response_t *resp);
+err_t llm_openai_parse_response(const char *json_text, llm_response_t *resp);

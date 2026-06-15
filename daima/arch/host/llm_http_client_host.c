@@ -204,12 +204,12 @@ bool llm_http_async_is_done(llm_async_request_t *req)
     return req->completed;
 }
 
-daima_err_t llm_http_async_get_response(llm_async_request_t *req,
+err_t llm_http_async_get_response(llm_async_request_t *req,
                                         char **out_body,
                                         long *out_status)
 {
     if (!req || !out_body || !out_status) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     *out_body = NULL;
@@ -225,16 +225,16 @@ daima_err_t llm_http_async_get_response(llm_async_request_t *req,
 
     *out_status = req->status;
     if (req->result != CURLE_OK) {
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     const char *body = req->body.data ? req->body.data : "";
     *out_body = strdup(body);
     if (!*out_body) {
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
 
-    return DAIMA_OK;
+    return 0;
 }
 
 void llm_http_async_free(llm_async_request_t *req)
@@ -297,7 +297,7 @@ void llm_http_log_payload(const char *tag, const char *label, const char *payloa
 #endif
 }
 
-daima_err_t llm_http_post_json(const char *url,
+err_t llm_http_post_json(const char *url,
                               const char *api_key,
                               const char *post_data,
                               int timeout_ms,
@@ -305,7 +305,7 @@ daima_err_t llm_http_post_json(const char *url,
                               int *status_out)
 {
     if (!url || !post_data || !body_out || !status_out) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     *body_out = NULL;
@@ -326,11 +326,11 @@ daima_err_t llm_http_post_json(const char *url,
     }
 
     host_http_response_t resp = {0};
-    daima_err_t err = host_http_request("POST", url, headers, post_data, timeout_ms, &resp);
+    err_t err = host_http_request("POST", url, headers, post_data, timeout_ms, &resp);
     if (headers) {
         curl_slist_free_all(headers);
     }
-    if (err != DAIMA_OK) {
+    if (err != 0) {
         host_http_response_free(&resp);
         return err;
     }
@@ -340,16 +340,16 @@ daima_err_t llm_http_post_json(const char *url,
         *body_out = strdup(resp.body);
         if (!*body_out) {
             host_http_response_free(&resp);
-            return DAIMA_ERR_NO_MEM;
+            return ERR_NO_MEM;
         }
     } else {
         *body_out = strdup("");
         if (!*body_out) {
             host_http_response_free(&resp);
-            return DAIMA_ERR_NO_MEM;
+            return ERR_NO_MEM;
         }
     }
 
     host_http_response_free(&resp);
-    return DAIMA_OK;
+    return 0;
 }

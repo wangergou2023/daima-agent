@@ -15,7 +15,7 @@ typedef struct {
 } model_fallback_cfg_t;
 
 model_fallback_cfg_t model_fallback_load_cfg(void);
-daima_err_t model_fallback_chat_with_fallback(
+err_t model_fallback_chat_with_fallback(
     const char *system_prompt,
     cJSON *messages,
     const char *tools_json,

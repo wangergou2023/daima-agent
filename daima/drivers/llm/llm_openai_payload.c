@@ -429,15 +429,15 @@ cJSON *llm_openai_build_image_body(const char *system_prompt,
 }
 #endif
 
-daima_err_t llm_openai_parse_response(const char *json_text, llm_response_t *resp)
+err_t llm_openai_parse_response(const char *json_text, llm_response_t *resp)
 {
     if (!json_text || !resp) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     cJSON *root = cJSON_Parse(json_text);
     if (!root) {
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     cJSON *choices = cJSON_GetObjectItem(root, "choices");
@@ -512,5 +512,5 @@ daima_err_t llm_openai_parse_response(const char *json_text, llm_response_t *res
     }
 
     cJSON_Delete(root);
-    return DAIMA_OK;
+    return 0;
 }

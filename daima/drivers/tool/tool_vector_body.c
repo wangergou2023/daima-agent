@@ -9,18 +9,18 @@
 
 #include "cJSON.h"
 #include "linux/printk.h"
-static daima_err_t tool_robot_set_head_angle_execute(const char *input_json, char *output, size_t output_size)
+static err_t tool_robot_set_head_angle_execute(const char *input_json, char *output, size_t output_size)
 {
     mcp_client_t *mcp = tool_get_mcp(output, output_size);
-    if (!mcp) return DAIMA_FAIL;
+    if (!mcp) return ERR_FAIL;
     cJSON *in = cJSON_Parse(input_json);
-    if (!in) { snprintf(output, output_size, "错误：无效 JSON"); return DAIMA_ERR_INVALID_ARG; }
+    if (!in) { snprintf(output, output_size, "错误：无效 JSON"); return ERR_INVALID_ARG; }
     cJSON *a = cJSON_GetObjectItem(in, "angle_rad");
     double angle = a && cJSON_IsNumber(a) ? a->valuedouble : 0.0;
     cJSON_Delete(in);
 
     cJSON *args = cJSON_CreateObject();
-    if (!args) return DAIMA_ERR_NO_MEM;
+    if (!args) return ERR_NO_MEM;
     cJSON_AddNumberToObject(args, "angle_rad", angle);
     cJSON_AddNumberToObject(args, "speed_rad_per_sec", 2.0);
     return call_mcp_with_args(mcp, "robot_set_head_angle", args, output, output_size);
@@ -39,18 +39,18 @@ static const struct tool s_head_angle = {
 const struct tool *tool_robot_set_head_angle_definition(void) { return &s_head_angle; }
 
 /* ---- Set Lift Height ---- */
-static daima_err_t tool_robot_set_lift_height_execute(const char *input_json, char *output, size_t output_size)
+static err_t tool_robot_set_lift_height_execute(const char *input_json, char *output, size_t output_size)
 {
     mcp_client_t *mcp = tool_get_mcp(output, output_size);
-    if (!mcp) return DAIMA_FAIL;
+    if (!mcp) return ERR_FAIL;
     cJSON *in = cJSON_Parse(input_json);
-    if (!in) { snprintf(output, output_size, "错误：无效 JSON"); return DAIMA_ERR_INVALID_ARG; }
+    if (!in) { snprintf(output, output_size, "错误：无效 JSON"); return ERR_INVALID_ARG; }
     cJSON *h = cJSON_GetObjectItem(in, "height_mm");
     double height = h && cJSON_IsNumber(h) ? h->valuedouble : 50.0;
     cJSON_Delete(in);
 
     cJSON *args = cJSON_CreateObject();
-    if (!args) return DAIMA_ERR_NO_MEM;
+    if (!args) return ERR_NO_MEM;
     cJSON_AddNumberToObject(args, "height_mm", height);
     cJSON_AddNumberToObject(args, "speed_rad_per_sec", 2.0);
     return call_mcp_with_args(mcp, "robot_set_lift_height", args, output, output_size);
@@ -69,11 +69,11 @@ static const struct tool s_lift_height = {
 const struct tool *tool_robot_set_lift_height_definition(void) { return &s_lift_height; }
 
 /* ---- Stop All Motors ---- */
-static daima_err_t tool_robot_stop_execute(const char *input_json, char *output, size_t output_size)
+static err_t tool_robot_stop_execute(const char *input_json, char *output, size_t output_size)
 {
     (void)input_json;
     mcp_client_t *mcp = tool_get_mcp(output, output_size);
-    if (!mcp) return DAIMA_FAIL;
+    if (!mcp) return ERR_FAIL;
     return mcp_client_call_tool(mcp, "robot_stop", "{}", output, output_size);
 }
 

@@ -43,19 +43,19 @@ static void remember_last_read(const char *resolved_path, int offset, int limit,
     s_last_read.valid = true;
 }
 
-daima_err_t tool_read_file_execute(const char *input_json, char *output, size_t output_size)
+err_t tool_read_file_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *root = cJSON_Parse(input_json);
     if (!root) {
         snprintf(output, output_size, "错误：输入 JSON 无效");
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     const char *path = cJSON_GetStringValue(cJSON_GetObjectItem(root, "path"));
     if (!path || !path[0]) {
         snprintf(output, output_size, "错误：缺少 'path' 字段");
         cJSON_Delete(root);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     int offset = tool_files_clamp_int(
@@ -71,19 +71,19 @@ daima_err_t tool_read_file_execute(const char *input_json, char *output, size_t 
     if (!tool_files_resolve_read_path(path, resolved_path, sizeof(resolved_path))) {
         snprintf(output, output_size, "错误：无法解析路径：%s", path);
         cJSON_Delete(root);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     struct stat st;
     if (stat(resolved_path, &st) != 0) {
         snprintf(output, output_size, "错误：文件不存在：%s", resolved_path);
         cJSON_Delete(root);
-        return DAIMA_ERR_NOT_FOUND;
+        return ERR_NOT_FOUND;
     }
     if (!S_ISREG(st.st_mode)) {
         snprintf(output, output_size, "错误：只支持读取普通文本文件：%s", resolved_path);
         cJSON_Delete(root);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     if (read_file_should_dedup(resolved_path, offset, limit, st.st_mtime)) {
@@ -93,14 +93,14 @@ daima_err_t tool_read_file_execute(const char *input_json, char *output, size_t 
             "请直接复用上一条 read_file 结果，不必重复读取。",
             resolved_path, offset, limit);
         cJSON_Delete(root);
-        return DAIMA_OK;
+        return 0;
     }
 
     FILE *f = fopen(resolved_path, "r");
     if (!f) {
         snprintf(output, output_size, "错误：无法打开文件：%s", resolved_path);
         cJSON_Delete(root);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     int total_lines = tool_files_count_total_lines(f);
@@ -230,5 +230,5 @@ daima_err_t tool_read_file_execute(const char *input_json, char *output, size_t 
 
     pr_info("read_file: %s lines=%d..%d/%d emitted=%d", resolved_path, offset, actual_end, total_lines, emitted_lines);
     cJSON_Delete(root);
-    return DAIMA_OK;
+    return 0;
 }

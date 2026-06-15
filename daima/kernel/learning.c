@@ -119,10 +119,10 @@ static bool memory_line_exists(const char *haystack, const char *needle)
     return haystack && needle && strstr(haystack, needle) != NULL;
 }
 
-static daima_err_t merge_long_term_memory(cJSON *items)
+static err_t merge_long_term_memory(cJSON *items)
 {
     if (!items || !cJSON_IsArray(items) || cJSON_GetArraySize(items) <= 0) {
-        return DAIMA_OK;
+        return 0;
     }
 
     char current[REVIEW_MEMORY_BUF_SIZE];
@@ -154,26 +154,26 @@ static daima_err_t merge_long_term_memory(cJSON *items)
     }
 
     if (strcmp(next, current) == 0) {
-        return DAIMA_OK;
+        return 0;
     }
     return memory_write_long_term(next);
 }
 
-static daima_err_t append_skill_review_queue(cJSON *skill_obj, const char *chat_id)
+static err_t append_skill_review_queue(cJSON *skill_obj, const char *chat_id)
 {
     if (!skill_obj || !cJSON_IsObject(skill_obj)) {
-        return DAIMA_OK;
+        return 0;
     }
 
     const char *action = cJSON_GetStringValue(cJSON_GetObjectItem(skill_obj, "action"));
     if (!action || strcmp(action, "none") == 0) {
-        return DAIMA_OK;
+        return 0;
     }
 
     FILE *f = fopen(daima_path_skill_review_queue_file(), "a");
     if (!f) {
         pr_err("Cannot open %s", daima_path_skill_review_queue_file());
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     time_t now = time(NULL);
@@ -204,7 +204,7 @@ static daima_err_t append_skill_review_queue(cJSON *skill_obj, const char *chat_
     }
     fclose(f);
     pr_info("Queued skill review for chat %s", chat_id);
-    return DAIMA_OK;
+    return 0;
 }
 
 static void run_review_for_chat(const char *chat_id)
@@ -218,7 +218,7 @@ static void run_review_for_chat(const char *chat_id)
         goto cleanup;
     }
 
-    if (session_store_get_history_json(chat_id, history_json, REVIEW_HISTORY_BUF_SIZE, REVIEW_MSGS_MAX) != DAIMA_OK) {
+    if (session_store_get_history_json(chat_id, history_json, REVIEW_HISTORY_BUF_SIZE, REVIEW_MSGS_MAX) != 0) {
         goto cleanup;
     }
 
@@ -275,14 +275,14 @@ static void run_review_for_chat(const char *chat_id)
     cJSON_AddStringToObject(user, "content", prompt);
     cJSON_AddItemToArray(req, user);
 
-    daima_err_t err = llm_chat_tools(
+    err_t err = llm_chat_tools(
         "你是一个严格输出 JSON 的后台学习复盘助手，不要调用工具，不要输出解释文字。",
         req,
         NULL,
         &resp);
     cJSON_Delete(req);
     cJSON_Delete(messages);
-    if (err != DAIMA_OK || resp.tool_use || !resp.text || !resp.text[0]) {
+    if (err != 0 || resp.tool_use || !resp.text || !resp.text[0]) {
         llm_response_free(&resp);
         goto cleanup;
     }
@@ -361,29 +361,29 @@ static void *review_worker_loop(void *arg)
     return NULL;
 }
 
-daima_err_t learning_review_init(void)
+err_t learning_review_init(void)
 {
     pthread_mutex_lock(&s_review_mutex);
     if (s_review_started) {
         pthread_mutex_unlock(&s_review_mutex);
-        return DAIMA_OK;
+        return 0;
     }
     if (pthread_create(&s_review_thread, NULL, review_worker_loop, NULL) != 0) {
         pthread_mutex_unlock(&s_review_mutex);
         pr_err("Failed to start learning review worker");
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
     pthread_detach(s_review_thread);
     s_review_started = true;
     pthread_mutex_unlock(&s_review_mutex);
     pr_info("Learning review worker started");
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t learning_review_schedule(const char *chat_id)
+err_t learning_review_schedule(const char *chat_id)
 {
     if (!chat_id || !chat_id[0]) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     pthread_mutex_lock(&s_review_mutex);
@@ -391,7 +391,7 @@ daima_err_t learning_review_schedule(const char *chat_id)
     if (!job) {
         pthread_mutex_unlock(&s_review_mutex);
         pr_warn("Learning review queue full, skip chat %s", chat_id);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     if (job->running) {
@@ -401,5 +401,5 @@ daima_err_t learning_review_schedule(const char *chat_id)
     }
     pthread_cond_signal(&s_review_cond);
     pthread_mutex_unlock(&s_review_mutex);
-    return DAIMA_OK;
+    return 0;
 }

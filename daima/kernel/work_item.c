@@ -71,7 +71,7 @@ static void local_date(char *buf, size_t size)
     strftime(buf, size, "%Y%m%d", &tm_now);
 }
 
-static daima_err_t add_validated_string(cJSON *dst,
+static err_t add_validated_string(cJSON *dst,
                                         const cJSON *src,
                                         const char *key,
                                         const char *fallback,
@@ -79,10 +79,10 @@ static daima_err_t add_validated_string(cJSON *dst,
 {
     const char *value = json_string_or_default(src, key, fallback);
     if (!validator(value)) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
     cJSON_AddStringToObject(dst, key, value);
-    return DAIMA_OK;
+    return 0;
 }
 
 static void add_plain_string(cJSON *dst, const cJSON *src, const char *key)
@@ -127,25 +127,25 @@ static void add_optional_string(cJSON *dst, const cJSON *src, const char *key)
     }
 }
 
-static daima_err_t normalize_new_item(const cJSON *input, const char *id, const char *now, cJSON **out_item)
+static err_t normalize_new_item(const cJSON *input, const char *id, const char *now, cJSON **out_item)
 {
     if (!input || !id || !now || !out_item || !cJSON_IsObject((cJSON *)input)) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     const char *title = json_string_or_default(input, "title", "");
     if (!title[0]) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     cJSON *item = cJSON_CreateObject();
-    if (!item) return DAIMA_ERR_NO_MEM;
+    if (!item) return ERR_NO_MEM;
 
     cJSON_AddStringToObject(item, "id", id);
-    if (add_validated_string(item, input, "type", "improvement", work_item_type_valid) != DAIMA_OK ||
-        add_validated_string(item, input, "source", "user", work_item_source_valid) != DAIMA_OK) {
+    if (add_validated_string(item, input, "type", "improvement", work_item_type_valid) != 0 ||
+        add_validated_string(item, input, "source", "user", work_item_source_valid) != 0) {
         cJSON_Delete(item);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
     add_plain_string(item, input, "title");
     add_plain_string(item, input, "description");
@@ -155,14 +155,14 @@ static daima_err_t normalize_new_item(const cJSON *input, const char *id, const 
     cJSON *evidence = normalized_evidence(input);
     if (!evidence) {
         cJSON_Delete(item);
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
     cJSON_AddItemToObject(item, "evidence", evidence);
 
-    if (add_validated_string(item, input, "status", "new", work_item_status_valid) != DAIMA_OK ||
-        add_validated_string(item, input, "priority", "P2", work_item_priority_valid) != DAIMA_OK) {
+    if (add_validated_string(item, input, "status", "new", work_item_status_valid) != 0 ||
+        add_validated_string(item, input, "priority", "P2", work_item_priority_valid) != 0) {
         cJSON_Delete(item);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
     add_optional_string(item, input, "error_signature");
     cJSON *occurrences = cJSON_GetObjectItem((cJSON *)input, "occurrences");
@@ -172,24 +172,24 @@ static daima_err_t normalize_new_item(const cJSON *input, const char *id, const 
     cJSON_AddStringToObject(item, "created_at", now);
     cJSON_AddStringToObject(item, "updated_at", now);
     *out_item = item;
-    return DAIMA_OK;
+    return 0;
 }
 
-static daima_err_t append_item_line(const cJSON *item)
+static err_t append_item_line(const cJSON *item)
 {
     char *line = cJSON_PrintUnformatted((cJSON *)item);
-    if (!line) return DAIMA_ERR_NO_MEM;
+    if (!line) return ERR_NO_MEM;
 
     daima_fs_ensure_dir(daima_path_memory_dir());
     FILE *f = fopen(daima_path_work_items_file(), "a");
     if (!f) {
         kfree(line);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
     int ok = fprintf(f, "%s\n", line) > 0;
     fclose(f);
     kfree(line);
-    return ok ? DAIMA_OK : DAIMA_FAIL;
+    return ok ? 0 : ERR_FAIL;
 }
 
 void work_item_list_free(work_item_list_t *list)
@@ -200,15 +200,15 @@ void work_item_list_free(work_item_list_t *list)
     list->invalid_lines = 0;
 }
 
-daima_err_t work_item_store_load(work_item_list_t *out)
+err_t work_item_store_load(work_item_list_t *out)
 {
-    if (!out) return DAIMA_ERR_INVALID_ARG;
+    if (!out) return ERR_INVALID_ARG;
     out->items = cJSON_CreateArray();
     out->invalid_lines = 0;
-    if (!out->items) return DAIMA_ERR_NO_MEM;
+    if (!out->items) return ERR_NO_MEM;
 
     FILE *f = fopen(daima_path_work_items_file(), "r");
-    if (!f) return DAIMA_OK;
+    if (!f) return 0;
 
     char line[WORK_ITEM_LINE_MAX];
     while (fgets(line, sizeof(line), f)) {
@@ -223,7 +223,7 @@ daima_err_t work_item_store_load(work_item_list_t *out)
         cJSON_AddItemToArray(out->items, item);
     }
     fclose(f);
-    return DAIMA_OK;
+    return 0;
 }
 
 static const char *find_duplicate(const cJSON *items, const char *title, const char *type)
@@ -273,14 +273,14 @@ static int next_sequence_for_date(const cJSON *items, const char *date)
     return max_seq + 1;
 }
 
-daima_err_t work_item_store_add(const cJSON *input, cJSON **out_item)
+err_t work_item_store_add(const cJSON *input, cJSON **out_item)
 {
-    if (!input || !out_item) return DAIMA_ERR_INVALID_ARG;
+    if (!input || !out_item) return ERR_INVALID_ARG;
     *out_item = NULL;
 
     work_item_list_t list = {0};
-    daima_err_t err = work_item_store_load(&list);
-    if (err != DAIMA_OK) return err;
+    err_t err = work_item_store_load(&list);
+    if (err != 0) return err;
 
     char date[16];
     char id[32];
@@ -295,7 +295,7 @@ daima_err_t work_item_store_add(const cJSON *input, cJSON **out_item)
 
     cJSON *item = NULL;
     err = normalize_new_item(input, id, now, &item);
-    if (err == DAIMA_OK && dup_id) {
+    if (err == 0 && dup_id) {
         const char *orig_desc = cJSON_GetStringValue(cJSON_GetObjectItem(item, "description"));
         char marked_desc[2048];
         snprintf(marked_desc, sizeof(marked_desc),
@@ -306,10 +306,10 @@ daima_err_t work_item_store_add(const cJSON *input, cJSON **out_item)
         cJSON_ReplaceItemInObject(item, "description", cJSON_CreateString(marked_desc));
         cJSON_AddStringToObject(item, "duplicate_of", dup_id);
     }
-    if (err == DAIMA_OK) {
+    if (err == 0) {
         err = append_item_line(item);
     }
-    if (err == DAIMA_OK) {
+    if (err == 0) {
         *out_item = item;
     } else {
         cJSON_Delete(item);
@@ -318,7 +318,7 @@ daima_err_t work_item_store_add(const cJSON *input, cJSON **out_item)
     return err;
 }
 
-static daima_err_t apply_update_fields(cJSON *item, const cJSON *input, const char *now)
+static err_t apply_update_fields(cJSON *item, const cJSON *input, const char *now)
 {
     const char *string_keys[] = {"title", "description", "expected", "actual", "error_signature", "first_seen_at", "last_seen_at"};
     for (size_t i = 0; i < sizeof(string_keys) / sizeof(string_keys[0]); i++) {
@@ -341,25 +341,25 @@ static daima_err_t apply_update_fields(cJSON *item, const cJSON *input, const ch
         cJSON *value = cJSON_GetObjectItem((cJSON *)input, enum_keys[i].key);
         if (!value) continue;
         if (!cJSON_IsString(value) || !enum_keys[i].validator(value->valuestring)) {
-            return DAIMA_ERR_INVALID_ARG;
+            return ERR_INVALID_ARG;
         }
         cJSON_ReplaceItemInObject(item, enum_keys[i].key, cJSON_CreateString(value->valuestring));
     }
 
     cJSON *evidence_in = cJSON_GetObjectItem((cJSON *)input, "evidence");
     if (evidence_in) {
-        if (!cJSON_IsObject(evidence_in)) return DAIMA_ERR_INVALID_ARG;
+        if (!cJSON_IsObject(evidence_in)) return ERR_INVALID_ARG;
         cJSON *evidence = normalized_evidence(input);
-        if (!evidence) return DAIMA_ERR_NO_MEM;
+        if (!evidence) return ERR_NO_MEM;
         cJSON_ReplaceItemInObject(item, "evidence", evidence);
     }
     cJSON *occurrences = cJSON_GetObjectItem((cJSON *)input, "occurrences");
     if (occurrences) {
-        if (!cJSON_IsNumber(occurrences)) return DAIMA_ERR_INVALID_ARG;
+        if (!cJSON_IsNumber(occurrences)) return ERR_INVALID_ARG;
         cJSON_ReplaceItemInObject(item, "occurrences", cJSON_CreateNumber(occurrences->valueint));
     }
     cJSON_ReplaceItemInObject(item, "updated_at", cJSON_CreateString(now));
-    return DAIMA_OK;
+    return 0;
 }
 
 static cJSON *ensure_evidence_object(cJSON *item)
@@ -425,34 +425,34 @@ static void merge_evidence(cJSON *existing, const cJSON *incoming)
     }
 }
 
-static daima_err_t rewrite_items(const cJSON *items)
+static err_t rewrite_items(const cJSON *items)
 {
     daima_fs_ensure_dir(daima_path_memory_dir());
     FILE *f = fopen(daima_path_work_items_file(), "w");
-    if (!f) return DAIMA_FAIL;
+    if (!f) return ERR_FAIL;
 
     const cJSON *item = NULL;
     cJSON_ArrayForEach(item, (cJSON *)items) {
         char *line = cJSON_PrintUnformatted((cJSON *)item);
         if (!line) {
             fclose(f);
-            return DAIMA_ERR_NO_MEM;
+            return ERR_NO_MEM;
         }
         fprintf(f, "%s\n", line);
         kfree(line);
     }
     fclose(f);
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t work_item_store_update(const char *id, const cJSON *input, cJSON **out_item)
+err_t work_item_store_update(const char *id, const cJSON *input, cJSON **out_item)
 {
-    if (!id || !id[0] || !input || !out_item) return DAIMA_ERR_INVALID_ARG;
+    if (!id || !id[0] || !input || !out_item) return ERR_INVALID_ARG;
     *out_item = NULL;
 
     work_item_list_t list = {0};
-    daima_err_t err = work_item_store_load(&list);
-    if (err != DAIMA_OK) return err;
+    err_t err = work_item_store_load(&list);
+    if (err != 0) return err;
 
     cJSON *found = NULL;
     cJSON *item = NULL;
@@ -465,33 +465,33 @@ daima_err_t work_item_store_update(const char *id, const cJSON *input, cJSON **o
     }
     if (!found) {
         work_item_list_free(&list);
-        return DAIMA_ERR_NOT_FOUND;
+        return ERR_NOT_FOUND;
     }
 
     char now[32];
     utc_now(now, sizeof(now));
     err = apply_update_fields(found, input, now);
-    if (err == DAIMA_OK) {
+    if (err == 0) {
         err = rewrite_items(list.items);
     }
-    if (err == DAIMA_OK) {
+    if (err == 0) {
         *out_item = cJSON_Duplicate(found, true);
-        if (!*out_item) err = DAIMA_ERR_NO_MEM;
+        if (!*out_item) err = ERR_NO_MEM;
     }
     work_item_list_free(&list);
     return err;
 }
 
-daima_err_t work_item_store_batch_update(const cJSON *ids, const char *status, int *out_count)
+err_t work_item_store_batch_update(const cJSON *ids, const char *status, int *out_count)
 {
     if (!ids || !cJSON_IsArray(ids) || !status || !work_item_status_valid(status) || !out_count) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
     *out_count = 0;
 
     work_item_list_t list = {0};
-    daima_err_t err = work_item_store_load(&list);
-    if (err != DAIMA_OK) return err;
+    err_t err = work_item_store_load(&list);
+    if (err != 0) return err;
 
     char now[32];
     utc_now(now, sizeof(now));
@@ -522,16 +522,16 @@ daima_err_t work_item_store_batch_update(const cJSON *ids, const char *status, i
     return err;
 }
 
-daima_err_t work_item_store_collect(const char *type,
+err_t work_item_store_collect(const char *type,
                                     const char *source,
                                     const char *title,
                                     const char *description)
 {
-    if (!type || !source || !title) return DAIMA_ERR_INVALID_ARG;
-    if (!work_item_type_valid(type) || !work_item_source_valid(source)) return DAIMA_ERR_INVALID_ARG;
+    if (!type || !source || !title) return ERR_INVALID_ARG;
+    if (!work_item_type_valid(type) || !work_item_source_valid(source)) return ERR_INVALID_ARG;
 
     cJSON *input = cJSON_CreateObject();
-    if (!input) return DAIMA_ERR_NO_MEM;
+    if (!input) return ERR_NO_MEM;
     cJSON_AddStringToObject(input, "type", type);
     cJSON_AddStringToObject(input, "source", source);
     cJSON_AddStringToObject(input, "title", title);
@@ -539,16 +539,16 @@ daima_err_t work_item_store_collect(const char *type,
     cJSON_AddStringToObject(input, "status", "new");
 
     cJSON *item = NULL;
-    daima_err_t err = work_item_store_add(input, &item);
+    err_t err = work_item_store_add(input, &item);
     cJSON_Delete(item);
     cJSON_Delete(input);
     return err;
 }
 
-daima_err_t work_item_store_collect_structured(const cJSON *input, cJSON **out_item)
+err_t work_item_store_collect_structured(const cJSON *input, cJSON **out_item)
 {
     if (!input || !cJSON_IsObject((cJSON *)input) || !out_item) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
     *out_item = NULL;
 
@@ -558,8 +558,8 @@ daima_err_t work_item_store_collect_structured(const cJSON *input, cJSON **out_i
     }
 
     work_item_list_t list = {0};
-    daima_err_t err = work_item_store_load(&list);
-    if (err != DAIMA_OK) return err;
+    err_t err = work_item_store_load(&list);
+    if (err != 0) return err;
 
     cJSON *existing = find_active_by_signature(list.items, signature);
     if (!existing) {
@@ -579,9 +579,9 @@ daima_err_t work_item_store_collect_structured(const cJSON *input, cJSON **out_i
     merge_evidence(existing, incoming_evidence);
 
     err = rewrite_items(list.items);
-    if (err == DAIMA_OK) {
+    if (err == 0) {
         *out_item = cJSON_Duplicate(existing, true);
-        if (!*out_item) err = DAIMA_ERR_NO_MEM;
+        if (!*out_item) err = ERR_NO_MEM;
     }
     work_item_list_free(&list);
     return err;

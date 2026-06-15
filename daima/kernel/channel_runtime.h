@@ -5,4 +5,4 @@
 #include "bus.h"
 #include "err.h"
 
-daima_err_t channel_runtime_dispatch_outbound(const struct message *msg);
+err_t channel_runtime_dispatch_outbound(const struct message *msg);

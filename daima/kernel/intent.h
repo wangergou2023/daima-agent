@@ -19,5 +19,5 @@ typedef struct {
 
 const char *daima_intent_name(enum intent intent);
 intent_gate_cfg_t intent_gate_load_cfg(void);
-daima_err_t intent_gate_classify(const char *user_message,
+err_t intent_gate_classify(const char *user_message,
                                   enum intent *out_intent);

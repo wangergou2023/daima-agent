@@ -88,16 +88,16 @@ struct sched_agent *sched_pick_next(struct sched_runqueue *rq)
 }
 
 void sched_complete(struct sched_runqueue *rq, struct sched_agent *agent,
-                    daima_err_t err)
+                    err_t err)
 {
     if (unlikely(!rq || !agent)) {
         return;
     }
 
     agent->error = err;
-    if (likely(err == DAIMA_OK)) {
+    if (likely(err == 0)) {
         agent->state = SCHED_AGENT_DONE;
-    } else if (err == DAIMA_ERR_TIMEOUT) {
+    } else if (err == ERR_TIMEOUT) {
         agent->state = SCHED_AGENT_TIMEOUT;
     } else {
         agent->state = SCHED_AGENT_ERROR;
@@ -107,11 +107,11 @@ void sched_complete(struct sched_runqueue *rq, struct sched_agent *agent,
     }
 }
 
-daima_err_t sched_dispatch(enum intent intent, const struct plan *plan,
+err_t sched_dispatch(enum intent intent, const struct plan *plan,
                            const char *user_msg, struct sched_runqueue *rq)
 {
     if (unlikely(!rq)) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     memset(rq, 0, sizeof(*rq));
@@ -121,7 +121,7 @@ daima_err_t sched_dispatch(enum intent intent, const struct plan *plan,
     int count = 0;
     const struct sched_class *classes = sched_class_for_intent(intent, &count);
     if (!classes || count <= 0 || count > SCHED_MAX_AGENTS) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     for (int i = 0; i < count; i++) {
@@ -129,7 +129,7 @@ daima_err_t sched_dispatch(enum intent intent, const struct plan *plan,
         sched_set_task_description(&rq->agents[i], plan, user_msg);
     }
 
-    return DAIMA_OK;
+    return 0;
 }
 
 void sched_start(struct sched_runqueue *rq,
@@ -160,10 +160,10 @@ void sched_start(struct sched_runqueue *rq,
     }
 }
 
-daima_err_t sched_wait(struct sched_runqueue *rq)
+err_t sched_wait(struct sched_runqueue *rq)
 {
     if (unlikely(!rq)) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     int elapsed = 0;
@@ -179,11 +179,11 @@ daima_err_t sched_wait(struct sched_runqueue *rq)
             }
 
             sched_agent_reap(agent);
-            daima_err_t err = agent->error;
+            err_t err = agent->error;
             enum sched_agent_state state = agent->state;
             sched_complete(rq, agent, err);
             agent->state = state;
-            pr_info("agent %d (%s) done, err=%s", agent->pid, sched_class_name(agent->class), daima_err_to_name(agent->error));
+            pr_info("agent %d (%s) done, err=%s", agent->pid, sched_class_name(agent->class), err_name(agent->error));
         }
 
         if (rq->nr_running > 0) {
@@ -199,12 +199,12 @@ daima_err_t sched_wait(struct sched_runqueue *rq)
 
     list_for_each_entry(agent, &rq->agent_list, run_list, struct sched_agent) {
         if (agent->state == SCHED_AGENT_RUNNING) {
-            sched_complete(rq, agent, DAIMA_ERR_TIMEOUT);
+            sched_complete(rq, agent, ERR_TIMEOUT);
             pr_warn("agent %d (%s) timed out", agent->pid, sched_class_name(agent->class));
         }
     }
 
-    return DAIMA_OK;
+    return 0;
 }
 
 void sched_merge(struct sched_runqueue *rq, char *output, size_t size)
@@ -239,13 +239,13 @@ void sched_merge(struct sched_runqueue *rq, char *output, size_t size)
             continue;
         }
 
-        const char *icon = agent->error == DAIMA_OK ? "✅" : "❌";
+        const char *icon = agent->error == 0 ? "✅" : "❌";
         int written = snprintf(output + used, size - used,
                                "%s %s %s\n",
                                icon,
                                sched_class_name(agent->class),
-                               agent->error == DAIMA_OK ? "已完成" :
-                               agent->error == DAIMA_ERR_TIMEOUT ? "超时" : "失败");
+                               agent->error == 0 ? "已完成" :
+                               agent->error == ERR_TIMEOUT ? "超时" : "失败");
         if (written < 0) {
             return;
         }

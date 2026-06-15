@@ -9,5 +9,5 @@ typedef struct {
     char questions[2048];  // 生成的提问
 } prometheus_state_t;
 
-daima_err_t prometheus_check_needs_interview(const char *user_message,
+err_t prometheus_check_needs_interview(const char *user_message,
                                              prometheus_state_t *out);

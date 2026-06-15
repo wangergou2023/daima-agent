@@ -12,9 +12,9 @@
  * @param buf   输出缓冲区（由调用方分配，建议 CONTEXT_BUF_SIZE）
  * @param size  缓冲区大小
  */
-daima_err_t context_build_system_prompt_for_channel(const char *channel, char *buf, size_t size);
+err_t context_build_system_prompt_for_channel(const char *channel, char *buf, size_t size);
 
-daima_err_t context_build_system_prompt(char *buf, size_t size);
+err_t context_build_system_prompt(char *buf, size_t size);
 
 /**
  * 修复缓冲区末尾可能被截断的 multi-byte UTF-8 序列。

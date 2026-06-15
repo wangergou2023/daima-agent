@@ -34,28 +34,28 @@ struct message {
 /**
  * 初始化消息总线（入站 + 出站队列）。
  */
-daima_err_t message_bus_init(void);
+err_t message_bus_init(void);
 
 /**
  * 将消息推入入站队列（指向智能体主循环）。
  * 总线接管 msg->content / msg->image_path 的所有权。
  */
-daima_err_t message_bus_push_inbound(const struct message *msg);
+err_t message_bus_push_inbound(const struct message *msg);
 
 /**
  * 从入站队列取出消息（阻塞）。
  * 使用完后调用方需释放 msg->content / msg->image_path。
  */
-daima_err_t message_bus_pop_inbound(struct message *msg, uint32_t timeout_ms);
+err_t message_bus_pop_inbound(struct message *msg, uint32_t timeout_ms);
 
 /**
  * 将消息推入出站队列（指向各通道）。
  * 总线接管 msg->content / msg->reasoning 的所有权。
  */
-daima_err_t message_bus_push_outbound(const struct message *msg);
+err_t message_bus_push_outbound(const struct message *msg);
 
 /**
  * 从出站队列取出消息（阻塞）。
  * 使用完后调用方需释放 msg->content / msg->reasoning。
  */
-daima_err_t message_bus_pop_outbound(struct message *msg, uint32_t timeout_ms);
+err_t message_bus_pop_outbound(struct message *msg, uint32_t timeout_ms);

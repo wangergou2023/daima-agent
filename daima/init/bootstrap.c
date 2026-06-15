@@ -55,9 +55,9 @@ void daima_bootstrap_prepare_runtime(void)
 {
     daima_paths_init();
     ensure_spiffs_layout();
-    daima_err_t cfg_err = runtime_config_init();
-    if (cfg_err != DAIMA_OK) {
-        pr_warn("Runtime config init failed: %s", daima_err_to_name(cfg_err));
+    err_t cfg_err = runtime_config_init();
+    if (cfg_err != 0) {
+        pr_warn("Runtime config init failed: %s", err_name(cfg_err));
     }
 }
 
@@ -94,24 +94,24 @@ bool daima_bootstrap_get_primary_ipv4(char *out, size_t out_sz)
 void do_basic_setup(void)
 {
     pr_info("core_initcall...");
-    BUG_ON(message_bus_init() != DAIMA_OK);
+    BUG_ON(message_bus_init() != 0);
     agent_hooks_init();
 
     pr_info("postcore_initcall...");
-    BUG_ON(memory_store_init() != DAIMA_OK);
-    BUG_ON(session_store_init() != DAIMA_OK);
+    BUG_ON(memory_store_init() != 0);
+    BUG_ON(session_store_init() != 0);
 
     pr_info("subsys_initcall...");
-    BUG_ON(cron_service_init() != DAIMA_OK);
-    BUG_ON(heartbeat_init() != DAIMA_OK);
-    BUG_ON(http_proxy_init() != DAIMA_OK);
-    BUG_ON(skill_loader_init() != DAIMA_OK);
+    BUG_ON(cron_service_init() != 0);
+    BUG_ON(heartbeat_init() != 0);
+    BUG_ON(http_proxy_init() != 0);
+    BUG_ON(skill_loader_init() != 0);
 
     pr_info("device_initcall...");
-    BUG_ON(voice_channel_init() != DAIMA_OK);
-    BUG_ON(feishu_bot_init() != DAIMA_OK);
-    BUG_ON(feishu_bot_start() != DAIMA_OK);
-    BUG_ON(vector_channel_init() != DAIMA_OK);
+    BUG_ON(voice_channel_init() != 0);
+    BUG_ON(feishu_bot_init() != 0);
+    BUG_ON(feishu_bot_start() != 0);
+    BUG_ON(vector_channel_init() != 0);
 
     cron_service_start();
     heartbeat_start();

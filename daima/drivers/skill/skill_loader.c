@@ -254,7 +254,7 @@ static void install_builtin(const builtin_skill_t *skill)
     pr_info("Installed built-in skill: %s", file_path);
 }
 
-daima_err_t skill_loader_init(void)
+err_t skill_loader_init(void)
 {
     pr_info("Initializing skills system");
     memset(s_summary_cache, 0, sizeof(s_summary_cache));
@@ -264,7 +264,7 @@ daima_err_t skill_loader_init(void)
     }
 
     pr_info("Skills system ready (%d built-in)", (int)NUM_BUILTINS);
-    return DAIMA_OK;
+    return 0;
 }
 
 /* ── 为系统提示构建技能摘要 ──────────────────── */

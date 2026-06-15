@@ -202,22 +202,22 @@ model_fallback_cfg_t model_fallback_load_cfg(void)
     return cfg;
 }
 
-daima_err_t model_fallback_chat_with_fallback(const char *system_prompt,
+err_t model_fallback_chat_with_fallback(const char *system_prompt,
                                               cJSON *messages,
                                               const char *tools_json,
                                               llm_response_t *resp)
 {
     if (!resp) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     char primary_model[64];
     safe_copy(primary_model, sizeof(primary_model), llm_get_model_name());
 
-    daima_err_t err = llm_chat_tools(system_prompt, messages, tools_json, resp);
-    if (err == DAIMA_OK) {
+    err_t err = llm_chat_tools(system_prompt, messages, tools_json, resp);
+    if (err == 0) {
         llm_set_model(primary_model);
-        return DAIMA_OK;
+        return 0;
     }
 
     model_fallback_cfg_t cfg = model_fallback_load_cfg();
@@ -226,7 +226,7 @@ daima_err_t model_fallback_chat_with_fallback(const char *system_prompt,
         return err;
     }
 
-    daima_err_t last_err = err;
+    err_t last_err = err;
     for (int i = 0; i < cfg.model_count; i++) {
         if (strcmp(cfg.models[i], primary_model) == 0) {
             continue;
@@ -234,10 +234,10 @@ daima_err_t model_fallback_chat_with_fallback(const char *system_prompt,
 
         llm_set_model(cfg.models[i]);
         last_err = llm_chat_tools(system_prompt, messages, tools_json, resp);
-        if (last_err == DAIMA_OK) {
+        if (last_err == 0) {
             pr_info("Model fallback: primary失败 -> %s", cfg.models[i]);
             llm_set_model(primary_model);
-            return DAIMA_OK;
+            return 0;
         }
     }
 

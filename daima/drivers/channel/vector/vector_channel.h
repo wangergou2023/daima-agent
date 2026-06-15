@@ -14,15 +14,15 @@
 extern "C" {
 #endif
 
-daima_err_t vector_channel_init(void);
-daima_err_t vector_channel_start(void);
-daima_err_t vector_channel_ensure_started(void);
+err_t vector_channel_init(void);
+err_t vector_channel_start(void);
+err_t vector_channel_ensure_started(void);
 
 /**
  * 将文本回复发送到 Vector 扬声器。
  * 实际音频播放由 TTS 管线生成 PCM 后经 /tmp/daima_spk.sock 发送给 robot-mcp。
  */
-daima_err_t vector_channel_send_reply(const char *chat_id, const char *text);
+err_t vector_channel_send_reply(const char *chat_id, const char *text);
 
 /**
  * 将 PCM 音频通过 robot-mcp 播放到 Vector 扬声器。
@@ -30,7 +30,7 @@ daima_err_t vector_channel_send_reply(const char *chat_id, const char *text);
  * pcm_len: 字节数
  * sample_rate: 采样率 (Hz)，如 16000 或 24000
  */
-daima_err_t vector_channel_play_pcm(const unsigned char *pcm, size_t pcm_len, uint32_t sample_rate, uint32_t seq, const char *label);
+err_t vector_channel_play_pcm(const unsigned char *pcm, size_t pcm_len, uint32_t sample_rate, uint32_t seq, const char *label);
 
 mcp_client_t *vector_channel_get_mcp(void);
 

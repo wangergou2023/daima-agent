@@ -96,18 +96,18 @@ static void format_time(time_t t, char *out, size_t out_size)
     strftime(out, out_size, "%Y-%m-%d %H:%M:%S %Z (%A)", &local);
 }
 
-daima_err_t tool_get_time_execute(const char *input_json, char *output, size_t output_size)
+err_t tool_get_time_execute(const char *input_json, char *output, size_t output_size)
 {
     (void)input_json;
     pr_info("Fetching current time...");
 
     host_http_response_t resp = {0};
-    daima_err_t err = host_http_request("HEAD", "https://example.com/", NULL, NULL, 5000, &resp);
+    err_t err = host_http_request("HEAD", "https://example.com/", NULL, NULL, 5000, &resp);
 
     time_t t = time(NULL);
     bool ok = false;
 
-    if (err == DAIMA_OK && resp.headers) {
+    if (err == 0 && resp.headers) {
         char date_val[64] = {0};
         if (extract_date_header(resp.headers, date_val, sizeof(date_val))) {
             ok = parse_http_date(date_val, &t);
@@ -122,7 +122,7 @@ daima_err_t tool_get_time_execute(const char *input_json, char *output, size_t o
 
     format_time(t, output, output_size);
     pr_info("Time: %s", output);
-    return DAIMA_OK;
+    return 0;
 }
 
 const struct tool *tool_get_time_definition(void)

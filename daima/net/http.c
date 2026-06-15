@@ -93,19 +93,19 @@ static void apply_proxy(CURL *curl)
     }
 }
 
-daima_err_t host_http_request(const char *method,
+err_t host_http_request(const char *method,
                             const char *url,
                             struct curl_slist *headers,
                             const char *body,
                             int timeout_ms,
                             host_http_response_t *out)
 {
-    if (unlikely(!method || !url || !out)) return DAIMA_ERR_INVALID_ARG;
+    if (unlikely(!method || !url || !out)) return ERR_INVALID_ARG;
 
     pthread_once(&s_curl_once, curl_global_init_once);
 
     CURL *curl = curl_easy_init();
-    if (unlikely(!curl)) return DAIMA_FAIL;
+    if (unlikely(!curl)) return ERR_FAIL;
 
     buf_t resp = {0};
     buf_t hdrs = {0};
@@ -152,7 +152,7 @@ daima_err_t host_http_request(const char *method,
         out->error = strdup(curl_easy_strerror(res));
         kfree(resp.data);
         kfree(hdrs.data);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     out->status = status;
@@ -160,7 +160,7 @@ daima_err_t host_http_request(const char *method,
     out->body_len = resp.len;
     out->headers = hdrs.data;
     out->headers_len = hdrs.len;
-    return DAIMA_OK;
+    return 0;
 }
 
 void host_http_response_free(host_http_response_t *resp)

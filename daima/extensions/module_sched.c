@@ -14,24 +14,24 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("daima");
 MODULE_DESCRIPTION("Agent Extension: coordinator");
-static daima_err_t replace_run(struct message *msg, char *system_prompt,
+static err_t replace_run(struct message *msg, char *system_prompt,
                                cJSON *messages, const char *tools_json,
                                char **out_final_text)
 {
     struct sched_runqueue rq;
     memset(&rq, 0, sizeof(rq));
-    daima_err_t coord_err = sched_dispatch(msg->intent,
+    err_t coord_err = sched_dispatch(msg->intent,
                                            agent_extension_state_plan(),
                                            msg->content,
                                            &rq);
-    if (coord_err != DAIMA_OK) {
-        pr_warn("Coordinator skipped: %s", daima_err_to_name(coord_err));
+    if (coord_err != 0) {
+        pr_warn("Coordinator skipped: %s", err_name(coord_err));
         sched_exit(&rq);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
     if (rq.nr_agents <= 1) {
         sched_exit(&rq);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     pr_info("Coordinator: launching %d sub-agents for intent=%s", rq.nr_agents, daima_intent_name(msg->intent));
@@ -47,12 +47,12 @@ static daima_err_t replace_run(struct message *msg, char *system_prompt,
 
     rq.timeout_ms = runtime_config_get_request_timeout_ms() + 10000;
     sched_start(&rq, system_prompt, messages, tools_json);
-    daima_err_t err = sched_wait(&rq);
-    if (err == DAIMA_OK) {
+    err_t err = sched_wait(&rq);
+    if (err == 0) {
         char *merged = daima_calloc(1, SCHED_MERGED_MAX);
         if (!merged) {
             sched_exit(&rq);
-            return DAIMA_ERR_NO_MEM;
+            return ERR_NO_MEM;
         }
         sched_merge(&rq, merged, SCHED_MERGED_MAX);
         if (merged[0] != '\0') {
@@ -61,10 +61,10 @@ static daima_err_t replace_run(struct message *msg, char *system_prompt,
         }
         kfree(merged);
     } else {
-        pr_warn("Coordinator launch skipped: %s", daima_err_to_name(err));
+        pr_warn("Coordinator launch skipped: %s", err_name(err));
     }
     sched_exit(&rq);
-    return DAIMA_OK;
+    return 0;
 }
 
 static agent_extension_hooks_t ext = {

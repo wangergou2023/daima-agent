@@ -61,11 +61,11 @@ static int input_limit(cJSON *input)
     return limit->valueint;
 }
 
-static daima_err_t render_list(cJSON *input, char *output, size_t output_size)
+static err_t render_list(cJSON *input, char *output, size_t output_size)
 {
     work_item_list_t list = {0};
-    daima_err_t err = work_item_store_load(&list);
-    if (err != DAIMA_OK) return err;
+    err_t err = work_item_store_load(&list);
+    if (err != 0) return err;
 
     const char *status = cJSON_GetStringValue(cJSON_GetObjectItem(input, "status"));
     const char *type = cJSON_GetStringValue(cJSON_GetObjectItem(input, "type"));
@@ -93,7 +93,7 @@ static daima_err_t render_list(cJSON *input, char *output, size_t output_size)
         snprintf(output + off, output_size - off, "（没有匹配的 work item）\n");
     }
     work_item_list_free(&list);
-    return DAIMA_OK;
+    return 0;
 }
 
 static bool is_high_priority(cJSON *item)
@@ -141,11 +141,11 @@ static bool always_true(cJSON *item)
     return true;
 }
 
-static daima_err_t render_summary(cJSON *input, char *output, size_t output_size)
+static err_t render_summary(cJSON *input, char *output, size_t output_size)
 {
     work_item_list_t list = {0};
-    daima_err_t err = work_item_store_load(&list);
-    if (err != DAIMA_OK) return err;
+    err_t err = work_item_store_load(&list);
+    if (err != 0) return err;
 
     int limit = input_limit(input);
     int total = cJSON_GetArraySize(list.items);
@@ -161,12 +161,12 @@ static daima_err_t render_summary(cJSON *input, char *output, size_t output_size
     render_summary_group(output, output_size, &off, "可进入实现事项", list.items, is_implementable, limit);
 
     work_item_list_free(&list);
-    return DAIMA_OK;
+    return 0;
 }
 
-static daima_err_t render_changed_item(const char *prefix, cJSON *item, char *output, size_t output_size)
+static err_t render_changed_item(const char *prefix, cJSON *item, char *output, size_t output_size)
 {
-    if (!item) return DAIMA_ERR_NO_MEM;
+    if (!item) return ERR_NO_MEM;
     snprintf(output, output_size, "%s：%s [%s %s %s] %s",
              prefix,
              item_str(item, "id"),
@@ -174,7 +174,7 @@ static daima_err_t render_changed_item(const char *prefix, cJSON *item, char *ou
              item_str(item, "type"),
              item_str(item, "status"),
              item_str(item, "title"));
-    return DAIMA_OK;
+    return 0;
 }
 
 static bool is_reviewable(cJSON *item)
@@ -185,11 +185,11 @@ static bool is_reviewable(cJSON *item)
            strcmp(status, "needs_info") == 0;
 }
 
-static daima_err_t render_review_queue(char *output, size_t output_size)
+static err_t render_review_queue(char *output, size_t output_size)
 {
     work_item_list_t list = {0};
-    daima_err_t err = work_item_store_load(&list);
-    if (err != DAIMA_OK) return err;
+    err_t err = work_item_store_load(&list);
+    if (err != 0) return err;
 
     int total = cJSON_GetArraySize(list.items);
     int reviewable = 0;
@@ -223,33 +223,33 @@ static daima_err_t render_review_queue(char *output, size_t output_size)
                     "批量：{\"action\":\"review\",\"ids\":[\"WI-xxx\",\"WI-yyy\"],\"status\":\"...\"}\n");
 
     work_item_list_free(&list);
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t tool_work_item_execute(const char *input_json, char *output, size_t output_size)
+err_t tool_work_item_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *input = cJSON_Parse(input_json ? input_json : "{}");
     if (!input || !cJSON_IsObject(input)) {
         snprintf(output, output_size, "错误：输入 JSON 无效");
         cJSON_Delete(input);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     const char *action = cJSON_GetStringValue(cJSON_GetObjectItem(input, "action"));
     if (!action || !action[0]) action = "list";
 
-    daima_err_t err = DAIMA_OK;
+    err_t err = 0;
     if (strcmp(action, "add") == 0) {
         cJSON *item = NULL;
         err = work_item_store_add(input, &item);
-        if (err == DAIMA_OK) {
+        if (err == 0) {
             const char *dup_of = cJSON_GetStringValue(cJSON_GetObjectItem(item, "duplicate_of"));
             if (dup_of && dup_of[0]) {
                 render_changed_item("已创建 work item（疑似重复，见 description）", item, output, output_size);
             } else {
                 render_changed_item("已创建 work item", item, output, output_size);
             }
-        } else if (err == DAIMA_ERR_INVALID_ARG) {
+        } else if (err == ERR_INVALID_ARG) {
             snprintf(output, output_size, "错误：add 需要有效 title、type/source/status/priority 枚举值");
         } else {
             snprintf(output, output_size, "错误：创建 work item 失败");
@@ -259,9 +259,9 @@ daima_err_t tool_work_item_execute(const char *input_json, char *output, size_t 
         const char *id = cJSON_GetStringValue(cJSON_GetObjectItem(input, "id"));
         cJSON *item = NULL;
         err = work_item_store_update(id, input, &item);
-        if (err == DAIMA_OK) {
+        if (err == 0) {
             render_changed_item("已更新 work item", item, output, output_size);
-        } else if (err == DAIMA_ERR_NOT_FOUND) {
+        } else if (err == ERR_NOT_FOUND) {
             snprintf(output, output_size, "错误：未找到 id=%s 的 work item", id ? id : "");
         } else {
             snprintf(output, output_size, "错误：update 需要有效 id 和字段值");
@@ -285,7 +285,7 @@ daima_err_t tool_work_item_execute(const char *input_json, char *output, size_t 
             int updated = 0;
             err = work_item_store_batch_update(id_array, review_status, &updated);
             if (!ids_json) cJSON_Delete(id_array);
-            if (err == DAIMA_OK) {
+            if (err == 0) {
                 snprintf(output, output_size, "已审核 %d 条 work item -> %s", updated, review_status);
             } else {
                 snprintf(output, output_size, "错误：批量审核失败");
@@ -297,7 +297,7 @@ daima_err_t tool_work_item_execute(const char *input_json, char *output, size_t 
         err = render_summary(input, output, output_size);
     } else {
         snprintf(output, output_size, "错误：未知 action=%s，支持 add/list/update/summary", action);
-        err = DAIMA_ERR_INVALID_ARG;
+        err = ERR_INVALID_ARG;
     }
 
     cJSON_Delete(input);

@@ -26,7 +26,7 @@ static void feishu_ws_task(void *arg)
     feishu_ws_runtime_run(&s_ws_runtime, s_app_id, s_app_secret);
 }
 
-daima_err_t feishu_bot_init(void)
+err_t feishu_bot_init(void)
 {
     const char *app_id = runtime_config_get_feishu_app_id();
     const char *app_secret = runtime_config_get_feishu_app_secret();
@@ -47,21 +47,21 @@ daima_err_t feishu_bot_init(void)
     }
 
     srand((unsigned int)time(NULL));
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t feishu_bot_start(void)
+err_t feishu_bot_start(void)
 {
     if (s_app_id[0] == '\0' || s_app_secret[0] == '\0') {
         pr_warn("Feishu not configured, skipping WebSocket start");
-        return DAIMA_OK;
+        return 0;
     }
     if (http_proxy_is_enabled()) {
         pr_warn("Feishu WS ignores proxy settings in host mode");
     }
     if (s_ws_task) {
         pr_warn("Feishu WebSocket task already running");
-        return DAIMA_OK;
+        return 0;
     }
     bool ok = daima_task_create(
         feishu_ws_task,
@@ -72,27 +72,27 @@ daima_err_t feishu_bot_start(void)
         &s_ws_task);
     if (!ok) {
         s_ws_task = NULL;
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
     pr_info("Feishu WebSocket mode enabled");
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t feishu_send_card(const char *chat_id, const char *markdown)
+err_t feishu_send_card(const char *chat_id, const char *markdown)
 {
-    if (!chat_id || !markdown) return DAIMA_ERR_INVALID_ARG;
+    if (!chat_id || !markdown) return ERR_INVALID_ARG;
     if (s_app_id[0] == '\0' || s_app_secret[0] == '\0') {
         pr_warn("Cannot send: no credentials configured");
-        return DAIMA_ERR_INVALID_STATE;
+        return ERR_INVALID_STATE;
     }
     return feishu_api_send_card(s_app_id, s_app_secret, chat_id, markdown);
 }
 
-daima_err_t feishu_reply_card(const char *message_id, const char *markdown)
+err_t feishu_reply_card(const char *message_id, const char *markdown)
 {
-    if (!message_id || !markdown) return DAIMA_ERR_INVALID_ARG;
+    if (!message_id || !markdown) return ERR_INVALID_ARG;
     if (s_app_id[0] == '\0' || s_app_secret[0] == '\0') {
-        return DAIMA_ERR_INVALID_STATE;
+        return ERR_INVALID_STATE;
     }
     return feishu_api_reply_card(s_app_id, s_app_secret, message_id, markdown);
 }

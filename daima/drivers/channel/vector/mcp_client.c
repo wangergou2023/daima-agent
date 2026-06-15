@@ -20,8 +20,8 @@
 #include "linux/kernel.h"
 
 static bool handle_mcp_notification(mcp_client_t *c, const char *json_str);
-static daima_err_t read_json_line(mcp_client_t *c, char *buf, size_t size, int timeout_ms);
-static daima_err_t wait_for_response(mcp_client_t *c, int request_id, int timeout_ms,
+static err_t read_json_line(mcp_client_t *c, char *buf, size_t size, int timeout_ms);
+static err_t wait_for_response(mcp_client_t *c, int request_id, int timeout_ms,
                                      char *response, size_t response_size);
 struct mcp_client {
     FILE   *in;            /* 子进程 stdin  (写入) */
@@ -132,7 +132,7 @@ mcp_client_t *mcp_client_launch(const char *bin_path, const char *robot_addr, co
     }
     kfree(init_str);
 
-    if (wait_for_response(c, init_id, MCP_INIT_TIMEOUT_MS, c->buf, sizeof(c->buf)) != DAIMA_OK) {
+    if (wait_for_response(c, init_id, MCP_INIT_TIMEOUT_MS, c->buf, sizeof(c->buf)) != 0) {
         pr_err("No response to initialize");
         goto fail;
     }
@@ -187,17 +187,17 @@ void mcp_client_destroy(mcp_client_t *c)
     kfree(c);
 }
 
-daima_err_t mcp_client_call_tool(mcp_client_t *c, const char *tool_name,
+err_t mcp_client_call_tool(mcp_client_t *c, const char *tool_name,
                                 const char *args_json,
                                 char *response_out, size_t response_size)
 {
     if (!c || !c->in || !c->out || !tool_name || !response_out || response_size == 0) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     /* 构造请求参数 (lock-free, local operations) */
     cJSON *params = cJSON_CreateObject();
-    if (!params) return DAIMA_ERR_NO_MEM;
+    if (!params) return ERR_NO_MEM;
     cJSON_AddStringToObject(params, "name", tool_name);
     cJSON *args = cJSON_Parse(args_json ? args_json : "{}");
     if (!args) args = cJSON_CreateObject();
@@ -207,14 +207,14 @@ daima_err_t mcp_client_call_tool(mcp_client_t *c, const char *tool_name,
     if (!c->in || !c->out) {
         pthread_mutex_unlock(&c->io_mutex);
         cJSON_Delete(params);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     cJSON *req = cJSON_CreateObject();
     if (!req) {
         pthread_mutex_unlock(&c->io_mutex);
         cJSON_Delete(params);
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
     int request_id = ++c->request_id;
     cJSON_AddStringToObject(req, "jsonrpc", "2.0");
@@ -229,16 +229,16 @@ daima_err_t mcp_client_call_tool(mcp_client_t *c, const char *tool_name,
         kfree(req_str);
         pthread_mutex_unlock(&c->io_mutex);
         snprintf(response_out, response_size, "Error: write failed");
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
     kfree(req_str);
 
     response_out[0] = '\0';
 
-    daima_err_t wait_err = wait_for_response(c, request_id, MCP_CALL_TIMEOUT_MS,
+    err_t wait_err = wait_for_response(c, request_id, MCP_CALL_TIMEOUT_MS,
                                              c->buf, sizeof(c->buf));
     pthread_mutex_unlock(&c->io_mutex);
-    if (wait_err != DAIMA_OK) {
+    if (wait_err != 0) {
         pr_err("No response to tools/call %s (id=%d)", tool_name, request_id);
         snprintf(response_out, response_size, "Error: no response");
         return wait_err;
@@ -249,7 +249,7 @@ daima_err_t mcp_client_call_tool(mcp_client_t *c, const char *tool_name,
     cJSON *resp = cJSON_Parse(c->buf);
     if (!resp) {
         snprintf(response_out, response_size, "Error: invalid JSON response");
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     /* 提取 result.content[0].text */
@@ -275,25 +275,25 @@ daima_err_t mcp_client_call_tool(mcp_client_t *c, const char *tool_name,
     }
 
     cJSON_Delete(resp);
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t mcp_client_list_tools(mcp_client_t *c, char *tools_json_out, size_t tools_size)
+err_t mcp_client_list_tools(mcp_client_t *c, char *tools_json_out, size_t tools_size)
 {
-    if (!c || !tools_json_out || tools_size == 0) return DAIMA_ERR_INVALID_ARG;
+    if (!c || !tools_json_out || tools_size == 0) return ERR_INVALID_ARG;
 
     pthread_mutex_lock(&c->io_mutex);
     if (!c->in || !c->out) {
         pthread_mutex_unlock(&c->io_mutex);
         tools_json_out[0] = '\0';
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     cJSON *req = cJSON_CreateObject();
     if (!req) {
         pthread_mutex_unlock(&c->io_mutex);
         tools_json_out[0] = '\0';
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
     int request_id = ++c->request_id;
     cJSON_AddStringToObject(req, "jsonrpc", "2.0");
@@ -307,14 +307,14 @@ daima_err_t mcp_client_list_tools(mcp_client_t *c, char *tools_json_out, size_t 
         kfree(req_str);
         pthread_mutex_unlock(&c->io_mutex);
         tools_json_out[0] = '\0';
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
     kfree(req_str);
 
-    daima_err_t wait_err = wait_for_response(c, request_id, MCP_CALL_TIMEOUT_MS,
+    err_t wait_err = wait_for_response(c, request_id, MCP_CALL_TIMEOUT_MS,
                                              c->buf, sizeof(c->buf));
     pthread_mutex_unlock(&c->io_mutex);
-    if (wait_err != DAIMA_OK) {
+    if (wait_err != 0) {
         tools_json_out[0] = '\0';
         return wait_err;
     }
@@ -322,7 +322,7 @@ daima_err_t mcp_client_list_tools(mcp_client_t *c, char *tools_json_out, size_t 
     cJSON *resp = cJSON_Parse(c->buf);
     if (!resp) {
         tools_json_out[0] = '\0';
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
     cJSON *result = cJSON_GetObjectItem(resp, "result");
     if (result) {
@@ -336,16 +336,16 @@ daima_err_t mcp_client_list_tools(mcp_client_t *c, char *tools_json_out, size_t 
         }
     }
     cJSON_Delete(resp);
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t mcp_client_subscribe_audio(mcp_client_t *c)
+err_t mcp_client_subscribe_audio(mcp_client_t *c)
 {
     char resp[BUF_SMALL];
     return mcp_client_call_tool(c, "robot_subscribe_audio", "{}", resp, sizeof(resp));
 }
 
-daima_err_t mcp_client_unsubscribe_audio(mcp_client_t *c)
+err_t mcp_client_unsubscribe_audio(mcp_client_t *c)
 {
     char resp[BUF_SMALL];
     return mcp_client_call_tool(c, "robot_unsubscribe_audio", "{}", resp, sizeof(resp));
@@ -394,12 +394,12 @@ static size_t b64_decode(const char *src, uint8_t *dst, size_t dst_max)
     return out;
 }
 
-static daima_err_t read_json_line(mcp_client_t *c, char *buf, size_t size, int timeout_ms)
+static err_t read_json_line(mcp_client_t *c, char *buf, size_t size, int timeout_ms)
 {
-    if (!c || !c->out || !buf || size == 0) return DAIMA_ERR_INVALID_ARG;
+    if (!c || !c->out || !buf || size == 0) return ERR_INVALID_ARG;
 
     int fd = fileno(c->out);
-    if (fd < 0) return DAIMA_FAIL;
+    if (fd < 0) return ERR_FAIL;
 
     fd_set fds;
     FD_ZERO(&fds);
@@ -414,18 +414,18 @@ static daima_err_t read_json_line(mcp_client_t *c, char *buf, size_t size, int t
     }
 
     int n = select(fd + 1, &fds, NULL, NULL, tvp);
-    if (n == 0) return DAIMA_ERR_TIMEOUT;
+    if (n == 0) return ERR_TIMEOUT;
     if (n < 0) {
-        if (errno == EINTR) return DAIMA_ERR_TIMEOUT;
+        if (errno == EINTR) return ERR_TIMEOUT;
         pr_warn("select failed: %s", strerror(errno));
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     if (!fgets(buf, size, c->out)) {
         clearerr(c->out);
-        return DAIMA_ERR_TIMEOUT;
+        return ERR_TIMEOUT;
     }
-    return DAIMA_OK;
+    return 0;
 }
 
 static void handle_audio_notification(mcp_client_t *c, const char *json_str)
@@ -517,10 +517,10 @@ static bool is_jsonrpc_response(const cJSON *root)
            cJSON_GetObjectItem((cJSON *)root, "error");
 }
 
-static daima_err_t wait_for_response(mcp_client_t *c, int request_id, int timeout_ms,
+static err_t wait_for_response(mcp_client_t *c, int request_id, int timeout_ms,
                                      char *response, size_t response_size)
 {
-    if (!c || !response || response_size == 0) return DAIMA_ERR_INVALID_ARG;
+    if (!c || !response || response_size == 0) return ERR_INVALID_ARG;
     response[0] = '\0';
 
     while (1) {
@@ -528,8 +528,8 @@ static daima_err_t wait_for_response(mcp_client_t *c, int request_id, int timeou
             strscpy(c->buf, c->pending, sizeof(c->buf));
             c->pending[0] = '\0';
         } else {
-            daima_err_t err = read_json_line(c, c->buf, sizeof(c->buf), timeout_ms);
-            if (err != DAIMA_OK) return err;
+            err_t err = read_json_line(c, c->buf, sizeof(c->buf), timeout_ms);
+            if (err != 0) return err;
         }
 
         if (handle_mcp_notification(c, c->buf)) {
@@ -549,7 +549,7 @@ static daima_err_t wait_for_response(mcp_client_t *c, int request_id, int timeou
                     strscpy(response, c->buf, response_size);
                 }
                 cJSON_Delete(root);
-                return DAIMA_OK;
+                return 0;
             }
             pr_warn("Ignoring MCP response id=%d while waiting for id=%d", id, request_id);
         }
@@ -565,7 +565,7 @@ int mcp_client_poll(mcp_client_t *c)
     int count = 0;
 
     pthread_mutex_lock(&c->io_mutex);
-    while (read_json_line(c, c->buf, sizeof(c->buf), 0) == DAIMA_OK) {
+    while (read_json_line(c, c->buf, sizeof(c->buf), 0) == 0) {
         if (!handle_mcp_notification(c, c->buf)) {
             strscpy(c->pending, c->buf, sizeof(c->pending));
         }

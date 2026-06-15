@@ -177,7 +177,7 @@ static void webfetch_report_http_error(const char *url, long status, char *outpu
     snprintf(output, output_size, "错误：HTTP %ld", status);
 }
 
-static daima_err_t webfetch_format_output(const char *body, size_t body_len, const char *format,
+static err_t webfetch_format_output(const char *body, size_t body_len, const char *format,
                                           char *output, size_t output_size)
 {
     size_t len = body_len;
@@ -187,7 +187,7 @@ static daima_err_t webfetch_format_output(const char *body, size_t body_len, con
         char *buf = kmalloc(len + 1, GFP_KERNEL);
         if (!buf) {
             snprintf(output, output_size, "错误：内存不足");
-            return DAIMA_ERR_NO_MEM;
+            return ERR_NO_MEM;
         }
         memcpy(buf, body, len);
         buf[len] = '\0';
@@ -208,7 +208,7 @@ static daima_err_t webfetch_format_output(const char *body, size_t body_len, con
     }
 
     sanitize_utf8(output);
-    return DAIMA_OK;
+    return 0;
 }
 
 static bool tag_in_set(const char *tag, const char *const *arr, size_t count)
@@ -307,20 +307,20 @@ static void strip_html_collapse_whitespace(char *buf)
     while (*buf == ' ' || *buf == '\n' || *buf == '\t') memmove(buf, buf + 1, strlen(buf));
 }
 
-daima_err_t tool_webfetch_execute(const char *input_json, char *output, size_t output_size)
+err_t tool_webfetch_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *input = cJSON_Parse(input_json ? input_json : "{}");
     if (!input || !cJSON_IsObject(input)) {
         snprintf(output, output_size, "错误：输入 JSON 无效");
         cJSON_Delete(input);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     const char *raw_url = cJSON_GetStringValue(cJSON_GetObjectItem(input, "url"));
     if (!raw_url || !raw_url[0]) {
         snprintf(output, output_size, "错误：缺少 url 参数");
         cJSON_Delete(input);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     char url[BUF_MEDIUM * 4];
@@ -330,7 +330,7 @@ daima_err_t tool_webfetch_execute(const char *input_json, char *output, size_t o
     if (!is_safe_url(url)) {
         snprintf(output, output_size, "错误：URL 不允许（仅支持 http/https 公网地址）");
         cJSON_Delete(input);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     const char *fmt_raw = cJSON_GetStringValue(cJSON_GetObjectItem(input, "format"));
@@ -340,7 +340,7 @@ daima_err_t tool_webfetch_execute(const char *input_json, char *output, size_t o
     if (strcmp(format, "text") != 0 && strcmp(format, "html") != 0) {
         snprintf(output, output_size, "错误：format 仅支持 text 或 html");
         cJSON_Delete(input);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     cJSON_Delete(input);
@@ -351,10 +351,10 @@ daima_err_t tool_webfetch_execute(const char *input_json, char *output, size_t o
         "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36");
     req_headers = curl_slist_append(req_headers, "Accept: text/html,application/xhtml+xml,text/plain;q=0.8,*/*;q=0.1");
     req_headers = curl_slist_append(req_headers, "Accept-Language: zh-CN,zh;q=0.9,en;q=0.8");
-    daima_err_t err = host_http_request("GET", url, req_headers, NULL, WEBFETCH_TIMEOUT_MS, &resp);
+    err_t err = host_http_request("GET", url, req_headers, NULL, WEBFETCH_TIMEOUT_MS, &resp);
     curl_slist_free_all(req_headers);
 
-    if (err != DAIMA_OK) {
+    if (err != 0) {
         webfetch_report_error(url, resp.error, output, output_size);
         host_http_response_free(&resp);
         return err;
@@ -362,15 +362,15 @@ daima_err_t tool_webfetch_execute(const char *input_json, char *output, size_t o
     if (resp.status != 200) {
         webfetch_report_http_error(url, resp.status, output, output_size);
         host_http_response_free(&resp);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
     if (!resp.body || resp.body_len == 0) {
         snprintf(output, output_size, "错误：响应内容为空");
         host_http_response_free(&resp);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
-    daima_err_t result = webfetch_format_output(resp.body, resp.body_len, format, output, output_size);
+    err_t result = webfetch_format_output(resp.body, resp.body_len, format, output, output_size);
     host_http_response_free(&resp);
     return result;
 }

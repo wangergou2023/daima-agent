@@ -19,9 +19,9 @@ bool work_item_status_valid(const char *value);
 bool work_item_priority_valid(const char *value);
 
 void work_item_list_free(work_item_list_t *list);
-daima_err_t work_item_store_load(work_item_list_t *out);
-daima_err_t work_item_store_add(const cJSON *input, cJSON **out_item);
-daima_err_t work_item_store_update(const char *id, const cJSON *input, cJSON **out_item);
-daima_err_t work_item_store_batch_update(const cJSON *ids, const char *status, int *out_count);
-daima_err_t work_item_store_collect(const char *type, const char *source, const char *title, const char *description);
-daima_err_t work_item_store_collect_structured(const cJSON *input, cJSON **out_item);
+err_t work_item_store_load(work_item_list_t *out);
+err_t work_item_store_add(const cJSON *input, cJSON **out_item);
+err_t work_item_store_update(const char *id, const cJSON *input, cJSON **out_item);
+err_t work_item_store_batch_update(const cJSON *ids, const char *status, int *out_count);
+err_t work_item_store_collect(const char *type, const char *source, const char *title, const char *description);
+err_t work_item_store_collect_structured(const cJSON *input, cJSON **out_item);

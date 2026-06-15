@@ -11,14 +11,14 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("daima");
 MODULE_DESCRIPTION("Agent Extension: ralph_loop");
 
-static daima_err_t on_prepare(struct message *msg, char *system_prompt,
+static err_t on_prepare(struct message *msg, char *system_prompt,
                               size_t system_prompt_size, cJSON *messages)
 {
     (void)system_prompt;
     (void)system_prompt_size;
     (void)messages;
     (void)msg;
-    return DAIMA_OK;
+    return 0;
 }
 
 static void on_finish(struct message *msg, const char *response)

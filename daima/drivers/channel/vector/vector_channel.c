@@ -133,13 +133,13 @@ static void pcm_buf_flush_to_asr(void)
     memcpy(wav_buf + 44, pcm_copy, pcm_bytes);
     kfree(pcm_copy);
 
-    daima_err_t err = voice_channel_handle_audio(
+    err_t err = voice_channel_handle_audio(
         DAIMA_CHAN_VECTOR, wav_buf, wav_size,
         NULL, NULL, NULL, NULL, NULL, NULL, NULL);
     kfree(wav_buf);
 
-    if (err != DAIMA_OK) {
-        pr_warn("ASR failed: %s", daima_err_to_name(err));
+    if (err != 0) {
+        pr_warn("ASR failed: %s", err_name(err));
     }
 }
 
@@ -248,8 +248,8 @@ static void vector_connect_task(void *arg)
     mcp_client_set_audio_done_callback(mcp, on_audio_done, NULL);
 
     /* 订阅音频流 */
-    daima_err_t err = mcp_client_subscribe_audio(mcp);
-    if (err == DAIMA_OK) {
+    err_t err = mcp_client_subscribe_audio(mcp);
+    if (err == 0) {
         s->audio_subscribed = true;
         pr_info("Audio subscribed (flush on robot AudioDone)");
     } else {
@@ -289,13 +289,13 @@ static void vector_poll_task(void *arg)
     pr_info("Poll task stopped");
 }
 
-daima_err_t vector_channel_init(void)
+err_t vector_channel_init(void)
 {
     pr_info("Initializing vector channel");
 
     if (!s) {
         s = kzalloc(sizeof(vector_session_t), GFP_KERNEL);
-        if (!s) return DAIMA_ERR_NO_MEM;
+        if (!s) return ERR_NO_MEM;
         pthread_mutex_init(&s->mutex, NULL);
     }
 
@@ -307,14 +307,14 @@ daima_err_t vector_channel_init(void)
     }
 
     pr_info("MCP binary: %s", s->bin_path);
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t vector_channel_start(void)
+err_t vector_channel_start(void)
 {
     if (!s) {
-        daima_err_t init_err = vector_channel_init();
-        if (init_err != DAIMA_OK) return init_err;
+        err_t init_err = vector_channel_init();
+        if (init_err != 0) return init_err;
     }
 
     pthread_mutex_lock(&s->mutex);
@@ -326,7 +326,7 @@ daima_err_t vector_channel_start(void)
     pthread_mutex_unlock(&s->mutex);
 
     if (!start_connect && !start_poll) {
-        return DAIMA_OK;
+        return 0;
     }
 
     pr_info("Vector channel starting (async connect)...");
@@ -343,40 +343,40 @@ daima_err_t vector_channel_start(void)
                           MCP_POLL_STACK, NULL, MCP_POLL_PRIO, NULL);
     }
 
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t vector_channel_ensure_started(void)
+err_t vector_channel_ensure_started(void)
 {
     return vector_channel_start();
 }
 
-daima_err_t vector_channel_send_reply(const char *chat_id, const char *text)
+err_t vector_channel_send_reply(const char *chat_id, const char *text)
 {
     (void)chat_id;
-    daima_err_t start_err = vector_channel_ensure_started();
-    if (start_err != DAIMA_OK) {
+    err_t start_err = vector_channel_ensure_started();
+    if (start_err != 0) {
         return start_err;
     }
     /* TTS is handled by the voice channel (BigModel → PCM → socket).
      * robot_say_text (built-in TTS) is not registered in robot-mcp. */
     pr_debug("Reply text: %.60s", text ? text : "");
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t vector_channel_play_pcm(const unsigned char *pcm, size_t pcm_len, uint32_t sample_rate, uint32_t seq, const char *label)
+err_t vector_channel_play_pcm(const unsigned char *pcm, size_t pcm_len, uint32_t sample_rate, uint32_t seq, const char *label)
 {
     (void)sample_rate;
-    if (!pcm || pcm_len == 0) return DAIMA_ERR_INVALID_ARG;
-    daima_err_t start_err = vector_channel_ensure_started();
-    if (start_err != DAIMA_OK) {
+    if (!pcm || pcm_len == 0) return ERR_INVALID_ARG;
+    err_t start_err = vector_channel_ensure_started();
+    if (start_err != 0) {
         return start_err;
     }
 
     int fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (fd < 0) {
         pr_warn("PlayPCM: socket failed");
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     struct sockaddr_un addr;
@@ -387,7 +387,7 @@ daima_err_t vector_channel_play_pcm(const unsigned char *pcm, size_t pcm_len, ui
     if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
         pr_warn("PlayPCM: connect failed (robot-mcp not ready?)");
         close(fd);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     /* Write: seq(4) + text_len(2) + text + pcm */
@@ -399,11 +399,11 @@ daima_err_t vector_channel_play_pcm(const unsigned char *pcm, size_t pcm_len, ui
         !write_all(fd, pcm, pcm_len)) {
         pr_warn("PlayPCM: write failed");
         close(fd);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     close(fd);
-    return DAIMA_OK;
+    return 0;
 }
 
 mcp_client_t *vector_channel_get_mcp(void)

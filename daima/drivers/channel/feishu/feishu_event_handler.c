@@ -50,8 +50,8 @@ static char *download_message_image(const char *app_id,
                                     const char *image_key)
 {
     char token[512];
-    daima_err_t err = feishu_api_get_tenant_token(app_id, app_secret, token, sizeof(token));
-    if (err != DAIMA_OK) {
+    err_t err = feishu_api_get_tenant_token(app_id, app_secret, token, sizeof(token));
+    if (err != 0) {
         return NULL;
     }
     return feishu_download_message_image(token, message_id, image_key);
@@ -173,7 +173,7 @@ static void handle_message_event(const char *app_id, const char *app_secret, cJS
     msg.image_path = image_path;
 
     if (msg.content) {
-        if (message_bus_push_inbound(&msg) != DAIMA_OK) {
+        if (message_bus_push_inbound(&msg) != 0) {
             pr_warn("Inbound queue full, dropping feishu message");
             kfree(msg.content);
             if (msg.image_path) unlink(msg.image_path);

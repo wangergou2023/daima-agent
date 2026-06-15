@@ -6,7 +6,7 @@
 
 #include "err.h"
 
-daima_err_t tool_files_list_dir(const char *resolved_dir,
+err_t tool_files_list_dir(const char *resolved_dir,
                                const char *prefix,
                                char *output,
                                size_t output_size,

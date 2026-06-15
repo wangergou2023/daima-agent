@@ -8,7 +8,7 @@ static char s_proxy_host[64] = {0};
 static uint16_t s_proxy_port = 0;
 static char s_proxy_type[8] = "http";
 
-daima_err_t http_proxy_init(void)
+err_t http_proxy_init(void)
 {
     if (SECRET_PROXY_HOST[0] != '\0' && SECRET_PROXY_PORT[0] != '\0') {
         strncpy(s_proxy_host, SECRET_PROXY_HOST, sizeof(s_proxy_host) - 1);
@@ -23,25 +23,25 @@ daima_err_t http_proxy_init(void)
     } else {
         pr_info("No proxy configured (direct connection)");
     }
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t http_proxy_set(const char *host, uint16_t port, const char *type)
+err_t http_proxy_set(const char *host, uint16_t port, const char *type)
 {
     strncpy(s_proxy_host, host, sizeof(s_proxy_host) - 1);
     s_proxy_port = port;
     strncpy(s_proxy_type, type, sizeof(s_proxy_type) - 1);
     pr_info("Proxy set to %s:%d (%s)", s_proxy_host, s_proxy_port, s_proxy_type);
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t http_proxy_clear(void)
+err_t http_proxy_clear(void)
 {
     s_proxy_host[0] = '\0';
     s_proxy_port = 0;
     strcpy(s_proxy_type, "http");
     pr_info("Proxy cleared");
-    return DAIMA_OK;
+    return 0;
 }
 
 bool http_proxy_is_enabled(void)

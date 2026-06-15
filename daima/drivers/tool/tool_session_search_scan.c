@@ -275,7 +275,7 @@ void tool_session_search_inspect_summary_file(const char *chat_id,
                                               int *hit_count)
 {
     char summary_buf[2048];
-    if (session_store_read_summary(chat_id, summary_buf, sizeof(summary_buf)) != DAIMA_OK || !summary_buf[0]) {
+    if (session_store_read_summary(chat_id, summary_buf, sizeof(summary_buf)) != 0 || !summary_buf[0]) {
         return;
     }
 

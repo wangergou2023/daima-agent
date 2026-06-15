@@ -9,7 +9,7 @@ void agent_turn_finish(
     struct message *msg,
     char **io_final_text,
     char **io_reasoning_text,
-    daima_err_t turn_err,
+    err_t turn_err,
     int iteration,
     bool tool_budget_exhausted,
     bool cancelled);

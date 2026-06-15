@@ -9,7 +9,7 @@
 /**
  * 初始化代理模块。
  */
-daima_err_t http_proxy_init(void);
+err_t http_proxy_init(void);
 
 /**
  * 若已配置代理 host:port，则返回 true。
@@ -34,12 +34,12 @@ const char *http_proxy_type(void);
 /**
  * 设置代理 host、port 和 type（仅进程内生效）。
  */
-daima_err_t http_proxy_set(const char *host, uint16_t port, const char *type);
+err_t http_proxy_set(const char *host, uint16_t port, const char *type);
 
 /**
  * 清空代理配置。
  */
-daima_err_t http_proxy_clear(void);
+err_t http_proxy_clear(void);
 
 /* ── 经代理的 HTTPS 连接 ─────────────────────────────────── */
 

@@ -138,7 +138,7 @@ static bool read_line_without_newline(const char *content, int wanted_line, char
     return true;
 }
 
-static daima_err_t verify_hashline_reference(const char *current,
+static err_t verify_hashline_reference(const char *current,
                                              const char *line,
                                              bool *saw_hashline,
                                              char *output,
@@ -147,7 +147,7 @@ static daima_err_t verify_hashline_reference(const char *current,
     int line_number = 0;
     char expected_hash[5] = {0};
     if (!parse_hashline_reference(line, &line_number, expected_hash)) {
-        return DAIMA_OK;
+        return 0;
     }
     if (saw_hashline) {
         *saw_hashline = true;
@@ -158,7 +158,7 @@ static daima_err_t verify_hashline_reference(const char *current,
         snprintf(output, output_size,
                  "Hashline: 第%d行不存在，请重新读取文件后重试",
                  line_number);
-        return DAIMA_ERR_INVALID_STATE;
+        return ERR_INVALID_STATE;
     }
 
     bool matched = hashline_verify_line(line_number, actual_line, expected_hash);
@@ -167,12 +167,12 @@ static daima_err_t verify_hashline_reference(const char *current,
         snprintf(output, output_size,
                  "Hashline: 第%d行已变更(hash期望%s)，请重新读取文件后重试",
                  line_number, expected_hash);
-        return DAIMA_ERR_INVALID_STATE;
+        return ERR_INVALID_STATE;
     }
-    return DAIMA_OK;
+    return 0;
 }
 
-static daima_err_t hashline_verify_patch_path(const char *path,
+static err_t hashline_verify_patch_path(const char *path,
                                               const char *patch_content,
                                               bool *saw_hashline,
                                               char *output,
@@ -185,14 +185,14 @@ static daima_err_t hashline_verify_patch_path(const char *path,
     char resolved_path[READ_PATH_SIZE];
     char scratch[128];
     if (!resolve_write_path_or_fail(path, resolved_path, sizeof(resolved_path), scratch, sizeof(scratch))) {
-        return DAIMA_OK;
+        return 0;
     }
 
     char *current = NULL;
     size_t current_len = 0;
-    daima_err_t err = tool_files_read_text_file(resolved_path, MAX_FILE_SIZE, &current, &current_len);
-    if (err != DAIMA_OK) {
-        return DAIMA_OK;
+    err_t err = tool_files_read_text_file(resolved_path, MAX_FILE_SIZE, &current, &current_len);
+    if (err != 0) {
+        return 0;
     }
     (void)current_len;
 
@@ -200,7 +200,7 @@ static daima_err_t hashline_verify_patch_path(const char *path,
     if (!copy) {
         kfree(current);
         snprintf(output, output_size, "错误：内存不足");
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
 
     char *cursor = copy;
@@ -208,7 +208,7 @@ static daima_err_t hashline_verify_patch_path(const char *path,
     while ((line = next_patch_line(&cursor)) != NULL) {
         if (line[0] == '-' || line[0] == ' ') {
             err = verify_hashline_reference(current, line + 1, saw_hashline, output, output_size);
-            if (err != DAIMA_OK) {
+            if (err != 0) {
                 kfree(copy);
                 kfree(current);
                 return err;
@@ -218,19 +218,19 @@ static daima_err_t hashline_verify_patch_path(const char *path,
 
     kfree(copy);
     kfree(current);
-    return DAIMA_OK;
+    return 0;
 }
 #endif
 
-static daima_err_t safe_edit_verify_patch_path(const char *path,
+static err_t safe_edit_verify_patch_path(const char *path,
                                                const char *patch_content,
                                                char *output,
                                                size_t output_size)
 {
     if (IS_ENABLED(CONFIG_DAIMA_HASHLINE_ENABLED)) {
         bool saw_hashline = false;
-        daima_err_t hashline_err = hashline_verify_patch_path(path, patch_content, &saw_hashline, output, output_size);
-        if (hashline_err != DAIMA_OK || saw_hashline) {
+        err_t hashline_err = hashline_verify_patch_path(path, patch_content, &saw_hashline, output, output_size);
+        if (hashline_err != 0 || saw_hashline) {
             return hashline_err;
         }
     }
@@ -238,15 +238,15 @@ static daima_err_t safe_edit_verify_patch_path(const char *path,
         char resolved_path[READ_PATH_SIZE];
         char scratch[128];
         if (!resolve_write_path_or_fail(path, resolved_path, sizeof(resolved_path), scratch, sizeof(scratch))) {
-            return DAIMA_OK;
+            return 0;
         }
-        if (safe_edit_verify(resolved_path, patch_content) != DAIMA_OK) {
+        if (safe_edit_verify(resolved_path, patch_content) != 0) {
             snprintf(output, output_size,
                      "SafeEdit: 文件自上次读取后已被修改，请重新读取后再编辑");
-            return DAIMA_ERR_INVALID_STATE;
+            return ERR_INVALID_STATE;
         }
     }
-    return DAIMA_OK;
+    return 0;
 }
 
 typedef struct {
@@ -255,10 +255,10 @@ typedef struct {
     size_t cap;
 } text_builder_t;
 
-static daima_err_t tb_append(text_builder_t *tb, const char *text, size_t len)
+static err_t tb_append(text_builder_t *tb, const char *text, size_t len)
 {
     if (!tb || (!text && len > 0)) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
     if (tb->len + len + 1 > tb->cap) {
         size_t next_cap = tb->cap ? tb->cap : 256;
@@ -267,7 +267,7 @@ static daima_err_t tb_append(text_builder_t *tb, const char *text, size_t len)
         }
         char *next = realloc(tb->data, next_cap);
         if (!next) {
-            return DAIMA_ERR_NO_MEM;
+            return ERR_NO_MEM;
         }
         tb->data = next;
         tb->cap = next_cap;
@@ -277,13 +277,13 @@ static daima_err_t tb_append(text_builder_t *tb, const char *text, size_t len)
         tb->len += len;
     }
     tb->data[tb->len] = '\0';
-    return DAIMA_OK;
+    return 0;
 }
 
-static daima_err_t tb_append_line(text_builder_t *tb, const char *line)
+static err_t tb_append_line(text_builder_t *tb, const char *line)
 {
-    daima_err_t err = tb_append(tb, line ? line : "", line ? strlen(line) : 0);
-    if (err != DAIMA_OK) {
+    err_t err = tb_append(tb, line ? line : "", line ? strlen(line) : 0);
+    if (err != 0) {
         return err;
     }
     return tb_append(tb, "\n", 1);
@@ -323,18 +323,18 @@ static const char *require_patch_path(const char *line, const char *prefix)
     return path[0] ? path : NULL;
 }
 
-static daima_err_t apply_patch_add_file(char **cursor,
+static err_t apply_patch_add_file(char **cursor,
                                         const char *path,
                                         char *output,
                                         size_t output_size)
 {
     char resolved_path[READ_PATH_SIZE];
     if (!resolve_new_file_path_or_fail(path, resolved_path, sizeof(resolved_path), output, output_size)) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
     if (access(resolved_path, F_OK) == 0) {
         snprintf(output, output_size, "错误：Add File 目标已存在：%s", resolved_path);
-        return DAIMA_ERR_INVALID_STATE;
+        return ERR_INVALID_STATE;
     }
 
     text_builder_t content = {0};
@@ -344,9 +344,9 @@ static daima_err_t apply_patch_add_file(char **cursor,
     while ((line = next_patch_line(cursor)) != NULL) {
         if (strcmp(line, "*** End Patch") == 0) {
             tool_files_ensure_parent_dirs(resolved_path);
-            daima_err_t err = tool_files_write_text_file(resolved_path, content.data ? content.data : "", content.len);
+            err_t err = tool_files_write_text_file(resolved_path, content.data ? content.data : "", content.len);
             kfree(content.data);
-            if (err != DAIMA_OK) {
+            if (err != 0) {
                 snprintf(output, output_size, "错误：Add File 写入失败：%s", resolved_path);
                 return err;
             }
@@ -355,7 +355,7 @@ static daima_err_t apply_patch_add_file(char **cursor,
             if (non_prefixed_count > 0) {
                 pr_info("apply_patch add accepted %d non-prefixed content lines: path=%s first=%.80s", non_prefixed_count, resolved_path, first_non_prefixed);
             }
-            return DAIMA_OK;
+            return 0;
         }
         const char *content_line = line;
         if (starts_with(line, "+")) {
@@ -366,8 +366,8 @@ static daima_err_t apply_patch_add_file(char **cursor,
             }
             non_prefixed_count++;
         }
-        daima_err_t err = tb_append_line(&content, content_line);
-        if (err != DAIMA_OK) {
+        err_t err = tb_append_line(&content, content_line);
+        if (err != 0) {
             kfree(content.data);
             snprintf(output, output_size, "错误：内存不足");
             return err;
@@ -375,50 +375,50 @@ static daima_err_t apply_patch_add_file(char **cursor,
     }
     kfree(content.data);
     snprintf(output, output_size, "错误：patch 缺少 *** End Patch");
-    return DAIMA_ERR_INVALID_ARG;
+    return ERR_INVALID_ARG;
 }
 
-static daima_err_t apply_patch_delete_file(const char *path,
+static err_t apply_patch_delete_file(const char *path,
                                            char *output,
                                            size_t output_size)
 {
     char resolved_path[READ_PATH_SIZE];
     if (!resolve_write_path_or_fail(path, resolved_path, sizeof(resolved_path), output, output_size)) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     char checkpoint_path[READ_PATH_SIZE];
     checkpoint_path[0] = '\0';
-    daima_err_t err = tool_files_checkpoint_current_file(
+    err_t err = tool_files_checkpoint_current_file(
         resolved_path, MAX_FILE_SIZE, checkpoint_path, sizeof(checkpoint_path));
-    if (err != DAIMA_OK) {
+    if (err != 0) {
         snprintf(output, output_size, "错误：Delete File 前创建检查点失败：%s", resolved_path);
         return err;
     }
     if (unlink(resolved_path) != 0) {
         snprintf(output, output_size, "错误：Delete File 删除失败：%s", resolved_path);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
     snprintf(output, output_size, "OK：apply_patch 已删除 %s（checkpoint=%s）",
              resolved_path, checkpoint_path[0] ? checkpoint_path : "(none)");
     pr_info("apply_patch delete: %s", resolved_path);
-    return DAIMA_OK;
+    return 0;
 }
 
-static daima_err_t apply_patch_update_file(char **cursor,
+static err_t apply_patch_update_file(char **cursor,
                                            const char *path,
                                            char *output,
                                            size_t output_size)
 {
     char resolved_path[READ_PATH_SIZE];
     if (!resolve_write_path_or_fail(path, resolved_path, sizeof(resolved_path), output, output_size)) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     char *current = NULL;
     size_t current_len = 0;
-    daima_err_t err = tool_files_read_text_file(resolved_path, MAX_FILE_SIZE, &current, &current_len);
-    if (err != DAIMA_OK) {
+    err_t err = tool_files_read_text_file(resolved_path, MAX_FILE_SIZE, &current, &current_len);
+    if (err != 0) {
         snprintf(output, output_size, "错误：Update File 读取失败：%s", resolved_path);
         return err;
     }
@@ -440,7 +440,7 @@ static daima_err_t apply_patch_update_file(char **cursor,
             kfree(old_text.data);
             kfree(new_text.data);
             snprintf(output, output_size, "错误：Update File 缺少 @@ hunk");
-            return DAIMA_ERR_INVALID_ARG;
+            return ERR_INVALID_ARG;
         }
 
         if (starts_with(line, "-")) {
@@ -449,7 +449,7 @@ static daima_err_t apply_patch_update_file(char **cursor,
             err = tb_append_line(&new_text, hashline_strip_prefix(line + 1));
         } else if (starts_with(line, " ")) {
             err = tb_append_line(&old_text, hashline_strip_prefix(line + 1));
-            if (err == DAIMA_OK) {
+            if (err == 0) {
                 err = tb_append_line(&new_text, hashline_strip_prefix(line + 1));
             }
         } else {
@@ -457,9 +457,9 @@ static daima_err_t apply_patch_update_file(char **cursor,
             kfree(old_text.data);
             kfree(new_text.data);
             snprintf(output, output_size, "错误：Update File hunk 行必须以空格、'-' 或 '+' 开头");
-            return DAIMA_ERR_INVALID_ARG;
+            return ERR_INVALID_ARG;
         }
-        if (err != DAIMA_OK) {
+        if (err != 0) {
             kfree(current);
             kfree(old_text.data);
             kfree(new_text.data);
@@ -472,14 +472,14 @@ static daima_err_t apply_patch_update_file(char **cursor,
         kfree(old_text.data);
         kfree(new_text.data);
         snprintf(output, output_size, "错误：patch 缺少 *** End Patch");
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
     if (!saw_hunk || old_text.len == 0) {
         kfree(current);
         kfree(old_text.data);
         kfree(new_text.data);
         snprintf(output, output_size, "错误：Update File hunk 为空");
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     char *result = NULL;
@@ -495,7 +495,7 @@ static daima_err_t apply_patch_update_file(char **cursor,
         &result_len,
         &replaced_count,
         NULL);
-    if (err != DAIMA_OK) {
+    if (err != 0) {
         snprintf(output, output_size, "错误：Update File 在 %s 中未找到 hunk 上下文", resolved_path);
         kfree(current);
         kfree(old_text.data);
@@ -508,7 +508,7 @@ static daima_err_t apply_patch_update_file(char **cursor,
     checkpoint_path[0] = '\0';
     err = tool_files_checkpoint_before_write(
         resolved_path, current, current_len, checkpoint_path, sizeof(checkpoint_path));
-    if (err == DAIMA_OK) {
+    if (err == 0) {
         err = tool_files_write_text_file(resolved_path, result, result_len);
     }
 
@@ -516,7 +516,7 @@ static daima_err_t apply_patch_update_file(char **cursor,
     kfree(old_text.data);
     kfree(new_text.data);
     kfree(result);
-    if (err != DAIMA_OK) {
+    if (err != 0) {
         snprintf(output, output_size, "错误：Update File 写回失败：%s", resolved_path);
         return err;
     }
@@ -524,30 +524,30 @@ static daima_err_t apply_patch_update_file(char **cursor,
     snprintf(output, output_size, "OK：apply_patch 已更新 %s（替换 %d 处，checkpoint=%s）",
              resolved_path, replaced_count, checkpoint_path[0] ? checkpoint_path : "(none)");
     pr_info("apply_patch update: %s replaced=%d", resolved_path, replaced_count);
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t tool_apply_patch_execute(const char *input_json, char *output, size_t output_size)
+err_t tool_apply_patch_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *root = cJSON_Parse(input_json);
     if (!root || !cJSON_IsObject(root)) {
         snprintf(output, output_size, "错误：输入 JSON 无效");
         cJSON_Delete(root);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     const char *patch = cJSON_GetStringValue(cJSON_GetObjectItem(root, "patch"));
     if (!patch || !patch[0]) {
         snprintf(output, output_size, "错误：缺少 patch 字段");
         cJSON_Delete(root);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     char *copy = strdup(patch);
     if (!copy) {
         snprintf(output, output_size, "错误：内存不足");
         cJSON_Delete(root);
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
 
     char *cursor = copy;
@@ -556,26 +556,26 @@ daima_err_t tool_apply_patch_execute(const char *input_json, char *output, size_
         snprintf(output, output_size, "错误：patch 必须以 *** Begin Patch 开始");
         kfree(copy);
         cJSON_Delete(root);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
-    daima_err_t err = DAIMA_ERR_INVALID_ARG;
+    err_t err = ERR_INVALID_ARG;
     line = next_patch_line(&cursor);
     const char *path = require_patch_path(line, "*** Add File: ");
     if (path) {
         err = apply_patch_add_file(&cursor, path, output, output_size);
     } else if ((path = require_patch_path(line, "*** Update File: ")) != NULL) {
         err = safe_edit_verify_patch_path(path, patch, output, output_size);
-        if (err == DAIMA_OK) {
+        if (err == 0) {
             err = apply_patch_update_file(&cursor, path, output, output_size);
         }
     } else if ((path = require_patch_path(line, "*** Delete File: ")) != NULL) {
         err = safe_edit_verify_patch_path(path, patch, output, output_size);
-        if (err == DAIMA_OK) {
+        if (err == 0) {
             line = next_patch_line(&cursor);
             if (!line || strcmp(line, "*** End Patch") != 0) {
                 snprintf(output, output_size, "错误：Delete File 后必须直接结束 patch");
-                err = DAIMA_ERR_INVALID_ARG;
+                err = ERR_INVALID_ARG;
             } else {
                 err = apply_patch_delete_file(path, output, output_size);
             }
@@ -589,13 +589,13 @@ daima_err_t tool_apply_patch_execute(const char *input_json, char *output, size_
     return err;
 }
 
-daima_err_t tool_restore_file_execute(const char *input_json, char *output, size_t output_size)
+err_t tool_restore_file_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *root = cJSON_Parse(input_json);
     if (!root || !cJSON_IsObject(root)) {
         snprintf(output, output_size, "错误：输入 JSON 无效");
         cJSON_Delete(root);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     const char *path = cJSON_GetStringValue(cJSON_GetObjectItem(root, "path"));
@@ -603,13 +603,13 @@ daima_err_t tool_restore_file_execute(const char *input_json, char *output, size
     if (!path || !path[0]) {
         snprintf(output, output_size, "错误：缺少 path");
         cJSON_Delete(root);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     char resolved_path[READ_PATH_SIZE];
     if (!resolve_write_path_or_fail(path, resolved_path, sizeof(resolved_path), output, output_size)) {
         cJSON_Delete(root);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     char checkpoint_path[READ_PATH_SIZE];
@@ -619,24 +619,24 @@ daima_err_t tool_restore_file_execute(const char *input_json, char *output, size
             !path_has_prefix(checkpoint_path, daima_path_checkpoint_dir())) {
             snprintf(output, output_size, "错误：checkpoint_path 必须位于 %s 下", daima_path_checkpoint_dir());
             cJSON_Delete(root);
-            return DAIMA_ERR_INVALID_ARG;
+            return ERR_INVALID_ARG;
         }
     } else if (!tool_files_get_recent_checkpoint(resolved_path, checkpoint_path, sizeof(checkpoint_path))) {
         snprintf(output, output_size, "错误：未找到 %s 的最近检查点", resolved_path);
         cJSON_Delete(root);
-        return DAIMA_ERR_NOT_FOUND;
+        return ERR_NOT_FOUND;
     }
 
     char rollback_checkpoint[READ_PATH_SIZE];
     rollback_checkpoint[0] = '\0';
-    daima_err_t err = tool_files_restore_checkpoint(
+    err_t err = tool_files_restore_checkpoint(
         resolved_path,
         checkpoint_path,
         MAX_FILE_SIZE,
         rollback_checkpoint,
         sizeof(rollback_checkpoint));
     cJSON_Delete(root);
-    if (err != DAIMA_OK) {
+    if (err != 0) {
         snprintf(output, output_size, "错误：恢复失败：%s", resolved_path);
         return err;
     }
@@ -645,5 +645,5 @@ daima_err_t tool_restore_file_execute(const char *input_json, char *output, size
              "OK：已将 %s 恢复到 checkpoint=%s（恢复前当前版本已保存到 %s）",
              resolved_path, checkpoint_path, rollback_checkpoint[0] ? rollback_checkpoint : "(none)");
     pr_info("restore_file: %s <- %s", resolved_path, checkpoint_path);
-    return DAIMA_OK;
+    return 0;
 }

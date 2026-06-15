@@ -124,39 +124,81 @@ struct driver {
 };
 ```
 
-## 设备树
+## 设备树格式 (spiffs_data/)
 
 ```json
-// tools/device.json - 普通 tool
+// device.json - 所有设备的统一入口
 {
   "devices": [
-    {"name": "read_file",  "driver": "tool_files_read",  "schema": {...}},
-    {"name": "write_file", "driver": "tool_files_write", "schema": {...}},
-    {"name": "terminal",   "driver": "tool_terminal",    "schema": {...}}
+    // tool bus
+    {"bus":"tool", "name":"read_file",  "driver":"tool_files_read",  "schema":{...}},
+    {"bus":"tool", "name":"write_file", "driver":"tool_files_write", "schema":{...}},
+    {"bus":"tool", "name":"terminal",   "driver":"tool_terminal",    "schema":{...}},
+    
+    // tool bus (skill)
+    {"bus":"tool", "name":"pptx",
+     "driver":"skill_pptx",
+     "description":"生成PPT",
+     "schema":{...},
+     "dependencies":[{"bus":"mcp","name":"python"}, {"bus":"mcp","name":"terminal"}]},
+    
+    // mcp bus
+    {"bus":"mcp", "name":"python", "driver":"mcp_python", "path":"/usr/bin/python3"},
+    {"bus":"mcp", "name":"terminal","driver":"mcp_terminal"},
+    
+    // llm bus
+    {"bus":"llm", "name":"deepseek-v4",
+     "driver":"openai_compatible",
+     "url":"http://10.3.20.46:4000",
+     "model":"deepseek-v4-pro"}
   ]
-}
-
-// skills/pptx/device.json - skill tool (带依赖)
-{
-  "name": "pptx",
-  "driver": "skill_pptx",
-  "description": "生成 PowerPoint 文件",
-  "schema": {"type": "object", "properties": {...}},
-  "dependencies": [
-    {"bus": "mcp", "name": "python"},
-    {"bus": "mcp", "name": "terminal"}
-  ]
-}
-
-// providers - LLM device
-{
-  "name": "deepseek-v4",
-  "bus": "llm",
-  "driver": "openai_compatible",
-  "url": "http://10.3.20.46:4000",
-  "model": "deepseek-v4-pro"
 }
 ```
+
+**统一解析入口** — 一个函数路由到所有 bus:
+
+```c
+// of_populate_all("spiffs_data/device.json")
+//   自动路由:
+//     {"bus":"tool", ...}   → tool_bus.add_device()
+//     {"bus":"mcp", ...}    → mcp_bus.add_device()
+//     {"bus":"llm", ...}    → llm_bus.add_device()
+```
+
+## 热插拔 + 热移除
+
+```c
+// 安装: python 上线 → pptx 自动可用
+mcp_bus.add_device(device_python)
+  → bus_probe(&mcp_bus, device_python)  ← python MCP 绑定
+  → bus_reprobe(&tool_bus, "pptx")      ← 重新 probe pptx
+  → probe OK → bind ✅
+  → Agent 工具列表自动出现 pptx
+
+// 卸载: python 下线 → pptx 自动消失
+mcp_bus.remove_device("python")
+  → tool_bus.each_device(depends_on("mcp", "python")):
+  → driver.remove() → unbind
+  → Agent 工具列表自动移除 pptx
+```
+
+## Probe 失败的设备保留在总线上
+
+```c
+// probe 失败 → dev->drv = NULL → dev 留在 bus 上
+probe(pptx) → bus_device_exists("mcp", "python") → false
+  → return -ENODEV
+  → dev->drv = NULL    ← 不清理 device
+  → pr_warn("pptx: probe failed, waiting for python MCP")
+
+// 以后 python 装上:
+mcp_bus.add_device(python)
+  → tool_bus.reprobe("pptx")
+  → bus_device_exists("mcp", "python") → true ✅
+  → probe OK → bind ✅
+```
+
+和内核一模一样——`/dev/sda` 没插盘时驱动 probe 失败，设备节点还在，等盘插上自动绑定。
 
 ## 初始化流程
 

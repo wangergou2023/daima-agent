@@ -158,11 +158,11 @@ generic_success:
     }
 }
 
-daima_err_t channel_runtime_send_tool_activity(const struct message *msg,
+err_t channel_runtime_send_tool_activity(const struct message *msg,
                                               const daima_tool_activity_event_t *event)
 {
     if (!msg || !event || !event->default_text) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     if (strcmp(msg->channel, DAIMA_CHAN_WEBSOCKET) == 0) {
@@ -170,11 +170,11 @@ daima_err_t channel_runtime_send_tool_activity(const struct message *msg,
     }
     if (strcmp(msg->channel, DAIMA_CHAN_FEISHU) == 0) {
         if (!tool_activity_should_send_feishu(event)) {
-            return DAIMA_OK;
+            return 0;
         }
         char feishu_line[256];
         format_feishu_tool_activity_line(event, feishu_line, sizeof(feishu_line));
         return feishu_send_card(msg->chat_id, feishu_line[0] ? feishu_line : event->default_text);
     }
-    return DAIMA_OK;
+    return 0;
 }

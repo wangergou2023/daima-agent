@@ -66,23 +66,23 @@ static int find_slot_locked(void)
     return oldest;
 }
 
-static daima_err_t read_line_range_hash(const char *path, int line_start, int line_end, uint32_t *hash_out)
+static err_t read_line_range_hash(const char *path, int line_start, int line_end, uint32_t *hash_out)
 {
     if (!path || !hash_out || line_start <= 0 || line_end < line_start) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     struct stat st;
     if (stat(path, &st) != 0 || !S_ISREG(st.st_mode)) {
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
     if (st.st_size >= SAFE_EDIT_MAX_FILE_SIZE) {
-        return DAIMA_ERR_INVALID_STATE;
+        return ERR_INVALID_STATE;
     }
 
     FILE *f = fopen(path, "r");
     if (!f) {
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     char *line = NULL;
@@ -103,16 +103,16 @@ static daima_err_t read_line_range_hash(const char *path, int line_start, int li
     kfree(line);
     fclose(f);
     *hash_out = hash;
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t safe_edit_register_read(const char *path, const char *content, int line_start, int line_end)
+err_t safe_edit_register_read(const char *path, const char *content, int line_start, int line_end)
 {
     if (!is_trackable_path(path) || !content) {
-        return DAIMA_OK;
+        return 0;
     }
     if (strlen(path) >= SAFE_EDIT_PATH_MAX || strlen(content) >= SAFE_EDIT_MAX_FILE_SIZE) {
-        return DAIMA_OK;
+        return 0;
     }
 
     pthread_mutex_lock(&s_fingerprints_mutex);
@@ -130,14 +130,14 @@ daima_err_t safe_edit_register_read(const char *path, const char *content, int l
     pthread_mutex_unlock(&s_fingerprints_mutex);
 
     pr_info("safe_edit register: %s lines=%d..%d", path, line_start, line_end);
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t safe_edit_verify(const char *path, const char *patch_content)
+err_t safe_edit_verify(const char *path, const char *patch_content)
 {
     (void)patch_content;
     if (!is_trackable_path(path)) {
-        return DAIMA_OK;
+        return 0;
     }
 
     safe_edit_fingerprint_t fp = {0};
@@ -146,30 +146,30 @@ daima_err_t safe_edit_verify(const char *path, const char *patch_content)
     int slot = find_fingerprint_locked(path);
     if (slot < 0) {
         pthread_mutex_unlock(&s_fingerprints_mutex);
-        return DAIMA_OK;
+        return 0;
     }
     if (now - s_fingerprints[slot].read_at > SAFE_EDIT_TTL_SECONDS) {
         s_fingerprints[slot].valid = false;
         pthread_mutex_unlock(&s_fingerprints_mutex);
         pr_info("safe_edit expired: %s", path);
-        return DAIMA_OK;
+        return 0;
     }
     fp = s_fingerprints[slot];
     pthread_mutex_unlock(&s_fingerprints_mutex);
 
     uint32_t current_hash = 0;
-    daima_err_t err = read_line_range_hash(path, fp.line_start, fp.line_end, &current_hash);
-    if (err != DAIMA_OK) {
+    err_t err = read_line_range_hash(path, fp.line_start, fp.line_end, &current_hash);
+    if (err != 0) {
         pr_info("safe_edit verify read failed: %s err=%d", path, err);
         return err;
     }
     if (current_hash != fp.content_hash) {
         pr_info("safe_edit mismatch: %s lines=%d..%d", path, fp.line_start, fp.line_end);
-        return DAIMA_ERR_INVALID_STATE;
+        return ERR_INVALID_STATE;
     }
 
     pr_info("safe_edit verified: %s", path);
-    return DAIMA_OK;
+    return 0;
 }
 
 void safe_edit_clear(const char *path)

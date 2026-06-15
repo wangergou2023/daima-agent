@@ -7,7 +7,7 @@
 #include "cJSON.h"
 #include "err.h"
 
-daima_err_t agent_turn_run(
+err_t agent_turn_run(
     const char *system_prompt,
     cJSON *messages,
     const char *tools_json,

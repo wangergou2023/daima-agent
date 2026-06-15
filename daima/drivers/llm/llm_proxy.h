@@ -17,17 +17,17 @@
  * - 读取 runtime_config 中当前生效的 provider 配置
  * - 组装 OpenAI 兼容请求 URL
  */
-daima_err_t llm_proxy_init(void);
+err_t llm_proxy_init(void);
 
 /**
  * 设置大模型 API Key（仅进程内生效）。
  */
-daima_err_t llm_set_api_key(const char *api_key);
+err_t llm_set_api_key(const char *api_key);
 
 /**
  * 设置模型标识（如 "kimi-k2.6" / "gpt-4o-mini"）。
  */
-daima_err_t llm_set_model(const char *model);
+err_t llm_set_model(const char *model);
 
 /**
  * 获取当前生效的模型名（进程内缓存）。
@@ -85,7 +85,7 @@ typedef struct {
  * @param out_content 输出图片内容块（需调用 llm_image_content_free 释放）
  * @return 成功返回 DAIMA_OK
  */
-daima_err_t llm_image_read_file(const char *image_path, llm_image_content_t *out_content);
+err_t llm_image_read_file(const char *image_path, llm_image_content_t *out_content);
 
 /**
  * 释放图片内容块内存
@@ -110,7 +110,7 @@ cJSON *llm_create_multimodal_content(const char *text, const llm_image_content_t
  * @param resp 输出响应
  * @return 成功返回 DAIMA_OK
  */
-daima_err_t llm_chat_with_images(const char *system_prompt,
+err_t llm_chat_with_images(const char *system_prompt,
                                 const char *user_text,
                                 const llm_image_content_t *images,
                                 int image_count,
@@ -127,12 +127,12 @@ daima_err_t llm_chat_with_images(const char *system_prompt,
  * @param resp           输出：包含文本与工具调用的结构化响应
  * @return 成功返回 DAIMA_OK
  */
-daima_err_t llm_chat_tools(const char *system_prompt,
+err_t llm_chat_tools(const char *system_prompt,
                           cJSON *messages,
                           const char *tools_json,
                           llm_response_t *resp);
 
-daima_err_t llm_chat_tools_with_model(const char *system_prompt,
+err_t llm_chat_tools_with_model(const char *system_prompt,
                                       cJSON *messages,
                                       const char *tools_json,
                                       const char *model_override,
@@ -153,7 +153,7 @@ llm_async_chat_t *llm_chat_tools_async(
 bool llm_chat_async_is_done(llm_async_chat_t *chat);
 
 // 获取结果（已完成时立即返回，未完成时阻塞等待）
-daima_err_t llm_chat_async_get_response(
+err_t llm_chat_async_get_response(
     llm_async_chat_t *chat, llm_response_t *resp);
 
 // 释放资源（如果请求还在进行中会 cancel）

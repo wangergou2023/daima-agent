@@ -18,6 +18,6 @@ typedef struct {
     bool is_valid;
 } compaction_recovery_t;
 
-daima_err_t compaction_recovery_snapshot(const char *chat_id);
-daima_err_t compaction_recovery_inject(const char *chat_id, char *system_prompt, size_t system_prompt_size);
-daima_err_t compaction_recovery_clear(const char *chat_id);
+err_t compaction_recovery_snapshot(const char *chat_id);
+err_t compaction_recovery_inject(const char *chat_id, char *system_prompt, size_t system_prompt_size);
+err_t compaction_recovery_clear(const char *chat_id);

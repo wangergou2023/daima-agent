@@ -11,7 +11,7 @@ extern "C" {
 /**
  * 启动按键监听与录音处理线程（仅 BUILD_FOR_MIPS 可用）。
  */
-daima_err_t voice_wake_start(void);
+err_t voice_wake_start(void);
 
 /**
  * 停止按键监听线程（仅 BUILD_FOR_MIPS 可用）。

@@ -7,7 +7,7 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("daima");
 MODULE_DESCRIPTION("Agent Extension: category_router");
-static daima_err_t before_run(struct message *msg, const char **model_override,
+static err_t before_run(struct message *msg, const char **model_override,
                               const char *tools_json)
 {
     (void)tools_json;
@@ -21,7 +21,7 @@ static daima_err_t before_run(struct message *msg, const char **model_override,
         }
     }
 #endif
-    return DAIMA_OK;
+    return 0;
 }
 
 static agent_extension_hooks_t ext = {

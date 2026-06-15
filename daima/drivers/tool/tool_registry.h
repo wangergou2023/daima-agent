@@ -9,7 +9,7 @@ struct tool {
     const char *name;
     const char *description;
     const char *input_schema_json;  /* 输入参数的 JSON Schema 字符串 */
-    daima_err_t (*execute)(const char *input_json, char *output, size_t output_size);
+    err_t (*execute)(const char *input_json, char *output, size_t output_size);
 };
 
 #define TOOL_REGISTRY_MAX_DYNAMIC 32
@@ -17,10 +17,10 @@ struct tool {
 /**
  * 初始化工具注册表并注册所有内置工具。
  */
-daima_err_t tool_registry_init(void);
+err_t tool_registry_init(void);
 
-daima_err_t tool_registry_register_dynamic(const struct tool *tool);
-daima_err_t tool_registry_unregister_dynamic(const char *tool_name);
+err_t tool_registry_register_dynamic(const struct tool *tool);
+err_t tool_registry_unregister_dynamic(const char *tool_name);
 
 /**
  * 获取用于 API 请求的预构建工具数组 JSON 字符串。
@@ -43,14 +43,14 @@ const char *tool_registry_get_tools_json_for_channel(const char *channel);
  * @param output_size  输出缓冲区大小
  * @return 成功返回 DAIMA_OK，工具不存在返回 DAIMA_ERR_NOT_FOUND
  */
-daima_err_t tool_registry_execute(const char *name, const char *input_json,
+err_t tool_registry_execute(const char *name, const char *input_json,
                                 char *output, size_t output_size);
 
 /**
  * 按当前消息通道执行工具。该接口用于 LLM 工具调用路径，除工具列表过滤外，
  * 再做一次执行层权限校验。
  */
-daima_err_t tool_registry_execute_for_channel(const char *channel,
+err_t tool_registry_execute_for_channel(const char *channel,
                                              const char *name,
                                              const char *input_json,
                                              char *output,

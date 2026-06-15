@@ -4,14 +4,14 @@
 
 #include "err.h"
 
-daima_err_t runtime_config_init(void);
+err_t runtime_config_init(void);
 
 const char *runtime_config_get_timezone(void);
 int runtime_config_get_web_port(void);
 int runtime_config_get_session_max_msgs(void);
 const char *runtime_config_get_web_default_pet_package_id(void);
 const char *runtime_config_get_terminal_security_level(void);
-daima_err_t runtime_config_set_terminal_security_level(const char *level);
+err_t runtime_config_set_terminal_security_level(const char *level);
 
 const char *runtime_config_get_active_provider(void);
 const char *runtime_config_get_active_provider_name(void);

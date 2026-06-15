@@ -68,16 +68,16 @@ int main(int argc, char **argv)
 
     do_basic_setup();
 
-    BUG_ON(llm_proxy_init() != DAIMA_OK);
-    BUG_ON(tool_registry_init() != DAIMA_OK);
-    BUG_ON(agent_loop_init() != DAIMA_OK);
+    BUG_ON(llm_proxy_init() != 0);
+    BUG_ON(tool_registry_init() != 0);
+    BUG_ON(agent_loop_init() != 0);
 
-    BUG_ON(channel_router_start() != DAIMA_OK);
+    BUG_ON(channel_router_start() != 0);
 
-    BUG_ON(agent_loop_start() != DAIMA_OK);
-    daima_err_t ws_err = ws_server_start();
-    if (ws_err != DAIMA_OK) {
-        pr_warn("WebSocket server failed to start: %s", daima_err_to_name(ws_err));
+    BUG_ON(agent_loop_start() != 0);
+    err_t ws_err = ws_server_start();
+    if (ws_err != 0) {
+        pr_warn("WebSocket server failed to start: %s", err_name(ws_err));
     }
 
     pr_info("All services started!");

@@ -90,29 +90,29 @@ static int append_unique_fact_lines(
     return count;
 }
 
-daima_err_t session_store_file_read_facts(const char *chat_id, char *buf, size_t size)
+err_t session_store_file_read_facts(const char *chat_id, char *buf, size_t size)
 {
     if (!chat_id || !buf || size == 0) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     char path[BUF_SMALL];
-    daima_err_t path_err = session_store_file_artifact_path(
+    err_t path_err = session_store_file_artifact_path(
         chat_id, SESSION_ARTIFACT_FACTS, path, sizeof(path));
-    if (path_err != DAIMA_OK) {
+    if (path_err != 0) {
         return path_err;
     }
 
     if (!session_file_read_all(path, buf, size, NULL)) {
         buf[0] = '\0';
     }
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t session_store_file_merge_facts(const char *chat_id, const char *facts_text)
+err_t session_store_file_merge_facts(const char *chat_id, const char *facts_text)
 {
     if (!chat_id || !facts_text) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     char existing[SESSION_FACTS_MAX_BYTES];
@@ -126,20 +126,20 @@ daima_err_t session_store_file_merge_facts(const char *chat_id, const char *fact
     count = append_unique_fact_lines(lines, count, existing);
     count = append_unique_fact_lines(lines, count, facts_text);
     if (count <= 0) {
-        return DAIMA_OK;
+        return 0;
     }
 
     char path[BUF_SMALL];
-    daima_err_t path_err = session_store_file_artifact_path(
+    err_t path_err = session_store_file_artifact_path(
         chat_id, SESSION_ARTIFACT_FACTS, path, sizeof(path));
-    if (path_err != DAIMA_OK) {
+    if (path_err != 0) {
         return path_err;
     }
 
     FILE *f = fopen(path, "w");
     if (!f) {
         pr_err("Cannot write session facts %s", path);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     fprintf(f, "## 会话事实卡片\n");
@@ -148,5 +148,5 @@ daima_err_t session_store_file_merge_facts(const char *chat_id, const char *fact
     }
     fclose(f);
     pr_info("Session %s facts merged: %d lines", chat_id, count);
-    return DAIMA_OK;
+    return 0;
 }

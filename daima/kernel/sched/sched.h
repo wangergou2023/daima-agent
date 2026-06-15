@@ -42,7 +42,7 @@ struct sched_agent {
     int pid;
     enum sched_class_id class;
     enum sched_agent_state state;
-    daima_err_t error;
+    err_t error;
     char prompt_add[1024];
     char task_desc[512];
     llm_async_chat_t *async_chat;
@@ -63,11 +63,11 @@ struct sched_runqueue {
 };
 
 void sched_init(void);
-daima_err_t sched_dispatch(enum intent intent, const struct plan *plan,
+err_t sched_dispatch(enum intent intent, const struct plan *plan,
                            const char *user_msg, struct sched_runqueue *rq);
 void sched_start(struct sched_runqueue *rq,
                  const char *system_prompt, cJSON *messages, const char *tools);
-daima_err_t sched_wait(struct sched_runqueue *rq);
+err_t sched_wait(struct sched_runqueue *rq);
 void sched_merge(struct sched_runqueue *rq, char *output, size_t size);
 void sched_exit(struct sched_runqueue *rq);
 
@@ -80,7 +80,7 @@ void sched_enqueue(struct sched_runqueue *rq, const struct sched_class *cls,
 void sched_dequeue(struct sched_runqueue *rq, struct sched_agent *agent);
 struct sched_agent *sched_pick_next(struct sched_runqueue *rq);
 void sched_complete(struct sched_runqueue *rq, struct sched_agent *agent,
-                    daima_err_t err);
+                    err_t err);
 
 void sched_agent_init(struct sched_agent *agent, const struct sched_class *cls,
                       const char *task);

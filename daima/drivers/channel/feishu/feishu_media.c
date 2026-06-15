@@ -78,10 +78,10 @@ char *feishu_download_message_image(const char *tenant_token,
     headers = curl_slist_append(headers, auth_header);
 
     host_http_response_t resp = {0};
-    daima_err_t err = host_http_request("GET", url, headers, NULL, 15000, &resp);
+    err_t err = host_http_request("GET", url, headers, NULL, 15000, &resp);
     curl_slist_free_all(headers);
-    if (err != DAIMA_OK || resp.status != 200 || !resp.body || resp.body_len == 0) {
-        pr_warn("Failed to download Feishu image: msg=%s key=%s http=%ld err=%s", message_id, image_key, resp.status, daima_err_to_name(err));
+    if (err != 0 || resp.status != 200 || !resp.body || resp.body_len == 0) {
+        pr_warn("Failed to download Feishu image: msg=%s key=%s http=%ld err=%s", message_id, image_key, resp.status, err_name(err));
         host_http_response_free(&resp);
         return NULL;
     }

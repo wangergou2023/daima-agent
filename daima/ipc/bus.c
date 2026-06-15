@@ -8,52 +8,52 @@
 static daima_queue_t *s_inbound_queue;
 static daima_queue_t *s_outbound_queue;
 
-daima_err_t message_bus_init(void)
+err_t message_bus_init(void)
 {
     s_inbound_queue = daima_queue_create(BUS_QUEUE_LEN, sizeof(struct message));
     s_outbound_queue = daima_queue_create(BUS_QUEUE_LEN, sizeof(struct message));
 
     if (!s_inbound_queue || !s_outbound_queue) {
         pr_err("Failed to create message queues");
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
 
     pr_info("Message bus initialized (queue depth %d)", BUS_QUEUE_LEN);
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t message_bus_push_inbound(const struct message *msg)
+err_t message_bus_push_inbound(const struct message *msg)
 {
     if (!daima_queue_send(s_inbound_queue, msg, 1000)) {
         pr_warn("Inbound queue full, dropping message");
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t message_bus_pop_inbound(struct message *msg, uint32_t timeout_ms)
+err_t message_bus_pop_inbound(struct message *msg, uint32_t timeout_ms)
 {
     uint32_t wait_ms = (timeout_ms == UINT32_MAX) ? WAIT_FOREVER : timeout_ms;
     if (!daima_queue_receive(s_inbound_queue, msg, wait_ms)) {
-        return DAIMA_ERR_TIMEOUT;
+        return ERR_TIMEOUT;
     }
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t message_bus_push_outbound(const struct message *msg)
+err_t message_bus_push_outbound(const struct message *msg)
 {
     if (!daima_queue_send(s_outbound_queue, msg, 1000)) {
         pr_warn("Outbound queue full, dropping message");
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t message_bus_pop_outbound(struct message *msg, uint32_t timeout_ms)
+err_t message_bus_pop_outbound(struct message *msg, uint32_t timeout_ms)
 {
     uint32_t wait_ms = (timeout_ms == UINT32_MAX) ? WAIT_FOREVER : timeout_ms;
     if (!daima_queue_receive(s_outbound_queue, msg, wait_ms)) {
-        return DAIMA_ERR_TIMEOUT;
+        return ERR_TIMEOUT;
     }
-    return DAIMA_OK;
+    return 0;
 }

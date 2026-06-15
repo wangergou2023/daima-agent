@@ -16,7 +16,7 @@ extern "C" {
  * 初始化图像抓拍模块（MIPS/IMP）。
  * 可重复调用，内部会做幂等保护。
  */
-daima_err_t vision_capture_init(void);
+err_t vision_capture_init(void);
 
 /**
  * 抓拍一张 JPEG 并保存到文件。
@@ -24,7 +24,7 @@ daima_err_t vision_capture_init(void);
  * - out_path/out_path_len 可选，用于返回实际保存路径。
  * - 失败返回 DAIMA_ERR_*，成功返回 DAIMA_OK。
  */
-daima_err_t vision_capture_jpeg(const char *output_path,
+err_t vision_capture_jpeg(const char *output_path,
                                char *out_path,
                                size_t out_path_len);
 

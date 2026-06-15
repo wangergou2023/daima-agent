@@ -6,7 +6,7 @@
 extern "C" {
 #endif
 
-daima_err_t sysctl_init(void);
+err_t sysctl_init(void);
 
 #ifdef __cplusplus
 }

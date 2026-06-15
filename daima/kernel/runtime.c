@@ -148,7 +148,7 @@ bool runtime_config_json_read_bool(const cJSON *root, const char *key, bool *out
     return false;
 }
 
-daima_err_t runtime_config_init(void)
+err_t runtime_config_init(void)
 {
     char *text = NULL;
     cJSON *root = NULL;
@@ -159,14 +159,14 @@ daima_err_t runtime_config_init(void)
         pr_warn("Runtime config missing: %s", daima_path_runtime_config_file());
         pr_warn("Please create it with reference to: %s/config.example.json", daima_path_config_dir());
         s_cfg.loaded = 1;
-        return DAIMA_OK;
+        return 0;
     }
 
     text = read_config_text();
     if (!text) {
         pr_warn("Cannot read runtime config: %s", daima_path_runtime_config_file());
         s_cfg.loaded = 1;
-        return DAIMA_OK;
+        return 0;
     }
 
     root = cJSON_Parse(text);
@@ -175,7 +175,7 @@ daima_err_t runtime_config_init(void)
         cJSON_Delete(root);
         pr_warn("Invalid runtime config JSON: %s", daima_path_runtime_config_file());
         s_cfg.loaded = 1;
-        return DAIMA_OK;
+        return 0;
     }
 
     runtime_config_apply_values(&s_cfg, root);
@@ -183,7 +183,7 @@ daima_err_t runtime_config_init(void)
     s_cfg.loaded = 1;
 
     pr_info("Runtime config loaded: %s%s%s", daima_path_runtime_config_file(), s_cfg.active_provider[0] ? " active_provider=" : "", s_cfg.active_provider[0] ? s_cfg.active_provider : "");
-    return DAIMA_OK;
+    return 0;
 }
 
 const char *runtime_config_get_timezone(void)
@@ -222,15 +222,15 @@ const char *runtime_config_get_terminal_security_level(void)
         : DEFAULT_TERMINAL_SECURITY_LEVEL;
 }
 
-static daima_err_t write_config_json_atomic(cJSON *root)
+static err_t write_config_json_atomic(cJSON *root)
 {
     if (!root) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     char *text = cJSON_Print(root);
     if (!text) {
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
 
     char tmp_path[1024];
@@ -238,7 +238,7 @@ static daima_err_t write_config_json_atomic(cJSON *root)
     FILE *f = fopen(tmp_path, "wb");
     if (!f) {
         kfree(text);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     size_t len = strlen(text);
@@ -249,19 +249,19 @@ static daima_err_t write_config_json_atomic(cJSON *root)
     kfree(text);
     if (!ok) {
         unlink(tmp_path);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
     if (rename(tmp_path, daima_path_runtime_config_file()) != 0) {
         unlink(tmp_path);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t runtime_config_set_terminal_security_level(const char *level)
+err_t runtime_config_set_terminal_security_level(const char *level)
 {
     if (!terminal_security_level_valid(level)) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     char *text = read_config_text();
@@ -272,7 +272,7 @@ daima_err_t runtime_config_set_terminal_security_level(const char *level)
         root = cJSON_CreateObject();
     }
     if (!root) {
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
 
     cJSON *common = cJSON_GetObjectItemCaseSensitive(root, "common");
@@ -282,20 +282,20 @@ daima_err_t runtime_config_set_terminal_security_level(const char *level)
     }
     if (!common) {
         cJSON_Delete(root);
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
     cJSON_DeleteItemFromObjectCaseSensitive(common, "terminal_security_level");
     cJSON_AddStringToObject(common, "terminal_security_level", level);
 
-    daima_err_t err = write_config_json_atomic(root);
+    err_t err = write_config_json_atomic(root);
     cJSON_Delete(root);
-    if (err != DAIMA_OK) {
+    if (err != 0) {
         return err;
     }
 
     strscpy(s_cfg.terminal_security_level, level, sizeof(s_cfg.terminal_security_level));
     pr_info("Terminal security level set to %s", level);
-    return DAIMA_OK;
+    return 0;
 }
 
 const char *runtime_config_get_active_provider(void)

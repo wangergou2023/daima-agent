@@ -237,15 +237,15 @@ cJSON *llm_anthropic_build_image_body(const char *system_prompt,
 }
 #endif
 
-daima_err_t llm_anthropic_parse_response(const char *json_text, llm_response_t *resp)
+err_t llm_anthropic_parse_response(const char *json_text, llm_response_t *resp)
 {
     if (!json_text || !resp) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     cJSON *root = cJSON_Parse(json_text);
     if (!root) {
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     cJSON *stop = cJSON_GetObjectItem(root, "stop_reason");
@@ -326,5 +326,5 @@ daima_err_t llm_anthropic_parse_response(const char *json_text, llm_response_t *
     }
 
     cJSON_Delete(root);
-    return DAIMA_OK;
+    return 0;
 }

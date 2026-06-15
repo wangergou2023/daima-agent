@@ -86,13 +86,13 @@ static void sanitize_utf8(char *buf)
     buf[wi] = '\0';
 }
 
-daima_err_t tool_daima_log_execute(const char *input_json, char *output, size_t output_size)
+err_t tool_daima_log_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *input = cJSON_Parse(input_json ? input_json : "{}");
     if (!input || !cJSON_IsObject(input)) {
         snprintf(output, output_size, "错误：输入 JSON 无效");
         cJSON_Delete(input);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     const char *action = cJSON_GetStringValue(cJSON_GetObjectItem(input, "action"));
@@ -103,7 +103,7 @@ daima_err_t tool_daima_log_execute(const char *input_json, char *output, size_t 
     if (!f) {
         snprintf(output, output_size, "（日志文件为空或不存在）");
         cJSON_Delete(input);
-        return DAIMA_OK;
+        return 0;
     }
 
     int n = input_lines(input);
@@ -127,7 +127,7 @@ daima_err_t tool_daima_log_execute(const char *input_json, char *output, size_t 
             snprintf(output, output_size, "错误：search 需要 pattern 参数");
             fclose(f);
             cJSON_Delete(input);
-            return DAIMA_ERR_INVALID_ARG;
+            return ERR_INVALID_ARG;
         }
         char line[LOG_LINE_MAX];
         int shown = 0;
@@ -154,7 +154,7 @@ daima_err_t tool_daima_log_execute(const char *input_json, char *output, size_t 
         snprintf(output, output_size, "错误：未知 action=%s，支持 tail / search / errors", action);
         fclose(f);
         cJSON_Delete(input);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     if (off == 0) {
@@ -166,7 +166,7 @@ daima_err_t tool_daima_log_execute(const char *input_json, char *output, size_t 
 
     fclose(f);
     cJSON_Delete(input);
-    return DAIMA_OK;
+    return 0;
 }
 
 const struct tool *tool_daima_log_definition(void)

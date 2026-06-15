@@ -9,7 +9,7 @@
  * 初始化技能系统。
  * 若内置技能文件不存在，则写入到 SPIFFS。
  */
-daima_err_t skill_loader_init(void);
+err_t skill_loader_init(void);
 
 /**
  * 为系统提示构建所有可用技能的摘要。

@@ -2,10 +2,10 @@
 
 #include "drivers/voice/voice_wake.h"
 #include "linux/printk.h"
-daima_err_t voice_wake_start(void)
+err_t voice_wake_start(void)
 {
     pr_warn("voice_wake_start not implemented");
-    return DAIMA_ERR_INVALID_STATE;
+    return ERR_INVALID_STATE;
 }
 
 void voice_wake_stop(void)

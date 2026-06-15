@@ -12,7 +12,7 @@
 typedef struct {
     bool completed;
     char result_text[TEAM_MODE_RESULT_MAX];
-    daima_err_t error;
+    err_t error;
 } team_sub_agent_result_t;
 
 typedef struct {
@@ -23,11 +23,11 @@ typedef struct {
     int completed_count;
 } team_orchestrator_t;
 
-daima_err_t team_mode_orchestrate(const struct plan *plan,
+err_t team_mode_orchestrate(const struct plan *plan,
                                    const char *system_prompt,
                                    const char *tools_json,
                                    team_orchestrator_t *out);
 
-daima_err_t team_mode_inject_to_prompt(const team_orchestrator_t *team,
+err_t team_mode_inject_to_prompt(const team_orchestrator_t *team,
                                        char *system_prompt,
                                        size_t system_prompt_size);

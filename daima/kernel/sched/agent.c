@@ -16,7 +16,7 @@ void sched_agent_init(struct sched_agent *agent, const struct sched_class *cls,
     agent->pid = -1;
     agent->class = (enum sched_class_id)cls->priority;
     agent->state = SCHED_AGENT_WAITING;
-    agent->error = DAIMA_OK;
+    agent->error = 0;
     strscpy(agent->prompt_add, cls->prompt_suffix, sizeof(agent->prompt_add));
     strscpy(agent->task_desc, task ? task : "", sizeof(agent->task_desc));
 }
@@ -30,7 +30,7 @@ void sched_agent_launch(struct sched_agent *agent, const char *prompt,
 
     agent->scoped_messages = messages ? cJSON_Duplicate(messages, 1) : cJSON_CreateArray();
     if (!agent->scoped_messages) {
-        agent->error = DAIMA_FAIL;
+        agent->error = ERR_FAIL;
         agent->state = SCHED_AGENT_ERROR;
         pr_warn("failed to copy messages for agent %d (%s)", agent->pid, sched_class_name(agent->class));
         return;
@@ -41,14 +41,14 @@ void sched_agent_launch(struct sched_agent *agent, const char *prompt,
                                              tools,
                                              NULL);
     if (!agent->async_chat) {
-        agent->error = DAIMA_FAIL;
+        agent->error = ERR_FAIL;
         agent->state = SCHED_AGENT_ERROR;
         pr_warn("failed to launch agent %d (%s)", agent->pid, sched_class_name(agent->class));
         return;
     }
 
     agent->state = SCHED_AGENT_RUNNING;
-    agent->error = DAIMA_OK;
+    agent->error = 0;
     pr_info("launched agent %d (%s)", agent->pid, sched_class_name(agent->class));
 }
 
@@ -68,7 +68,7 @@ void sched_agent_reap(struct sched_agent *agent)
 
     llm_response_t resp = {0};
     agent->error = llm_chat_async_get_response(agent->async_chat, &resp);
-    if (agent->error == DAIMA_OK && resp.text) {
+    if (agent->error == 0 && resp.text) {
         strscpy(agent->result, resp.text, sizeof(agent->result));
         agent->state = SCHED_AGENT_DONE;
     } else {

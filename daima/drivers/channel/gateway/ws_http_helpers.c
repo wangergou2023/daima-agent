@@ -447,7 +447,7 @@ static char *build_sessions_json(void)
 {
     daima_session_record_t records[128];
     int count = 0;
-    if (session_store_list_records(records, sizeof(records) / sizeof(records[0]), &count) != DAIMA_OK) {
+    if (session_store_list_records(records, sizeof(records) / sizeof(records[0]), &count) != 0) {
         return NULL;
     }
 
@@ -486,7 +486,7 @@ static char *build_session_history_json(const char *chat_id)
 
     char history_json[LLM_STREAM_BUF_SIZE];
     history_json[0] = '\0';
-    if (session_store_get_history_json(chat_id, history_json, sizeof(history_json), AGENT_MAX_HISTORY) != DAIMA_OK) {
+    if (session_store_get_history_json(chat_id, history_json, sizeof(history_json), AGENT_MAX_HISTORY) != 0) {
         return NULL;
     }
 
@@ -557,8 +557,8 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
             return 0;
         }
 
-        daima_err_t err = session_store_clear(chat_id);
-        if (err != DAIMA_OK && err != DAIMA_ERR_NOT_FOUND) {
+        err_t err = session_store_clear(chat_id);
+        if (err != 0 && err != ERR_NOT_FOUND) {
             http_send_response(client_fd, "500 Internal Server Error",
                                "application/json; charset=utf-8",
                                "{\"error\":\"delete_failed\"}");
@@ -580,8 +580,8 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
             return 0;
         }
 
-        daima_err_t err = runtime_config_set_terminal_security_level(level);
-        if (err != DAIMA_OK) {
+        err_t err = runtime_config_set_terminal_security_level(level);
+        if (err != 0) {
             http_send_response(client_fd, "500 Internal Server Error",
                                "application/json; charset=utf-8",
                                "{\"error\":\"save_failed\"}");

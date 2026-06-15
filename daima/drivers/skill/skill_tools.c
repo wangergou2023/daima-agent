@@ -27,14 +27,14 @@ typedef struct {
 
 static skill_tool_bundle_slot_t s_bundles[SKILL_TOOLS_MAX];
 
-static daima_err_t skill_tool_stub_execute(const char *input_json, char *output, size_t output_size)
+static err_t skill_tool_stub_execute(const char *input_json, char *output, size_t output_size)
 {
     (void)input_json;
     if (!output || output_size == 0) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
     snprintf(output, output_size, "skill tool not yet implemented");
-    return DAIMA_OK;
+    return 0;
 }
 
 static bool file_exists_regular(const char *path)
@@ -83,17 +83,17 @@ static skill_tool_bundle_slot_t *alloc_bundle(const char *skill_name)
     return NULL;
 }
 
-static daima_err_t activate_loaded_bundle(skill_tool_bundle_slot_t *slot)
+static err_t activate_loaded_bundle(skill_tool_bundle_slot_t *slot)
 {
     if (!slot) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
     if (slot->bundle.active) {
-        return DAIMA_OK;
+        return 0;
     }
     for (int i = 0; i < slot->bundle.tool_count; i++) {
-        daima_err_t err = tool_registry_register_dynamic(&slot->bundle.tools[i]);
-        if (err != DAIMA_OK) {
+        err_t err = tool_registry_register_dynamic(&slot->bundle.tools[i]);
+        if (err != 0) {
             for (int j = 0; j < i; j++) {
                 tool_registry_unregister_dynamic(slot->bundle.tools[j].name);
             }
@@ -101,7 +101,7 @@ static daima_err_t activate_loaded_bundle(skill_tool_bundle_slot_t *slot)
         }
     }
     slot->bundle.active = true;
-    return DAIMA_OK;
+    return 0;
 }
 
 static char *read_file_all(const char *path)
@@ -132,18 +132,18 @@ static char *read_file_all(const char *path)
     return buf;
 }
 
-static daima_err_t init_tool_from_json(skill_tool_bundle_slot_t *slot, cJSON *item)
+static err_t init_tool_from_json(skill_tool_bundle_slot_t *slot, cJSON *item)
 {
     const char *name = cJSON_GetStringValue(cJSON_GetObjectItem(item, "name"));
     const char *description = cJSON_GetStringValue(cJSON_GetObjectItem(item, "description"));
     const char *schema = cJSON_GetStringValue(cJSON_GetObjectItem(item, "input_schema_json"));
     if (!name || !name[0] || !description || !schema) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     int idx = slot->bundle.tool_count;
     if (idx >= SKILL_TOOLS_MAX) {
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
 
     skill_tool_storage_t *storage = &slot->storage[idx];
@@ -157,20 +157,20 @@ static daima_err_t init_tool_from_json(skill_tool_bundle_slot_t *slot, cJSON *it
         .input_schema_json = storage->input_schema_json,
         .execute = skill_tool_stub_execute,
     };
-    daima_err_t err = tool_registry_register_dynamic(&tool);
-    if (err != DAIMA_OK) {
+    err_t err = tool_registry_register_dynamic(&tool);
+    if (err != 0) {
         return err;
     }
 
     slot->bundle.tools[idx] = tool;
     slot->bundle.tool_count++;
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t skill_tools_register(const char *skill_name, const char *skill_dir)
+err_t skill_tools_register(const char *skill_name, const char *skill_dir)
 {
     if (!skill_name || !skill_name[0] || !skill_dir || !skill_dir[0]) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
     skill_tool_bundle_slot_t *loaded = find_loaded_bundle(skill_name);
     if (loaded) {
@@ -180,31 +180,31 @@ daima_err_t skill_tools_register(const char *skill_name, const char *skill_dir)
     char tools_path[512];
     snprintf(tools_path, sizeof(tools_path), "%s/TOOLS.json", skill_dir);
     if (!file_exists_regular(tools_path)) {
-        return DAIMA_OK;
+        return 0;
     }
 
     char *json = read_file_all(tools_path);
     if (!json) {
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     cJSON *root = cJSON_Parse(json);
     kfree(json);
     if (!root || !cJSON_IsArray(root)) {
         cJSON_Delete(root);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     skill_tool_bundle_slot_t *slot = alloc_bundle(skill_name);
     if (!slot) {
         cJSON_Delete(root);
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
 
     cJSON *item = NULL;
     cJSON_ArrayForEach(item, root) {
-        daima_err_t err = init_tool_from_json(slot, item);
-        if (err != DAIMA_OK) {
+        err_t err = init_tool_from_json(slot, item);
+        if (err != 0) {
             skill_tools_unregister(skill_name);
             cJSON_Delete(root);
             return err;
@@ -213,14 +213,14 @@ daima_err_t skill_tools_register(const char *skill_name, const char *skill_dir)
 
     cJSON_Delete(root);
     pr_info("Registered %d skill-scoped tools for %s", slot->bundle.tool_count, skill_name);
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t skill_tools_unregister(const char *skill_name)
+err_t skill_tools_unregister(const char *skill_name)
 {
     skill_tool_bundle_slot_t *slot = find_bundle(skill_name);
     if (!slot) {
-        return DAIMA_OK;
+        return 0;
     }
 
     for (int i = 0; i < slot->bundle.tool_count; i++) {
@@ -228,7 +228,7 @@ daima_err_t skill_tools_unregister(const char *skill_name)
     }
     pr_info("Unregistered skill-scoped tools for %s", slot->bundle.skill_name);
     slot->bundle.active = false;
-    return DAIMA_OK;
+    return 0;
 }
 
 void skill_tools_unregister_all(void)

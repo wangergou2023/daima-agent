@@ -60,7 +60,7 @@ static void record_recent_checkpoint(const char *path, const char *checkpoint)
     s_recent_checkpoint_cursor++;
 }
 
-daima_err_t tool_files_checkpoint_before_write(const char *path,
+err_t tool_files_checkpoint_before_write(const char *path,
                                               const char *previous_content,
                                               size_t previous_len,
                                               char *checkpoint_path,
@@ -70,13 +70,13 @@ daima_err_t tool_files_checkpoint_before_write(const char *path,
         checkpoint_path[0] = '\0';
     }
     if (!path || !path[0]) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
     if (!previous_content && previous_len > 0) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
     if (!previous_content && access(path, F_OK) != 0) {
-        return DAIMA_OK;
+        return 0;
     }
 
     daima_fs_ensure_dir_recursive(daima_path_checkpoint_dir());
@@ -95,8 +95,8 @@ daima_err_t tool_files_checkpoint_before_write(const char *path,
 
     const char *content = previous_content ? previous_content : "";
     size_t content_len = previous_content ? previous_len : 0;
-    daima_err_t err = tool_files_write_text_file(path_buf, content, content_len);
-    if (err != DAIMA_OK) {
+    err_t err = tool_files_write_text_file(path_buf, content, content_len);
+    if (err != 0) {
         return err;
     }
 
@@ -104,7 +104,7 @@ daima_err_t tool_files_checkpoint_before_write(const char *path,
         strscpy(checkpoint_path, path_buf, checkpoint_path_size);
     }
     record_recent_checkpoint(path, path_buf);
-    return DAIMA_OK;
+    return 0;
 }
 
 bool tool_files_get_recent_checkpoint(const char *path,
@@ -126,13 +126,13 @@ bool tool_files_get_recent_checkpoint(const char *path,
     return false;
 }
 
-daima_err_t tool_files_checkpoint_current_file(const char *path,
+err_t tool_files_checkpoint_current_file(const char *path,
                                               size_t max_size,
                                               char *checkpoint_path,
                                               size_t checkpoint_path_size)
 {
     if (!path || !path[0]) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     struct stat st;
@@ -140,13 +140,13 @@ daima_err_t tool_files_checkpoint_current_file(const char *path,
         if (checkpoint_path && checkpoint_path_size > 0) {
             checkpoint_path[0] = '\0';
         }
-        return DAIMA_OK;
+        return 0;
     }
 
     char *current = NULL;
     size_t current_len = 0;
-    daima_err_t err = tool_files_read_optional_text_file(path, max_size, &current, &current_len);
-    if (err != DAIMA_OK) {
+    err_t err = tool_files_read_optional_text_file(path, max_size, &current, &current_len);
+    if (err != 0) {
         return err;
     }
 
@@ -155,27 +155,27 @@ daima_err_t tool_files_checkpoint_current_file(const char *path,
     return err;
 }
 
-daima_err_t tool_files_restore_checkpoint(const char *target_path,
+err_t tool_files_restore_checkpoint(const char *target_path,
                                          const char *checkpoint_path,
                                          size_t max_size,
                                          char *rollback_checkpoint_path,
                                          size_t rollback_checkpoint_path_size)
 {
     if (!target_path || !target_path[0] || !checkpoint_path || !checkpoint_path[0]) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     char *checkpoint_text = NULL;
     size_t checkpoint_len = 0;
-    daima_err_t err = tool_files_read_optional_text_file(checkpoint_path, max_size, &checkpoint_text, &checkpoint_len);
-    if (err != DAIMA_OK) {
+    err_t err = tool_files_read_optional_text_file(checkpoint_path, max_size, &checkpoint_text, &checkpoint_len);
+    if (err != 0) {
         return err;
     }
 
     char *current = NULL;
     size_t current_len = 0;
     err = tool_files_read_optional_text_file(target_path, max_size, &current, &current_len);
-    if (err != DAIMA_OK) {
+    if (err != 0) {
         kfree(checkpoint_text);
         return err;
     }
@@ -187,7 +187,7 @@ daima_err_t tool_files_restore_checkpoint(const char *target_path,
         rollback_checkpoint_path,
         rollback_checkpoint_path_size);
     kfree(current);
-    if (err != DAIMA_OK) {
+    if (err != 0) {
         kfree(checkpoint_text);
         return err;
     }

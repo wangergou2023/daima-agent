@@ -175,7 +175,7 @@ static void kill_process_group(pid_t pid)
     kill(-pid, SIGKILL);
 }
 
-daima_err_t terminal_execute_local_shell(const char *command,
+err_t terminal_execute_local_shell(const char *command,
                                         const char *workdir,
                                         int timeout_seconds,
                                         const char *stdin_data,
@@ -183,21 +183,21 @@ daima_err_t terminal_execute_local_shell(const char *command,
                                         terminal_exec_result_t *out)
 {
     if (!command || !command[0] || !out) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     memset(out, 0, sizeof(*out));
     out->exit_code = -1;
     out->output = kzalloc(output_cap > 0 ? output_cap : 1, GFP_KERNEL);
     if (!out->output) {
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
 
     int pipefd[2];
     if (pipe(pipefd) != 0) {
         kfree(out->output);
         out->output = NULL;
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     int stdin_pipe[2] = {-1, -1};
@@ -207,7 +207,7 @@ daima_err_t terminal_execute_local_shell(const char *command,
         close(pipefd[1]);
         kfree(out->output);
         out->output = NULL;
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     pid_t pid = fork();
@@ -218,7 +218,7 @@ daima_err_t terminal_execute_local_shell(const char *command,
         if (stdin_pipe[1] >= 0) close(stdin_pipe[1]);
         kfree(out->output);
         out->output = NULL;
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     if (pid == 0) {
@@ -345,5 +345,5 @@ daima_err_t terminal_execute_local_shell(const char *command,
         }
     }
 
-    return DAIMA_OK;
+    return 0;
 }

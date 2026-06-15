@@ -9,13 +9,13 @@
 #include "linux/printk.h"
 #include "drivers/voice/voice_channel.h"
 #include "drivers/voice/tts_player.h"
-static daima_err_t channel_runtime_send_text(const char *channel,
+static err_t channel_runtime_send_text(const char *channel,
                                              const char *chat_id,
                                              const char *text,
                                              const char *reasoning)
 {
     if (!channel || !chat_id || !text) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     if (strcmp(channel, DAIMA_CHAN_WEBSOCKET) == 0) {
@@ -33,21 +33,21 @@ static daima_err_t channel_runtime_send_text(const char *channel,
     }
     if (strcmp(channel, DAIMA_CHAN_SYSTEM) == 0) {
         pr_info("System message [%s]: %.128s", chat_id, text);
-        return DAIMA_OK;
+        return 0;
     }
     if (strcmp(channel, DAIMA_CHAN_VECTOR) == 0) {
         return vector_channel_send_reply(chat_id, text);
     }
-    return DAIMA_ERR_INVALID_ARG;
+    return ERR_INVALID_ARG;
 }
 
-daima_err_t channel_runtime_dispatch_outbound(const struct message *msg)
+err_t channel_runtime_dispatch_outbound(const struct message *msg)
 {
     if (!msg || !msg->content) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
-    daima_err_t err = channel_runtime_send_text(msg->channel, msg->chat_id, msg->content, msg->reasoning);
-    if (err != DAIMA_OK && strcmp(msg->channel, DAIMA_CHAN_WEBSOCKET) == 0) {
+    err_t err = channel_runtime_send_text(msg->channel, msg->chat_id, msg->content, msg->reasoning);
+    if (err != 0 && strcmp(msg->channel, DAIMA_CHAN_WEBSOCKET) == 0) {
         ws_pending_save(msg->content);
     }
     return err;

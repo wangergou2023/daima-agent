@@ -101,9 +101,9 @@ static bool heartbeat_send(void)
         return false;
     }
 
-    daima_err_t err = message_bus_push_inbound(&msg);
-    if (err != DAIMA_OK) {
-        pr_warn("Failed to push heartbeat message: %s", daima_err_to_name(err));
+    err_t err = message_bus_push_inbound(&msg);
+    if (err != 0) {
+        pr_warn("Failed to push heartbeat message: %s", err_name(err));
         kfree(msg.content);
         return false;
     }
@@ -122,17 +122,17 @@ static void heartbeat_timer_callback(daima_timer_t *timer)
 
 /* ── 对外接口 ───────────────────────────────────────────────── */
 
-daima_err_t heartbeat_init(void)
+err_t heartbeat_init(void)
 {
     pr_info("Heartbeat service initialized (file: %s, interval: %ds)", daima_path_heartbeat_file(), heartbeat_interval_ms() / 1000);
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t heartbeat_start(void)
+err_t heartbeat_start(void)
 {
     if (s_heartbeat_timer) {
         pr_warn("Heartbeat timer already running");
-        return DAIMA_OK;
+        return 0;
     }
 
     s_heartbeat_timer = daima_timer_create(
@@ -145,16 +145,16 @@ daima_err_t heartbeat_start(void)
 
     if (!s_heartbeat_timer) {
         pr_err("Failed to create heartbeat timer");
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     if (!daima_timer_start(s_heartbeat_timer, 1000)) {
         pr_err("Failed to start heartbeat timer");
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     pr_info("Heartbeat started (every %d min)", heartbeat_interval_ms() / 60000);
-    return DAIMA_OK;
+    return 0;
 }
 
 void heartbeat_stop(void)

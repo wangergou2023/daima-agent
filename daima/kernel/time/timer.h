@@ -35,12 +35,12 @@ typedef struct {
 /**
  * 初始化定时任务服务。加载 SPIFFS 中的任务。
  */
-daima_err_t cron_service_init(void);
+err_t cron_service_init(void);
 
 /**
  * 启动定时任务计时器。请在启动完成且时间已同步后调用。
  */
-daima_err_t cron_service_start(void);
+err_t cron_service_start(void);
 
 /**
  * 停止定时任务计时器。
@@ -52,14 +52,14 @@ void cron_service_stop(void);
  * @param job  任务结构体指针（会自动生成 id）
  * @return 成功返回 DAIMA_OK，若任务数已满返回 DAIMA_ERR_NO_MEM
  */
-daima_err_t cron_add_job(cron_job_t *job);
+err_t cron_add_job(cron_job_t *job);
 
 /**
  * 按 ID 移除定时任务。
  * @param job_id  8 位任务 ID
  * @return 成功返回 DAIMA_OK，未找到返回 DAIMA_ERR_NOT_FOUND
  */
-daima_err_t cron_remove_job(const char *job_id);
+err_t cron_remove_job(const char *job_id);
 
 /**
  * 列出所有定时任务。

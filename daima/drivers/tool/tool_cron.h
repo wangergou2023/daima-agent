@@ -12,5 +12,5 @@
  *          { action:"list" }
  *          { action:"remove", job_id }
  */
-daima_err_t tool_cron_execute(const char *input_json, char *output, size_t output_size);
+err_t tool_cron_execute(const char *input_json, char *output, size_t output_size);
 const struct tool *tool_cron_definition(void);

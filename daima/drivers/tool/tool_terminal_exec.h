@@ -29,7 +29,7 @@ char *terminal_json_status_string(const char *command,
                                   const char *message,
                                   const char *request_id);
 
-daima_err_t terminal_execute_local_shell(const char *command,
+err_t terminal_execute_local_shell(const char *command,
                                         const char *workdir,
                                         int timeout_seconds,
                                         const char *stdin_data,

@@ -8,19 +8,19 @@
 
 #define TOOL_LIST_PATH_SIZE 1024
 
-daima_err_t tool_files_list_dir(const char *resolved_dir,
+err_t tool_files_list_dir(const char *resolved_dir,
                                const char *prefix,
                                char *output,
                                size_t output_size,
                                int *count_out)
 {
     if (!resolved_dir || !resolved_dir[0] || !output || output_size == 0) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     DIR *dir = opendir(resolved_dir);
     if (!dir) {
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     size_t off = 0;
@@ -57,5 +57,5 @@ daima_err_t tool_files_list_dir(const char *resolved_dir,
     if (count_out) {
         *count_out = count;
     }
-    return DAIMA_OK;
+    return 0;
 }

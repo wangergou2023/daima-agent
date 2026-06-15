@@ -7,17 +7,17 @@
 #include "drivers/channel/gateway/ws_server.h"
 #include "linux/slab.h"
 
-daima_err_t channel_runtime_request_sudo(const struct message *msg,
+err_t channel_runtime_request_sudo(const struct message *msg,
                                         const char *request_id,
                                         const char *prompt_text)
 {
     if (!msg || !request_id || !prompt_text) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
     if (strcmp(msg->channel, DAIMA_CHAN_WEBSOCKET) == 0) {
         return ws_server_send_sudo_request(msg->chat_id, request_id, prompt_text);
     }
-    return DAIMA_FAIL;
+    return ERR_FAIL;
 }
 
 static bool parse_sudo_password_reply(const char *payload,
@@ -68,7 +68,7 @@ bool channel_runtime_wait_sudo_password(const struct message *msg,
     if (channel_runtime_request_sudo(
             msg,
             request_id,
-            "This command requires sudo privileges. Please enter your sudo password to continue.") != DAIMA_OK) {
+            "This command requires sudo privileges. Please enter your sudo password to continue.") != 0) {
         return false;
     }
 
@@ -80,8 +80,8 @@ bool channel_runtime_wait_sudo_password(const struct message *msg,
 
     while (time(NULL) < deadline) {
         struct message incoming = {0};
-        daima_err_t err = message_bus_pop_inbound(&incoming, 1000);
-        if (err != DAIMA_OK) {
+        err_t err = message_bus_pop_inbound(&incoming, 1000);
+        if (err != 0) {
             continue;
         }
 

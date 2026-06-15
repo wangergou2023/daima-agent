@@ -55,10 +55,10 @@ static bool append_file_limited(char *buffer, size_t buffer_size, size_t *offset
     return true;
 }
 
-daima_err_t rules_injection_load(char *buffer, size_t buffer_size)
+err_t rules_injection_load(char *buffer, size_t buffer_size)
 {
     if (!buffer || buffer_size == 0) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     buffer[0] = '\0';
@@ -77,5 +77,5 @@ daima_err_t rules_injection_load(char *buffer, size_t buffer_size)
         }
     }
 
-    return DAIMA_OK;
+    return 0;
 }

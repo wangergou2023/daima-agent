@@ -33,7 +33,7 @@ static bool plan_review_is_placeholder_only(const char *text)
            strstr(text, "TBD") != NULL;
 }
 
-daima_err_t plan_review_generate(enum intent intent,
+err_t plan_review_generate(enum intent intent,
                                   const char *user_message,
                                   const char *system_prompt,
                                   struct plan *out_plan)
@@ -41,13 +41,13 @@ daima_err_t plan_review_generate(enum intent intent,
     (void)system_prompt;
 
     if (!out_plan) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     memset(out_plan, 0, sizeof(*out_plan));
 
     if (!plan_review_intent_requires_plan(intent)) {
-        return DAIMA_OK;
+        return 0;
     }
 
     const char *task = (user_message && user_message[0]) ? user_message : "当前用户任务";
@@ -62,36 +62,36 @@ daima_err_t plan_review_generate(enum intent intent,
 
     if (n < 0) {
         out_plan->plan_text[0] = '\0';
-        return DAIMA_OK;
+        return 0;
     }
     out_plan->plan_text[sizeof(out_plan->plan_text) - 1] = '\0';
 
     if (plan_review_is_placeholder_only(out_plan->plan_text) ||
         !plan_review_has_numbered_step(out_plan->plan_text)) {
         out_plan->plan_text[0] = '\0';
-        return DAIMA_OK;
+        return 0;
     }
 
     out_plan->has_plan = true;
     out_plan->reviewed = true;
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t plan_review_inject_to_prompt(const struct plan *plan,
+err_t plan_review_inject_to_prompt(const struct plan *plan,
                                           char *system_prompt,
                                           size_t system_prompt_size)
 {
     if (!system_prompt || system_prompt_size == 0) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     if (!plan || !plan->has_plan || !plan->reviewed || !plan->plan_text[0]) {
-        return DAIMA_OK;
+        return 0;
     }
 
     size_t off = strnlen(system_prompt, system_prompt_size - 1);
     if (off >= system_prompt_size - 1) {
-        return DAIMA_OK;
+        return 0;
     }
 
     int n = snprintf(system_prompt + off,
@@ -105,5 +105,5 @@ daima_err_t plan_review_inject_to_prompt(const struct plan *plan,
         system_prompt[system_prompt_size - 1] = '\0';
     }
 
-    return DAIMA_OK;
+    return 0;
 }

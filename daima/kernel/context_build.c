@@ -358,7 +358,7 @@ static size_t append_dynamic_runtime_guide_fallback(char *buf, size_t size, size
         daima_path_skills_dir());
 }
 
-daima_err_t context_build_system_prompt_for_channel(const char *channel, char *buf, size_t size)
+err_t context_build_system_prompt_for_channel(const char *channel, char *buf, size_t size)
 {
     size_t off = 0;
     bool has_bootstrap = file_has_content(daima_path_bootstrap_file());
@@ -383,13 +383,13 @@ daima_err_t context_build_system_prompt_for_channel(const char *channel, char *b
 
     /* 长期记忆 */
     char mem_buf[4096];
-    if (memory_read_long_term(mem_buf, sizeof(mem_buf)) == DAIMA_OK && mem_buf[0]) {
+    if (memory_read_long_term(mem_buf, sizeof(mem_buf)) == 0 && mem_buf[0]) {
         off = append_textf(buf, size, off, "\n## 长期记忆\n\n%s\n", mem_buf);
     }
 
     /* 最近的每日笔记（最近 3 天） */
     char recent_buf[4096];
-    if (memory_read_recent(recent_buf, sizeof(recent_buf), 3) == DAIMA_OK && recent_buf[0]) {
+    if (memory_read_recent(recent_buf, sizeof(recent_buf), 3) == 0 && recent_buf[0]) {
         off = append_textf(buf, size, off, "\n## 最近笔记\n\n%s\n", recent_buf);
     }
 
@@ -408,10 +408,10 @@ daima_err_t context_build_system_prompt_for_channel(const char *channel, char *b
 
     fix_truncated_utf8(buf, off);
     pr_debug("System prompt built: %d bytes", (int)off);
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t context_build_system_prompt(char *buf, size_t size)
+err_t context_build_system_prompt(char *buf, size_t size)
 {
     return context_build_system_prompt_for_channel(NULL, buf, size);
 }

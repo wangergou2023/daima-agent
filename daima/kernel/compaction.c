@@ -12,13 +12,13 @@
 #include <unistd.h>
 #include "linux/slab.h"
 #include "linux/kernel.h"
-static daima_err_t recovery_path(const char *chat_id, char *buf, size_t size)
+static err_t recovery_path(const char *chat_id, char *buf, size_t size)
 {
     if (!chat_id || !chat_id[0] || !buf || size == 0) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
     snprintf(buf, size, "%s/session_%s_recovery.json", daima_path_session_dir(), chat_id);
-    return DAIMA_OK;
+    return 0;
 }
 
 static bool read_text_file(const char *path, char *buf, size_t size)
@@ -162,7 +162,7 @@ static void extract_last_user_message(const char *chat_id, char *out, size_t out
     out[0] = '\0';
 
     char history[BUF_XLARGE];
-    if (session_store_get_history_json(chat_id, history, sizeof(history), SESSION_MAX_MSGS) != DAIMA_OK) {
+    if (session_store_get_history_json(chat_id, history, sizeof(history), SESSION_MAX_MSGS) != 0) {
         return;
     }
 
@@ -186,21 +186,21 @@ static void extract_last_user_message(const char *chat_id, char *out, size_t out
     cJSON_Delete(messages);
 }
 
-static daima_err_t load_recovery(const char *path, compaction_recovery_t *recovery)
+static err_t load_recovery(const char *path, compaction_recovery_t *recovery)
 {
     if (!path || !recovery) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
     memset(recovery, 0, sizeof(*recovery));
 
     char json[BUF_LARGE];
     if (!read_text_file(path, json, sizeof(json))) {
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     cJSON *root = cJSON_Parse(json);
     if (!root) {
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     cJSON *todos = cJSON_GetObjectItem(root, "active_todos");
@@ -224,13 +224,13 @@ static daima_err_t load_recovery(const char *path, compaction_recovery_t *recove
     recovery->is_valid = cJSON_IsBool(is_valid) ? cJSON_IsTrue(is_valid) : false;
 
     cJSON_Delete(root);
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t compaction_recovery_snapshot(const char *chat_id)
+err_t compaction_recovery_snapshot(const char *chat_id)
 {
     if (!chat_id || !chat_id[0]) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     compaction_recovery_t recovery;
@@ -250,14 +250,14 @@ daima_err_t compaction_recovery_snapshot(const char *chat_id)
     recovery.is_valid = recovery.active_todos[0] || recovery.current_task[0] || recovery.last_user_message[0];
 
     char path[BUF_SMALL];
-    daima_err_t path_err = recovery_path(chat_id, path, sizeof(path));
-    if (path_err != DAIMA_OK) {
+    err_t path_err = recovery_path(chat_id, path, sizeof(path));
+    if (path_err != 0) {
         return path_err;
     }
 
     cJSON *root = cJSON_CreateObject();
     if (!root) {
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
     cJSON_AddStringToObject(root, "active_todos", recovery.active_todos);
     cJSON_AddStringToObject(root, "last_user_message", recovery.last_user_message);
@@ -268,35 +268,35 @@ daima_err_t compaction_recovery_snapshot(const char *chat_id)
     char *json = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
     if (!json) {
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
 
     bool ok = write_text_file(path, json);
     kfree(json);
     if (!ok) {
         pr_err("Cannot write compaction recovery %s", path);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     pr_info("Compaction recovery snapshot saved for %s", chat_id);
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t compaction_recovery_inject(const char *chat_id, char *system_prompt, size_t system_prompt_size)
+err_t compaction_recovery_inject(const char *chat_id, char *system_prompt, size_t system_prompt_size)
 {
     if (!chat_id || !chat_id[0] || !system_prompt || system_prompt_size == 0) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     char path[BUF_SMALL];
-    daima_err_t path_err = recovery_path(chat_id, path, sizeof(path));
-    if (path_err != DAIMA_OK) {
+    err_t path_err = recovery_path(chat_id, path, sizeof(path));
+    if (path_err != 0) {
         return path_err;
     }
 
     compaction_recovery_t recovery;
-    if (load_recovery(path, &recovery) != DAIMA_OK || !recovery.is_valid) {
-        return DAIMA_OK;
+    if (load_recovery(path, &recovery) != 0 || !recovery.is_valid) {
+        return 0;
     }
 
     char todos_preview[201];
@@ -307,7 +307,7 @@ daima_err_t compaction_recovery_inject(const char *chat_id, char *system_prompt,
 
     size_t off = strnlen(system_prompt, system_prompt_size);
     if (off >= system_prompt_size - 1) {
-        return DAIMA_OK;
+        return 0;
     }
 
     int n = snprintf(
@@ -325,21 +325,21 @@ daima_err_t compaction_recovery_inject(const char *chat_id, char *system_prompt,
     }
 
     pr_info("Compaction recovery injected for %s", chat_id);
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t compaction_recovery_clear(const char *chat_id)
+err_t compaction_recovery_clear(const char *chat_id)
 {
     if (!chat_id || !chat_id[0]) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
     char path[BUF_SMALL];
-    daima_err_t path_err = recovery_path(chat_id, path, sizeof(path));
-    if (path_err != DAIMA_OK) {
+    err_t path_err = recovery_path(chat_id, path, sizeof(path));
+    if (path_err != 0) {
         return path_err;
     }
     if (unlink(path) == 0) {
         pr_info("Compaction recovery cleared for %s", chat_id);
     }
-    return DAIMA_OK;
+    return 0;
 }

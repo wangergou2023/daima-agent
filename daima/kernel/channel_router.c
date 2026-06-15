@@ -18,13 +18,13 @@ static void dispatch_outbound_task(void *arg)
 
     while (1) {
         struct message msg;
-        if (message_bus_pop_outbound(&msg, UINT32_MAX) != DAIMA_OK) continue;
+        if (message_bus_pop_outbound(&msg, UINT32_MAX) != 0) continue;
 
         pr_info("Dispatching response to %s:%s", msg.channel, msg.chat_id);
 
-        daima_err_t send_err = channel_runtime_dispatch_outbound(&msg);
-        if (send_err != DAIMA_OK) {
-            pr_warn("Outbound send failed for %s:%s: %s", msg.channel, msg.chat_id, daima_err_to_name(send_err));
+        err_t send_err = channel_runtime_dispatch_outbound(&msg);
+        if (send_err != 0) {
+            pr_warn("Outbound send failed for %s:%s: %s", msg.channel, msg.chat_id, err_name(send_err));
         }
 
         agent_cleanup_outbound_msg(&msg);
@@ -32,11 +32,11 @@ static void dispatch_outbound_task(void *arg)
     }
 }
 
-daima_err_t channel_router_start(void)
+err_t channel_router_start(void)
 {
     return daima_task_create(
         dispatch_outbound_task, "outbound",
         OUTBOUND_STACK, NULL,
         OUTBOUND_PRIO, NULL)
-        ? DAIMA_OK : DAIMA_FAIL;
+        ? 0 : ERR_FAIL;
 }

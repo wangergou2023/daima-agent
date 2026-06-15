@@ -17,8 +17,8 @@ typedef struct {
     bool valid;
 } safe_edit_fingerprint_t;
 
-daima_err_t safe_edit_register_read(const char *path, const char *content,
+err_t safe_edit_register_read(const char *path, const char *content,
                                      int line_start, int line_end);
-daima_err_t safe_edit_verify(const char *path, const char *patch_content);
+err_t safe_edit_verify(const char *path, const char *patch_content);
 void safe_edit_clear(const char *path);
 void safe_edit_clear_all(void);

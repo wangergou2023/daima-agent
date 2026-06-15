@@ -7,7 +7,7 @@
 #include "cJSON.h"
 #include "err.h"
 
-daima_err_t agent_turn_prepare(
+err_t agent_turn_prepare(
     const struct message *msg,
     const struct plan *plan,
     char *system_prompt,

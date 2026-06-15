@@ -69,24 +69,24 @@ static cJSON *todo_load_root(void)
     return root;
 }
 
-static daima_err_t todo_save_root(cJSON *root)
+static err_t todo_save_root(cJSON *root)
 {
-    if (!root) return DAIMA_ERR_INVALID_ARG;
+    if (!root) return ERR_INVALID_ARG;
 
     char *json = cJSON_PrintUnformatted(root);
-    if (!json) return DAIMA_ERR_NO_MEM;
+    if (!json) return ERR_NO_MEM;
 
     FILE *f = fopen(daima_path_todo_file(), "w");
     if (!f) {
         kfree(json);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     size_t len = strlen(json);
     size_t written = fwrite(json, 1, len, f);
     fclose(f);
     kfree(json);
-    return written == len ? DAIMA_OK : DAIMA_FAIL;
+    return written == len ? 0 : ERR_FAIL;
 }
 
 static cJSON *todo_items_array(cJSON *root)
@@ -237,13 +237,13 @@ static void todo_render(cJSON *root, char *output, size_t output_size)
     }
 }
 
-daima_err_t tool_todo_execute(const char *input_json, char *output, size_t output_size)
+err_t tool_todo_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *input = cJSON_Parse(input_json);
     if (!input || !cJSON_IsObject(input)) {
         snprintf(output, output_size, "错误：输入 JSON 无效");
         cJSON_Delete(input);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     const char *action = cJSON_GetStringValue(cJSON_GetObjectItem(input, "action"));
@@ -255,11 +255,11 @@ daima_err_t tool_todo_execute(const char *input_json, char *output, size_t outpu
     if (!root) {
         snprintf(output, output_size, "错误：无法读取或解析 %s", daima_path_todo_file());
         cJSON_Delete(input);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     cJSON *items = todo_items_array(root);
-    daima_err_t err = DAIMA_OK;
+    err_t err = 0;
 
     if (strcmp(action, "list") == 0) {
         todo_render(root, output, output_size);
@@ -267,17 +267,17 @@ daima_err_t tool_todo_execute(const char *input_json, char *output, size_t outpu
         const char *text = cJSON_GetStringValue(cJSON_GetObjectItem(input, "text"));
         if (!text || !text[0]) {
             snprintf(output, output_size, "错误：add 动作需要非空 text");
-            err = DAIMA_ERR_INVALID_ARG;
+            err = ERR_INVALID_ARG;
         } else {
             cJSON *item = todo_build_item(todo_next_id(items), text, false);
             if (!item) {
                 snprintf(output, output_size, "错误：创建待办项失败");
-                err = DAIMA_ERR_NO_MEM;
+                err = ERR_NO_MEM;
                 goto todo_cleanup;
             }
             cJSON_AddItemToArray(items, item);
             err = todo_save_root(root);
-            if (err == DAIMA_OK) {
+            if (err == 0) {
                 todo_render(root, output, output_size);
             } else {
                 snprintf(output, output_size, "错误：保存待办列表失败");
@@ -289,12 +289,12 @@ daima_err_t tool_todo_execute(const char *input_json, char *output, size_t outpu
         if (!new_items) {
             snprintf(output, output_size,
                      "错误：set 动作需要 items 数组，元素可为字符串或 {text, done}");
-            err = DAIMA_ERR_INVALID_ARG;
+            err = ERR_INVALID_ARG;
         } else {
             cJSON_ReplaceItemInObject(root, "items", new_items);
             items = todo_items_array(root);
             err = todo_save_root(root);
-            if (err == DAIMA_OK) {
+            if (err == 0) {
                 todo_render(root, output, output_size);
             } else {
                 snprintf(output, output_size, "错误：保存待办列表失败");
@@ -304,12 +304,12 @@ daima_err_t tool_todo_execute(const char *input_json, char *output, size_t outpu
         cJSON *id = cJSON_GetObjectItem(input, "id");
         if (!id || !cJSON_IsNumber(id)) {
             snprintf(output, output_size, "错误：update 动作需要 id");
-            err = DAIMA_ERR_INVALID_ARG;
+            err = ERR_INVALID_ARG;
         } else {
             cJSON *item = todo_find_item(items, id->valueint, NULL);
             if (!item) {
                 snprintf(output, output_size, "错误：未找到 id=%d 的待办", id->valueint);
-                err = DAIMA_ERR_NOT_FOUND;
+                err = ERR_NOT_FOUND;
             } else {
                 cJSON *text = cJSON_GetObjectItem(input, "text");
                 cJSON *done = cJSON_GetObjectItem(input, "done");
@@ -320,7 +320,7 @@ daima_err_t tool_todo_execute(const char *input_json, char *output, size_t outpu
                     cJSON_ReplaceItemInObject(item, "done", cJSON_CreateBool(todo_item_done_value(done)));
                 }
                 err = todo_save_root(root);
-                if (err == DAIMA_OK) {
+                if (err == 0) {
                     todo_render(root, output, output_size);
                 } else {
                     snprintf(output, output_size, "错误：保存待办列表失败");
@@ -331,17 +331,17 @@ daima_err_t tool_todo_execute(const char *input_json, char *output, size_t outpu
         cJSON *id = cJSON_GetObjectItem(input, "id");
         if (!id || !cJSON_IsNumber(id)) {
             snprintf(output, output_size, "错误：remove 动作需要 id");
-            err = DAIMA_ERR_INVALID_ARG;
+            err = ERR_INVALID_ARG;
         } else {
             int index = -1;
             cJSON *item = todo_find_item(items, id->valueint, &index);
             if (!item || index < 0) {
                 snprintf(output, output_size, "错误：未找到 id=%d 的待办", id->valueint);
-                err = DAIMA_ERR_NOT_FOUND;
+                err = ERR_NOT_FOUND;
             } else {
                 cJSON_DeleteItemFromArray(items, index);
                 err = todo_save_root(root);
-                if (err == DAIMA_OK) {
+                if (err == 0) {
                     todo_render(root, output, output_size);
                 } else {
                     snprintf(output, output_size, "错误：保存待办列表失败");
@@ -351,17 +351,17 @@ daima_err_t tool_todo_execute(const char *input_json, char *output, size_t outpu
     } else if (strcmp(action, "clear") == 0) {
         cJSON_ReplaceItemInObject(root, "items", cJSON_CreateArray());
         err = todo_save_root(root);
-        if (err == DAIMA_OK) {
+        if (err == 0) {
             todo_render(root, output, output_size);
         } else {
             snprintf(output, output_size, "错误：清空待办列表失败");
         }
     } else {
         snprintf(output, output_size, "错误：未知 action=%s，支持 list/add/set/update/remove/clear", action);
-        err = DAIMA_ERR_INVALID_ARG;
+        err = ERR_INVALID_ARG;
     }
 
-    if (err == DAIMA_OK) {
+    if (err == 0) {
         pr_info("todo: action=%s", action);
     }
 

@@ -12,6 +12,6 @@ typedef struct {
     bool active;
 } skill_tool_bundle_t;
 
-daima_err_t skill_tools_register(const char *skill_name, const char *skill_dir);
-daima_err_t skill_tools_unregister(const char *skill_name);
+err_t skill_tools_register(const char *skill_name, const char *skill_dir);
+err_t skill_tools_unregister(const char *skill_name);
 void skill_tools_unregister_all(void);

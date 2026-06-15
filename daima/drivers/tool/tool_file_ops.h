@@ -21,21 +21,21 @@ bool tool_files_resolve_list_dir_path(const char *path, char *resolved, size_t r
 
 void tool_files_ensure_parent_dirs(const char *path);
 
-daima_err_t tool_files_read_text_file(const char *path,
+err_t tool_files_read_text_file(const char *path,
                                      size_t max_size,
                                      char **buf_out,
                                      size_t *len_out);
 
-daima_err_t tool_files_read_optional_text_file(const char *path,
+err_t tool_files_read_optional_text_file(const char *path,
                                               size_t max_size,
                                               char **buf_out,
                                               size_t *len_out);
 
-daima_err_t tool_files_write_text_file(const char *path,
+err_t tool_files_write_text_file(const char *path,
                                       const char *content,
                                       size_t len);
 
-daima_err_t tool_files_checkpoint_before_write(const char *path,
+err_t tool_files_checkpoint_before_write(const char *path,
                                               const char *previous_content,
                                               size_t previous_len,
                                               char *checkpoint_path,
@@ -45,18 +45,18 @@ bool tool_files_get_recent_checkpoint(const char *path,
                                       char *checkpoint_path,
                                       size_t checkpoint_path_size);
 
-daima_err_t tool_files_checkpoint_current_file(const char *path,
+err_t tool_files_checkpoint_current_file(const char *path,
                                               size_t max_size,
                                               char *checkpoint_path,
                                               size_t checkpoint_path_size);
 
-daima_err_t tool_files_restore_checkpoint(const char *target_path,
+err_t tool_files_restore_checkpoint(const char *target_path,
                                          const char *checkpoint_path,
                                          size_t max_size,
                                          char *rollback_checkpoint_path,
                                          size_t rollback_checkpoint_path_size);
 
-daima_err_t tool_files_apply_replace(const char *input,
+err_t tool_files_apply_replace(const char *input,
                                     size_t input_len,
                                     const char *old_str,
                                     const char *new_str,

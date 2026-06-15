@@ -9,13 +9,13 @@
 
 #include "cJSON.h"
 #include "linux/printk.h"
-static daima_err_t tool_robot_set_volume_execute(const char *input_json, char *output, size_t output_size)
+static err_t tool_robot_set_volume_execute(const char *input_json, char *output, size_t output_size)
 {
     mcp_client_t *mcp = tool_get_mcp(output, output_size);
-    if (!mcp) return DAIMA_FAIL;
+    if (!mcp) return ERR_FAIL;
 
     cJSON *in = cJSON_Parse(input_json);
-    if (!in) { snprintf(output, output_size, "错误：无效 JSON"); return DAIMA_ERR_INVALID_ARG; }
+    if (!in) { snprintf(output, output_size, "错误：无效 JSON"); return ERR_INVALID_ARG; }
     cJSON *lev = cJSON_GetObjectItem(in, "level");
     int level = lev && cJSON_IsNumber(lev) ? (int)lev->valuedouble : 2;
     if (level < 0) level = 0;
@@ -23,7 +23,7 @@ static daima_err_t tool_robot_set_volume_execute(const char *input_json, char *o
     cJSON_Delete(in);
 
     cJSON *args = cJSON_CreateObject();
-    if (!args) return DAIMA_ERR_NO_MEM;
+    if (!args) return ERR_NO_MEM;
     cJSON_AddNumberToObject(args, "level", level);
     return call_mcp_with_args(mcp, "robot_set_volume", args, output, output_size);
 }

@@ -90,7 +90,7 @@ static void summarize_tool_target(const char *tool_name, const char *tool_input,
     cJSON_Delete(root);
 }
 
-static bool tool_result_success(const char *tool_name, daima_err_t exec_err, const char *tool_output, char *detail, size_t detail_size)
+static bool tool_result_success(const char *tool_name, err_t exec_err, const char *tool_output, char *detail, size_t detail_size)
 {
     if (detail && detail_size > 0) {
         detail[0] = '\0';
@@ -126,7 +126,7 @@ static bool tool_result_success(const char *tool_name, daima_err_t exec_err, con
         return ok;
     }
 
-    if (exec_err == DAIMA_OK) {
+    if (exec_err == 0) {
         return true;
     }
 
@@ -134,7 +134,7 @@ static bool tool_result_success(const char *tool_name, daima_err_t exec_err, con
         if (output_is_human_error(tool_output)) {
             daima_shorten_text(tool_output, detail, detail_size, detail_size > 1 ? detail_size - 1 : 0);
         } else {
-            strscpy(detail, daima_err_to_name(exec_err), detail_size);
+            strscpy(detail, err_name(exec_err), detail_size);
         }
     }
     return false;
@@ -144,7 +144,7 @@ void agent_tool_feedback_send_activity(const struct message *msg,
                                        const char *tool_name,
                                        const char *tool_input,
                                        const char *tool_output,
-                                       daima_err_t exec_err,
+                                       err_t exec_err,
                                        long elapsed_ms)
 {
     if (!msg) {
@@ -196,8 +196,8 @@ void agent_tool_feedback_send_activity(const struct message *msg,
         .ok = ok,
         .elapsed_ms = elapsed_ms,
     };
-    daima_err_t send_err = channel_runtime_send_tool_activity(msg, &event);
-    if (send_err != DAIMA_OK) {
-        pr_warn("Tool activity send failed for %s:%s: %s", msg->channel, msg->chat_id, daima_err_to_name(send_err));
+    err_t send_err = channel_runtime_send_tool_activity(msg, &event);
+    if (send_err != 0) {
+        pr_warn("Tool activity send failed for %s:%s: %s", msg->channel, msg->chat_id, err_name(send_err));
     }
 }

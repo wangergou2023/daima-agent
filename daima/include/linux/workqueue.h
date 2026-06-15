@@ -8,13 +8,13 @@
 /**
  * 初始化心跳服务（记录就绪状态）。
  */
-daima_err_t heartbeat_init(void);
+err_t heartbeat_init(void);
 
 /**
  * 启动心跳定时器。周期性检查 HEARTBEAT.md，
  * 若发现可执行任务则向智能体发送提示。
  */
-daima_err_t heartbeat_start(void);
+err_t heartbeat_start(void);
 
 /**
  * 停止并删除心跳定时器。

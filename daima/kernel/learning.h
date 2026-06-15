@@ -7,10 +7,10 @@
 /**
  * 初始化后台学习复盘线程。
  */
-daima_err_t learning_review_init(void);
+err_t learning_review_init(void);
 
 /**
  * 异步调度一次会话复盘。
  * 当前设计只在较复杂的任务后调用，不阻塞当前回复。
  */
-daima_err_t learning_review_schedule(const char *chat_id);
+err_t learning_review_schedule(const char *chat_id);

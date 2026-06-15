@@ -80,7 +80,7 @@ void feishu_ws_runtime_run(feishu_ws_runtime_t *rt,
 
     while (1) {
         feishu_ws_config_t cfg = {0};
-        if (feishu_api_pull_ws_config(app_id, app_secret, &cfg) != DAIMA_OK) {
+        if (feishu_api_pull_ws_config(app_id, app_secret, &cfg) != 0) {
             daima_task_delay(5000);
             continue;
         }

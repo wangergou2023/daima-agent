@@ -439,19 +439,19 @@ static struct curl_slist *build_headers(const char *url)
     return headers;
 }
 
-static daima_err_t parse_llm_response(const char *raw_resp,
+static err_t parse_llm_response(const char *raw_resp,
                                       long status,
                                       bool use_anthropic_api,
                                       llm_response_t *resp)
 {
     if (!resp) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
     memset(resp, 0, sizeof(*resp));
 
     if (status != 200) {
         pr_err("API error %ld: %.500s", status, raw_resp ? raw_resp : "");
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     cJSON *diag_root = cJSON_Parse(raw_resp);
@@ -465,10 +465,10 @@ static daima_err_t parse_llm_response(const char *raw_resp,
         pr_warn("LLM diagnostics skipped: raw response JSON parse failed");
     }
 
-    daima_err_t err = use_anthropic_api
+    err_t err = use_anthropic_api
         ? llm_anthropic_parse_response(raw_resp, resp)
         : llm_openai_parse_response(raw_resp, resp);
-    if (err != DAIMA_OK) {
+    if (err != 0) {
         pr_err("Failed to parse API response JSON");
         return err;
     }
@@ -478,10 +478,10 @@ static daima_err_t parse_llm_response(const char *raw_resp,
         pr_info("LLM text: %zu bytes", strlen(resp->text));
     }
 
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t llm_proxy_init(void)
+err_t llm_proxy_init(void)
 {
     const char *api_key = runtime_config_get_provider_api_key();
     const char *model = runtime_config_get_provider_model();
@@ -523,7 +523,7 @@ daima_err_t llm_proxy_init(void)
             pr_info("LLM API URL: %s", s_openai_api_url);
         }
     }
-    return DAIMA_OK;
+    return 0;
 }
 
 /* 释放响应中堆内存字段 */
@@ -555,30 +555,30 @@ void llm_response_free(llm_response_t *resp)
 }
 
 /* 发送带工具的对话请求（非流式）并解析响应 */
-daima_err_t llm_chat_tools(const char *system_prompt,
+err_t llm_chat_tools(const char *system_prompt,
                           cJSON *messages,
                           const char *tools_json,
                           llm_response_t *resp)
 {
     memset(resp, 0, sizeof(*resp));
 
-    if (s_api_key[0] == '\0') return DAIMA_ERR_INVALID_STATE;
+    if (s_api_key[0] == '\0') return ERR_INVALID_STATE;
     int max_output_tokens = runtime_config_get_max_output_tokens();
     int request_timeout_ms = runtime_config_get_request_timeout_ms();
 
     char *post_data = build_request_body(system_prompt, messages, tools_json, s_model);
-    if (!post_data) return DAIMA_ERR_NO_MEM;
+    if (!post_data) return ERR_NO_MEM;
 
     pr_info("Calling LLM API with tools (protocol: %s, model: %s, max_output_tokens: %d, timeout_ms: %d, body: %d bytes)", s_use_anthropic_api ? "anthropic-compatible" : "openai-compatible", s_model, max_output_tokens, request_timeout_ms, (int)strlen(post_data));
     llm_http_log_payload("llm", "LLM tools request", post_data);
 
     char *raw_resp = NULL;
     int status = 0;
-    daima_err_t err = llm_http_post_json(llm_api_url(), s_api_key, post_data, request_timeout_ms, &raw_resp, &status);
+    err_t err = llm_http_post_json(llm_api_url(), s_api_key, post_data, request_timeout_ms, &raw_resp, &status);
     kfree(post_data);
 
-    if (err != DAIMA_OK) {
-        pr_err("HTTP request failed: %s timeout_ms=%d", daima_err_to_name(err), request_timeout_ms);
+    if (err != 0) {
+        pr_err("HTTP request failed: %s timeout_ms=%d", err_name(err), request_timeout_ms);
         llm_http_log_payload("llm", "LLM tools partial response", raw_resp);
         kfree(raw_resp);
         return err;
@@ -588,14 +588,14 @@ daima_err_t llm_chat_tools(const char *system_prompt,
 
     err = parse_llm_response(raw_resp, status, s_use_anthropic_api, resp);
     kfree(raw_resp);
-    if (err != DAIMA_OK) {
+    if (err != 0) {
         return err;
     }
 
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t llm_chat_tools_with_model(const char *system_prompt,
+err_t llm_chat_tools_with_model(const char *system_prompt,
                                       cJSON *messages,
                                       const char *tools_json,
                                       const char *model_override,
@@ -608,7 +608,7 @@ daima_err_t llm_chat_tools_with_model(const char *system_prompt,
     char previous_model[LLM_MODEL_MAX_LEN];
     daima_safe_copy(previous_model, sizeof(previous_model), s_model);
     daima_safe_copy(s_model, sizeof(s_model), model_override);
-    daima_err_t err = llm_chat_tools(system_prompt, messages, tools_json, resp);
+    err_t err = llm_chat_tools(system_prompt, messages, tools_json, resp);
     daima_safe_copy(s_model, sizeof(s_model), previous_model);
     return err;
 }
@@ -672,17 +672,17 @@ bool llm_chat_async_is_done(llm_async_chat_t *chat)
     return llm_http_async_is_done(chat->http_req);
 }
 
-daima_err_t llm_chat_async_get_response(llm_async_chat_t *chat, llm_response_t *resp)
+err_t llm_chat_async_get_response(llm_async_chat_t *chat, llm_response_t *resp)
 {
     if (!chat || !chat->launched || !chat->http_req || !resp) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     char *raw_resp = NULL;
     long status = 0;
-    daima_err_t err = llm_http_async_get_response(chat->http_req, &raw_resp, &status);
-    if (err != DAIMA_OK) {
-        pr_err("Async HTTP request failed: %s", daima_err_to_name(err));
+    err_t err = llm_http_async_get_response(chat->http_req, &raw_resp, &status);
+    if (err != 0) {
+        pr_err("Async HTTP request failed: %s", err_name(err));
         llm_http_log_payload("llm", "LLM async tools partial response", raw_resp);
         kfree(raw_resp);
         return err;
@@ -709,22 +709,22 @@ void llm_chat_async_free(llm_async_chat_t *chat)
     kfree(chat);
 }
 
-daima_err_t llm_set_api_key(const char *api_key)
+err_t llm_set_api_key(const char *api_key)
 {
     /* 覆盖当前进程内的运行时配置 */
     daima_safe_copy(s_api_key, sizeof(s_api_key), api_key);
     s_api_key_set = true;
     pr_info("API key set");
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t llm_set_model(const char *model)
+err_t llm_set_model(const char *model)
 {
     /* 覆盖当前进程内的模型配置 */
     daima_safe_copy(s_model, sizeof(s_model), model);
     s_model_set = true;
     pr_info("Model set to: %s", s_model);
-    return DAIMA_OK;
+    return 0;
 }
 
 const char *llm_get_model_name(void)
@@ -759,17 +759,17 @@ static const char *get_mime_type_from_extension(const char *path)
     return "image/png";
 }
 
-daima_err_t llm_image_read_file(const char *image_path, llm_image_content_t *out_content)
+err_t llm_image_read_file(const char *image_path, llm_image_content_t *out_content)
 {
     /* 读取图片文件并转为 base64 */
-    if (!image_path || !out_content) return DAIMA_ERR_INVALID_ARG;
+    if (!image_path || !out_content) return ERR_INVALID_ARG;
     
     memset(out_content, 0, sizeof(*out_content));
 
     FILE *fp = fopen(image_path, "rb");
     if (!fp) {
         pr_err("Failed to open image file: %s", image_path);
-        return DAIMA_ERR_NOT_FOUND;
+        return ERR_NOT_FOUND;
     }
     
     fseek(fp, 0, SEEK_END);
@@ -781,20 +781,20 @@ daima_err_t llm_image_read_file(const char *image_path, llm_image_content_t *out
     if (file_size <= 0 || file_size > max_size) {
         pr_err("Invalid image file size: %ld (max %ld)", file_size, max_size);
         fclose(fp);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
     
     unsigned char *file_data = kmalloc(file_size, GFP_KERNEL);
     if (!file_data) {
         fclose(fp);
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
     
     if (fread(file_data, 1, file_size, fp) != (size_t)file_size) {
         pr_err("Failed to read image file");
         kfree(file_data);
         fclose(fp);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
     fclose(fp);
     
@@ -803,14 +803,14 @@ daima_err_t llm_image_read_file(const char *image_path, llm_image_content_t *out
     kfree(file_data);
     
     if (!base64_data) {
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
     
     out_content->image_data = base64_data;
     out_content->image_data_len = base64_len;
     daima_safe_copy(out_content->mime_type, sizeof(out_content->mime_type), get_mime_type_from_extension(image_path));
     
-    return DAIMA_OK;
+    return 0;
 }
 
 void llm_image_content_free(llm_image_content_t *content)
@@ -823,7 +823,7 @@ void llm_image_content_free(llm_image_content_t *content)
 }
 
 /* 发送带图片的对话请求并解析文本响应（OpenAI 兼容） */
-daima_err_t llm_chat_with_images(const char *system_prompt,
+err_t llm_chat_with_images(const char *system_prompt,
                                 const char *user_text,
                                 const llm_image_content_t *images,
                                 int image_count,
@@ -831,8 +831,8 @@ daima_err_t llm_chat_with_images(const char *system_prompt,
 {
     memset(resp, 0, sizeof(*resp));
     
-    if (s_api_key[0] == '\0') return DAIMA_ERR_INVALID_STATE;
-    if (!images || image_count <= 0) return DAIMA_ERR_INVALID_ARG;
+    if (s_api_key[0] == '\0') return ERR_INVALID_STATE;
+    if (!images || image_count <= 0) return ERR_INVALID_ARG;
     int max_output_tokens = runtime_config_get_max_output_tokens();
     int request_timeout_ms = runtime_config_get_request_timeout_ms();
     
@@ -857,24 +857,24 @@ daima_err_t llm_chat_with_images(const char *system_prompt,
             should_disable_thinking(),
             reasoning_effort_for_request());
     if (!body) {
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
     
     char *post_data = cJSON_PrintUnformatted(body);
     cJSON_Delete(body);
     
-    if (!post_data) return DAIMA_ERR_NO_MEM;
+    if (!post_data) return ERR_NO_MEM;
     
     pr_info("Calling LLM API with images (protocol: %s, model: %s, max_output_tokens: %d, timeout_ms: %d, images: %d)", s_use_anthropic_api ? "anthropic-compatible" : "openai-compatible", s_model, max_output_tokens, request_timeout_ms, image_count);
     llm_http_log_payload("llm", "LLM vision request", post_data);
     
     char *raw_resp = NULL;
     int status = 0;
-    daima_err_t err = llm_http_post_json(llm_api_url(), s_api_key, post_data, request_timeout_ms, &raw_resp, &status);
+    err_t err = llm_http_post_json(llm_api_url(), s_api_key, post_data, request_timeout_ms, &raw_resp, &status);
     kfree(post_data);
     
-    if (err != DAIMA_OK) {
-        pr_err("HTTP request failed: %s timeout_ms=%d", daima_err_to_name(err), request_timeout_ms);
+    if (err != 0) {
+        pr_err("HTTP request failed: %s timeout_ms=%d", err_name(err), request_timeout_ms);
         llm_http_log_payload("llm", "LLM vision partial response", raw_resp);
         kfree(raw_resp);
         return err;
@@ -885,21 +885,21 @@ daima_err_t llm_chat_with_images(const char *system_prompt,
     if (status != 200) {
         pr_err("API error %d: %.500s", status, raw_resp ? raw_resp : "");
         kfree(raw_resp);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
     
     err = s_use_anthropic_api
         ? llm_anthropic_parse_response(raw_resp, resp)
         : llm_openai_parse_response(raw_resp, resp);
     kfree(raw_resp);
-    if (err != DAIMA_OK) {
+    if (err != 0) {
         pr_err("Failed to parse API response JSON");
         return err;
     }
     
     pr_info("Vision response: %d bytes text", (int)resp->text_len);
     
-    return DAIMA_OK;
+    return 0;
 }
 
 #endif /* ENABLE_VISION */

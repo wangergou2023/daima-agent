@@ -46,18 +46,18 @@ int tool_files_count_total_lines(FILE *f)
     return total;
 }
 
-daima_err_t tool_files_read_text_file(const char *path,
+err_t tool_files_read_text_file(const char *path,
                                      size_t max_size,
                                      char **buf_out,
                                      size_t *len_out)
 {
     if (!path || !buf_out || !len_out) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     FILE *f = fopen(path, "r");
     if (!f) {
-        return DAIMA_ERR_NOT_FOUND;
+        return ERR_NOT_FOUND;
     }
 
     fseek(f, 0, SEEK_END);
@@ -65,13 +65,13 @@ daima_err_t tool_files_read_text_file(const char *path,
     fseek(f, 0, SEEK_SET);
     if (file_size <= 0 || (max_size > 0 && (size_t)file_size > max_size)) {
         fclose(f);
-        return DAIMA_ERR_INVALID_SIZE;
+        return ERR_INVALID_SIZE;
     }
 
     char *buf = kmalloc((size_t)file_size + 1, GFP_KERNEL);
     if (!buf) {
         fclose(f);
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
 
     size_t n = fread(buf, 1, (size_t)file_size, f);
@@ -79,47 +79,47 @@ daima_err_t tool_files_read_text_file(const char *path,
     buf[n] = '\0';
     *buf_out = buf;
     *len_out = n;
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t tool_files_read_optional_text_file(const char *path,
+err_t tool_files_read_optional_text_file(const char *path,
                                               size_t max_size,
                                               char **buf_out,
                                               size_t *len_out)
 {
     if (!buf_out || !len_out) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
     *buf_out = NULL;
     *len_out = 0;
 
-    daima_err_t err = tool_files_read_text_file(path, max_size, buf_out, len_out);
-    if (err == DAIMA_ERR_NOT_FOUND || err == DAIMA_ERR_INVALID_SIZE) {
+    err_t err = tool_files_read_text_file(path, max_size, buf_out, len_out);
+    if (err == ERR_NOT_FOUND || err == ERR_INVALID_SIZE) {
         *buf_out = kzalloc(1, GFP_KERNEL);
         if (!*buf_out) {
-            return DAIMA_ERR_NO_MEM;
+            return ERR_NO_MEM;
         }
         *len_out = 0;
-        return DAIMA_OK;
+        return 0;
     }
     return err;
 }
 
-daima_err_t tool_files_write_text_file(const char *path,
+err_t tool_files_write_text_file(const char *path,
                                       const char *content,
                                       size_t len)
 {
     FILE *f = fopen(path, "w");
     if (!f) {
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     size_t written = fwrite(content, 1, len, f);
     fclose(f);
-    return written == len ? DAIMA_OK : DAIMA_FAIL;
+    return written == len ? 0 : ERR_FAIL;
 }
 
-daima_err_t tool_files_apply_replace(const char *input,
+err_t tool_files_apply_replace(const char *input,
                                     size_t input_len,
                                     const char *old_str,
                                     const char *new_str,
@@ -130,10 +130,10 @@ daima_err_t tool_files_apply_replace(const char *input,
                                     size_t *first_match_offset_out)
 {
     if (!input || !old_str || !new_str || !result_out || !result_len_out || !replaced_count_out) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
     if (!old_str[0]) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     size_t old_len = strlen(old_str);
@@ -153,7 +153,7 @@ daima_err_t tool_files_apply_replace(const char *input,
         }
     }
     if (match_count == 0) {
-        return DAIMA_ERR_NOT_FOUND;
+        return ERR_NOT_FOUND;
     }
 
     size_t max_result = input_len + 1;
@@ -162,7 +162,7 @@ daima_err_t tool_files_apply_replace(const char *input,
     }
     char *result = kmalloc(max_result, GFP_KERNEL);
     if (!result) {
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
 
     size_t total = 0;
@@ -193,5 +193,5 @@ daima_err_t tool_files_apply_replace(const char *input,
     if (first_match_offset_out) {
         *first_match_offset_out = first_match_offset;
     }
-    return DAIMA_OK;
+    return 0;
 }

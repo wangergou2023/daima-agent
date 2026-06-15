@@ -60,11 +60,11 @@ static bool parse_query_param(const char *url, const char *key, char *out, size_
     return false;
 }
 
-static daima_err_t feishu_get_tenant_token_locked(const char *app_id, const char *app_secret)
+static err_t feishu_get_tenant_token_locked(const char *app_id, const char *app_secret)
 {
     time_t now = time(NULL);
     if (s_tenant_token[0] != '\0' && s_token_expire_time > now + 300) {
-        return DAIMA_OK;
+        return 0;
     }
 
     cJSON *body = cJSON_CreateObject();
@@ -73,14 +73,14 @@ static daima_err_t feishu_get_tenant_token_locked(const char *app_id, const char
     char *json_str = cJSON_PrintUnformatted(body);
     cJSON_Delete(body);
     if (!json_str) {
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
 
     feishu_http_response_t resp = {0};
-    daima_err_t err = feishu_http_post_json(FEISHU_AUTH_URL, NULL, json_str, TIMEOUT_SHORT, &resp);
+    err_t err = feishu_http_post_json(FEISHU_AUTH_URL, NULL, json_str, TIMEOUT_SHORT, &resp);
     kfree(json_str);
 
-    if (err != DAIMA_OK) {
+    if (err != 0) {
         feishu_http_response_free(&resp);
         return err;
     }
@@ -88,14 +88,14 @@ static daima_err_t feishu_get_tenant_token_locked(const char *app_id, const char
     if (resp.status != 200) {
         pr_err("Token request failed: http=%ld", resp.status);
         feishu_http_response_free(&resp);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     cJSON *root = feishu_http_parse_json(&resp);
     feishu_http_response_free(&resp);
     if (!root) {
         pr_err("Failed to parse token response");
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     cJSON *token = cJSON_GetObjectItem(root, "tenant_access_token");
@@ -107,38 +107,38 @@ static daima_err_t feishu_get_tenant_token_locked(const char *app_id, const char
         pr_info("Got tenant access token (expires in %ds)", ttl);
     } else {
         cJSON_Delete(root);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     cJSON_Delete(root);
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t feishu_api_get_tenant_token(const char *app_id,
+err_t feishu_api_get_tenant_token(const char *app_id,
                                        const char *app_secret,
                                        char *token,
                                        size_t token_size)
 {
     if (!app_id || !app_id[0] || !app_secret || !app_secret[0] ||
         !token || token_size == 0) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     pthread_mutex_lock(&s_token_lock);
-    daima_err_t err = feishu_get_tenant_token_locked(app_id, app_secret);
-    if (err == DAIMA_OK) {
+    err_t err = feishu_get_tenant_token_locked(app_id, app_secret);
+    if (err == 0) {
         strscpy(token, s_tenant_token, token_size);
     }
     pthread_mutex_unlock(&s_token_lock);
     return err;
 }
 
-daima_err_t feishu_api_pull_ws_config(const char *app_id,
+err_t feishu_api_pull_ws_config(const char *app_id,
                                      const char *app_secret,
                                      feishu_ws_config_t *out)
 {
     if (!app_id || !app_id[0] || !app_secret || !app_secret[0] || !out) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     memset(out, 0, sizeof(*out));
@@ -151,21 +151,21 @@ daima_err_t feishu_api_pull_ws_config(const char *app_id,
     cJSON_AddStringToObject(body, "AppSecret", app_secret);
     char *json_str = cJSON_PrintUnformatted(body);
     cJSON_Delete(body);
-    if (!json_str) return DAIMA_ERR_NO_MEM;
+    if (!json_str) return ERR_NO_MEM;
 
     feishu_http_response_t resp = {0};
-    daima_err_t err = feishu_http_post_json(FEISHU_WS_CONFIG_URL, NULL, json_str, TIMEOUT_MEDIUM, &resp);
+    err_t err = feishu_http_post_json(FEISHU_WS_CONFIG_URL, NULL, json_str, TIMEOUT_MEDIUM, &resp);
     kfree(json_str);
 
-    if (err != DAIMA_OK || resp.status != 200) {
-        pr_err("WS config request failed: err=%s http=%ld", daima_err_to_name(err), resp.status);
+    if (err != 0 || resp.status != 200) {
+        pr_err("WS config request failed: err=%s http=%ld", err_name(err), resp.status);
         feishu_http_response_free(&resp);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     cJSON *root = feishu_http_parse_json(&resp);
     feishu_http_response_free(&resp);
-    if (!root) return DAIMA_FAIL;
+    if (!root) return ERR_FAIL;
 
     cJSON *code = cJSON_GetObjectItem(root, "code");
     cJSON *data = cJSON_GetObjectItem(root, "data");
@@ -174,7 +174,7 @@ daima_err_t feishu_api_pull_ws_config(const char *app_id,
     if (!code || !cJSON_IsNumber(code) || code->valueint != 0 || !url || !cJSON_IsString(url)) {
         pr_err("Invalid WS config response");
         cJSON_Delete(root);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     strscpy(out->url, url->valuestring, sizeof(out->url));
@@ -193,7 +193,7 @@ daima_err_t feishu_api_pull_ws_config(const char *app_id,
 
     cJSON_Delete(root);
     pr_info("WS config ready: service_id=%d ping=%dms", out->service_id, out->ping_interval_ms);
-    return DAIMA_OK;
+    return 0;
 }
 
 
@@ -286,7 +286,7 @@ static char *feishu_build_card_content_json(const char *markdown)
     return content_str;
 }
 
-static daima_err_t feishu_send_payload_json(const char *token,
+static err_t feishu_send_payload_json(const char *token,
                                             const char *url,
                                             const char *receive_id,
                                             const char *msg_type,
@@ -294,12 +294,12 @@ static daima_err_t feishu_send_payload_json(const char *token,
                                             const char *action_name)
 {
     if (!token || !token[0] || !url || !msg_type || !content_str) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     cJSON *body = cJSON_CreateObject();
     if (!body) {
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
     if (receive_id && receive_id[0]) {
         cJSON_AddStringToObject(body, "receive_id", receive_id);
@@ -310,13 +310,13 @@ static daima_err_t feishu_send_payload_json(const char *token,
     char *json_str = cJSON_PrintUnformatted(body);
     cJSON_Delete(body);
     if (!json_str) {
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
 
     feishu_http_response_t resp = {0};
-    daima_err_t err = feishu_http_post_json(url, token, json_str, TIMEOUT_MEDIUM, &resp);
+    err_t err = feishu_http_post_json(url, token, json_str, TIMEOUT_MEDIUM, &resp);
     kfree(json_str);
-    if (err != DAIMA_OK) {
+    if (err != 0) {
         feishu_http_response_free(&resp);
         return err;
     }
@@ -325,20 +325,20 @@ static daima_err_t feishu_send_payload_json(const char *token,
     feishu_http_response_free(&resp);
     if (!root) {
         pr_err("%s request failed", action_name);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
     cJSON_Delete(root);
-    return DAIMA_OK;
+    return 0;
 }
 
-static daima_err_t feishu_send_card_chunks(const char *token,
+static err_t feishu_send_card_chunks(const char *token,
                                            const char *url,
                                            const char *receive_id,
                                            const char *text,
                                            const char *action_name)
 {
     if (!token || !token[0] || !url || !text) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     const char *cursor = text;
@@ -355,7 +355,7 @@ static daima_err_t feishu_send_card_chunks(const char *token,
         size_t chunk_len = feishu_pick_chunk_len(cursor, FEISHU_CARD_CHUNK_MAX_BYTES);
         char *segment = kmalloc(chunk_len + 1, GFP_KERNEL);
         if (!segment) {
-            return DAIMA_ERR_NO_MEM;
+            return ERR_NO_MEM;
         }
         memcpy(segment, cursor, chunk_len);
         segment[chunk_len] = '\0';
@@ -364,12 +364,12 @@ static daima_err_t feishu_send_card_chunks(const char *token,
         char *card_content = feishu_build_card_content_json(segment);
         kfree(segment);
         if (!card_content) {
-            return DAIMA_ERR_NO_MEM;
+            return ERR_NO_MEM;
         }
 
-        daima_err_t err = feishu_send_payload_json(token, url, receive_id, "interactive", card_content, action_name);
+        err_t err = feishu_send_payload_json(token, url, receive_id, "interactive", card_content, action_name);
         kfree(card_content);
-        if (err != DAIMA_OK) {
+        if (err != 0) {
             all_ok = 0;
         } else {
             pr_info("%s ok (%s part %d)", action_name, receive_id ? receive_id : "reply", part);
@@ -379,22 +379,22 @@ static daima_err_t feishu_send_card_chunks(const char *token,
         part++;
     }
 
-    return all_ok ? DAIMA_OK : DAIMA_FAIL;
+    return all_ok ? 0 : ERR_FAIL;
 }
 
-daima_err_t feishu_api_send_card(const char *app_id,
+err_t feishu_api_send_card(const char *app_id,
                                  const char *app_secret,
                                  const char *chat_id,
                                  const char *markdown)
 {
     if (!app_id || !app_id[0] || !app_secret || !app_secret[0] ||
         !chat_id || !markdown) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     char token[512];
-    daima_err_t token_err = feishu_api_get_tenant_token(app_id, app_secret, token, sizeof(token));
-    if (token_err != DAIMA_OK) {
+    err_t token_err = feishu_api_get_tenant_token(app_id, app_secret, token, sizeof(token));
+    if (token_err != 0) {
         return token_err;
     }
 
@@ -408,19 +408,19 @@ daima_err_t feishu_api_send_card(const char *app_id,
     return feishu_send_card_chunks(token, url, chat_id, markdown, "Send card");
 }
 
-daima_err_t feishu_api_reply_card(const char *app_id,
+err_t feishu_api_reply_card(const char *app_id,
                                   const char *app_secret,
                                   const char *message_id,
                                   const char *markdown)
 {
     if (!app_id || !app_id[0] || !app_secret || !app_secret[0] ||
         !message_id || !markdown) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     char token[512];
-    daima_err_t token_err = feishu_api_get_tenant_token(app_id, app_secret, token, sizeof(token));
-    if (token_err != DAIMA_OK) {
+    err_t token_err = feishu_api_get_tenant_token(app_id, app_secret, token, sizeof(token));
+    if (token_err != 0) {
         return token_err;
     }
 

@@ -4,14 +4,14 @@
 
 #include "drivers/vision/vision_capture.h"
 #include "linux/printk.h"
-daima_err_t vision_capture_init(void)
+err_t vision_capture_init(void)
 {
     /* Host 平台无 IMP 支持 */
     pr_warn("vision_capture_init not implemented");
-    return DAIMA_ERR_INVALID_STATE;
+    return ERR_INVALID_STATE;
 }
 
-daima_err_t vision_capture_jpeg(const char *output_path,
+err_t vision_capture_jpeg(const char *output_path,
                                char *out_path,
                                size_t out_path_len)
 {
@@ -21,7 +21,7 @@ daima_err_t vision_capture_jpeg(const char *output_path,
         out_path[0] = '\0';
     }
     pr_warn("vision_capture_jpeg not implemented");
-    return DAIMA_ERR_INVALID_STATE;
+    return ERR_INVALID_STATE;
 }
 
 void vision_capture_shutdown(void)

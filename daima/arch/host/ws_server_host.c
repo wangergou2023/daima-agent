@@ -176,7 +176,7 @@ static void *ws_server_loop(void *arg)
     return NULL;
 }
 
-daima_err_t ws_server_start(void)
+err_t ws_server_start(void)
 {
     ws_client_session_init();
     s_server_port = runtime_config_get_web_port();
@@ -184,7 +184,7 @@ daima_err_t ws_server_start(void)
     s_server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (s_server_fd < 0) {
         pr_err("Failed to create socket (errno=%d: %s)", errno, strerror(errno));
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     int opt = 1;
@@ -199,14 +199,14 @@ daima_err_t ws_server_start(void)
         pr_err("Failed to bind port %d", s_server_port);
         close(s_server_fd);
         s_server_fd = -1;
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     if (listen(s_server_fd, WS_MAX_CLIENTS) != 0) {
         pr_err("Failed to listen");
         close(s_server_fd);
         s_server_fd = -1;
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     s_running = true;
@@ -214,18 +214,18 @@ daima_err_t ws_server_start(void)
         s_running = false;
         close(s_server_fd);
         s_server_fd = -1;
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
     pthread_detach(s_server_thread);
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t ws_server_send(const char *chat_id, const char *text)
+err_t ws_server_send(const char *chat_id, const char *text)
 {
     return ws_server_send_with_reasoning(chat_id, text, NULL);
 }
 
-daima_err_t ws_server_send_with_reasoning(const char *chat_id, const char *text, const char *reasoning)
+err_t ws_server_send_with_reasoning(const char *chat_id, const char *text, const char *reasoning)
 {
     if (reasoning && reasoning[0]) {
         cJSON *reas = cJSON_CreateObject();
@@ -240,65 +240,65 @@ daima_err_t ws_server_send_with_reasoning(const char *chat_id, const char *text,
     cJSON_AddStringToObject(resp, "type", "response");
     cJSON_AddStringToObject(resp, "content", text);
     cJSON_AddStringToObject(resp, "chat_id", chat_id);
-    daima_err_t err = ws_client_session_send_json(chat_id, resp);
+    err_t err = ws_client_session_send_json(chat_id, resp);
     cJSON_Delete(resp);
     return err;
 }
 
-daima_err_t ws_server_send_tool_event(const char *chat_id, const char *text)
+err_t ws_server_send_tool_event(const char *chat_id, const char *text)
 {
     cJSON *resp = cJSON_CreateObject();
     if (!resp) {
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
     cJSON_AddStringToObject(resp, "type", "tool");
     cJSON_AddStringToObject(resp, "content", text ? text : "");
     cJSON_AddStringToObject(resp, "chat_id", chat_id ? chat_id : "");
-    daima_err_t err = ws_client_session_send_json(chat_id, resp);
+    err_t err = ws_client_session_send_json(chat_id, resp);
     cJSON_Delete(resp);
     return err;
 }
 
-daima_err_t ws_server_send_pet_response(const char *pet_chat_id, const char *text)
+err_t ws_server_send_pet_response(const char *pet_chat_id, const char *text)
 {
     char ws_chat_id[64];
     if (!pet_chat_id_to_ws_chat_id(pet_chat_id, ws_chat_id, sizeof(ws_chat_id))) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     cJSON *resp = cJSON_CreateObject();
     if (!resp) {
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
     cJSON_AddStringToObject(resp, "type", PET_WS_TYPE_RESPONSE);
     cJSON_AddStringToObject(resp, "content", text ? text : "");
     cJSON_AddStringToObject(resp, "chat_id", pet_chat_id ? pet_chat_id : "");
-    daima_err_t err = ws_client_session_send_json(ws_chat_id, resp);
+    err_t err = ws_client_session_send_json(ws_chat_id, resp);
     cJSON_Delete(resp);
     return err;
 }
 
-daima_err_t ws_server_send_sudo_request(const char *chat_id, const char *request_id, const char *prompt_text)
+err_t ws_server_send_sudo_request(const char *chat_id, const char *request_id, const char *prompt_text)
 {
     cJSON *resp = cJSON_CreateObject();
     if (!resp) {
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
     cJSON_AddStringToObject(resp, "type", "sudo_request");
     cJSON_AddStringToObject(resp, "chat_id", chat_id ? chat_id : "");
     cJSON_AddStringToObject(resp, "request_id", request_id ? request_id : "");
     cJSON_AddStringToObject(resp, "prompt", prompt_text ? prompt_text : "Please enter your sudo password.");
-    daima_err_t err = ws_client_session_send_json(chat_id, resp);
+    err_t err = ws_client_session_send_json(chat_id, resp);
     cJSON_Delete(resp);
     return err;
 }
 
-daima_err_t ws_server_stop(void)
+err_t ws_server_stop(void)
 {
     s_running = false;
     if (s_server_fd >= 0) {
         close(s_server_fd);
         s_server_fd = -1;
     }
-    return DAIMA_OK;
+    return 0;
 }

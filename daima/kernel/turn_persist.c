@@ -52,7 +52,7 @@ void agent_turn_queue_outbound_text(const struct message *msg, char *text, const
     out.reasoning = reasoning && reasoning[0] ? strdup(reasoning) : NULL;
 
     pr_info("Queue final response to %s:%s (%d bytes)", out.channel, out.chat_id, (int)strlen(text));
-    if (message_bus_push_outbound(&out) != DAIMA_OK) {
+    if (message_bus_push_outbound(&out) != 0) {
         pr_warn("Outbound queue full, drop response");
         if (free_on_fail) {
             kfree(text);
@@ -67,8 +67,8 @@ void agent_turn_save_session(const struct message *msg, const char *final_text, 
         return;
     }
 
-    daima_err_t save_inbound = DAIMA_OK;
-    daima_err_t save_asst = DAIMA_OK;
+    err_t save_inbound = 0;
+    err_t save_asst = 0;
     bool saved_any = false;
     const char *inbound_role = agent_session_role_for_inbound_msg(msg);
 
@@ -79,7 +79,7 @@ void agent_turn_save_session(const struct message *msg, const char *final_text, 
             inbound_role,
             inbound_text,
             agent_msg_source_or_default(msg));
-        if (save_inbound == DAIMA_OK) {
+        if (save_inbound == 0) {
             saved_any = true;
         }
     }
@@ -90,15 +90,15 @@ void agent_turn_save_session(const struct message *msg, const char *final_text, 
             save_asst = session_store_append(msg->chat_id, "assistant", assistant_payload);
             kfree(assistant_payload);
         } else {
-            save_asst = DAIMA_ERR_NO_MEM;
+            save_asst = ERR_NO_MEM;
         }
-        if (save_asst == DAIMA_OK) {
+        if (save_asst == 0) {
             saved_any = true;
         }
     }
 
-    if (save_inbound != DAIMA_OK || save_asst != DAIMA_OK) {
-        pr_warn("Session save failed for chat %s (source=%s, inbound=%s, assistant=%s)", msg->chat_id, agent_msg_source_or_default(msg), daima_err_to_name(save_inbound), daima_err_to_name(save_asst));
+    if (save_inbound != 0 || save_asst != 0) {
+        pr_warn("Session save failed for chat %s (source=%s, inbound=%s, assistant=%s)", msg->chat_id, agent_msg_source_or_default(msg), err_name(save_inbound), err_name(save_asst));
         return;
     }
 

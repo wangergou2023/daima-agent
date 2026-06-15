@@ -83,8 +83,8 @@ static cJSON *build_user_vision_content(const char *text, const char *image_path
         strscpy(local_path, image_path, sizeof(local_path));
     } else {
 #ifdef BUILD_FOR_MIPS
-        daima_err_t cap_err = vision_capture_jpeg(NULL, local_path, sizeof(local_path));
-        if (cap_err != DAIMA_OK) {
+        err_t cap_err = vision_capture_jpeg(NULL, local_path, sizeof(local_path));
+        if (cap_err != 0) {
             return NULL;
         }
         cleanup_local_path = true;
@@ -95,9 +95,9 @@ static cJSON *build_user_vision_content(const char *text, const char *image_path
     }
 
     llm_image_content_t img = {0};
-    daima_err_t read_err = llm_image_read_file(local_path, &img);
-    if (read_err != DAIMA_OK) {
-        pr_warn("Failed to read image for multimodal request: %s (%s)", local_path, daima_err_to_name(read_err));
+    err_t read_err = llm_image_read_file(local_path, &img);
+    if (read_err != 0) {
+        pr_warn("Failed to read image for multimodal request: %s (%s)", local_path, err_name(read_err));
         if (cleanup_local_path) {
             unlink(local_path);
         }
@@ -173,7 +173,7 @@ static void append_session_facts_prompt(char *prompt, size_t size, const char *c
     }
 
     char facts_buf[2048];
-    if (session_store_read_facts(chat_id, facts_buf, sizeof(facts_buf)) != DAIMA_OK || !facts_buf[0]) {
+    if (session_store_read_facts(chat_id, facts_buf, sizeof(facts_buf)) != 0 || !facts_buf[0]) {
         return;
     }
 
@@ -204,7 +204,7 @@ static void append_session_summary_prompt(char *prompt, size_t size, const char 
     }
 
     char summary_buf[BUF_XLARGE];
-    if (session_store_read_summary(chat_id, summary_buf, sizeof(summary_buf)) != DAIMA_OK || !summary_buf[0]) {
+    if (session_store_read_summary(chat_id, summary_buf, sizeof(summary_buf)) != 0 || !summary_buf[0]) {
         return;
     }
 
@@ -228,7 +228,7 @@ static void append_session_summary_prompt(char *prompt, size_t size, const char 
     }
 }
 
-daima_err_t agent_turn_prepare(
+err_t agent_turn_prepare(
     const struct message *msg,
     const struct plan *plan,
     char *system_prompt,
@@ -238,7 +238,7 @@ daima_err_t agent_turn_prepare(
     cJSON **out_messages)
 {
     if (!msg || !system_prompt || system_prompt_size == 0 || !history_json || history_json_size == 0 || !out_messages) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     *out_messages = NULL;
@@ -251,7 +251,7 @@ daima_err_t agent_turn_prepare(
     context_build_system_prompt_for_channel(msg->channel, system_prompt, system_prompt_size);
     if (IS_ENABLED(CONFIG_DAIMA_RULES_INJECTION_ENABLED)) {
         char rules_buf[8192];
-        if (rules_injection_load(rules_buf, sizeof(rules_buf)) == DAIMA_OK && rules_buf[0]) {
+        if (rules_injection_load(rules_buf, sizeof(rules_buf)) == 0 && rules_buf[0]) {
             prepend_rules_prompt(system_prompt, system_prompt_size, rules_buf);
         }
     }
@@ -292,20 +292,20 @@ daima_err_t agent_turn_prepare(
     cJSON *messages = cJSON_Parse(history_json);
     if (!messages) messages = cJSON_CreateArray();
     if (!messages) {
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
 
     cJSON *turn_msg = cJSON_CreateObject();
     if (!turn_msg) {
         cJSON_Delete(messages);
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
     const char *role = agent_msg_role_for_current_turn(msg);
     char *current_content = build_current_turn_content(msg);
     if (!current_content) {
         cJSON_Delete(turn_msg);
         cJSON_Delete(messages);
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
 
     cJSON_AddStringToObject(turn_msg, "role", role);
@@ -332,5 +332,5 @@ daima_err_t agent_turn_prepare(
     cJSON_AddItemToArray(messages, turn_msg);
 
     *out_messages = messages;
-    return DAIMA_OK;
+    return 0;
 }

@@ -10,33 +10,32 @@
 extern "C" {
 #endif
 
-typedef int32_t daima_err_t;
+typedef int32_t err_t;
 
 enum {
-    DAIMA_OK = 0,
-    DAIMA_FAIL = -1,
-    DAIMA_ERR_NO_MEM = -2,
-    DAIMA_ERR_INVALID_ARG = -3,
-    DAIMA_ERR_INVALID_STATE = -4,
-    DAIMA_ERR_INVALID_SIZE = -5,
-    DAIMA_ERR_TIMEOUT = -6,
-    DAIMA_ERR_NOT_FOUND = -7,
-    DAIMA_ERR_HTTP_CONNECT = -8,
-    DAIMA_ERR_HTTP_WRITE_DATA = -9,
-    DAIMA_ERR_HTTP_FETCH_HEADER = -10,
-    DAIMA_ERR_NVS_NOT_FOUND = -11,
-    DAIMA_ERR_NVS_NO_FREE_PAGES = -12,
-    DAIMA_ERR_NVS_NEW_VERSION_FOUND = -13,
+    ERR_FAIL = -1,
+    ERR_NO_MEM = -2,
+    ERR_INVALID_ARG = -3,
+    ERR_INVALID_STATE = -4,
+    ERR_INVALID_SIZE = -5,
+    ERR_TIMEOUT = -6,
+    ERR_NOT_FOUND = -7,
+    ERR_HTTP_CONNECT = -8,
+    ERR_HTTP_WRITE_DATA = -9,
+    ERR_HTTP_FETCH_HEADER = -10,
+    ERR_NVS_NOT_FOUND = -11,
+    ERR_NVS_NO_FREE_PAGES = -12,
+    ERR_NVS_NEW_VERSION_FOUND = -13,
 };
 
-const char *daima_err_to_name(daima_err_t err);
+const char *err_name(err_t err);
 
-#define DAIMA_ERROR_CHECK(x)                                                       \
+#define ERR_CHECK(x)                                                       \
     do {                                                                           \
-        daima_err_t __err = (x);                                                    \
-        if (__err != DAIMA_OK) {                                                   \
+        err_t __err = (x);                                                    \
+        if (__err != 0) {                                                   \
             fprintf(stderr, "DAIMA_ERROR_CHECK failed: %s (%d) at %s:%d\n",         \
-                    daima_err_to_name(__err), (int)__err, __FILE__, __LINE__);      \
+                    err_name(__err), (int)__err, __FILE__, __LINE__);      \
             abort();                                                               \
         }                                                                          \
     } while (0)

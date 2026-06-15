@@ -9,24 +9,24 @@
 
 #include "cJSON.h"
 #include "linux/printk.h"
-static daima_err_t tool_robot_play_animation_execute(const char *input_json, char *output, size_t output_size)
+static err_t tool_robot_play_animation_execute(const char *input_json, char *output, size_t output_size)
 {
     mcp_client_t *mcp = tool_get_mcp(output, output_size);
-    if (!mcp) return DAIMA_FAIL;
+    if (!mcp) return ERR_FAIL;
 
     cJSON *in = cJSON_Parse(input_json);
-    if (!in) { snprintf(output, output_size, "错误：无效 JSON"); return DAIMA_ERR_INVALID_ARG; }
+    if (!in) { snprintf(output, output_size, "错误：无效 JSON"); return ERR_INVALID_ARG; }
 
     cJSON *n = cJSON_GetObjectItem(in, "name");
     cJSON *l = cJSON_GetObjectItem(in, "loops");
     const char *name = n && cJSON_IsString(n) ? n->valuestring : "";
-    if (!name[0]) { snprintf(output, output_size, "错误：缺少动画名称"); cJSON_Delete(in); return DAIMA_ERR_INVALID_ARG; }
+    if (!name[0]) { snprintf(output, output_size, "错误：缺少动画名称"); cJSON_Delete(in); return ERR_INVALID_ARG; }
     int loops = l && cJSON_IsNumber(l) ? (int)l->valuedouble : 1;
 
     cJSON *args = cJSON_CreateObject();
     if (!args) {
         cJSON_Delete(in);
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
     cJSON_AddStringToObject(args, "name", name);
     cJSON_AddNumberToObject(args, "loops", loops);

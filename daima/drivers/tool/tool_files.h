@@ -16,18 +16,18 @@
  *          {"action":"list","path":"./main","prefix":"./main/agent"}
  *          {"action":"search","pattern":"agent_loop","target":"content","path":"./main"}
  */
-daima_err_t tool_files_execute(const char *input_json, char *output, size_t output_size);
+err_t tool_files_execute(const char *input_json, char *output, size_t output_size);
 const struct tool *tool_files_definition(void);
 
 /* Internal helpers reused by the files action dispatcher. */
-daima_err_t tool_read_file_execute(const char *input_json, char *output, size_t output_size);
+err_t tool_read_file_execute(const char *input_json, char *output, size_t output_size);
 
 /**
  * 应用 Codex 风格补丁。
  * - 支持 Add File / Update File / Delete File
  * - 输入 JSON：{"patch":"*** Begin Patch\n*** Add File: a.txt\n+hello\n*** End Patch\n"}
  */
-daima_err_t tool_apply_patch_execute(const char *input_json, char *output, size_t output_size);
+err_t tool_apply_patch_execute(const char *input_json, char *output, size_t output_size);
 const struct tool *tool_apply_patch_definition(void);
 
 /**
@@ -36,7 +36,7 @@ const struct tool *tool_apply_patch_definition(void);
  * - 也可显式传 checkpoint_path
  * 输入 JSON：{"path":"./main.c"} 或 {"path":"./main.c","checkpoint_path":"./spiffs_data/cache/checkpoints/...bak"}
  */
-daima_err_t tool_restore_file_execute(const char *input_json, char *output, size_t output_size);
+err_t tool_restore_file_execute(const char *input_json, char *output, size_t output_size);
 const struct tool *tool_restore_file_definition(void);
 
 /**
@@ -44,7 +44,7 @@ const struct tool *tool_restore_file_definition(void);
  * - 默认列出当前工作目录，也支持 SPIFFS 目录
  * 输入 JSON：{"path":"./main","prefix":"./main/agent"}（均可选）
  */
-daima_err_t tool_list_dir_execute(const char *input_json, char *output, size_t output_size);
+err_t tool_list_dir_execute(const char *input_json, char *output, size_t output_size);
 
 /**
  * 搜索文件名或文件内容。
@@ -55,4 +55,4 @@ daima_err_t tool_list_dir_execute(const char *input_json, char *output, size_t o
  * - offset 可用于分页
  * 输入 JSON：{"pattern":"agent_loop","target":"content","path":"./main","output_mode":"content","context":2,"limit":20,"offset":0}
  */
-daima_err_t tool_search_files_execute(const char *input_json, char *output, size_t output_size);
+err_t tool_search_files_execute(const char *input_json, char *output, size_t output_size);

@@ -74,7 +74,7 @@ cJSON *context_compress_load_session_messages(const char *chat_id)
     if (!history_json) {
         return NULL;
     }
-    if (session_store_get_history_json(chat_id, history_json, LLM_STREAM_BUF_SIZE, AGENT_MAX_HISTORY) != DAIMA_OK) {
+    if (session_store_get_history_json(chat_id, history_json, LLM_STREAM_BUF_SIZE, AGENT_MAX_HISTORY) != 0) {
         kfree(history_json);
         return NULL;
     }
@@ -217,7 +217,7 @@ static char *generate_summary_with_llm(const cJSON *messages, int start_idx, int
 
     llm_response_t resp;
     memset(&resp, 0, sizeof(resp));
-    daima_err_t err = llm_chat_tools(
+    err_t err = llm_chat_tools(
         "你是一个上下文压缩助手。你的职责是把旧对话整理成面向后续轮次的参考摘要。不要调用工具，不要输出额外寒暄。",
         req_msgs,
         NULL,
@@ -225,7 +225,7 @@ static char *generate_summary_with_llm(const cJSON *messages, int start_idx, int
     cJSON_Delete(req_msgs);
     kfree(prompt);
 
-    if (err != DAIMA_OK || resp.tool_use || !resp.text || !resp.text[0]) {
+    if (err != 0 || resp.tool_use || !resp.text || !resp.text[0]) {
         llm_response_free(&resp);
         return NULL;
     }
@@ -297,7 +297,7 @@ static char *generate_facts_with_llm(const cJSON *messages, int start_idx, int e
 
     llm_response_t resp;
     memset(&resp, 0, sizeof(resp));
-    daima_err_t err = llm_chat_tools(
+    err_t err = llm_chat_tools(
         "你是一个会话事实提取助手。你的职责是从旧对话里提炼长期有效的稳定事实卡片。不要调用工具，不要回答问题。",
         req_msgs,
         NULL,
@@ -305,7 +305,7 @@ static char *generate_facts_with_llm(const cJSON *messages, int start_idx, int e
     cJSON_Delete(req_msgs);
     kfree(prompt);
 
-    if (err != DAIMA_OK || resp.tool_use || !resp.text || !resp.text[0]) {
+    if (err != 0 || resp.tool_use || !resp.text || !resp.text[0]) {
         llm_response_free(&resp);
         return NULL;
     }
@@ -385,7 +385,7 @@ static cJSON *build_compacted_messages(const cJSON *snapshot_messages,
     return compressed;
 }
 
-daima_err_t context_compress_compact_once(const char *chat_id,
+err_t context_compress_compact_once(const char *chat_id,
                                          cJSON **messages_io,
                                          const context_compress_cfg_t *cfg)
 {
@@ -393,13 +393,13 @@ daima_err_t context_compress_compact_once(const char *chat_id,
     int n = context_compress_message_count(messages);
     int min_needed = cfg->protect_first + cfg->protect_last + 2;
     if (!messages || n <= min_needed) {
-        return DAIMA_OK;
+        return 0;
     }
 
     int start_idx = cfg->protect_first;
     int end_idx = n - cfg->protect_last;
     if (start_idx >= end_idx) {
-        return DAIMA_OK;
+        return 0;
     }
 
     char *summary = generate_summary_with_llm(messages, start_idx, end_idx);
@@ -407,19 +407,19 @@ daima_err_t context_compress_compact_once(const char *chat_id,
         summary = fallback_summary(end_idx - start_idx);
     }
     if (!summary) {
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
 
-    daima_err_t summary_err = session_store_write_summary(chat_id, summary);
-    if (summary_err != DAIMA_OK) {
-        pr_warn("Failed to write session summary for %s: %s", chat_id, daima_err_to_name(summary_err));
+    err_t summary_err = session_store_write_summary(chat_id, summary);
+    if (summary_err != 0) {
+        pr_warn("Failed to write session summary for %s: %s", chat_id, err_name(summary_err));
     }
 
     char *facts = generate_facts_with_llm(messages, start_idx, end_idx);
     if (facts && facts[0]) {
-        daima_err_t facts_err = session_store_merge_facts(chat_id, facts);
-        if (facts_err != DAIMA_OK) {
-            pr_warn("Failed to merge session facts for %s: %s", chat_id, daima_err_to_name(facts_err));
+        err_t facts_err = session_store_merge_facts(chat_id, facts);
+        if (facts_err != 0) {
+            pr_warn("Failed to merge session facts for %s: %s", chat_id, err_name(facts_err));
         }
     }
     kfree(facts);
@@ -427,11 +427,11 @@ daima_err_t context_compress_compact_once(const char *chat_id,
     cJSON *compressed = build_compacted_messages(messages, n, messages, cfg, summary);
     kfree(summary);
     if (!compressed) {
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
 
-    daima_err_t err = session_store_rewrite_from_array(chat_id, compressed);
-    if (err != DAIMA_OK) {
+    err_t err = session_store_rewrite_from_array(chat_id, compressed);
+    if (err != 0) {
         cJSON_Delete(compressed);
         return err;
     }
@@ -440,7 +440,7 @@ daima_err_t context_compress_compact_once(const char *chat_id,
     *messages_io = compressed;
 
     pr_info("Compressed session %s: %d -> %d messages", chat_id, n, cJSON_GetArraySize(compressed));
-    return DAIMA_OK;
+    return 0;
 }
 
 void context_compress_session_in_background(const char *chat_id,
@@ -474,16 +474,16 @@ void context_compress_session_in_background(const char *chat_id,
             return;
         }
 
-        daima_err_t summary_err = session_store_write_summary(chat_id, summary);
-        if (summary_err != DAIMA_OK) {
-            pr_warn("Failed to write session summary for %s: %s", chat_id, daima_err_to_name(summary_err));
+        err_t summary_err = session_store_write_summary(chat_id, summary);
+        if (summary_err != 0) {
+            pr_warn("Failed to write session summary for %s: %s", chat_id, err_name(summary_err));
         }
 
         char *facts = generate_facts_with_llm(snapshot, start_idx, end_idx);
         if (facts && facts[0]) {
-            daima_err_t facts_err = session_store_merge_facts(chat_id, facts);
-            if (facts_err != DAIMA_OK) {
-                pr_warn("Failed to merge session facts for %s: %s", chat_id, daima_err_to_name(facts_err));
+            err_t facts_err = session_store_merge_facts(chat_id, facts);
+            if (facts_err != 0) {
+                pr_warn("Failed to merge session facts for %s: %s", chat_id, err_name(facts_err));
             }
         }
         kfree(facts);
@@ -503,9 +503,9 @@ void context_compress_session_in_background(const char *chat_id,
             return;
         }
 
-        daima_err_t rewrite_err = session_store_rewrite_from_array(chat_id, compressed);
-        if (rewrite_err != DAIMA_OK) {
-            pr_warn("Background compression rewrite failed for %s: %s", chat_id, daima_err_to_name(rewrite_err));
+        err_t rewrite_err = session_store_rewrite_from_array(chat_id, compressed);
+        if (rewrite_err != 0) {
+            pr_warn("Background compression rewrite failed for %s: %s", chat_id, err_name(rewrite_err));
             cJSON_Delete(compressed);
             cJSON_Delete(latest);
             cJSON_Delete(snapshot);

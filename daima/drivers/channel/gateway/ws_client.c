@@ -413,10 +413,10 @@ static const char *resolve_client_chat_id(ws_client_t *client, cJSON *root, int 
     return chat_id;
 }
 
-daima_err_t ws_client_session_send_json(const char *chat_id, cJSON *obj)
+err_t ws_client_session_send_json(const char *chat_id, cJSON *obj)
 {
     if (!chat_id || !obj) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     ws_client_t *client = NULL;
@@ -425,23 +425,23 @@ daima_err_t ws_client_session_send_json(const char *chat_id, cJSON *obj)
     if (!client) {
         pthread_mutex_unlock(&s_clients_mutex);
         pr_warn("No WS client with chat_id=%s", chat_id);
-        return DAIMA_ERR_NOT_FOUND;
+        return ERR_NOT_FOUND;
     }
     int fd = client->fd;
     pthread_mutex_unlock(&s_clients_mutex);
 
     char *json_str = cJSON_PrintUnformatted(obj);
     if (!json_str) {
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
     int ret = ws_send_text(fd, json_str);
     kfree(json_str);
     if (ret != 0) {
         pr_warn("Failed to send JSON to %s", chat_id);
         remove_client(fd);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
-    return DAIMA_OK;
+    return 0;
 }
 
 bool ws_client_session_add(int fd)

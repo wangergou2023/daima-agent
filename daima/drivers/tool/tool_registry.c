@@ -124,7 +124,7 @@ static void build_tools_json(void)
     pr_info("Tools JSON built (%d static, %d dynamic)", s_tool_count, s_dynamic_count);
 }
 
-daima_err_t tool_registry_init(void)
+err_t tool_registry_init(void)
 {
     s_tool_count = 0;
     s_dynamic_count = 0;
@@ -177,21 +177,21 @@ daima_err_t tool_registry_init(void)
     build_tools_json();
 
     pr_info("Tool registry initialized");
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t tool_registry_register_dynamic(const struct tool *tool)
+err_t tool_registry_register_dynamic(const struct tool *tool)
 {
     if (!tool || !tool->name || !tool->name[0] || !tool->description || !tool->input_schema_json || !tool->execute) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
     if (s_dynamic_count >= TOOL_REGISTRY_MAX_DYNAMIC) {
         pr_err("Dynamic tool registry full");
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
     if (tool_name_exists(tool->name)) {
         pr_warn("Dynamic tool name already registered: %s", tool->name);
-        return DAIMA_ERR_INVALID_STATE;
+        return ERR_INVALID_STATE;
     }
 
     dynamic_tool_node_t *slot = NULL;
@@ -202,7 +202,7 @@ daima_err_t tool_registry_register_dynamic(const struct tool *tool)
         }
     }
     if (!slot) {
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
 
     slot->tool = *tool;
@@ -210,13 +210,13 @@ daima_err_t tool_registry_register_dynamic(const struct tool *tool)
     s_dynamic_count++;
     build_tools_json();
     pr_info("Registered dynamic tool: %s", tool->name);
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t tool_registry_unregister_dynamic(const char *tool_name)
+err_t tool_registry_unregister_dynamic(const char *tool_name)
 {
     if (!tool_name || !tool_name[0]) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     dynamic_tool_node_t *node, *next;
@@ -227,11 +227,11 @@ daima_err_t tool_registry_unregister_dynamic(const char *tool_name)
             s_dynamic_count--;
             build_tools_json();
             pr_info("Unregistered dynamic tool: %s", tool_name);
-            return DAIMA_OK;
+            return 0;
         }
     }
 
-    return DAIMA_ERR_NOT_FOUND;
+    return ERR_NOT_FOUND;
 }
 
 const char *tool_registry_get_tools_json(void)
@@ -259,7 +259,7 @@ static bool channel_allows_tool(const char *channel, const char *tool_name)
             strcmp(channel, DAIMA_CHAN_VOICE) == 0);
 }
 
-daima_err_t tool_registry_execute(const char *name, const char *input_json,
+err_t tool_registry_execute(const char *name, const char *input_json,
                                 char *output, size_t output_size)
 {
     for (int i = 0; i < s_tool_count; i++) {
@@ -279,24 +279,24 @@ daima_err_t tool_registry_execute(const char *name, const char *input_json,
 
     pr_warn("Unknown tool: %s", name);
     snprintf(output, output_size, "错误：未知工具 '%s'", name);
-    return DAIMA_ERR_NOT_FOUND;
+    return ERR_NOT_FOUND;
 }
 
-daima_err_t tool_registry_execute_for_channel(const char *channel,
+err_t tool_registry_execute_for_channel(const char *channel,
                                              const char *name,
                                              const char *input_json,
                                              char *output,
                                              size_t output_size)
 {
     if (!output || output_size == 0 || !name) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
     if (!channel_allows_tool(channel, name)) {
         pr_warn("Tool blocked by channel policy: channel=%s tool=%s", channel ? channel : "(none)", name);
         snprintf(output, output_size,
                  "错误：工具 '%s' 仅允许在 vector/voice 通道使用，当前通道为 '%s'",
                  name, channel ? channel : "");
-        return DAIMA_ERR_INVALID_STATE;
+        return ERR_INVALID_STATE;
     }
     return tool_registry_execute(name, input_json, output, output_size);
 }

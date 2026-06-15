@@ -12,7 +12,7 @@
 #include "cJSON.h"
 #include "autoconf.h"
 #include "linux/printk.h"
-daima_err_t tool_list_dir_execute(const char *input_json, char *output, size_t output_size)
+err_t tool_list_dir_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *root = cJSON_Parse(input_json);
     const char *prefix = NULL;
@@ -32,12 +32,12 @@ daima_err_t tool_list_dir_execute(const char *input_json, char *output, size_t o
     if (!tool_files_resolve_list_dir_path(path && path[0] ? path : ".", resolved_dir, sizeof(resolved_dir))) {
         snprintf(output, output_size, "错误：只允许列出当前工作目录或 %s 下的目录，且不能包含 '..'", daima_path_spiffs_base());
         cJSON_Delete(root);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     int count = 0;
-    daima_err_t err = tool_files_list_dir(resolved_dir, prefix, output, output_size, &count);
-    if (err != DAIMA_OK) {
+    err_t err = tool_files_list_dir(resolved_dir, prefix, output, output_size, &count);
+    if (err != 0) {
         snprintf(output, output_size, "错误：无法打开目录 %s", resolved_dir);
         cJSON_Delete(root);
         return err;
@@ -49,15 +49,15 @@ daima_err_t tool_list_dir_execute(const char *input_json, char *output, size_t o
 
     pr_info("list_dir: %d files (path=%s prefix=%s)", count, resolved_dir, prefix ? prefix : "(none)");
     cJSON_Delete(root);
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t tool_search_files_execute(const char *input_json, char *output, size_t output_size)
+err_t tool_search_files_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *root = cJSON_Parse(input_json);
     if (!root) {
         snprintf(output, output_size, "错误：输入 JSON 无效");
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     const char *pattern = cJSON_GetStringValue(cJSON_GetObjectItem(root, "pattern"));
@@ -81,21 +81,21 @@ daima_err_t tool_search_files_execute(const char *input_json, char *output, size
     if (!pattern || !pattern[0]) {
         snprintf(output, output_size, "错误：缺少 'pattern' 字段");
         cJSON_Delete(root);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     char resolved_dir[TOOL_FILES_PATH_SIZE];
     if (!tool_files_resolve_list_dir_path(path && path[0] ? path : ".", resolved_dir, sizeof(resolved_dir))) {
         snprintf(output, output_size, "错误：只允许搜索当前工作目录或 %s 下的目录，且不能包含 '..'", daima_path_spiffs_base());
         cJSON_Delete(root);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     struct stat st;
     if (stat(resolved_dir, &st) != 0 || !S_ISDIR(st.st_mode)) {
         snprintf(output, output_size, "错误：搜索起点不是目录：%s", resolved_dir);
         cJSON_Delete(root);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     bool search_files_only = target && strcmp(target, "files") == 0;
@@ -107,7 +107,7 @@ daima_err_t tool_search_files_execute(const char *input_json, char *output, size
         strcmp(output_mode, "count") != 0) {
         snprintf(output, output_size, "错误：output_mode 只支持 content / files_only / count");
         cJSON_Delete(root);
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
     if (search_files_only || strcmp(output_mode, "content") != 0) {
         context = 0;
@@ -153,5 +153,5 @@ daima_err_t tool_search_files_execute(const char *input_json, char *output, size
 
     pr_info("search_files: pattern=%s target=%s mode=%s path=%s offset=%d limit=%d context=%d count=%d seen=%d", pattern, search_files_only ? "files" : "content", output_mode, resolved_dir, offset, limit, context, ctx.count, ctx.seen);
     cJSON_Delete(root);
-    return DAIMA_OK;
+    return 0;
 }

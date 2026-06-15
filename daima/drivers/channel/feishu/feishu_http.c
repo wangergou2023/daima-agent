@@ -15,12 +15,12 @@ void feishu_http_response_free(feishu_http_response_t *resp)
     resp->status = 0;
 }
 
-static daima_err_t feishu_http_request(const char *url, const char *token,
+static err_t feishu_http_request(const char *url, const char *token,
                                         const char *method, const char *post_data,
                                         int timeout_ms, feishu_http_response_t *out)
 {
     if (!url || !method || !out) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     struct curl_slist *headers = NULL;
@@ -32,10 +32,10 @@ static daima_err_t feishu_http_request(const char *url, const char *token,
     headers = curl_slist_append(headers, "Content-Type: application/json; charset=utf-8");
 
     host_http_response_t resp = {0};
-    daima_err_t err = host_http_request(method, url, headers, post_data, timeout_ms, &resp);
+    err_t err = host_http_request(method, url, headers, post_data, timeout_ms, &resp);
     curl_slist_free_all(headers);
 
-    if (err != DAIMA_OK) {
+    if (err != 0) {
         host_http_response_free(&resp);
         return err;
     }
@@ -44,17 +44,17 @@ static daima_err_t feishu_http_request(const char *url, const char *token,
     out->body = resp.body;
     kfree(resp.headers);
     resp.headers = NULL;
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t feishu_http_post_json(const char *url, const char *token,
+err_t feishu_http_post_json(const char *url, const char *token,
                                    const char *json_body, int timeout_ms,
                                    feishu_http_response_t *out)
 {
     return feishu_http_request(url, token, "POST", json_body, timeout_ms, out);
 }
 
-daima_err_t feishu_http_get(const char *url, const char *token,
+err_t feishu_http_get(const char *url, const char *token,
                              int timeout_ms, feishu_http_response_t *out)
 {
     return feishu_http_request(url, token, "GET", NULL, timeout_ms, out);

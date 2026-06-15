@@ -12,7 +12,7 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("daima");
 MODULE_DESCRIPTION("Agent Extension: prometheus_interview");
-static daima_err_t replace_run(struct message *msg, char *system_prompt,
+static err_t replace_run(struct message *msg, char *system_prompt,
                                cJSON *messages, const char *tools_json,
                                char **out_final_text)
 {
@@ -22,15 +22,15 @@ static daima_err_t replace_run(struct message *msg, char *system_prompt,
 #if AGENT_EXTENSIONS_ENABLED
     if (agent_extension_state_role_count() <= 1 && msg->intent == INTENT_IMPLEMENT) {
         prometheus_state_t p_state;
-        if (prometheus_check_needs_interview(msg->content, &p_state) == DAIMA_OK &&
+        if (prometheus_check_needs_interview(msg->content, &p_state) == 0 &&
             p_state.needs_interview) {
             pr_info("Prometheus: interview mode, asking questions");
             *out_final_text = strdup(p_state.questions);
-            return DAIMA_OK;
+            return 0;
         }
     }
 #endif
-    return DAIMA_FAIL;
+    return ERR_FAIL;
 }
 
 static agent_extension_hooks_t ext = {

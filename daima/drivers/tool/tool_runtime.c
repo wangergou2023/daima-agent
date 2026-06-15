@@ -32,7 +32,7 @@ static void log_tool_runtime_input(const char *phase,
 static void log_tool_runtime_result(const char *tool_name,
                                     const char *input_json,
                                     const char *output,
-                                    daima_err_t err,
+                                    err_t err,
                                     long elapsed_ms)
 {
     char input_preview[240];
@@ -53,7 +53,7 @@ static void log_tool_runtime_result(const char *tool_name,
     for (size_t i = 0; i < out_shown; i++) {
         if (output_preview[i] == '\n' || output_preview[i] == '\r' || output_preview[i] == '\t') output_preview[i] = ' ';
     }
-    pr_info("execute result tool=%s err=%s elapsed_ms=%ld input_len=%u input=%s output_len=%u output=%s", tool_name && tool_name[0] ? tool_name : "<missing>", daima_err_to_name(err), elapsed_ms, (unsigned)in_len, input_preview[0] ? input_preview : "<empty>", (unsigned)out_len, output_preview[0] ? output_preview : "<empty>");
+    pr_info("execute result tool=%s err=%s elapsed_ms=%ld input_len=%u input=%s output_len=%u output=%s", tool_name && tool_name[0] ? tool_name : "<missing>", err_name(err), elapsed_ms, (unsigned)in_len, input_preview[0] ? input_preview : "<empty>", (unsigned)out_len, output_preview[0] ? output_preview : "<empty>");
 }
 
 static void maybe_retry_terminal_with_web_sudo(const llm_tool_call_t *call,
@@ -110,14 +110,14 @@ static void maybe_retry_terminal_with_web_sudo(const llm_tool_call_t *call,
     cJSON_Delete(root);
 }
 
-daima_err_t tool_runtime_execute_call(const llm_tool_call_t *call,
+err_t tool_runtime_execute_call(const llm_tool_call_t *call,
                                      const struct message *msg,
                                      char *tool_output,
                                      size_t tool_output_size,
                                      daima_tool_runtime_result_t *out_result)
 {
     if (!call || !msg || !tool_output || tool_output_size == 0 || !out_result) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
 
     memset(out_result, 0, sizeof(*out_result));
@@ -135,7 +135,7 @@ daima_err_t tool_runtime_execute_call(const llm_tool_call_t *call,
     struct timespec ended = {0};
     clock_gettime(CLOCK_MONOTONIC, &started);
     tool_output[0] = '\0';
-    daima_err_t exec_err = tool_registry_execute_for_channel(msg->channel, call->name, tool_input, tool_output, tool_output_size);
+    err_t exec_err = tool_registry_execute_for_channel(msg->channel, call->name, tool_input, tool_output, tool_output_size);
     maybe_retry_terminal_with_web_sudo(call, msg, tool_output, tool_output_size);
     clock_gettime(CLOCK_MONOTONIC, &ended);
 

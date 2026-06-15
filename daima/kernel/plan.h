@@ -12,11 +12,11 @@ struct plan {
     bool reviewed;
 };
 
-daima_err_t plan_review_generate(enum intent intent,
+err_t plan_review_generate(enum intent intent,
                                   const char *user_message,
                                   const char *system_prompt,
                                   struct plan *out_plan);
 
-daima_err_t plan_review_inject_to_prompt(const struct plan *plan,
+err_t plan_review_inject_to_prompt(const struct plan *plan,
                                            char *system_prompt,
                                            size_t system_prompt_size);

@@ -142,7 +142,7 @@ static voice_session_t *voice_session_get(const char *chat_id, bool create)
 }
 
 /* 使用 multipart/form-data 发送音频到 ASR 接口（file 或 file_base64）。 */
-static daima_err_t voice_asr_mime(const unsigned char *audio_bytes,
+static err_t voice_asr_mime(const unsigned char *audio_bytes,
                             size_t audio_len,
                             const char *audio_b64,
                             const char *model,
@@ -153,11 +153,11 @@ static daima_err_t voice_asr_mime(const unsigned char *audio_bytes,
                             char *out_text,
                             size_t out_size)
 {
-    if (!out_text || out_size == 0) return DAIMA_ERR_INVALID_ARG;
+    if (!out_text || out_size == 0) return ERR_INVALID_ARG;
     if ((!audio_bytes || audio_len == 0) && (!audio_b64 || !audio_b64[0])) {
-        return DAIMA_ERR_INVALID_ARG;
+        return ERR_INVALID_ARG;
     }
-    if (!s_bigmodel_key[0]) return DAIMA_ERR_INVALID_STATE;
+    if (!s_bigmodel_key[0]) return ERR_INVALID_STATE;
 
     const char *use_model = (model && model[0]) ? model : DEFAULT_ASR_MODEL;
 
@@ -165,7 +165,7 @@ static daima_err_t voice_asr_mime(const unsigned char *audio_bytes,
 
     pthread_once(&s_curl_once, curl_global_init_once);
     CURL *curl = curl_easy_init();
-    if (!curl) return DAIMA_FAIL;
+    if (!curl) return ERR_FAIL;
 
     buf_t resp = {0};
     struct curl_slist *headers = NULL;
@@ -244,19 +244,19 @@ static daima_err_t voice_asr_mime(const unsigned char *audio_bytes,
     if (res != CURLE_OK) {
         pr_warn("ASR request failed: %s", curl_easy_strerror(res));
         kfree(resp.data);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     if (status != 200 || !resp.data) {
         pr_warn("ASR failed: status=%ld body=%s", status, resp.data ? resp.data : "(null)");
         kfree(resp.data);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     cJSON *root = cJSON_Parse(resp.data);
     if (!root) {
         kfree(resp.data);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     const char *text = NULL;
@@ -277,7 +277,7 @@ static daima_err_t voice_asr_mime(const unsigned char *audio_bytes,
         pr_warn("ASR response missing text: %s", resp.data);
         cJSON_Delete(root);
         kfree(resp.data);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     strncpy(out_text, text, out_size - 1);
@@ -285,17 +285,17 @@ static daima_err_t voice_asr_mime(const unsigned char *audio_bytes,
     pr_info("ASR text: %.256s", out_text);
     cJSON_Delete(root);
     kfree(resp.data);
-    return DAIMA_OK;
+    return 0;
 }
 
-static daima_err_t voice_tts(const char *text,
+static err_t voice_tts(const char *text,
                             const char *voice,
                             const char *format,
                             unsigned char **out_audio,
                             size_t *out_audio_len)
 {
-    if (!text || !text[0] || !out_audio) return DAIMA_ERR_INVALID_ARG;
-    if (!s_bigmodel_key[0]) return DAIMA_ERR_INVALID_STATE;
+    if (!text || !text[0] || !out_audio) return ERR_INVALID_ARG;
+    if (!s_bigmodel_key[0]) return ERR_INVALID_STATE;
 
     const char *use_voice = (voice && voice[0]) ? voice : DEFAULT_VOICE;
     const char *use_format = (format && format[0]) ? format : DEFAULT_TTS_FORMAT;
@@ -309,7 +309,7 @@ static daima_err_t voice_tts(const char *text,
 
     char *post_data = cJSON_PrintUnformatted(body);
     cJSON_Delete(body);
-    if (!post_data) return DAIMA_ERR_NO_MEM;
+    if (!post_data) return ERR_NO_MEM;
 
     struct curl_slist *headers = NULL;
     headers = curl_slist_append(headers, "Content-Type: application/json");
@@ -318,11 +318,11 @@ static daima_err_t voice_tts(const char *text,
     headers = curl_slist_append(headers, auth);
 
     host_http_response_t resp = {0};
-    daima_err_t err = host_http_request("POST", BIGMODEL_TTS_URL, headers, post_data, 30 * 1000, &resp);
+    err_t err = host_http_request("POST", BIGMODEL_TTS_URL, headers, post_data, 30 * 1000, &resp);
     curl_slist_free_all(headers);
     kfree(post_data);
 
-    if (err != DAIMA_OK) {
+    if (err != 0) {
         host_http_response_free(&resp);
         return err;
     }
@@ -333,7 +333,7 @@ static daima_err_t voice_tts(const char *text,
             pr_warn("TTS error body: %.256s", resp.body);
         }
         host_http_response_free(&resp);
-        return DAIMA_FAIL;
+        return ERR_FAIL;
     }
 
     if (resp.headers && strstr(resp.headers, "Content-Type:") != NULL) {
@@ -359,17 +359,17 @@ static daima_err_t voice_tts(const char *text,
     unsigned char *audio = kmalloc(audio_len, GFP_KERNEL);
     if (!audio) {
         host_http_response_free(&resp);
-        return DAIMA_ERR_NO_MEM;
+        return ERR_NO_MEM;
     }
     memcpy(audio, resp.body, audio_len);
     host_http_response_free(&resp);
 
     *out_audio = audio;
     if (out_audio_len) *out_audio_len = audio_len;
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t voice_channel_init(void)
+err_t voice_channel_init(void)
 {
     const char *api_key = runtime_config_get_bigmodel_api_key();
 
@@ -384,10 +384,10 @@ daima_err_t voice_channel_init(void)
         pr_warn("Voice channel disabled: missing audio.bigmodel_api_key in config.json");
     }
 
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t voice_channel_handle_audio_base64(const char *chat_id,
+err_t voice_channel_handle_audio_base64(const char *chat_id,
                                             const char *audio_base64,
                                             const char *asr_model,
                                             const char *prompt,
@@ -397,8 +397,8 @@ daima_err_t voice_channel_handle_audio_base64(const char *chat_id,
                                             const char *voice,
                                             const char *response_format)
 {
-    if (!chat_id || !audio_base64) return DAIMA_ERR_INVALID_ARG;
-    if (!s_bigmodel_key[0]) return DAIMA_ERR_INVALID_STATE;
+    if (!chat_id || !audio_base64) return ERR_INVALID_ARG;
+    if (!s_bigmodel_key[0]) return ERR_INVALID_STATE;
 
     voice_session_t *sess = voice_session_get(chat_id, true);
     if (sess) {
@@ -412,9 +412,9 @@ daima_err_t voice_channel_handle_audio_base64(const char *chat_id,
     }
 
     char text[BUF_LARGE] = {0};
-    daima_err_t err = voice_asr_mime(NULL, 0, audio_base64, asr_model, prompt, hotwords_json,
+    err_t err = voice_asr_mime(NULL, 0, audio_base64, asr_model, prompt, hotwords_json,
                                request_id, user_id, text, sizeof(text));
-    if (err != DAIMA_OK) {
+    if (err != 0) {
         return err;
     }
 
@@ -423,15 +423,15 @@ daima_err_t voice_channel_handle_audio_base64(const char *chat_id,
     strncpy(msg.chat_id, chat_id, sizeof(msg.chat_id) - 1);
     strncpy(msg.source, DAIMA_MSG_SOURCE_USER, sizeof(msg.source) - 1);
     msg.content = strdup(text);
-    if (!msg.content) return DAIMA_ERR_NO_MEM;
+    if (!msg.content) return ERR_NO_MEM;
 
     return message_bus_push_inbound(&msg);
 }
 
-daima_err_t voice_channel_send_reply(const char *chat_id, const char *text)
+err_t voice_channel_send_reply(const char *chat_id, const char *text)
 {
-    if (!chat_id || !text) return DAIMA_ERR_INVALID_ARG;
-    if (!s_bigmodel_key[0]) return DAIMA_ERR_INVALID_STATE;
+    if (!chat_id || !text) return ERR_INVALID_ARG;
+    if (!s_bigmodel_key[0]) return ERR_INVALID_STATE;
 
     voice_session_t *sess = voice_session_get(chat_id, false);
     const char *voice = sess ? sess->voice : DEFAULT_VOICE;
@@ -443,39 +443,39 @@ daima_err_t voice_channel_send_reply(const char *chat_id, const char *text)
 
     unsigned char *audio = NULL;
     size_t audio_len = 0;
-    daima_err_t err = voice_tts(text, voice, format, &audio, &audio_len);
-    if (err != DAIMA_OK) {
+    err_t err = voice_tts(text, voice, format, &audio, &audio_len);
+    if (err != 0) {
         return err;
     }
 
     pr_info("TTS audio bytes: %zu", audio_len);
     /* audio_output_play_wav 会解析 WAV 头，只播放 data 段 */
-    daima_err_t play_err = audio_output_play_wav(audio, audio_len);
+    err_t play_err = audio_output_play_wav(audio, audio_len);
     kfree(audio);
-    if (play_err != DAIMA_OK) {
-        pr_warn("Audio playback failed: %s", daima_err_to_name(play_err));
+    if (play_err != 0) {
+        pr_warn("Audio playback failed: %s", err_name(play_err));
     }
     return play_err;
 }
 
-daima_err_t voice_channel_get_tts_pcm(const char *text,
+err_t voice_channel_get_tts_pcm(const char *text,
                                      unsigned char **out_pcm,
                                      size_t *out_len,
                                      uint32_t *out_rate)
 {
-    if (!text || !text[0] || !out_pcm || !out_len) return DAIMA_ERR_INVALID_ARG;
-    if (!s_bigmodel_key[0]) return DAIMA_ERR_INVALID_STATE;
+    if (!text || !text[0] || !out_pcm || !out_len) return ERR_INVALID_ARG;
+    if (!s_bigmodel_key[0]) return ERR_INVALID_STATE;
 
     /* Call BigModel TTS API → WAV bytes */
     unsigned char *wav = NULL;
     size_t wav_len = 0;
-    daima_err_t err = voice_tts(text, DEFAULT_VOICE, "wav", &wav, &wav_len);
-    if (err != DAIMA_OK) return err;
+    err_t err = voice_tts(text, DEFAULT_VOICE, "wav", &wav, &wav_len);
+    if (err != 0) return err;
 
     if (wav_len <= 44 || memcmp(wav, "RIFF", 4) != 0) {
         *out_pcm = wav;
         *out_len = wav_len;
-        return DAIMA_OK;
+        return 0;
     }
 
     /* Parse WAV: find "fmt " chunk for sample rate, "data" chunk for PCM */
@@ -514,7 +514,7 @@ daima_err_t voice_channel_get_tts_pcm(const char *text,
 
     /* Allocate and copy PCM, then free WAV */
     unsigned char *pcm = kmalloc(pcm_len, GFP_KERNEL);
-    if (!pcm) { kfree(wav); return DAIMA_ERR_NO_MEM; }
+    if (!pcm) { kfree(wav); return ERR_NO_MEM; }
     memcpy(pcm, pcm_data, pcm_len);
 
     /* Resample to 16000 Hz if needed (robot hardware max is 16025) */
@@ -553,10 +553,10 @@ daima_err_t voice_channel_get_tts_pcm(const char *text,
     if (out_rate) *out_rate = sample_rate;
 
     pr_info("TTS PCM: %zu bytes, sample_rate=%u Hz", pcm_len, sample_rate);
-    return DAIMA_OK;
+    return 0;
 }
 
-daima_err_t voice_channel_handle_audio(const char *chat_id,
+err_t voice_channel_handle_audio(const char *chat_id,
                                      const unsigned char *audio_bytes,
                                      size_t audio_len,
                                      const char *asr_model,
@@ -567,8 +567,8 @@ daima_err_t voice_channel_handle_audio(const char *chat_id,
                                      const char *voice,
                                      const char *response_format)
 {
-    if (!chat_id || !audio_bytes || audio_len == 0) return DAIMA_ERR_INVALID_ARG;
-    if (!s_bigmodel_key[0]) return DAIMA_ERR_INVALID_STATE;
+    if (!chat_id || !audio_bytes || audio_len == 0) return ERR_INVALID_ARG;
+    if (!s_bigmodel_key[0]) return ERR_INVALID_STATE;
 
     voice_session_t *sess = voice_session_get(chat_id, true);
     if (sess) {
@@ -582,26 +582,26 @@ daima_err_t voice_channel_handle_audio(const char *chat_id,
     }
 
     char text[BUF_LARGE] = {0};
-    daima_err_t err = voice_asr_mime(audio_bytes, audio_len, NULL,
+    err_t err = voice_asr_mime(audio_bytes, audio_len, NULL,
                                     asr_model, prompt, hotwords_json,
                                     request_id, user_id, text, sizeof(text));
-    if (err != DAIMA_OK) {
+    if (err != 0) {
         return err;
     }
 
     /* Skip empty/noise ASR results to avoid LLM API errors */
-    if (!text[0]) return DAIMA_OK;
+    if (!text[0]) return 0;
     char *t = text;
     while (*t == ' ' || *t == '\t' || *t == '\n' || *t == '\r') t++;
-    if (!*t) return DAIMA_OK;
-    if (strlen(t) <= 1 && (*t < 'A' || *t > 'z')) return DAIMA_OK;
+    if (!*t) return 0;
+    if (strlen(t) <= 1 && (*t < 'A' || *t > 'z')) return 0;
 
     struct message msg = {0};
     strncpy(msg.channel, DAIMA_CHAN_VOICE, sizeof(msg.channel) - 1);
     strncpy(msg.chat_id, chat_id, sizeof(msg.chat_id) - 1);
     strncpy(msg.source, DAIMA_MSG_SOURCE_USER, sizeof(msg.source) - 1);
     msg.content = strdup(t);
-    if (!msg.content) return DAIMA_ERR_NO_MEM;
+    if (!msg.content) return ERR_NO_MEM;
 
     return message_bus_push_inbound(&msg);
 }
