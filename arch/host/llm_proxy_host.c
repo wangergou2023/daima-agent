@@ -17,18 +17,8 @@
 #include <time.h>
 #include "linux/slab.h"
 #include "linux/kernel.h"
+#include "arch/host/portability.h"
 
-/* macOS lacks memrchr (GNU extension) */
-#ifndef __linux__
-static void *memrchr(const void *s, int c, size_t n) {
-    const unsigned char *p = (const unsigned char *)s + n;
-    while (n--) {
-        p--;
-        if (*p == (unsigned char)c) return (void *)p;
-    }
-    return NULL;
-}
-#endif
 #include <stdlib.h>
 #include "linux/printk.h"
 #include "cjson.h"
@@ -226,7 +216,7 @@ static bool url_tail_is_version_root(const char *url)
         return false;
     }
 
-    const char *tail = memrchr(url, '/', len);
+    const char *tail = host_memrchr(url, '/', len);
     tail = tail ? tail + 1 : url;
     if ((size_t)(tail - url) >= len || !tail[0]) {
         return false;

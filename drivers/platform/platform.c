@@ -1,13 +1,11 @@
 #include "err.h"
 #include "drivers/platform/platform.h"
+#include "arch/host/portability.h"
 
 #include <stdlib.h>
 #include <sys/time.h>
 #include <time.h>
-#ifdef __linux__
-#include <sys/sysinfo.h>
 #include "linux/slab.h"
-#endif
 
 static int s_rand_seeded = 0;
 
@@ -34,13 +32,7 @@ const char *err_name(err_t err)
 
 size_t platform_free_memory(void)
 {
-#ifdef __linux__
-    struct sysinfo info;
-    if (sysinfo(&info) == 0) {
-        return (size_t)info.freeram;
-    }
-#endif
-    return 0;
+    return host_platform_free_memory();
 }
 
 size_t platform_largest_free_block(void)

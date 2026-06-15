@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __GNUC__
-#include_next <linux/kernel.h>
-#endif
-
 #include "err.h"
 #include "linux/printk.h"
 

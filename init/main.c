@@ -67,7 +67,7 @@ int main(int argc, char **argv)
     pr_info("Free memory: %d bytes", (int)platform_free_memory());
     pr_info("Timezone: %s", runtime_tz);
 
-    do_basic_setup();
+    BUG_ON(do_basic_setup() != 0);
 
     BUG_ON(llm_proxy_init() != 0);
     BUG_ON(tool_registry_init() != 0);

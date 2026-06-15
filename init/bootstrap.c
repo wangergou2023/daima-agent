@@ -89,7 +89,7 @@ bool bootstrap_get_primary_ipv4(char *out, size_t out_sz)
     return found;
 }
 
-void do_basic_setup(void)
+int do_basic_setup(void)
 {
     pr_info("core_initcall...");
     BUG_ON(message_bus_init() != 0);
@@ -114,4 +114,5 @@ void do_basic_setup(void)
     heartbeat_start();
 
     pr_info("Basic setup complete");
+    return 0;
 }
