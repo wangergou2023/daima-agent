@@ -1,12 +1,19 @@
 #pragma once
-#include "linux/init.h"
+
+#include "init.h"
+#include "list.h"
+
+struct bus_type;
+struct device;
 
 struct driver {
     const char *name;
-    int (*probe)(void);
-    void (*remove)(void);
+    struct bus_type *bus;
+    int (*probe)(struct device *dev);
+    void (*remove)(struct device *dev);
+    void *priv;
+    struct list_head node;
 };
 
-#define driver_register(drv) \
-    static int __init _driver_probe_##drv(void) { return driver_probe(&drv); } \
-    device_initcall(_driver_probe_##drv)
+int driver_register(struct driver *drv, struct bus_type *bus);
+void driver_unregister(struct driver *drv);
