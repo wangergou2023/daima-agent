@@ -23,7 +23,7 @@ description: 当用户表达 bug、功能缺失、体验改进、技术债、测
 3. 信息不足但值得跟踪时调用 `work_item add`，状态设为 `needs_info`。
 4. 只有 `accepted` 或 `planned` 且验收标准清楚的事项，后续才进入实现。
 5. 疑似重复时在 description 中标记重复对象。
-6. 用户问“为什么没收集”时，先查看 `work_item summary/list` 和 `daima_log`，再判断是未触发、已去重合并，还是收集规则缺失。
+6. 用户问“为什么没收集”时，先查看 `work_item summary/list` 和 `log_tool`，再判断是未触发、已去重合并，还是收集规则缺失。
 
 ## 自动收集规则
 

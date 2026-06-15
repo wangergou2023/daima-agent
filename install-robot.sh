@@ -1,15 +1,15 @@
 #!/bin/bash
-# install-robot.sh — 在机器人上安装 daima-agent（从已部署的二进制文件）
+# install-robot.sh — 在机器人上安装 agent（从已部署的二进制文件）
 # Usage: 在机器人上执行:  bash install-robot.sh
 
 set -euo pipefail
 
-DAIMA_HOME="${DAIMA_HOME:-/data/daima}"
-BIN_DIR="$DAIMA_HOME/bin"
-SPIFFS_DIR="$DAIMA_HOME/spiffs_data"
+AGENT_HOME="${AGENT_HOME:-/data/agent-data}"
+BIN_DIR="$AGENT_HOME/bin"
+SPIFFS_DIR="$AGENT_HOME/spiffs_data"
 
 echo "=== Daima Robot Install ==="
-echo "Home: $DAIMA_HOME"
+echo "Home: $AGENT_HOME"
 
 mkdir -p "$BIN_DIR" "$SPIFFS_DIR"/{config,web,skills,ca,memory,sessions,cache}
 
@@ -24,4 +24,4 @@ echo ""
 echo "=== Installed ==="
 echo "Config: $SPIFFS_DIR/config/config.json"
 echo ""
-echo "Start: DAIMA_HOME=$DAIMA_HOME $BIN_DIR/daima"
+echo "Start: AGENT_HOME=$AGENT_HOME $BIN_DIR/daima"

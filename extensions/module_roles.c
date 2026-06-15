@@ -9,7 +9,7 @@
 #include <string.h>
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("daima");
+MODULE_AUTHOR("agent");
 MODULE_DESCRIPTION("Agent Extension: agent_roles");
 static agent_role_t active_role_for_plan(const agent_role_t roles[3], int role_count)
 {

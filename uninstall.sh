@@ -2,10 +2,10 @@
 
 set -euo pipefail
 
-DAIMA_HOME="${DAIMA_HOME:-$HOME/.daima}"
+AGENT_HOME="${AGENT_HOME:-$HOME/.agent-data}"
 BASHRC="$HOME/.bashrc"
-BEGIN_MARKER="# >>> daima >>>"
-END_MARKER="# <<< daima <<<"
+BEGIN_MARKER="# >>> agent >>>"
+END_MARKER="# <<< agent <<<"
 
 remove_path_snippet() {
     local rc_file="$1"
@@ -34,8 +34,8 @@ path.write_text(text[:start] + text[finish:])
 PY
 }
 
-echo "=== Uninstalling Daima from $DAIMA_HOME ==="
-rm -rf "$DAIMA_HOME"
+echo "=== Uninstalling Daima from $AGENT_HOME ==="
+rm -rf "$AGENT_HOME"
 remove_path_snippet "$BASHRC"
 
 echo ""

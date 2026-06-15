@@ -19,7 +19,7 @@
 #include "linux/slab.h"
 #define TERMINAL_DEFAULT_TIMEOUT 120
 #define TERMINAL_MAX_TIMEOUT     1800
-#define SUDO_ENV_NAME            "DAIMA_SUDO_PASSWORD"
+#define SUDO_ENV_NAME            "SUDO_PW_ENV"
 
 static const struct tool s_terminal_tool = {
     .name = "terminal",

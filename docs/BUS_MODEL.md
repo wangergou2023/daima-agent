@@ -1,4 +1,4 @@
-# daima-agent: Bus/Driver/Device 总线模型
+# agent: Bus/Driver/Device 总线模型
 
 ## 创新
 
@@ -8,7 +8,7 @@
 
 ## 核心概念
 
-| 内核 | daima | 含义 |
+| 内核 | agent | 含义 |
 |------|-------|------|
 | `bus_type` | `bus_type` | 匹配规则 + 注册表 |
 | `device` | `device` | 能力声明 ("我叫 xxx, 我需要 yyy") |
@@ -231,7 +231,7 @@ bus_probe_all(&tool_bus);
 
 ### 对比
 
-| | daima bus 模型 | OpenAI plugins | Anthropic MCP | LangChain tools |
+| | agent bus 模型 | OpenAI plugins | Anthropic MCP | LangChain tools |
 |---|---|---|---|---|
 | 架构 | bus/driver/device | manifest.json | JSON-RPC | Python class |
 | 内核验证 | ✅ 30年 | ❌ | ❌ | ❌ |

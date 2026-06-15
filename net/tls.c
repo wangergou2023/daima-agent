@@ -7,7 +7,7 @@
 #include "linux/printk.h"
 const char *host_tls_ca_cert_path(void)
 {
-    const char *ca = env_get("DAIMA_CA_CERT");
+    const char *ca = env_get("CA_CERT_FILE");
     if (!ca || !ca[0]) ca = getenv("CURL_CA_BUNDLE");
     if (!ca || !ca[0]) ca = getenv("SSL_CERT_FILE");
     if (ca && ca[0] && access(ca, R_OK) == 0) {

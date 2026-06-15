@@ -2,22 +2,22 @@
 
 CC      ?= cc
 AR      ?= ar
-DAIMA   ?= $(CURDIR)
+AGENT_ROOT ?= $(CURDIR)
 BUILD   ?= $(CURDIR)/build
 
 CFLAGS  ?= -std=c11 -Wall -Wextra -O2
-CPPFLAGS += -I$(DAIMA) \
-            -I$(DAIMA)/include \
-            -I$(DAIMA)/init \
-            -I$(DAIMA)/kernel \
-            -I$(DAIMA)/kernel/time \
-            -I$(DAIMA)/ipc \
-            -I$(DAIMA)/lib \
-            -I$(DAIMA)/net \
-            -I$(DAIMA)/fs
+CPPFLAGS += -I$(AGENT_ROOT) \
+            -I$(AGENT_ROOT)/include \
+            -I$(AGENT_ROOT)/init \
+            -I$(AGENT_ROOT)/kernel \
+            -I$(AGENT_ROOT)/kernel/time \
+            -I$(AGENT_ROOT)/ipc \
+            -I$(AGENT_ROOT)/lib \
+            -I$(AGENT_ROOT)/net \
+            -I$(AGENT_ROOT)/fs
 
 src-y ?=
-obj-y := $(patsubst $(DAIMA)/%.c,$(BUILD)/%.o,$(src-y))
+obj-y := $(patsubst $(AGENT_ROOT)/%.c,$(BUILD)/%.o,$(src-y))
 
 .PHONY: all clean
 
@@ -26,7 +26,7 @@ all: $(BUILD)/built-in.a
 $(BUILD)/built-in.a: $(obj-y)
 	$(AR) rcs $@ $^
 
-$(BUILD)/%.o: $(DAIMA)/%.c
+$(BUILD)/%.o: $(AGENT_ROOT)/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 

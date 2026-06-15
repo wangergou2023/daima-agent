@@ -13,7 +13,7 @@ config SYSCTL
 
 source "kernel/sched/Kconfig"
 source "kernel/time/Kconfig"
-config DAIMA_KERNEL_WORKQUEUE
+config KERNEL_WORKQUEUE
     bool "Workqueue 支持"
     default y
 endmenu

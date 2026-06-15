@@ -159,7 +159,7 @@ err_t context_compressor_maybe_compact(
 
         pr_info("Session %s needs compression: pass=%d msgs=%d approx_chars=%u", chat_id, pass + 1, n, (unsigned)approx_chars);
 
-        if (IS_ENABLED(CONFIG_DAIMA_COMPACTION_RECOVERY_ENABLED)) {
+        if (IS_ENABLED(CONFIG_COMPACTION_RECOVERY_ENABLED)) {
             compaction_recovery_snapshot(chat_id);
         }
 

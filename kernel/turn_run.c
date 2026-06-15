@@ -120,7 +120,7 @@ err_t agent_turn_run(
 
         llm_response_t resp;
         memset(&resp, 0, sizeof(resp));
-        if (IS_ENABLED(CONFIG_DAIMA_MODEL_FALLBACK_ENABLED)) {
+        if (IS_ENABLED(CONFIG_MODEL_FALLBACK_ENABLED)) {
             err = cancellable_model_fallback_chat_tools(msg, cancel_token, system_prompt, messages, tools_json, model_override, &resp);
         } else {
             err = cancellable_llm_chat_tools(msg, cancel_token, system_prompt, messages, tools_json, model_override, &resp);
@@ -131,7 +131,7 @@ err_t agent_turn_run(
                 err = 0;
                 break;
             }
-            if (IS_ENABLED(CONFIG_DAIMA_SESSION_RECOVERY_ENABLED)) {
+            if (IS_ENABLED(CONFIG_SESSION_RECOVERY_ENABLED)) {
                 session_recovery_save_crash(msg->chat_id, msg->content, err_name(err));
             }
             pr_err("LLM call failed: %s", err_name(err));

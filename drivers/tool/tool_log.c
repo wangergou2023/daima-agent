@@ -12,7 +12,7 @@
 
 static const struct tool s_log_tool = {
     .name = "log_tool",
-    .description = "读取 daima 自身运行日志，用于诊断工具失败、网络错误、系统异常。支持 tail / search / errors。",
+    .description = "读取 agent 自身运行日志，用于诊断工具失败、网络错误、系统异常。支持 tail / search / errors。",
     .input_schema_json =
         "{\"type\":\"object\","
         "\"properties\":{"

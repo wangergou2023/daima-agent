@@ -163,7 +163,7 @@ llm_async_request_t *llm_http_async_request(const char *method,
     curl_easy_setopt(req->easy, CURLOPT_TIMEOUT_MS, timeout_ms);
     curl_easy_setopt(req->easy, CURLOPT_WRITEFUNCTION, llm_http_write_cb);
     curl_easy_setopt(req->easy, CURLOPT_WRITEDATA, &req->body);
-    curl_easy_setopt(req->easy, CURLOPT_USERAGENT, "daima-host/0.1");
+    curl_easy_setopt(req->easy, CURLOPT_USERAGENT, "agent-host/0.1");
     curl_easy_setopt(req->easy, CURLOPT_PRIVATE, req);
 
     if (headers) {

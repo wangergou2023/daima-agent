@@ -5,12 +5,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
-DAIMA_HOME="${DAIMA_HOME:-$HOME/.daima}"
-BIN_DIR="$DAIMA_HOME/bin"
-CONFIG_DIR="$DAIMA_HOME/spiffs_data/config"
-WEB_DIR="$DAIMA_HOME/spiffs_data/web"
-SKILLS_DIR="$DAIMA_HOME/spiffs_data/skills"
-CA_DIR="$DAIMA_HOME/spiffs_data/ca"
+AGENT_HOME="${AGENT_HOME:-$HOME/.agent-data}"
+BIN_DIR="$AGENT_HOME/bin"
+CONFIG_DIR="$AGENT_HOME/spiffs_data/config"
+WEB_DIR="$AGENT_HOME/spiffs_data/web"
+SKILLS_DIR="$AGENT_HOME/spiffs_data/skills"
+CA_DIR="$AGENT_HOME/spiffs_data/ca"
 TARGET_BIN="$BIN_DIR/daima"
 BASHRC="$HOME/.bashrc"
 
@@ -24,8 +24,8 @@ copy_if_missing() {
 
 ensure_path_snippet() {
     local rc_file="$1"
-    local begin="# >>> daima >>>"
-    local end="# <<< daima <<<"
+    local begin="# >>> agent >>>"
+    local end="# <<< agent <<<"
 
     [ -f "$rc_file" ] || touch "$rc_file"
 
@@ -35,23 +35,23 @@ ensure_path_snippet() {
 
     cat >> "$rc_file" <<'EOF'
 
-# >>> daima >>>
-if [ -d "$HOME/.daima/bin" ] && [[ ":$PATH:" != *":$HOME/.daima/bin:"* ]]; then
-    export PATH="$HOME/.daima/bin:$PATH"
+# >>> agent >>>
+if [ -d "$HOME/.agent-data/bin" ] && [[ ":$PATH:" != *":$HOME/.agent-data/bin:"* ]]; then
+    export PATH="$HOME/.agent-data/bin:$PATH"
 fi
-# <<< daima <<<
+# <<< agent <<<
 EOF
 }
 
-echo "=== Building daima ==="
+echo "=== Building agent binary ==="
 make clean
 make
 
-echo "=== Installing to $DAIMA_HOME ==="
+echo "=== Installing to $AGENT_HOME ==="
 mkdir -p "$BIN_DIR" "$CONFIG_DIR" "$WEB_DIR" "$SKILLS_DIR" "$CA_DIR"
-mkdir -p "$DAIMA_HOME/spiffs_data/memory" "$DAIMA_HOME/spiffs_data/sessions" "$DAIMA_HOME/spiffs_data/cache"
+mkdir -p "$AGENT_HOME/spiffs_data/memory" "$AGENT_HOME/spiffs_data/sessions" "$AGENT_HOME/spiffs_data/cache"
 
-rm -f "$DAIMA_HOME/daima"
+rm -f "$TARGET_BIN"
 install -m755 "./build-kbuild/daima" "$TARGET_BIN"
 install -m644 "./spiffs_data/ca/cacert.pem" "$CA_DIR/cacert.pem"
 
@@ -63,7 +63,7 @@ rm -rf "$SKILLS_DIR/robot-control" \
 
 for pet_dir in ./spiffs_data/*.codex-pet; do
     [ -d "$pet_dir" ] || continue
-    cp -a "$pet_dir" "$DAIMA_HOME/spiffs_data/"
+    cp -a "$pet_dir" "$AGENT_HOME/spiffs_data/"
 done
 
 install -m644 "./spiffs_data/config/config.example.json" "$CONFIG_DIR/config.example.json"
@@ -96,8 +96,8 @@ copy_if_missing "./spiffs_data/config/AGENTS.md" "$CONFIG_DIR/AGENTS.md"
 ensure_path_snippet "$BASHRC"
 
 echo ""
-echo "Daima installed successfully."
-echo "Home: $DAIMA_HOME"
+echo "Agent installed successfully."
+echo "Home: $AGENT_HOME"
 echo "Binary: $TARGET_BIN"
 echo ""
 echo "If this is your first install, edit:"

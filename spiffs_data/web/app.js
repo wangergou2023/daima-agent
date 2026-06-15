@@ -40,9 +40,9 @@ const reconnectToast = document.getElementById('reconnectToast');
 const reconnectToastText = document.getElementById('reconnectToastText');
 const reconnectToastAction = document.getElementById('reconnectToastAction');
 
-const CHAT_ID_KEY = 'daima_chat_id';
-const THEME_KEY = 'daima_theme';
-const PET_PACKAGE_KEY = 'daima_pet_package_id';
+const CHAT_ID_KEY = 'agent_chat_id';
+const THEME_KEY = 'agent_theme';
+const PET_PACKAGE_KEY = 'agent_pet_package_id';
 const NEAR_BOTTOM_PX = 72;
 const EMPTY_MULTILINE_HEIGHT = 84;
 const MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024;
@@ -77,7 +77,7 @@ const ROLE_EMOJI = Object.freeze({
   fast: '⚡',
 });
 
-const RECONNECT_SESSION_KEY = 'daima_last_session';
+const RECONNECT_SESSION_KEY = 'agent_last_session';
 
 const storedTheme = localStorage.getItem(THEME_KEY) || 'warm';
 let chatId = createChatId();

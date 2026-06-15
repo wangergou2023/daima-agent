@@ -216,8 +216,8 @@ static void vector_connect_task(void *arg)
         if (s->mcp) break; /* already connected in a previous attempt */
     }
 
-    const char *robot_addr = getenv("DAIMA_ROBOT_ADDR");
-    const char *token_file = getenv("DAIMA_TOKEN_FILE");
+    const char *robot_addr = getenv("ROBOT_ADDR");
+    const char *token_file = getenv("TOKEN_FILE");
 
     /* mcp_client_launch 可能阻塞数秒等机器人连接 */
     mcp_client_t *mcp = mcp_client_launch(s->bin_path, robot_addr, token_file);
@@ -299,7 +299,7 @@ err_t vector_channel_init(void)
         pthread_mutex_init(&s->mutex, NULL);
     }
 
-    const char *custom = getenv("DAIMA_MCP_BIN");
+    const char *custom = getenv("MCP_BIN_PATH");
     if (custom && custom[0]) {
         strscpy(s->bin_path, custom, sizeof(s->bin_path));
     } else {

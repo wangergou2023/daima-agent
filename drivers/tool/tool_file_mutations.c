@@ -227,14 +227,14 @@ static err_t safe_edit_verify_patch_path(const char *path,
                                                char *output,
                                                size_t output_size)
 {
-    if (IS_ENABLED(CONFIG_DAIMA_HASHLINE_ENABLED)) {
+    if (IS_ENABLED(CONFIG_HASHLINE_ENABLED)) {
         bool saw_hashline = false;
         err_t hashline_err = hashline_verify_patch_path(path, patch_content, &saw_hashline, output, output_size);
         if (hashline_err != 0 || saw_hashline) {
             return hashline_err;
         }
     }
-    if (IS_ENABLED(CONFIG_DAIMA_SAFE_EDIT_ENABLED)) {
+    if (IS_ENABLED(CONFIG_SAFE_EDIT_ENABLED)) {
         char resolved_path[READ_PATH_SIZE];
         char scratch[128];
         if (!resolve_write_path_or_fail(path, resolved_path, sizeof(resolved_path), scratch, sizeof(scratch))) {

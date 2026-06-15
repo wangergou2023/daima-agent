@@ -148,7 +148,7 @@ static bool load_json_cfg(model_fallback_cfg_t *cfg, const char *json_text)
 
 static const char *config_dir_for_load(char *env_config_dir, size_t env_config_dir_size)
 {
-    const char *env_home = getenv("DAIMA_HOME");
+    const char *env_home = getenv("AGENT_HOME");
     if (env_home && env_home[0]) {
         snprintf(env_config_dir, env_config_dir_size, "%s/spiffs_data/config", env_home);
         return env_config_dir;

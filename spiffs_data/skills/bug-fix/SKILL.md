@@ -24,7 +24,7 @@ description: 当用户要求修复代码 bug、构建错误、运行异常或工
 
 ## 工具与路径
 
-- 常用工具：`terminal`、`files action=read`、`apply_patch`、`daima_log`、`work_item`。
+- 常用工具：`terminal`、`files action=read`、`apply_patch`、`log_tool`、`work_item`。
 - 排查顺序：先搜日志关键字，再搜函数名/宏名，再搜工具名/路径/JSON 字段名。
 - 使用 `apply_patch` 时必须提供完整 `apply_patch` 字符串；禁止 `{}` 或 `/path/to/file` 这类占位路径。
 - 需要临时运行 Node/Python 代码时，先用 `apply_patch` 新建脚本文件，再用 `terminal` 执行脚本。不要用 `node -e`、`python -c` 或 `cd ... && ...`；默认工作目录是 Daima workspace，只有明确操作某个项目时才使用项目 `workdir`。

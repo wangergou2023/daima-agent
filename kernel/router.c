@@ -451,7 +451,7 @@ static bool load_json_cfg(category_router_cfg_t *cfg, const char *json_text)
 
 static char *read_category_config(char *out_path, size_t out_path_size)
 {
-    const char *env_home = getenv("DAIMA_HOME");
+    const char *env_home = getenv("AGENT_HOME");
     const char *config_dir = NULL;
     char env_config_dir[BUF_PATH];
 
@@ -474,7 +474,7 @@ static char *read_category_config(char *out_path, size_t out_path_size)
 
 category_router_cfg_t category_router_load_and_get_cfg(void)
 {
-    const char *env_home = getenv("DAIMA_HOME");
+    const char *env_home = getenv("AGENT_HOME");
     const char *home_key = (env_home && env_home[0]) ? env_home : "";
     if (s_loaded && strcmp(s_loaded_home, home_key) == 0) {
         return s_cfg;

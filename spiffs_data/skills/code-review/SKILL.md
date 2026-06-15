@@ -23,7 +23,7 @@ description: 当用户要求 review、审查当前改动、评估回归风险或
 
 ## 工具与路径
 
-- 常用工具：`terminal`、`files action=read`、`daima_log`。
+- 常用工具：`terminal`、`files action=read`、`log_tool`。
 - 如果涉及 skill 行为，也用 `skills action=list` 和 `skills action=view` 确认实际加载内容。
 
 ## 输出要求

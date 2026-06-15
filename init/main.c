@@ -40,7 +40,7 @@ int main(int argc, char **argv)
 #ifdef BUILD_FOR_MIPS
     /* Auto-register systemd service on boot (rootfs is RO, runtime link needed each boot) */
     mkdir("/run/systemd/system", 0755);
-    symlink("/data/daima/daima.service", "/run/systemd/system/daima.service");
+    symlink("/data/agent-data/agent.service", "/run/systemd/system/agent.service");
 #endif
 
     if (argc > 1) {

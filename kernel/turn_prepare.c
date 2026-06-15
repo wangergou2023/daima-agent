@@ -109,7 +109,7 @@ static cJSON *build_user_vision_content(const char *text, const char *image_path
     pr_info("Attached image to multimodal request: %s", local_path);
 
     if (cleanup_local_path) {
-        const char *keep = env_get("DAIMA_VISION_KEEP_SNAPSHOT");
+        const char *keep = env_get("VISION_KEEP_SNAPSHOT");
         if (!keep || !keep[0]) {
             unlink(local_path);
         }
@@ -249,20 +249,20 @@ err_t agent_turn_prepare(
     }
 
     context_build_system_prompt_for_channel(msg->channel, system_prompt, system_prompt_size);
-    if (IS_ENABLED(CONFIG_DAIMA_RULES_INJECTION_ENABLED)) {
+    if (IS_ENABLED(CONFIG_RULES_INJECTION_ENABLED)) {
         char rules_buf[8192];
         if (rules_injection_load(rules_buf, sizeof(rules_buf)) == 0 && rules_buf[0]) {
             prepend_rules_prompt(system_prompt, system_prompt_size, rules_buf);
         }
     }
     append_session_summary_prompt(system_prompt, system_prompt_size, msg->chat_id);
-    if (IS_ENABLED(CONFIG_DAIMA_COMPACTION_RECOVERY_ENABLED)) {
+    if (IS_ENABLED(CONFIG_COMPACTION_RECOVERY_ENABLED)) {
         compaction_recovery_inject(msg->chat_id, system_prompt, system_prompt_size);
     }
-    if (IS_ENABLED(CONFIG_DAIMA_TODO_ENFORCER_ENABLED)) {
+    if (IS_ENABLED(CONFIG_TODO_ENFORCER_ENABLED)) {
         todo_enforcer_inject_prompt(msg->chat_id, system_prompt, system_prompt_size);
     }
-    if (IS_ENABLED(CONFIG_DAIMA_SESSION_RECOVERY_ENABLED)) {
+    if (IS_ENABLED(CONFIG_SESSION_RECOVERY_ENABLED)) {
         session_recovery_t rec = session_recovery_check(msg->chat_id);
         if (rec.has_crash) {
             session_recovery_inject_prompt(msg->chat_id, system_prompt, system_prompt_size);

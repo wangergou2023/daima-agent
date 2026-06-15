@@ -1,4 +1,4 @@
-# daima-agent: 内核级 Agent 工程规划
+# agent: 内核级 Agent 工程规划
 
 ## 目标
 
@@ -7,7 +7,7 @@
 ## 完成度
 
 ```
-目录            6.8内核                          daima-agent        状态
+目录            6.8内核                          agent        状态
 ────────────────────────────────────────────────────────────────────────
 Documentation/  ✅ ReST文档 + kernel-doc        ❌                 待做
 arch/           ✅ x86/arm/mips/riscv/...        ✅ host/mips/arm   完成
@@ -35,7 +35,7 @@ COPYING         GPL-2.0                           MIT              待加
 CREDITS         维护者列表                         ❌               待加
 MAINTAINERS     子系统维护者                       ❌               待加
 Kbuild          顶层构建                           → CMakeLists     需改
-Kconfig         顶层配置                           ✅ daima/Kconfig 完成
+Kconfig         顶层配置                           ✅ Kconfig 完成
 Makefile        顶层Makefile                      ✅               完成
 README          项目说明                           ✅               完成
 REPORTING-BUGS  bug报告指南                        ❌               待加
@@ -64,15 +64,15 @@ scripts/get_maintainer.pl  ← 内核原样复制 (可选)
 替换 cmake 为真正的 Kbuild 递归:
 ```
 顶层 Makefile
-  → daima/init/Makefile       (obj-y += main.o bootstrap.o)
-  → daima/kernel/Makefile     (obj-y += loop.o hooks.o sched/)
-  → daima/kernel/sched/Makefile (obj-y += core.o class.o agent.o)
-  → daima/ipc/Makefile        (obj-y += bus.o)
-  → daima/lib/Makefile        (obj-y += text.o base64.o log.o)
-  → daima/net/Makefile        (obj-y += http.o tls.o proxy.o)
-  → daima/fs/Makefile         (obj-y += paths.o fs.o)
-  → daima/drivers/llm/Makefile (obj-y += llm_proxy.o payload.o)
-  → daima/arch/host/Makefile  (obj-y += ...)
+  → init/Makefile       (obj-y += main.o bootstrap.o)
+  → kernel/Makefile     (obj-y += loop.o hooks.o sched/)
+  → kernel/sched/Makefile (obj-y += core.o class.o agent.o)
+  → ipc/Makefile        (obj-y += bus.o)
+  → lib/Makefile        (obj-y += text.o base64.o log.o)
+  → net/Makefile        (obj-y += http.o tls.o proxy.o)
+  → fs/Makefile         (obj-y += paths.o fs.o)
+  → drivers/llm/Makefile (obj-y += llm_proxy.o payload.o)
+  → arch/host/Makefile  (obj-y += ...)
 ```
 
 每个目录都有 `obj-y` / `obj-m`。
@@ -130,7 +130,7 @@ tools/perf/                      性能测试 (可选)
 - 注释风格: /** kernel-doc */ 格式
 - 命名: struct_ops, xxx_init/xxx_exit
 - printk 日志级别: KERN_ERR/KERN_WARNING/KERN_INFO
-- 错误码: -EINVAL, -ENOMEM (映射 daima_err_t)
+- 错误码: -EINVAL, -ENOMEM (映射 agent_err_t)
 ```
 
 ## 执行顺序

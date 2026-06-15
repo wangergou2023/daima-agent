@@ -10,7 +10,7 @@
 #include <string.h>
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("daima");
+MODULE_AUTHOR("agent");
 MODULE_DESCRIPTION("Agent Extension: prometheus_interview");
 static err_t replace_run(struct message *msg, char *system_prompt,
                                cJSON *messages, const char *tools_json,

@@ -21,7 +21,7 @@ def save(k):
 def draw(stdscr, syms, cursor, msg):
     stdscr.clear()
     h, w = stdscr.getmaxyx()
-    stdscr.addstr(0, 2, "daima-agent Configuration", curses.A_BOLD)
+    stdscr.addstr(0, 2, "Agent Configuration", curses.A_BOLD)
     stdscr.addstr(1, 2, "\u2500" * (w - 4))
     visible = h - 5
     start = max(0, cursor - visible // 2)

@@ -5,7 +5,7 @@
 #include "linux/printk.h"
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("daima");
+MODULE_AUTHOR("agent");
 MODULE_DESCRIPTION("Agent Extension: intent_gate");
 static err_t on_intent(struct message *msg)
 {

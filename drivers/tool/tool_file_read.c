@@ -148,7 +148,7 @@ err_t tool_read_file_execute(const char *input_json, char *output, size_t output
         }
 
         size_t original_line_len = strlen(line);
-        if (IS_ENABLED(CONFIG_DAIMA_SAFE_EDIT_ENABLED) && st.st_size < (1024 * 1024)) {
+        if (IS_ENABLED(CONFIG_SAFE_EDIT_ENABLED) && st.st_size < (1024 * 1024)) {
             if (fingerprint_len + original_line_len + 1 > fingerprint_cap) {
                 size_t next_cap = fingerprint_cap ? fingerprint_cap : 256;
                 while (next_cap < fingerprint_len + original_line_len + 1) {
@@ -176,7 +176,7 @@ err_t tool_read_file_execute(const char *input_json, char *output, size_t output
 
         char rendered[READ_FILE_MAX_LINE_CHARS + 64];
         char prefix[HASHLINE_PREFIX_MAX] = {0};
-        if (IS_ENABLED(CONFIG_DAIMA_HASHLINE_ENABLED)) {
+        if (IS_ENABLED(CONFIG_HASHLINE_ENABLED)) {
             hashline_make_prefix(current_line, line, prefix, sizeof(prefix));
         } else {
             snprintf(prefix, sizeof(prefix), "%6d|", current_line);
@@ -223,7 +223,7 @@ err_t tool_read_file_execute(const char *input_json, char *output, size_t output
 
     remember_last_read(resolved_path, offset, limit, st.st_mtime);
 
-    if (IS_ENABLED(CONFIG_DAIMA_SAFE_EDIT_ENABLED) && fingerprint_content && emitted_lines > 0) {
+    if (IS_ENABLED(CONFIG_SAFE_EDIT_ENABLED) && fingerprint_content && emitted_lines > 0) {
         safe_edit_register_read(resolved_path, fingerprint_content, first_emitted_line, last_emitted_line);
     }
     kfree(fingerprint_content);

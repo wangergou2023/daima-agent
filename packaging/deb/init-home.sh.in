@@ -1,9 +1,9 @@
 #!/bin/sh
 set -eu
 
-APP_DIR="/usr/lib/daima"
-DAIMA_SEED_DIR="${DAIMA_SEED_DIR:-/usr/share/daima-agent/spiffs_data}"
-DAIMA_HOME="${DAIMA_HOME:-$HOME/.daima}"
+APP_DIR="/usr/lib/agent"
+AGENT_SEED_DIR="${AGENT_SEED_DIR:-/usr/share/agent/spiffs_data}"
+AGENT_HOME="${AGENT_HOME:-$HOME/.agent-data}"
 
 copy_tree_missing() {
     src="$1"
@@ -25,41 +25,41 @@ copy_file_missing() {
     [ -e "$dst" ] || install -Dm644 "$src" "$dst"
 }
 
-mkdir -p "$DAIMA_HOME/bin" \
-         "$DAIMA_HOME/spiffs_data/config" \
-         "$DAIMA_HOME/spiffs_data/web" \
-         "$DAIMA_HOME/spiffs_data/skills" \
-         "$DAIMA_HOME/spiffs_data/ca" \
-         "$DAIMA_HOME/spiffs_data/memory" \
-         "$DAIMA_HOME/spiffs_data/sessions" \
-         "$DAIMA_HOME/spiffs_data/cache"
+mkdir -p "$AGENT_HOME/bin" \
+         "$AGENT_HOME/spiffs_data/config" \
+         "$AGENT_HOME/spiffs_data/web" \
+         "$AGENT_HOME/spiffs_data/skills" \
+         "$AGENT_HOME/spiffs_data/ca" \
+         "$AGENT_HOME/spiffs_data/memory" \
+         "$AGENT_HOME/spiffs_data/sessions" \
+         "$AGENT_HOME/spiffs_data/cache"
 
-copy_tree_missing "$DAIMA_SEED_DIR/web" "$DAIMA_HOME/spiffs_data/web"
-copy_tree_missing "$DAIMA_SEED_DIR/skills" "$DAIMA_HOME/spiffs_data/skills"
-rm -rf "$DAIMA_HOME/spiffs_data/skills/robot-control" \
-       "$DAIMA_HOME/spiffs_data/skills/feishu-card-writer" \
-       "$DAIMA_HOME/spiffs_data/skills/pet-director"
+copy_tree_missing "$AGENT_SEED_DIR/web" "$AGENT_HOME/spiffs_data/web"
+copy_tree_missing "$AGENT_SEED_DIR/skills" "$AGENT_HOME/spiffs_data/skills"
+rm -rf "$AGENT_HOME/spiffs_data/skills/robot-control" \
+       "$AGENT_HOME/spiffs_data/skills/feishu-card-writer" \
+       "$AGENT_HOME/spiffs_data/skills/pet-director"
 
-copy_file_missing "$DAIMA_SEED_DIR/ca/cacert.pem" "$DAIMA_HOME/spiffs_data/ca/cacert.pem"
-copy_file_missing "$DAIMA_SEED_DIR/config/config.example.json" "$DAIMA_HOME/spiffs_data/config/config.example.json"
+copy_file_missing "$AGENT_SEED_DIR/ca/cacert.pem" "$AGENT_HOME/spiffs_data/ca/cacert.pem"
+copy_file_missing "$AGENT_SEED_DIR/config/config.example.json" "$AGENT_HOME/spiffs_data/config/config.example.json"
 
-for pet_dir in "$DAIMA_SEED_DIR"/*.codex-pet; do
+for pet_dir in "$AGENT_SEED_DIR"/*.codex-pet; do
     [ -d "$pet_dir" ] || continue
-    copy_tree_missing "$pet_dir" "$DAIMA_HOME/spiffs_data/$(basename "$pet_dir")"
+    copy_tree_missing "$pet_dir" "$AGENT_HOME/spiffs_data/$(basename "$pet_dir")"
 done
 
 created_config=0
-if [ ! -e "$DAIMA_HOME/spiffs_data/config/config.json" ]; then
-    if [ -e "$DAIMA_SEED_DIR/config/config.json" ]; then
-        install -m644 "$DAIMA_SEED_DIR/config/config.json" "$DAIMA_HOME/spiffs_data/config/config.json"
+if [ ! -e "$AGENT_HOME/spiffs_data/config/config.json" ]; then
+    if [ -e "$AGENT_SEED_DIR/config/config.json" ]; then
+        install -m644 "$AGENT_SEED_DIR/config/config.json" "$AGENT_HOME/spiffs_data/config/config.json"
     else
-        install -m644 "$DAIMA_SEED_DIR/config/config.example.json" "$DAIMA_HOME/spiffs_data/config/config.json"
+        install -m644 "$AGENT_SEED_DIR/config/config.example.json" "$AGENT_HOME/spiffs_data/config/config.json"
     fi
     created_config=1
 fi
 
 if [ "$created_config" -eq 1 ]; then
-    python3 - "$DAIMA_HOME/spiffs_data/config/config.json" <<'PY'
+    python3 - "$AGENT_HOME/spiffs_data/config/config.json" <<'PY'
 import json
 import sys
 
@@ -84,5 +84,5 @@ PY
 fi
 
 for name in BOOTSTRAP.md IDENTITY.md SOUL.md USER.md AGENTS.md; do
-    copy_file_missing "$DAIMA_SEED_DIR/config/$name" "$DAIMA_HOME/spiffs_data/config/$name"
+    copy_file_missing "$AGENT_SEED_DIR/config/$name" "$AGENT_HOME/spiffs_data/config/$name"
 done

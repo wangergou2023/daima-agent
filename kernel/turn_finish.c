@@ -135,18 +135,18 @@ void agent_turn_finish(
         pr_err("Agent turn failed: %s", err_name(turn_err));
     }
 
-    if (IS_ENABLED(CONFIG_DAIMA_COMPACTION_RECOVERY_ENABLED) &&
+    if (IS_ENABLED(CONFIG_COMPACTION_RECOVERY_ENABLED) &&
         turn_err == 0 && msg && msg->chat_id[0]) {
         compaction_recovery_clear(msg->chat_id);
     }
-    if (IS_ENABLED(CONFIG_DAIMA_TODO_ENFORCER_ENABLED) &&
+    if (IS_ENABLED(CONFIG_TODO_ENFORCER_ENABLED) &&
         turn_err == 0 && msg && msg->chat_id[0]) {
         int total_todos = 0;
         int completed_todos = 0;
         read_todo_counts(&total_todos, &completed_todos);
         todo_enforcer_record_progress(msg->chat_id, total_todos, completed_todos);
     }
-    if (IS_ENABLED(CONFIG_DAIMA_SESSION_RECOVERY_ENABLED) &&
+    if (IS_ENABLED(CONFIG_SESSION_RECOVERY_ENABLED) &&
         turn_err == 0 && msg && msg->chat_id[0]) {
         session_recovery_clear(msg->chat_id);
     }

@@ -1,8 +1,8 @@
 menu "LLM Driver"
-config DAIMA_LLM_OPENAI
+config LLM_OPENAI
     bool "OpenAI 协议支持"
     default y
-config DAIMA_LLM_ANTHROPIC
+config LLM_ANTHROPIC
     bool "Anthropic 协议支持"
     default y
 endmenu

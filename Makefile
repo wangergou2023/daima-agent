@@ -1,12 +1,12 @@
-# daima-agent 内核风格 Makefile
+# agent 内核风格 Makefile
 VERSION = 1
 PATCHLEVEL = 0
 
 export TOPDIR := $(CURDIR)
 export srctree := $(TOPDIR)
 export objtree := $(TOPDIR)
-export DAIMA_DIR := $(TOPDIR)
-export AGENT_DIR := $(DAIMA_DIR)
+export AGENT_ROOT := $(TOPDIR)
+export AGENT_DIR := $(AGENT_ROOT)
 BUILD_DIR := build-kbuild
 export BUILD_DIR
 AGENT_BIN := $(BUILD_DIR)/daima
@@ -35,10 +35,10 @@ core-y += drivers/tool/ drivers/memory/ drivers/skill/ drivers/voice/
 core-y += drivers/platform/ drivers/pet/
 core-y += extensions/
 
-daima-dirs := $(patsubst %/,%,$(core-y))
-agent_builtin := $(foreach d,$(daima-dirs),$(d)/built-in.o)
+agent-dirs := $(patsubst %/,%,$(core-y))
+agent_builtin := $(foreach d,$(agent-dirs),$(d)/built-in.o)
 
-.PHONY: all daima host mips arm arch-obj cjson modules test clean mrproper distclean help menuconfig defconfig config $(daima-dirs)
+.PHONY: all daima host mips arm arch-obj cjson modules test clean mrproper distclean help menuconfig defconfig config $(agent-dirs)
 
 all: kbuild
 kbuild: daima
@@ -47,7 +47,7 @@ $(BUILD_DIR):
 	$(Q)mkdir -p $(BUILD_DIR)
 	$(Q)> $(BUILD_DIR)/objects.list
 
-$(daima-dirs): $(BUILD_DIR)
+$(agent-dirs): $(BUILD_DIR)
 	$(Q)$(MAKE) -f $(TOPDIR)/scripts/Makefile.build obj=$@
 
 cjson: $(BUILD_DIR)
@@ -58,7 +58,7 @@ cjson: $(BUILD_DIR)
 arch-obj: $(BUILD_DIR)
 	$(Q)$(MAKE) -f $(TOPDIR)/scripts/Makefile.build obj=arch/$(ARCH)
 
-daima: $(daima-dirs) cjson arch-obj
+daima: $(agent-dirs) cjson arch-obj
 	@echo "  LD      daima"
 	$(Q)awk '!seen[$$0]++' $(BUILD_DIR)/objects.list > $(BUILD_DIR)/objects.link
 	$(Q)$(CC) $(AGENT_CFLAGS) -o $(AGENT_BIN) @$(BUILD_DIR)/objects.link $(LDFLAGS)

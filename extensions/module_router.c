@@ -5,7 +5,7 @@
 #include "linux/printk.h"
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("daima");
+MODULE_AUTHOR("agent");
 MODULE_DESCRIPTION("Agent Extension: category_router");
 static err_t before_run(struct message *msg, const char **model_override,
                               const char *tools_json)

@@ -118,7 +118,7 @@ err_t host_http_request(const char *method,
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &resp);
     curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, header_cb);
     curl_easy_setopt(curl, CURLOPT_HEADERDATA, &hdrs);
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "daima-host/0.1");
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "agent-host/0.1");
     curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
     curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, cancel_progress_cb);
 

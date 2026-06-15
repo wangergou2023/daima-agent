@@ -7,7 +7,7 @@ function requirePptxGen() {
   const candidates = [
     'pptxgenjs',
     path.resolve(__dirname, '../../../../workspace/node_modules/pptxgenjs'),
-    '/home/wangergou/.daima/spiffs_data/workspace/node_modules/pptxgenjs'
+    '/home/wangergou/.agent-data/spiffs_data/workspace/node_modules/pptxgenjs'
   ];
   const errors = [];
   for (const candidate of candidates) {

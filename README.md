@@ -1,4 +1,4 @@
-# daima-agent
+# agent
 
 嵌入式 AI Agent，Linux 内核风格架构。C11 + Kbuild，单二进制。
 
@@ -14,7 +14,7 @@ make test          # 测试
 ## 架构 (Linux 内核 1:1 映射)
 
 ```
-daima/
+agent/
 ├── init/main.c                 ← kernel/init/main.c
 ├── kernel/
 │   ├── sched/{core,class,agent}.c  ← kernel/sched/ (多核调度)
@@ -86,7 +86,7 @@ make arm           # ARM 交叉编译
 |------|------|
 | 构建系统 | Kbuild 递归 + obj-y (零 cmake) |
 | 配置系统 | Kconfig + make menuconfig (ncurses) |
-| 驱动模型 | struct daima_driver + probe/remove |
+| 驱动模型 | struct agent_driver + probe/remove |
 | 模块系统 | extensions/module_* + MODULE_LICENSE |
 | 初始化链 | core_initcall → device_initcall 8级 |
 | 平台抽象 | arch/{host,mips,arm}/ + per-arch Makefile |

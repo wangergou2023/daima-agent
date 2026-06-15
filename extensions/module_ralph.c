@@ -8,7 +8,7 @@
 #include "linux/slab.h"
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("daima");
+MODULE_AUTHOR("agent");
 MODULE_DESCRIPTION("Agent Extension: ralph_loop");
 
 static err_t on_prepare(struct message *msg, char *system_prompt,

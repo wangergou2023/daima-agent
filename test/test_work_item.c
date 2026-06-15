@@ -93,8 +93,8 @@ static void collect_tool_failure_once(const char *signature)
 int main(void)
 {
     char home[512];
-    snprintf(home, sizeof(home), "/tmp/daima-work-item-test-%ld", (long)getpid());
-    setenv("DAIMA_HOME", home, 1);
+    snprintf(home, sizeof(home), "/tmp/agent-work-item-test-%ld", (long)getpid());
+    setenv("AGENT_HOME", home, 1);
     char memory_dir[1024];
     snprintf(memory_dir, sizeof(memory_dir), "%s/spiffs_data/memory", home);
     mkdir_p(memory_dir);

@@ -21,7 +21,7 @@ license: Proprietary. LICENSE.txt has complete terms
 For ordinary create-from-scratch requests such as "帮我生成一个ppt,内容是关于三角函数的", do not read the entire `pptxgenjs.md` tutorial and do not write a large custom `make_pptx.js`. Use the fixed generator workflow first:
 
 1. Create a small `deck_spec.json` with `apply_patch`.
-2. Run `node /home/wangergou/.daima/spiffs_data/skills/pptx/scripts/generate_deck.js deck_spec.json output.pptx`.
+2. Run `node /home/wangergou/.agent-data/spiffs_data/skills/pptx/scripts/generate_deck.js deck_spec.json output.pptx`.
 3. Verify the `.pptx` exists, has non-zero size, and can be opened as a zip.
 4. Return the generated file path.
 
@@ -57,7 +57,7 @@ Include 3-6 content slide entries when the user gives only a topic. The generato
 Run:
 
 ```json
-{"command":"node /home/wangergou/.daima/spiffs_data/skills/pptx/scripts/generate_deck.js deck_spec.json output.pptx","timeout":120}
+{"command":"node /home/wangergou/.agent-data/spiffs_data/skills/pptx/scripts/generate_deck.js deck_spec.json output.pptx","timeout":120}
 ```
 
 Then verify:

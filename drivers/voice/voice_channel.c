@@ -180,7 +180,7 @@ static err_t voice_asr_mime(const unsigned char *audio_bytes,
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &resp);
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, 120 * 1000);
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "daima-host/0.1");
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "agent-host/0.1");
 
     /* 组装 multipart */
     curl_mime *mime = curl_mime_init(curl);

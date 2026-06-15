@@ -1,10 +1,10 @@
 choice
     prompt "Target Architecture"
-    default DAIMA_ARCH_HOST
-config DAIMA_ARCH_HOST
+    default ARCH_HOST
+config ARCH_HOST
     bool "x86_64 Linux PC"
-config DAIMA_ARCH_MIPS
+config ARCH_MIPS
     bool "MIPS 嵌入式"
-config DAIMA_ARCH_ARM
+config ARCH_ARM
     bool "ARM 嵌入式"
 endchoice

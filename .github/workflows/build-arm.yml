@@ -22,7 +22,7 @@ jobs:
             libssl-dev:armhf \
             cmake
 
-      - name: Build daima-agent
+      - name: Build agent
         run: |
           mkdir build-arm && cd build-arm
           cmake .. \

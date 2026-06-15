@@ -215,8 +215,8 @@ static size_t append_workspace_context(char *buf, size_t size, size_t offset)
 
     offset = append_textf(buf, size, offset, "\n## 当前工作区\n\n");
     offset = append_textf(buf, size, offset, "- cwd: `%s`\n", cwd);
-    offset = append_textf(buf, size, offset, "- daima workspace: `%s`\n", path_workspace_dir());
-    offset = append_textf(buf, size, offset, "- 工具默认工作目录是 daima workspace；安装依赖、生成临时脚本和未指定路径的新文件应放在 daima workspace，不要污染 cwd 或 repo。\n");
+    offset = append_textf(buf, size, offset, "- agent workspace: `%s`\n", path_workspace_dir());
+    offset = append_textf(buf, size, offset, "- 工具默认工作目录是 agent workspace；安装依赖、生成临时脚本和未指定路径的新文件应放在 agent workspace，不要污染 cwd 或 repo。\n");
     if (has_repo_root) {
         offset = append_textf(buf, size, offset, "- repo root: `%s`\n", repo_root);
     }
@@ -314,7 +314,7 @@ static size_t append_operator_guide_fallback(char *buf, size_t size, size_t offs
         "- `todo`：管理待办列表。\n"
         "- `work_item`：收集和管理结构化事项，覆盖 defect / missing / improvement / tech_debt / docs / test_gap。\n"
         "- `webfetch`：获取网页内容（text/html），用于搜索信息、阅读文档。\n"
-        "- `log_tool`：读取 daima 自身运行日志（tail/search/errors），用于诊断工具失败和系统异常。\n"
+        "- `log_tool`：读取 agent 自身运行日志（tail/search/errors），用于诊断工具失败和系统异常。\n"
         "- `skills`：查看技能；`action=list` 看总览，`action=view` 读技能说明。\n"
         "- `session_search`：搜索历史会话、压缩摘要和事实卡片。\n"
         "- `terminal`：执行本地 shell 命令，返回包含 `output`、`exit_code`、`timed_out`、`workdir` 的 JSON。\n"

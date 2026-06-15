@@ -11,8 +11,8 @@
 #define PATH_MAX 4096
 #endif
 
-static const char *DAIMA_HOME_ENV = "DAIMA_HOME";
-static const char *DEFAULT_HOME_NAME = ".daima";
+static const char *AGENT_HOME_ENV = "AGENT_HOME";
+static const char *DEFAULT_HOME_NAME = ".agent-data";
 
 typedef struct {
     int initialized;
@@ -119,7 +119,7 @@ static void dirname_inplace(char *path)
 
 static void detect_home_dir(char *out, size_t out_size)
 {
-    const char *env_home = getenv(DAIMA_HOME_ENV);
+    const char *env_home = getenv(AGENT_HOME_ENV);
     if (env_home && env_home[0]) {
         safe_copy(out, out_size, env_home);
         return;
@@ -147,7 +147,7 @@ static void detect_home_dir(char *out, size_t out_size)
         }
     }
 
-    safe_copy(out, out_size, ".daima");
+    safe_copy(out, out_size, ".agent-data");
 }
 
 static void build_paths(void)
@@ -174,7 +174,7 @@ static void build_paths(void)
     join_path2(s_paths.skill_review_queue_file, sizeof(s_paths.skill_review_queue_file), s_paths.memory_dir, "SKILL_REVIEW_QUEUE.md");
     join_path2(s_paths.todo_file, sizeof(s_paths.todo_file), s_paths.memory_dir, "TODO.json");
     join_path2(s_paths.work_items_file, sizeof(s_paths.work_items_file), s_paths.memory_dir, "work_items.jsonl");
-    join_path2(s_paths.log_file, sizeof(s_paths.log_file), s_paths.memory_dir, "daima.log");
+    join_path2(s_paths.log_file, sizeof(s_paths.log_file), s_paths.memory_dir, "agent.log");
     join_path2(s_paths.web_index_file, sizeof(s_paths.web_index_file), s_paths.web_dir, "index.html");
     join_path2(s_paths.web_css_file, sizeof(s_paths.web_css_file), s_paths.web_dir, "app.css");
     join_path2(s_paths.web_js_file, sizeof(s_paths.web_js_file), s_paths.web_dir, "app.js");

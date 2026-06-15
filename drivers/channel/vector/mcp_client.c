@@ -112,7 +112,7 @@ mcp_client_t *mcp_client_launch(const char *bin_path, const char *robot_addr, co
     cJSON *capabilities = cJSON_CreateObject();
     cJSON_AddItemToObject(init_params, "capabilities", capabilities);
     cJSON *client_info = cJSON_CreateObject();
-    cJSON_AddStringToObject(client_info, "name", "daima-agent");
+    cJSON_AddStringToObject(client_info, "name", "agent");
     cJSON_AddStringToObject(client_info, "version", "1.0.0");
     cJSON_AddItemToObject(init_params, "clientInfo", client_info);
 

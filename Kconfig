@@ -1,7 +1,7 @@
-# daima-agent Kconfig (内核风格: source 子Kconfig)
-mainmenu "daima-agent Configuration"
+# agent Kconfig (内核风格: source 子Kconfig)
+mainmenu "Agent Configuration"
 
-source "daima/arch/Kconfig"
+source "arch/Kconfig"
 
 menu "Agent Extensions"
 config AGENT_EXTENSIONS_ENABLED
@@ -53,20 +53,20 @@ config SESSION_RECOVERY_ENABLED
     default y
 endmenu
 
-source "daima/kernel/Kconfig"
-source "daima/drivers/llm/Kconfig"
-source "daima/drivers/channel/Kconfig"
+source "kernel/Kconfig"
+source "drivers/llm/Kconfig"
+source "drivers/channel/Kconfig"
 
 menu "Other Drivers"
 config ENABLE_VISION
     bool "图像理解"
     default y
 
-config DAIMA_ENABLE_SKILLS
+config ENABLE_SKILLS
     bool "Skill系统"
     default y
 
-config DAIMA_ENABLE_MEMORY
+config ENABLE_MEMORY
     bool "会话记忆"
     default y
 endmenu

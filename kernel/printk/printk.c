@@ -33,7 +33,7 @@ static const char *level_char(int level)
     }
 }
 
-static int kernel_level_to_daima(int level)
+static int kernel_level_to_agent(int level)
 {
     if (level <= 3) return LOG_ERROR;
     if (level == 4) return LOG_WARN;
@@ -46,7 +46,7 @@ static int printk_level_from_prefix(const char **fmt)
     const char *p = *fmt;
     if (p && p[0] == '<' && p[1] >= '0' && p[1] <= '7' && p[2] == '>') {
         *fmt = p + 3;
-        return kernel_level_to_daima(p[1] - '0');
+        return kernel_level_to_agent(p[1] - '0');
     }
     return LOG_INFO;
 }

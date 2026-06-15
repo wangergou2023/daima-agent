@@ -28,8 +28,8 @@ static int run_tool(const char *input, char *output, size_t output_size)
 int main(void)
 {
     char home[512];
-    snprintf(home, sizeof(home), "/tmp/daima-webfetch-test-%ld", (long)getpid());
-    setenv("DAIMA_HOME", home, 1);
+    snprintf(home, sizeof(home), "/tmp/agent-webfetch-test-%ld", (long)getpid());
+    setenv("AGENT_HOME", home, 1);
     char memory_dir[1024];
     snprintf(memory_dir, sizeof(memory_dir), "%s/spiffs_data/memory", home);
     mkdir_p(memory_dir);

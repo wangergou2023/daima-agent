@@ -1,5 +1,5 @@
 menu "Scheduler"
-config DAIMA_SCHED_COORDINATOR
+config SCHED_COORDINATOR
     bool "多Agent并行调度"
     default y
     help

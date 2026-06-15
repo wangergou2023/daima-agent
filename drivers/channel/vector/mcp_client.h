@@ -1,7 +1,7 @@
 /* 最小化 MCP (Model Context Protocol) JSON-RPC 2.0 客户端
  * 通过 popen 启动 robot-mcp 子进程，双向管道通信。
  *
- * 依赖: daima 已有的 cJSON
+ * 依赖: agent 已有的 cJSON
  */
 #pragma once
 
