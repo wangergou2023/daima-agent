@@ -15,3 +15,5 @@ build-host/
 build-mips/
 build-arm/
 __pycache__/
+test/test_*
+!test/test_*.c
