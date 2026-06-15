@@ -215,7 +215,7 @@ static size_t append_workspace_context(char *buf, size_t size, size_t offset)
 
     offset = append_textf(buf, size, offset, "\n## 当前工作区\n\n");
     offset = append_textf(buf, size, offset, "- cwd: `%s`\n", cwd);
-    offset = append_textf(buf, size, offset, "- daima workspace: `%s`\n", daima_path_workspace_dir());
+    offset = append_textf(buf, size, offset, "- daima workspace: `%s`\n", path_workspace_dir());
     offset = append_textf(buf, size, offset, "- 工具默认工作目录是 daima workspace；安装依赖、生成临时脚本和未指定路径的新文件应放在 daima workspace，不要污染 cwd 或 repo。\n");
     if (has_repo_root) {
         offset = append_textf(buf, size, offset, "- repo root: `%s`\n", repo_root);
@@ -314,7 +314,7 @@ static size_t append_operator_guide_fallback(char *buf, size_t size, size_t offs
         "- `todo`：管理待办列表。\n"
         "- `work_item`：收集和管理结构化事项，覆盖 defect / missing / improvement / tech_debt / docs / test_gap。\n"
         "- `webfetch`：获取网页内容（text/html），用于搜索信息、阅读文档。\n"
-        "- `daima_log`：读取 daima 自身运行日志（tail/search/errors），用于诊断工具失败和系统异常。\n"
+        "- `log_tool`：读取 daima 自身运行日志（tail/search/errors），用于诊断工具失败和系统异常。\n"
         "- `skills`：查看技能；`action=list` 看总览，`action=view` 读技能说明。\n"
         "- `session_search`：搜索历史会话、压缩摘要和事实卡片。\n"
         "- `terminal`：执行本地 shell 命令，返回包含 `output`、`exit_code`、`timed_out`、`workdir` 的 JSON。\n"
@@ -339,12 +339,12 @@ static size_t append_dynamic_runtime_guide_fallback(char *buf, size_t size, size
         "- User Info：`%s`\n"
         "- 更新这些文件时，先用 `files action=search/read` 看上下文，再用 `apply_patch` 做最小改动，避免直接覆盖。\n"
         "- 若文件不存在，用 `apply_patch` 的 `*** Add File` 创建。\n",
-        daima_path_memory_dir(),
-        daima_path_memory_dir(),
-        daima_path_config_dir(),
-        daima_path_config_dir(),
-        daima_path_soul_file(),
-        daima_path_user_file());
+        path_memory_dir(),
+        path_memory_dir(),
+        path_config_dir(),
+        path_config_dir(),
+        path_soul_file(),
+        path_user_file());
 
     return append_textf(
         buf, size, offset,
@@ -354,14 +354,14 @@ static size_t append_dynamic_runtime_guide_fallback(char *buf, size_t size, size
         "- 你可以用 `apply_patch` 创建新技能到 `%s/<name>/SKILL.md`。\n"
         "- 如果只是修改已有技能，先用 `files action=read`，再用 `apply_patch`。\n"
         "- 技能文件必须包含 YAML front matter 的 `name` 和 `description`，否则无法加载。\n",
-        daima_path_skills_dir(),
-        daima_path_skills_dir());
+        path_skills_dir(),
+        path_skills_dir());
 }
 
 err_t context_build_system_prompt_for_channel(const char *channel, char *buf, size_t size)
 {
     size_t off = 0;
-    bool has_bootstrap = file_has_content(daima_path_bootstrap_file());
+    bool has_bootstrap = file_has_content(path_bootstrap_file());
 
     off = append_textf(
         buf, size, off,
@@ -369,7 +369,7 @@ err_t context_build_system_prompt_for_channel(const char *channel, char *buf, si
         "> 这是当前轮对话的系统说明。把它当作一份长期有效的操作手册；若与用户当前这轮的明确新指令冲突，以用户当前新指令为准。\n");
 
     if (has_bootstrap) {
-        off = append_file(buf, size, off, daima_path_bootstrap_file(), "Bootstrap");
+        off = append_file(buf, size, off, path_bootstrap_file(), "Bootstrap");
     }
 
     off = append_operator_guide_fallback(buf, size, off, has_bootstrap);
@@ -377,9 +377,9 @@ err_t context_build_system_prompt_for_channel(const char *channel, char *buf, si
     off = append_workspace_context(buf, size, off);
 
     /* 身份与用户配置 */
-    off = append_file(buf, size, off, daima_path_identity_file(), "身份设定");
-    off = append_file(buf, size, off, daima_path_soul_file(), "个性设定");
-    off = append_file(buf, size, off, daima_path_user_file(), "用户信息");
+    off = append_file(buf, size, off, path_identity_file(), "身份设定");
+    off = append_file(buf, size, off, path_soul_file(), "个性设定");
+    off = append_file(buf, size, off, path_user_file(), "用户信息");
 
     /* 长期记忆 */
     char mem_buf[4096];

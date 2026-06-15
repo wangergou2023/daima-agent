@@ -3,7 +3,7 @@
 #include <string.h>
 #include "linux/kernel.h"
 
-void daima_safe_copy(char *dst, size_t dst_size, const char *src)
+void safe_copy(char *dst, size_t dst_size, const char *src)
 {
     if (!dst || dst_size == 0) return;
     if (!src) {
@@ -15,7 +15,7 @@ void daima_safe_copy(char *dst, size_t dst_size, const char *src)
     dst[n] = '\0';
 }
 
-bool daima_str_ends_with(const char *s, const char *suffix)
+bool str_ends_with(const char *s, const char *suffix)
 {
     if (!s || !suffix) return false;
     size_t s_len = strlen(s);
@@ -24,7 +24,7 @@ bool daima_str_ends_with(const char *s, const char *suffix)
     return strcmp(s + s_len - suf_len, suffix) == 0;
 }
 
-void daima_shorten_text(const char *src, char *dst, size_t dst_size, size_t max_len)
+void text_shorten(const char *src, char *dst, size_t dst_size, size_t max_len)
 {
     if (!dst || dst_size == 0) return;
     dst[0] = '\0';

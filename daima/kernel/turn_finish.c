@@ -25,7 +25,7 @@ static void read_todo_counts(int *out_total, int *out_completed)
     *out_total = 0;
     *out_completed = 0;
 
-    FILE *f = fopen(daima_path_todo_file(), "r");
+    FILE *f = fopen(path_todo_file(), "r");
     if (!f) {
         return;
     }
@@ -151,5 +151,5 @@ void agent_turn_finish(
         session_recovery_clear(msg->chat_id);
     }
 
-    pr_info("Free memory: %d bytes", (int)daima_get_free_memory());
+    pr_info("Free memory: %d bytes", (int)platform_free_memory());
 }

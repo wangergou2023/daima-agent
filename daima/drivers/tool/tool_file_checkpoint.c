@@ -79,7 +79,7 @@ err_t tool_files_checkpoint_before_write(const char *path,
         return 0;
     }
 
-    daima_fs_ensure_dir_recursive(daima_path_checkpoint_dir());
+    fs_ensure_dir_recursive(path_checkpoint_dir());
 
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
@@ -89,7 +89,7 @@ err_t tool_files_checkpoint_before_write(const char *path,
 
     char path_buf[TOOL_FILES_PATH_SIZE];
     snprintf(path_buf, sizeof(path_buf), "%s/%lld_%s.bak",
-             daima_path_checkpoint_dir(),
+             path_checkpoint_dir(),
              (long long)ts.tv_sec,
              slug);
 

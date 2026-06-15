@@ -29,7 +29,7 @@ static bool is_compaction_summary_content(const cJSON *content)
 }
 
 err_t session_store_file_artifact_path(const char *chat_id,
-                                             daima_session_artifact_kind_t kind,
+                                             session_artifact_kind_t kind,
                                              char *buf,
                                              size_t size)
 {
@@ -44,13 +44,13 @@ err_t session_store_file_artifact_path(const char *chat_id,
         suffix = "_summary.md";
     }
 
-    snprintf(buf, size, "%s/session_%s%s", daima_path_session_dir(), chat_id, suffix);
+    snprintf(buf, size, "%s/session_%s%s", path_session_dir(), chat_id, suffix);
     return 0;
 }
 
 static err_t file_init(void)
 {
-    pr_info("Session manager initialized at %s", daima_path_session_dir());
+    pr_info("Session manager initialized at %s", path_session_dir());
     return 0;
 }
 
@@ -301,12 +301,12 @@ static bool parse_session_filename_with_suffix(const char *filename,
 
 struct session_record_node {
     struct list_head list;
-    daima_session_record_t *record;
+    session_record_t *record;
 };
 
-static daima_session_record_t *find_or_add_record(struct list_head *record_list,
+static session_record_t *find_or_add_record(struct list_head *record_list,
                                                  struct session_record_node *nodes,
-                                                 daima_session_record_t *records,
+                                                 session_record_t *records,
                                                  int *count,
                                                  size_t capacity,
                                                  const char *chat_id)
@@ -320,7 +320,7 @@ static daima_session_record_t *find_or_add_record(struct list_head *record_list,
     if ((size_t)*count >= capacity) {
         return NULL;
     }
-    daima_session_record_t *record = &records[*count];
+    session_record_t *record = &records[*count];
     memset(record, 0, sizeof(*record));
     strscpy(record->chat_id, chat_id, sizeof(record->chat_id));
     nodes[*count].record = record;
@@ -330,7 +330,7 @@ static daima_session_record_t *find_or_add_record(struct list_head *record_list,
     return record;
 }
 
-static void maybe_update_record_mtime(daima_session_record_t *record, const char *path)
+static void maybe_update_record_mtime(session_record_t *record, const char *path)
 {
     if (!record || !path || !path[0]) {
         return;
@@ -341,13 +341,13 @@ static void maybe_update_record_mtime(daima_session_record_t *record, const char
     }
 }
 
-static err_t file_list_records(daima_session_record_t *records, size_t capacity, int *out_count)
+static err_t file_list_records(session_record_t *records, size_t capacity, int *out_count)
 {
     if (!records || capacity == 0 || !out_count) {
         return ERR_INVALID_ARG;
     }
 
-    DIR *dir = opendir(daima_path_session_dir());
+    DIR *dir = opendir(path_session_dir());
     if (!dir) {
         return ERR_FAIL;
     }
@@ -358,7 +358,7 @@ static err_t file_list_records(daima_session_record_t *records, size_t capacity,
     struct dirent *entry = NULL;
     while ((entry = readdir(dir)) != NULL) {
         char chat_id[sizeof(records[0].chat_id)];
-        daima_session_artifact_kind_t kind;
+        session_artifact_kind_t kind;
 
         if (parse_session_filename_with_suffix(entry->d_name, ".jsonl", chat_id, sizeof(chat_id))) {
             kind = SESSION_ARTIFACT_HISTORY;
@@ -370,7 +370,7 @@ static err_t file_list_records(daima_session_record_t *records, size_t capacity,
             continue;
         }
 
-        daima_session_record_t *record = find_or_add_record(&record_list, nodes, records, &count, capacity, chat_id);
+        session_record_t *record = find_or_add_record(&record_list, nodes, records, &count, capacity, chat_id);
         if (!record) {
             continue;
         }
@@ -398,7 +398,7 @@ static err_t file_list_records(daima_session_record_t *records, size_t capacity,
     return 0;
 }
 
-static const daima_session_store_ops_t s_file_backend = {
+static const session_store_ops_t s_file_backend = {
     .init = file_init,
     .append_ex = file_append_ex,
     .get_history_json = file_get_history_json,
@@ -412,7 +412,7 @@ static const daima_session_store_ops_t s_file_backend = {
     .artifact_path = session_store_file_artifact_path,
 };
 
-const daima_session_store_ops_t *session_store_file_backend(void)
+const session_store_ops_t *session_store_file_backend(void)
 {
     return &s_file_backend;
 }

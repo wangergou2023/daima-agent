@@ -7,7 +7,7 @@
 static const char s_b64_table[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-char *daima_base64_encode_alloc(const unsigned char *data,
+char *base64_encode_alloc(const unsigned char *data,
                                size_t input_length,
                                size_t *output_length)
 {

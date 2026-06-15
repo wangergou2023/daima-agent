@@ -30,7 +30,7 @@ static bool resolve_write_path_or_fail(const char *path,
     if (tool_files_resolve_write_path(path, resolved_path, resolved_path_size)) {
         return true;
     }
-    snprintf(output, output_size, "错误：只允许修改当前工作目录或 %s 下的路径，且不能包含 '..'", daima_path_spiffs_base());
+    snprintf(output, output_size, "错误：只允许修改当前工作目录或 %s 下的路径，且不能包含 '..'", path_spiffs_base());
     return false;
 }
 
@@ -46,7 +46,7 @@ static bool resolve_new_file_path_or_fail(const char *path,
     if (!path || !path[0] || path[0] == '/' || strstr(path, "..") != NULL) {
         return false;
     }
-    if (snprintf(resolved_path, resolved_path_size, "%s/%s", daima_path_workspace_dir(), path) >= (int)resolved_path_size) {
+    if (snprintf(resolved_path, resolved_path_size, "%s/%s", path_workspace_dir(), path) >= (int)resolved_path_size) {
         snprintf(output, output_size, "错误：路径过长：%s", path);
         return false;
     }
@@ -616,8 +616,8 @@ err_t tool_restore_file_execute(const char *input_json, char *output, size_t out
     checkpoint_path[0] = '\0';
     if (checkpoint_hint && checkpoint_hint[0]) {
         if (!tool_files_resolve_read_path(checkpoint_hint, checkpoint_path, sizeof(checkpoint_path)) ||
-            !path_has_prefix(checkpoint_path, daima_path_checkpoint_dir())) {
-            snprintf(output, output_size, "错误：checkpoint_path 必须位于 %s 下", daima_path_checkpoint_dir());
+            !path_has_prefix(checkpoint_path, path_checkpoint_dir())) {
+            snprintf(output, output_size, "错误：checkpoint_path 必须位于 %s 下", path_checkpoint_dir());
             cJSON_Delete(root);
             return ERR_INVALID_ARG;
         }

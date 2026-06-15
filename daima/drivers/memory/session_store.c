@@ -3,7 +3,7 @@
 #include "session_store.h"
 
 #include "linux/printk.h"
-static const daima_session_store_ops_t *s_ops = NULL;
+static const session_store_ops_t *s_ops = NULL;
 
 static err_t ensure_store_ready(void)
 {
@@ -95,7 +95,7 @@ err_t session_store_clear(const char *chat_id)
     return s_ops->clear ? s_ops->clear(chat_id) : ERR_INVALID_ARG;
 }
 
-err_t session_store_list_records(daima_session_record_t *records, size_t capacity, int *out_count)
+err_t session_store_list_records(session_record_t *records, size_t capacity, int *out_count)
 {
     err_t err = ensure_store_ready();
     if (err != 0) return err;
@@ -103,7 +103,7 @@ err_t session_store_list_records(daima_session_record_t *records, size_t capacit
 }
 
 err_t session_store_artifact_path(const char *chat_id,
-                                       daima_session_artifact_kind_t kind,
+                                       session_artifact_kind_t kind,
                                        char *buf,
                                        size_t size)
 {

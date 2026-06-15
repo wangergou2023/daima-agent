@@ -375,7 +375,7 @@ static char *build_ui_config_json(void)
         cJSON_AddStringToObject(terminal, "security_level", runtime_config_get_terminal_security_level());
     }
 
-    dir = opendir(daima_path_spiffs_base());
+    dir = opendir(path_spiffs_base());
     if (dir) {
         while ((entry = readdir(dir)) != NULL) {
             const char *name = entry->d_name;
@@ -397,7 +397,7 @@ static char *build_ui_config_json(void)
             }
 
             snprintf(pet_json_path, sizeof(pet_json_path), "%s/%s/pet.json",
-                     daima_path_spiffs_base(), name);
+                     path_spiffs_base(), name);
             pet_json_text = read_text_file(pet_json_path, 64 * 1024);
             if (!pet_json_text) {
                 continue;
@@ -436,8 +436,8 @@ static char *build_ui_config_json(void)
 
 static int compare_session_records_recent(const void *a, const void *b)
 {
-    const daima_session_record_t *ra = (const daima_session_record_t *)a;
-    const daima_session_record_t *rb = (const daima_session_record_t *)b;
+    const session_record_t *ra = (const session_record_t *)a;
+    const session_record_t *rb = (const session_record_t *)b;
     if (ra->latest_ts < rb->latest_ts) return 1;
     if (ra->latest_ts > rb->latest_ts) return -1;
     return strcmp(ra->chat_id, rb->chat_id);
@@ -445,7 +445,7 @@ static int compare_session_records_recent(const void *a, const void *b)
 
 static char *build_sessions_json(void)
 {
-    daima_session_record_t records[128];
+    session_record_t records[128];
     int count = 0;
     if (session_store_list_records(records, sizeof(records) / sizeof(records[0]), &count) != 0) {
         return NULL;
@@ -603,7 +603,7 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
         http_send_static_file_or_fallback(
             client_fd,
             "text/html; charset=utf-8",
-            daima_path_web_index_file(),
+            path_web_index_file(),
             ui_fallback_html);
         return 0;
     }
@@ -612,7 +612,7 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
         http_send_static_file_or_fallback(
             client_fd,
             "text/css; charset=utf-8",
-            daima_path_web_css_file(),
+            path_web_css_file(),
             "");
         return 0;
     }
@@ -621,14 +621,14 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
         http_send_static_file_or_fallback(
             client_fd,
             "application/javascript; charset=utf-8",
-            daima_path_web_js_file(),
+            path_web_js_file(),
             "");
         return 0;
     }
 
     if (strcmp(path, "/pet.js") == 0) {
         char asset_path[BUF_LARGE];
-        snprintf(asset_path, sizeof(asset_path), "%s/web/pet.js", daima_path_spiffs_base());
+        snprintf(asset_path, sizeof(asset_path), "%s/web/pet.js", path_spiffs_base());
         http_send_static_file_or_fallback(
             client_fd,
             "application/javascript; charset=utf-8",
@@ -647,7 +647,7 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
 
         char asset_path[BUF_LARGE];
         snprintf(asset_path, sizeof(asset_path), "%s/%s",
-                 daima_path_spiffs_base(), relative);
+                 path_spiffs_base(), relative);
         http_send_binary_file(client_fd, asset_path);
         return 0;
     }

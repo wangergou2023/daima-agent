@@ -34,7 +34,7 @@ static void dispatch_outbound_task(void *arg)
 
 err_t channel_router_start(void)
 {
-    return daima_task_create(
+    return task_create(
         dispatch_outbound_task, "outbound",
         OUTBOUND_STACK, NULL,
         OUTBOUND_PRIO, NULL)

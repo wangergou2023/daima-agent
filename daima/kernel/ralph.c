@@ -29,7 +29,7 @@ static void ralph_loop_build_todo_path(const char *chat_id, char *path, size_t p
     }
     safe_chat_id[off] = '\0';
 
-    snprintf(path, path_size, "%s/session_%s_TODO.json", daima_path_session_dir(), safe_chat_id);
+    snprintf(path, path_size, "%s/session_%s_TODO.json", path_session_dir(), safe_chat_id);
 }
 
 static cJSON *ralph_loop_read_json_file(const char *path)

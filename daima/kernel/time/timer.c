@@ -20,7 +20,7 @@
 
 static cron_job_t s_jobs[MAX_CRON_JOBS];
 static int s_job_count = 0;
-static daima_task_t *s_cron_task = NULL;
+static os_task_t *s_cron_task = NULL;
 
 static int cron_check_interval_ms(void)
 {
@@ -87,11 +87,11 @@ static bool cron_sanitize_destination(cron_job_t *job)
     }
 
     if (job->channel[0] == '\0') {
-        strncpy(job->channel, DAIMA_CHAN_SYSTEM, sizeof(job->channel) - 1);
+        strncpy(job->channel, CHAN_SYSTEM, sizeof(job->channel) - 1);
         changed = true;
     }
 
-    if (strcmp(job->channel, DAIMA_CHAN_FEISHU) == 0 &&
+    if (strcmp(job->channel, CHAN_FEISHU) == 0 &&
         (job->chat_id[0] == '\0' || strcmp(job->chat_id, "cron") == 0)) {
         char default_chat_id[64];
         if (feishu_targets_get_default(default_chat_id, sizeof(default_chat_id))) {
@@ -100,22 +100,22 @@ static bool cron_sanitize_destination(cron_job_t *job)
         }
     }
 
-    if (strcmp(job->channel, DAIMA_CHAN_WEBSOCKET) == 0 ||
-        strcmp(job->channel, DAIMA_CHAN_FEISHU) == 0) {
+    if (strcmp(job->channel, CHAN_WEBSOCKET) == 0 ||
+        strcmp(job->channel, CHAN_FEISHU) == 0) {
         if (job->chat_id[0] == '\0' || strcmp(job->chat_id, "cron") == 0) {
             pr_warn("Cron job %s has invalid chat_id, fallback to system:cron", job->id[0] ? job->id : "<new>");
-            strncpy(job->channel, DAIMA_CHAN_SYSTEM, sizeof(job->channel) - 1);
+            strncpy(job->channel, CHAN_SYSTEM, sizeof(job->channel) - 1);
             strncpy(job->chat_id, "cron", sizeof(job->chat_id) - 1);
             changed = true;
         }
-    } else if (strcmp(job->channel, DAIMA_CHAN_SYSTEM) == 0) {
+    } else if (strcmp(job->channel, CHAN_SYSTEM) == 0) {
         if (job->chat_id[0] == '\0') {
             strncpy(job->chat_id, "cron", sizeof(job->chat_id) - 1);
             changed = true;
         }
     } else {
         pr_warn("Cron job %s has unknown channel '%s', fallback to system:cron", job->id[0] ? job->id : "<new>", job->channel);
-        strncpy(job->channel, DAIMA_CHAN_SYSTEM, sizeof(job->channel) - 1);
+        strncpy(job->channel, CHAN_SYSTEM, sizeof(job->channel) - 1);
         strncpy(job->chat_id, "cron", sizeof(job->chat_id) - 1);
         changed = true;
     }
@@ -127,13 +127,13 @@ static bool cron_sanitize_destination(cron_job_t *job)
 
 static void cron_generate_id(char *id_buf)
 {
-    uint32_t r = daima_random();
+    uint32_t r = platform_random();
     snprintf(id_buf, 9, "%08x", (unsigned int)r);
 }
 
 static err_t cron_load_jobs(void)
 {
-    FILE *f = fopen(daima_path_cron_file(), "r");
+    FILE *f = fopen(path_cron_file(), "r");
     if (!f) {
         pr_info("No cron file found, starting fresh");
         s_job_count = 0;
@@ -200,7 +200,7 @@ static err_t cron_load_jobs(void)
         strncpy(job->id, id, sizeof(job->id) - 1);
         strncpy(job->name, name, sizeof(job->name) - 1);
         strncpy(job->message, message, sizeof(job->message) - 1);
-        strncpy(job->channel, channel ? channel : DAIMA_CHAN_SYSTEM,
+        strncpy(job->channel, channel ? channel : CHAN_SYSTEM,
                 sizeof(job->channel) - 1);
         strncpy(job->chat_id, chat_id ? chat_id : "cron",
                 sizeof(job->chat_id) - 1);
@@ -297,9 +297,9 @@ static err_t cron_save_jobs(void)
         return ERR_NO_MEM;
     }
 
-    FILE *f = fopen(daima_path_cron_file(), "w");
+    FILE *f = fopen(path_cron_file(), "w");
     if (!f) {
-        pr_err("Failed to open %s for writing", daima_path_cron_file());
+        pr_err("Failed to open %s for writing", path_cron_file());
         kfree(json_str);
         return ERR_FAIL;
     }
@@ -314,7 +314,7 @@ static err_t cron_save_jobs(void)
         return ERR_FAIL;
     }
 
-    pr_info("Saved %d cron jobs to %s", s_job_count, daima_path_cron_file());
+    pr_info("Saved %d cron jobs to %s", s_job_count, path_cron_file());
     return 0;
 }
 
@@ -340,7 +340,7 @@ static void cron_process_due_jobs(void)
         memset(&msg, 0, sizeof(msg));
         strncpy(msg.channel, job->channel, sizeof(msg.channel) - 1);
         strncpy(msg.chat_id, job->chat_id, sizeof(msg.chat_id) - 1);
-        strncpy(msg.source, DAIMA_MSG_SOURCE_CRON, sizeof(msg.source) - 1);
+        strncpy(msg.source, MSG_SOURCE_CRON, sizeof(msg.source) - 1);
         msg.content = strdup(job->message);
 
         if (msg.content) {
@@ -388,7 +388,7 @@ static void cron_task_main(void *arg)
     (void)arg;
 
     while (1) {
-        daima_task_delay(cron_check_interval_ms());
+        task_delay(cron_check_interval_ms());
         cron_process_due_jobs();
     }
 }
@@ -448,7 +448,7 @@ err_t cron_service_start(void)
         }
     }
 
-    bool ok = daima_task_create(
+    bool ok = task_create(
         cron_task_main,
         "cron",
         4096,
@@ -468,7 +468,7 @@ err_t cron_service_start(void)
 void cron_service_stop(void)
 {
     if (s_cron_task) {
-        daima_task_delete(s_cron_task);
+        os_task_delete(s_cron_task);
         s_cron_task = NULL;
         pr_info("Cron service stopped");
     }

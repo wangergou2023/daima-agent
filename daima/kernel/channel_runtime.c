@@ -18,24 +18,24 @@ static err_t channel_runtime_send_text(const char *channel,
         return ERR_INVALID_ARG;
     }
 
-    if (strcmp(channel, DAIMA_CHAN_WEBSOCKET) == 0) {
+    if (strcmp(channel, CHAN_WEBSOCKET) == 0) {
         return ws_server_send_with_reasoning(chat_id, text, reasoning);
     }
-    if (strcmp(channel, DAIMA_CHAN_PET) == 0) {
+    if (strcmp(channel, CHAN_PET) == 0) {
         return ws_server_send_pet_response(chat_id, text);
     }
-    if (strcmp(channel, DAIMA_CHAN_VOICE) == 0) {
+    if (strcmp(channel, CHAN_VOICE) == 0) {
         pr_info("Voice output: [%s]", text);
         return tts_player_speak(text);
     }
-    if (strcmp(channel, DAIMA_CHAN_FEISHU) == 0) {
+    if (strcmp(channel, CHAN_FEISHU) == 0) {
         return feishu_send_card(chat_id, text);
     }
-    if (strcmp(channel, DAIMA_CHAN_SYSTEM) == 0) {
+    if (strcmp(channel, CHAN_SYSTEM) == 0) {
         pr_info("System message [%s]: %.128s", chat_id, text);
         return 0;
     }
-    if (strcmp(channel, DAIMA_CHAN_VECTOR) == 0) {
+    if (strcmp(channel, CHAN_VECTOR) == 0) {
         return vector_channel_send_reply(chat_id, text);
     }
     return ERR_INVALID_ARG;
@@ -47,7 +47,7 @@ err_t channel_runtime_dispatch_outbound(const struct message *msg)
         return ERR_INVALID_ARG;
     }
     err_t err = channel_runtime_send_text(msg->channel, msg->chat_id, msg->content, msg->reasoning);
-    if (err != 0 && strcmp(msg->channel, DAIMA_CHAN_WEBSOCKET) == 0) {
+    if (err != 0 && strcmp(msg->channel, CHAN_WEBSOCKET) == 0) {
         ws_pending_save(msg->content);
     }
     return err;

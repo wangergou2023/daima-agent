@@ -30,7 +30,7 @@ err_t tool_list_dir_execute(const char *input_json, char *output, size_t output_
 
     char resolved_dir[TOOL_FILES_PATH_SIZE];
     if (!tool_files_resolve_list_dir_path(path && path[0] ? path : ".", resolved_dir, sizeof(resolved_dir))) {
-        snprintf(output, output_size, "错误：只允许列出当前工作目录或 %s 下的目录，且不能包含 '..'", daima_path_spiffs_base());
+        snprintf(output, output_size, "错误：只允许列出当前工作目录或 %s 下的目录，且不能包含 '..'", path_spiffs_base());
         cJSON_Delete(root);
         return ERR_INVALID_ARG;
     }
@@ -86,7 +86,7 @@ err_t tool_search_files_execute(const char *input_json, char *output, size_t out
 
     char resolved_dir[TOOL_FILES_PATH_SIZE];
     if (!tool_files_resolve_list_dir_path(path && path[0] ? path : ".", resolved_dir, sizeof(resolved_dir))) {
-        snprintf(output, output_size, "错误：只允许搜索当前工作目录或 %s 下的目录，且不能包含 '..'", daima_path_spiffs_base());
+        snprintf(output, output_size, "错误：只允许搜索当前工作目录或 %s 下的目录，且不能包含 '..'", path_spiffs_base());
         cJSON_Delete(root);
         return ERR_INVALID_ARG;
     }

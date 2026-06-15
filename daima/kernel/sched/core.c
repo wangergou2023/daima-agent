@@ -187,7 +187,7 @@ err_t sched_wait(struct sched_runqueue *rq)
         }
 
         if (rq->nr_running > 0) {
-            daima_task_delay((uint32_t)poll_interval_ms);
+            task_delay((uint32_t)poll_interval_ms);
             elapsed += poll_interval_ms;
             int elapsed_sec = elapsed / 1000;
             if (elapsed_sec > 0 && elapsed_sec % 10 == 0 && elapsed_sec != last_progress_sec) {

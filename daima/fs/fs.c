@@ -6,7 +6,7 @@
 #include <sys/stat.h>
 #include "linux/kernel.h"
 
-bool daima_fs_ensure_dir(const char *path)
+bool fs_ensure_dir(const char *path)
 {
     if (!path || !path[0]) {
         return false;
@@ -17,7 +17,7 @@ bool daima_fs_ensure_dir(const char *path)
     return errno == EEXIST;
 }
 
-bool daima_fs_ensure_dir_recursive(const char *path)
+bool fs_ensure_dir_recursive(const char *path)
 {
     if (!path || !path[0]) {
         return false;
@@ -32,9 +32,9 @@ bool daima_fs_ensure_dir_recursive(const char *path)
     for (char *p = tmp + 1; *p; ++p) {
         if (*p == '/') {
             *p = '\0';
-            daima_fs_ensure_dir(tmp);
+            fs_ensure_dir(tmp);
             *p = '/';
         }
     }
-    return daima_fs_ensure_dir(tmp);
+    return fs_ensure_dir(tmp);
 }

@@ -4,7 +4,7 @@
 #include <string.h>
 #include <strings.h>
 
-const char *daima_env_get(const char *name)
+const char *env_get(const char *name)
 {
     if (!name || !name[0]) {
         return NULL;
@@ -16,9 +16,9 @@ const char *daima_env_get(const char *name)
     return NULL;
 }
 
-int daima_env_int_or_default(const char *name, int fallback)
+int env_int_or_default(const char *name, int fallback)
 {
-    const char *raw = daima_env_get(name);
+    const char *raw = env_get(name);
     if (!raw) {
         return fallback;
     }
@@ -30,9 +30,9 @@ int daima_env_int_or_default(const char *name, int fallback)
     return (int)val;
 }
 
-bool daima_env_bool_or_default(const char *name, bool fallback)
+bool env_bool_or_default(const char *name, bool fallback)
 {
-    const char *raw = daima_env_get(name);
+    const char *raw = env_get(name);
     if (!raw) {
         return fallback;
     }
@@ -45,7 +45,7 @@ bool daima_env_bool_or_default(const char *name, bool fallback)
     return fallback;
 }
 
-void daima_env_set(const char *name, const char *value)
+void env_set(const char *name, const char *value)
 {
     if (!name || !name[0] || !value || !value[0]) {
         return;

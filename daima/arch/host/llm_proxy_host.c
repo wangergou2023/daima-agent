@@ -184,7 +184,7 @@ static void log_llm_response_diagnostics(const char *protocol,
     }
 
     char dir[512];
-    snprintf(dir, sizeof(dir), "%s/llm_debug", daima_path_cache_dir());
+    snprintf(dir, sizeof(dir), "%s/llm_debug", path_cache_dir());
     ensure_dir_path(dir);
 
     struct timeval tv;
@@ -288,14 +288,14 @@ static void build_openai_api_url(void)
 
     const char *base = s_openai_base_url;
     if (strstr(base, "/chat/completions")) {
-        daima_safe_copy(s_openai_api_url, sizeof(s_openai_api_url), base);
+        safe_copy(s_openai_api_url, sizeof(s_openai_api_url), base);
         return;
     }
 
     if (s_use_anthropic_api) {
         if (strstr(base, "/v1/messages")) {
-            daima_safe_copy(s_openai_api_url, sizeof(s_openai_api_url), base);
-        } else if (daima_str_ends_with(base, "/")) {
+            safe_copy(s_openai_api_url, sizeof(s_openai_api_url), base);
+        } else if (str_ends_with(base, "/")) {
             snprintf(s_openai_api_url, sizeof(s_openai_api_url), "%sv1/messages", base);
         } else {
             snprintf(s_openai_api_url, sizeof(s_openai_api_url), "%s/v1/messages", base);
@@ -304,7 +304,7 @@ static void build_openai_api_url(void)
     }
 
     if (base_url_is_deepseek_official(base)) {
-        if (daima_str_ends_with(base, "/")) {
+        if (str_ends_with(base, "/")) {
             snprintf(s_openai_api_url, sizeof(s_openai_api_url), "%schat/completions", base);
         } else {
             snprintf(s_openai_api_url, sizeof(s_openai_api_url), "%s/chat/completions", base);
@@ -312,8 +312,8 @@ static void build_openai_api_url(void)
         return;
     }
 
-    if (strstr(base, "/v1/") || daima_str_ends_with(base, "/v1") || url_tail_is_version_root(base)) {
-        if (daima_str_ends_with(base, "/")) {
+    if (strstr(base, "/v1/") || str_ends_with(base, "/v1") || url_tail_is_version_root(base)) {
+        if (str_ends_with(base, "/")) {
             snprintf(s_openai_api_url, sizeof(s_openai_api_url), "%schat/completions", base);
         } else {
             snprintf(s_openai_api_url, sizeof(s_openai_api_url), "%s/chat/completions", base);
@@ -321,7 +321,7 @@ static void build_openai_api_url(void)
         return;
     }
 
-    if (daima_str_ends_with(base, "/")) {
+    if (str_ends_with(base, "/")) {
         snprintf(s_openai_api_url, sizeof(s_openai_api_url), "%sv1/chat/completions", base);
     } else {
         snprintf(s_openai_api_url, sizeof(s_openai_api_url), "%s/v1/chat/completions", base);
@@ -489,12 +489,12 @@ err_t llm_proxy_init(void)
     const char *api_mode = runtime_config_get_provider_api_mode();
 
     if (api_key) {
-        daima_safe_copy(s_api_key, sizeof(s_api_key), api_key);
+        safe_copy(s_api_key, sizeof(s_api_key), api_key);
         s_api_key_set = true;
     }
 
     if (model && model[0]) {
-        daima_safe_copy(s_model, sizeof(s_model), model);
+        safe_copy(s_model, sizeof(s_model), model);
         s_model_set = true;
     }
 
@@ -502,19 +502,19 @@ err_t llm_proxy_init(void)
     s_openai_api_url[0] = '\0';
     s_use_anthropic_api = false;
     if (openai_base && openai_base[0]) {
-        daima_safe_copy(s_openai_base_url, sizeof(s_openai_base_url), openai_base);
+        safe_copy(s_openai_base_url, sizeof(s_openai_base_url), openai_base);
         s_use_anthropic_api = should_use_anthropic_messages(s_model, s_openai_base_url, api_mode);
         build_openai_api_url();
     }
 
     if (s_model[0] == '\0' || strncmp(s_model, "claude", 6) == 0) {
-        daima_safe_copy(s_model, sizeof(s_model), DEFAULT_LLM_MODEL);
+        safe_copy(s_model, sizeof(s_model), DEFAULT_LLM_MODEL);
     }
 
     if (s_api_key[0]) {
         pr_info("LLM proxy initialized (protocol: %s, api_mode: %s, model: %s)", s_use_anthropic_api ? "anthropic-compatible" : "openai-compatible", (api_mode && api_mode[0]) ? api_mode : "chat_completions(default)", s_model);
     } else {
-        pr_warn("No API key configured in %s", daima_path_runtime_config_file());
+        pr_warn("No API key configured in %s", path_runtime_config_file());
     }
 
     if (s_openai_base_url[0]) {
@@ -606,10 +606,10 @@ err_t llm_chat_tools_with_model(const char *system_prompt,
     }
 
     char previous_model[LLM_MODEL_MAX_LEN];
-    daima_safe_copy(previous_model, sizeof(previous_model), s_model);
-    daima_safe_copy(s_model, sizeof(s_model), model_override);
+    safe_copy(previous_model, sizeof(previous_model), s_model);
+    safe_copy(s_model, sizeof(s_model), model_override);
     err_t err = llm_chat_tools(system_prompt, messages, tools_json, resp);
-    daima_safe_copy(s_model, sizeof(s_model), previous_model);
+    safe_copy(s_model, sizeof(s_model), previous_model);
     return err;
 }
 
@@ -627,9 +627,9 @@ llm_async_chat_t *llm_chat_tools_async(const char *system_prompt,
         return NULL;
     }
 
-    daima_safe_copy(chat->system_prompt_buf, sizeof(chat->system_prompt_buf), system_prompt ? system_prompt : "");
-    daima_safe_copy(chat->tools_json_buf, sizeof(chat->tools_json_buf), tools_json ? tools_json : "");
-    daima_safe_copy(chat->model_name, sizeof(chat->model_name),
+    safe_copy(chat->system_prompt_buf, sizeof(chat->system_prompt_buf), system_prompt ? system_prompt : "");
+    safe_copy(chat->tools_json_buf, sizeof(chat->tools_json_buf), tools_json ? tools_json : "");
+    safe_copy(chat->model_name, sizeof(chat->model_name),
                     (model_override && model_override[0]) ? model_override : s_model);
     chat->messages_ref = messages;
     chat->use_anthropic_api = s_use_anthropic_api;
@@ -712,7 +712,7 @@ void llm_chat_async_free(llm_async_chat_t *chat)
 err_t llm_set_api_key(const char *api_key)
 {
     /* 覆盖当前进程内的运行时配置 */
-    daima_safe_copy(s_api_key, sizeof(s_api_key), api_key);
+    safe_copy(s_api_key, sizeof(s_api_key), api_key);
     s_api_key_set = true;
     pr_info("API key set");
     return 0;
@@ -721,7 +721,7 @@ err_t llm_set_api_key(const char *api_key)
 err_t llm_set_model(const char *model)
 {
     /* 覆盖当前进程内的模型配置 */
-    daima_safe_copy(s_model, sizeof(s_model), model);
+    safe_copy(s_model, sizeof(s_model), model);
     s_model_set = true;
     pr_info("Model set to: %s", s_model);
     return 0;
@@ -799,7 +799,7 @@ err_t llm_image_read_file(const char *image_path, llm_image_content_t *out_conte
     fclose(fp);
     
     size_t base64_len;
-    char *base64_data = daima_base64_encode_alloc(file_data, file_size, &base64_len);
+    char *base64_data = base64_encode_alloc(file_data, file_size, &base64_len);
     kfree(file_data);
     
     if (!base64_data) {
@@ -808,7 +808,7 @@ err_t llm_image_read_file(const char *image_path, llm_image_content_t *out_conte
     
     out_content->image_data = base64_data;
     out_content->image_data_len = base64_len;
-    daima_safe_copy(out_content->mime_type, sizeof(out_content->mime_type), get_mime_type_from_extension(image_path));
+    safe_copy(out_content->mime_type, sizeof(out_content->mime_type), get_mime_type_from_extension(image_path));
     
     return 0;
 }

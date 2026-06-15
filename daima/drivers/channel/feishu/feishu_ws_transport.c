@@ -136,7 +136,7 @@ static bool ws_parse_url(const char *url, ws_url_t *out)
         if (*path_start == '?') {
             snprintf(out->path, sizeof(out->path), "/%s", path_start);
         } else {
-            daima_safe_copy(out->path, sizeof(out->path), path_start);
+            safe_copy(out->path, sizeof(out->path), path_start);
         }
     } else {
         strcpy(out->path, "/");
@@ -244,9 +244,9 @@ static bool ws_build_key(char *out, size_t out_size)
         }
     }
     size_t b64_len = 0;
-    char *b64 = daima_base64_encode_alloc(rnd, sizeof(rnd), &b64_len);
+    char *b64 = base64_encode_alloc(rnd, sizeof(rnd), &b64_len);
     if (!b64) return false;
-    daima_safe_copy(out, out_size, b64);
+    safe_copy(out, out_size, b64);
     kfree(b64);
     return true;
 }
@@ -303,7 +303,7 @@ static bool ws_verify_accept(const char *key, const char *accept)
     unsigned char sha[SHA_DIGEST_LENGTH];
     SHA1((const unsigned char *)buf, strlen(buf), sha);
     size_t b64_len = 0;
-    char *b64 = daima_base64_encode_alloc(sha, sizeof(sha), &b64_len);
+    char *b64 = base64_encode_alloc(sha, sizeof(sha), &b64_len);
     if (!b64) return false;
     bool ok = (strcmp(b64, accept) == 0);
     kfree(b64);
@@ -319,7 +319,7 @@ static bool ws_handshake(feishu_ws_conn_t *conn, const ws_url_t *url)
     if ((url->tls && url->port != 443) || (!url->tls && url->port != 80)) {
         snprintf(host_hdr, sizeof(host_hdr), "%s:%d", url->host, url->port);
     } else {
-        daima_safe_copy(host_hdr, sizeof(host_hdr), url->host);
+        safe_copy(host_hdr, sizeof(host_hdr), url->host);
     }
 
     char req[1024];

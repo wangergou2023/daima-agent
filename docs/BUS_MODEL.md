@@ -229,6 +229,35 @@ bus_probe_all(&tool_bus);
 
 ## 为什么是创新
 
+### 对比
+
+| | daima bus 模型 | OpenAI plugins | Anthropic MCP | LangChain tools |
+|---|---|---|---|---|
+| 架构 | bus/driver/device | manifest.json | JSON-RPC | Python class |
+| 内核验证 | ✅ 30年 | ❌ | ❌ | ❌ |
+| 设备驱动分离 | ✅ 完全解耦 | ❌ 混在一起 | ❌ 混在一起 | ❌ 混在一起 |
+| probe 验证 | ✅ 自动检查依赖 | ❌ 无 | ❌ 无 | ❌ 无 |
+| 热插拔 | ✅ 装即用 | ❌ 重新部署 | ❌ 重启 | ❌ 重启 |
+| 匹配方式 | 字符串精确 | 语义匹配 | 协议匹配 | 函数名 |
+| 运行时 | C 二进制 | Node.js | Node/Python | Python |
+| 单二进制 | ✅ | ❌ | ❌ | ❌ |
+
+### 最大的区别: 解耦方式
+
+```
+OpenAI plugin:
+  plugin = manifest + code  ← 一体, 改一行重新部署
+
+bus 模型:
+  tool_bus:    "你叫 pptx? device 在 bus 上, driver 也在 bus 上"
+  mcp_bus:     "python 就是 python, 不关心谁用它"
+  skill_pptx:  "我有依赖 [python], probe 时检查"
+  
+  三层互不感知——改 python 路径不改 pptx 一行代码
+```
+
+### 核心优势
+
 1. **无人做过**: AI Agent 领域没有 bus/driver/device 模型
 2. **内核验证**: 这个模型在 Linux 内核里支撑了 30 年
 3. **全部字符串匹配**: Agent 不需要理解, bus 精确匹配

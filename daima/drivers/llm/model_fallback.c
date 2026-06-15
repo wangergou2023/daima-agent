@@ -153,7 +153,7 @@ static const char *config_dir_for_load(char *env_config_dir, size_t env_config_d
         snprintf(env_config_dir, env_config_dir_size, "%s/spiffs_data/config", env_home);
         return env_config_dir;
     }
-    return daima_path_config_dir();
+    return path_config_dir();
 }
 
 static char *read_fallback_config(char *out_path, size_t out_path_size)

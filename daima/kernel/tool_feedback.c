@@ -85,7 +85,7 @@ static void summarize_tool_target(const char *tool_name, const char *tool_input,
     }
 
     if (value && value[0]) {
-        daima_shorten_text(value, buf, size, 44);
+        text_shorten(value, buf, size, 44);
     }
     cJSON_Delete(root);
 }
@@ -132,7 +132,7 @@ static bool tool_result_success(const char *tool_name, err_t exec_err, const cha
 
     if (detail && detail_size > 0) {
         if (output_is_human_error(tool_output)) {
-            daima_shorten_text(tool_output, detail, detail_size, detail_size > 1 ? detail_size - 1 : 0);
+            text_shorten(tool_output, detail, detail_size, detail_size > 1 ? detail_size - 1 : 0);
         } else {
             strscpy(detail, err_name(exec_err), detail_size);
         }
@@ -187,7 +187,7 @@ void agent_tool_feedback_send_activity(const struct message *msg,
         }
     }
 
-    daima_tool_activity_event_t event = {
+    tool_activity_event_t event = {
         .tool_name = tool_name,
         .tool_input = tool_input,
         .target = target,

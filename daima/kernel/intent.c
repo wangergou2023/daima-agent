@@ -51,7 +51,7 @@ static const intent_keyword_group_t KEYWORD_GROUPS[] = {
     { INTENT_QA, QA_KEYWORDS },
 };
 
-const char *daima_intent_name(enum intent intent)
+const char *intent_name(enum intent intent)
 {
     switch (intent) {
     case INTENT_QA:
@@ -72,7 +72,7 @@ const char *daima_intent_name(enum intent intent)
 intent_gate_cfg_t intent_gate_load_cfg(void)
 {
     intent_gate_cfg_t cfg = {
-        .enabled = daima_env_bool_or_default("INTENT_GATE_ENABLED",
+        .enabled = env_bool_or_default("INTENT_GATE_ENABLED",
                                              INTENT_GATE_ENABLED != 0),
     };
     return cfg;
@@ -137,7 +137,7 @@ done:
     }
 #endif
 
-    pr_info("IntentGate classified: %s", daima_intent_name(*out_intent));
+    pr_info("IntentGate classified: %s", intent_name(*out_intent));
     return 0;
 }
 
@@ -175,7 +175,7 @@ static err_t intent_gate_classify_llm(const char *user_message,
         else if (strstr(resp.text, "FIX"))        *out_intent = INTENT_FIX;
         else if (strstr(resp.text, "INVESTIGATE")) *out_intent = INTENT_INVESTIGATE;
         else if (strstr(resp.text, "QA"))          *out_intent = INTENT_QA;
-        pr_info("IntentGate LLM reclassified: %s -> %s (raw: %.80s)", user_message, daima_intent_name(*out_intent), resp.text);
+        pr_info("IntentGate LLM reclassified: %s -> %s (raw: %.80s)", user_message, intent_name(*out_intent), resp.text);
     }
 
     llm_response_free(&resp);

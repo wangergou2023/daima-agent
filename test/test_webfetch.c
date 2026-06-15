@@ -33,7 +33,7 @@ int main(void)
     char memory_dir[1024];
     snprintf(memory_dir, sizeof(memory_dir), "%s/spiffs_data/memory", home);
     mkdir_p(memory_dir);
-    daima_paths_init();
+    paths_init();
 
     char out[32768];
     int passed = 0, failed = 0;

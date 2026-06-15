@@ -32,7 +32,7 @@ static char *build_current_turn_content(const struct message *msg)
         return strdup(content);
     }
 
-    if (strcmp(source, DAIMA_MSG_SOURCE_CRON) == 0) {
+    if (strcmp(source, MSG_SOURCE_CRON) == 0) {
         const char *fmt =
             "这是系统注入的定时提醒事件，不是用户刚刚发送的新消息。\n"
             "事件来源：cron\n"
@@ -48,7 +48,7 @@ static char *build_current_turn_content(const struct message *msg)
         return buf;
     }
 
-    if (strcmp(source, DAIMA_MSG_SOURCE_HEARTBEAT) == 0) {
+    if (strcmp(source, MSG_SOURCE_HEARTBEAT) == 0) {
         const char *fmt =
             "这是系统触发的后台巡检事件，不是用户刚刚发送的新消息。\n"
             "事件来源：heartbeat\n"
@@ -63,7 +63,7 @@ static char *build_current_turn_content(const struct message *msg)
         return buf;
     }
 
-    if (strcmp(source, DAIMA_MSG_SOURCE_INTERNAL) == 0) {
+    if (strcmp(source, MSG_SOURCE_INTERNAL) == 0) {
         return strdup(
             "这是内部控制事件，不是用户消息。\n"
             "不要把它当成对话内容，也不要向用户复述任何内部载荷。"
@@ -109,7 +109,7 @@ static cJSON *build_user_vision_content(const char *text, const char *image_path
     pr_info("Attached image to multimodal request: %s", local_path);
 
     if (cleanup_local_path) {
-        const char *keep = daima_env_get("DAIMA_VISION_KEEP_SNAPSHOT");
+        const char *keep = env_get("DAIMA_VISION_KEEP_SNAPSHOT");
         if (!keep || !keep[0]) {
             unlink(local_path);
         }

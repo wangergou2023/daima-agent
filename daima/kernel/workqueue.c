@@ -14,7 +14,7 @@
 #include <ctype.h>
 #include "linux/printk.h"
 #include "linux/slab.h"
-static daima_timer_t *s_heartbeat_timer = NULL;
+static os_timer_t *s_heartbeat_timer = NULL;
 
 static int heartbeat_interval_ms(void)
 {
@@ -32,7 +32,7 @@ static int heartbeat_interval_ms(void)
  */
 static bool heartbeat_has_tasks(void)
 {
-    FILE *f = fopen(daima_path_heartbeat_file(), "r");
+    FILE *f = fopen(path_heartbeat_file(), "r");
     if (!f) {
         return false;
     }
@@ -86,14 +86,14 @@ static bool heartbeat_send(void)
     struct message msg;
     char prompt[512];
     memset(&msg, 0, sizeof(msg));
-    strncpy(msg.channel, DAIMA_CHAN_SYSTEM, sizeof(msg.channel) - 1);
+    strncpy(msg.channel, CHAN_SYSTEM, sizeof(msg.channel) - 1);
     strncpy(msg.chat_id, "heartbeat", sizeof(msg.chat_id) - 1);
-    strncpy(msg.source, DAIMA_MSG_SOURCE_HEARTBEAT, sizeof(msg.source) - 1);
+    strncpy(msg.source, MSG_SOURCE_HEARTBEAT, sizeof(msg.source) - 1);
     snprintf(prompt,
              sizeof(prompt),
              "Read %s and follow any instructions or tasks listed there. "
              "If nothing needs attention, reply with just: HEARTBEAT_OK",
-             daima_path_heartbeat_file());
+             path_heartbeat_file());
     msg.content = strdup(prompt);
 
     if (!msg.content) {
@@ -114,7 +114,7 @@ static bool heartbeat_send(void)
 
 /* ── 定时器回调 ───────────────────────────────────────────── */
 
-static void heartbeat_timer_callback(daima_timer_t *timer)
+static void heartbeat_timer_callback(os_timer_t *timer)
 {
     (void)timer;
     heartbeat_send();
@@ -124,7 +124,7 @@ static void heartbeat_timer_callback(daima_timer_t *timer)
 
 err_t heartbeat_init(void)
 {
-    pr_info("Heartbeat service initialized (file: %s, interval: %ds)", daima_path_heartbeat_file(), heartbeat_interval_ms() / 1000);
+    pr_info("Heartbeat service initialized (file: %s, interval: %ds)", path_heartbeat_file(), heartbeat_interval_ms() / 1000);
     return 0;
 }
 
@@ -135,7 +135,7 @@ err_t heartbeat_start(void)
         return 0;
     }
 
-    s_heartbeat_timer = daima_timer_create(
+    s_heartbeat_timer = os_timer_create(
         "heartbeat",
         heartbeat_interval_ms(),
         true,    /* 自动重载 */
@@ -148,7 +148,7 @@ err_t heartbeat_start(void)
         return ERR_FAIL;
     }
 
-    if (!daima_timer_start(s_heartbeat_timer, 1000)) {
+    if (!os_timer_start(s_heartbeat_timer, 1000)) {
         pr_err("Failed to start heartbeat timer");
         return ERR_FAIL;
     }
@@ -160,8 +160,8 @@ err_t heartbeat_start(void)
 void heartbeat_stop(void)
 {
     if (s_heartbeat_timer) {
-        daima_timer_stop(s_heartbeat_timer, 1000);
-        daima_timer_delete(s_heartbeat_timer, 1000);
+        os_timer_stop(s_heartbeat_timer, 1000);
+        os_timer_delete(s_heartbeat_timer, 1000);
         s_heartbeat_timer = NULL;
         pr_info("Heartbeat stopped");
     }

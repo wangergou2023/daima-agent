@@ -30,7 +30,7 @@ static const struct tool s_todo_tool = {
 
 static cJSON *todo_load_root(void)
 {
-    FILE *f = fopen(daima_path_todo_file(), "r");
+    FILE *f = fopen(path_todo_file(), "r");
     if (!f) {
         cJSON *root = cJSON_CreateObject();
         cJSON_AddItemToObject(root, "items", cJSON_CreateArray());
@@ -76,7 +76,7 @@ static err_t todo_save_root(cJSON *root)
     char *json = cJSON_PrintUnformatted(root);
     if (!json) return ERR_NO_MEM;
 
-    FILE *f = fopen(daima_path_todo_file(), "w");
+    FILE *f = fopen(path_todo_file(), "w");
     if (!f) {
         kfree(json);
         return ERR_FAIL;
@@ -253,7 +253,7 @@ err_t tool_todo_execute(const char *input_json, char *output, size_t output_size
 
     cJSON *root = todo_load_root();
     if (!root) {
-        snprintf(output, output_size, "错误：无法读取或解析 %s", daima_path_todo_file());
+        snprintf(output, output_size, "错误：无法读取或解析 %s", path_todo_file());
         cJSON_Delete(input);
         return ERR_FAIL;
     }

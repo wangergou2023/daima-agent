@@ -220,9 +220,9 @@ static void install_builtin(const builtin_skill_t *skill)
     char dir_path[128];
     char file_path[160];
     char legacy_path[160];
-    snprintf(dir_path, sizeof(dir_path), "%s/%s", daima_path_skills_dir(), skill->filename);
+    snprintf(dir_path, sizeof(dir_path), "%s/%s", path_skills_dir(), skill->filename);
     snprintf(file_path, sizeof(file_path), "%s/SKILL.md", dir_path);
-    snprintf(legacy_path, sizeof(legacy_path), "%s/%s.md", daima_path_skills_dir(), skill->filename);
+    snprintf(legacy_path, sizeof(legacy_path), "%s/%s.md", path_skills_dir(), skill->filename);
 
     /* 检查是否已存在 */
     FILE *f = fopen(file_path, "r");
@@ -240,8 +240,8 @@ static void install_builtin(const builtin_skill_t *skill)
     }
 
     /* 写入内置技能 */
-    daima_fs_ensure_dir(daima_path_skills_dir());
-    daima_fs_ensure_dir(dir_path);
+    fs_ensure_dir(path_skills_dir());
+    fs_ensure_dir(dir_path);
 
     f = fopen(file_path, "w");
     if (!f) {
@@ -292,7 +292,7 @@ static bool is_dir_path(const char *path)
 static bool append_skill_summary_from_file(char *buf, size_t size, size_t *off, const char *full_path)
 {
     if (!buf || !off || !full_path || size == 0 || *off >= size - 1) return false;
-    daima_skill_meta_t meta = {0};
+    skill_meta_t meta = {0};
     if (!skill_meta_read_file(full_path, &meta)) return false;
 
     *off += snprintf(buf + *off, size - *off,
@@ -422,7 +422,7 @@ static size_t skill_loader_build_summary_uncached(const char *channel, char *buf
     bool found = false;
     buf[0] = '\0';
 
-    DIR *dir = opendir(daima_path_spiffs_base());
+    DIR *dir = opendir(path_spiffs_base());
     if (!dir) {
         pr_warn("Cannot open SPIFFS for skill enumeration");
     }
@@ -451,7 +451,7 @@ static size_t skill_loader_build_summary_uncached(const char *channel, char *buf
 
             /* 构建完整路径 */
             char full_path[296];
-            snprintf(full_path, sizeof(full_path), "%s/%s", daima_path_spiffs_base(), name);
+            snprintf(full_path, sizeof(full_path), "%s/%s", path_spiffs_base(), name);
 
             if (append_skill_summary_from_file(buf, size, &off, full_path)) {
 #if SKILL_SCOPED_TOOLS_ENABLED
@@ -469,13 +469,13 @@ static size_t skill_loader_build_summary_uncached(const char *channel, char *buf
 
     /* 兼容本地文件系统：通用技能位于真实的 skills/<name>/SKILL.md */
     if (!found) {
-        DIR *skills_dir = opendir(daima_path_skills_dir());
+        DIR *skills_dir = opendir(path_skills_dir());
         if (!skills_dir) {
             pr_warn("Cannot open skills directory for enumeration");
         } else {
             while ((ent = readdir(skills_dir)) != NULL && off < size - 1) {
                 if (strcmp(ent->d_name, "channels") == 0) continue;
-                append_skill_summary_for_entry(buf, size, &off, daima_path_skills_dir(), ent->d_name, &found);
+                append_skill_summary_for_entry(buf, size, &off, path_skills_dir(), ent->d_name, &found);
             }
             closedir(skills_dir);
         }
@@ -483,7 +483,7 @@ static size_t skill_loader_build_summary_uncached(const char *channel, char *buf
 
     if (channel_name_is_safe(channel) && off < size - 1) {
         char channel_dir[320];
-        snprintf(channel_dir, sizeof(channel_dir), "%s/channels/%s", daima_path_skills_dir(), channel);
+        snprintf(channel_dir, sizeof(channel_dir), "%s/channels/%s", path_skills_dir(), channel);
         append_skill_dir_summaries(buf, size, &off, channel_dir, &found);
     }
 

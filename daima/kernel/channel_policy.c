@@ -89,17 +89,17 @@ void agent_channel_policy_append(char *prompt, size_t size, const struct message
         return;
     }
 
-    if (strcmp(msg->channel, DAIMA_CHAN_VOICE) == 0) {
+    if (strcmp(msg->channel, CHAN_VOICE) == 0) {
         append_voice_policy(prompt, size, off);
         return;
     }
 
-    if (strcmp(msg->channel, DAIMA_CHAN_FEISHU) == 0) {
+    if (strcmp(msg->channel, CHAN_FEISHU) == 0) {
         append_feishu_policy(prompt, size, off);
         return;
     }
 
-    if (strcmp(msg->channel, DAIMA_CHAN_PET) == 0) {
+    if (strcmp(msg->channel, CHAN_PET) == 0) {
         size_t next_off = pet_append_channel_policy_prompt(prompt, size, off);
         if (next_off >= size - 1) {
             prompt[size - 1] = '\0';

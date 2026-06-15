@@ -83,7 +83,7 @@ typedef struct {
  * 读取图片文件并编码为 base64
  * @param image_path 图片文件路径
  * @param out_content 输出图片内容块（需调用 llm_image_content_free 释放）
- * @return 成功返回 DAIMA_OK
+ * @return 成功返回 0
  */
 err_t llm_image_read_file(const char *image_path, llm_image_content_t *out_content);
 
@@ -108,7 +108,7 @@ cJSON *llm_create_multimodal_content(const char *text, const llm_image_content_t
  * @param images 图片数组
  * @param image_count 图片数量
  * @param resp 输出响应
- * @return 成功返回 DAIMA_OK
+ * @return 成功返回 0
  */
 err_t llm_chat_with_images(const char *system_prompt,
                                 const char *user_text,
@@ -125,7 +125,7 @@ err_t llm_chat_with_images(const char *system_prompt,
  * @param messages       消息 cJSON 数组（由调用方持有）
  * @param tools_json     预构建的工具数组 JSON 字符串；NULL 表示不使用工具
  * @param resp           输出：包含文本与工具调用的结构化响应
- * @return 成功返回 DAIMA_OK
+ * @return 成功返回 0
  */
 err_t llm_chat_tools(const char *system_prompt,
                           cJSON *messages,

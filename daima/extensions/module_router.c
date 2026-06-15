@@ -14,10 +14,10 @@ static err_t before_run(struct message *msg, const char **model_override,
 #if AGENT_EXTENSIONS_ENABLED
     category_router_cfg_t cfg = category_router_load_and_get_cfg();
     if (cfg.enabled) {
-        const daima_category_profile_t *profile = category_router_resolve(msg->intent);
+        const category_profile_t *profile = category_router_resolve(msg->intent);
         if (profile) {
             *model_override = profile->model;
-            pr_info("Category routing: intent=%s -> model=%s", daima_intent_name(msg->intent), profile->model);
+            pr_info("Category routing: intent=%s -> model=%s", intent_name(msg->intent), profile->model);
         }
     }
 #endif

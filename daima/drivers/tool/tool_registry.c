@@ -242,8 +242,8 @@ const char *tool_registry_get_tools_json(void)
 const char *tool_registry_get_tools_json_for_channel(const char *channel)
 {
     if (channel &&
-        (strcmp(channel, DAIMA_CHAN_VECTOR) == 0 ||
-         strcmp(channel, DAIMA_CHAN_VOICE) == 0)) {
+        (strcmp(channel, CHAN_VECTOR) == 0 ||
+         strcmp(channel, CHAN_VOICE) == 0)) {
         return s_tools_json;
     }
     return s_base_tools_json ? s_base_tools_json : s_tools_json;
@@ -255,8 +255,8 @@ static bool channel_allows_tool(const char *channel, const char *tool_name)
         return true;
     }
     return channel &&
-           (strcmp(channel, DAIMA_CHAN_VECTOR) == 0 ||
-            strcmp(channel, DAIMA_CHAN_VOICE) == 0);
+           (strcmp(channel, CHAN_VECTOR) == 0 ||
+            strcmp(channel, CHAN_VOICE) == 0);
 }
 
 err_t tool_registry_execute(const char *name, const char *input_json,

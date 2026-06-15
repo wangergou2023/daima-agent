@@ -50,14 +50,14 @@ void cron_service_stop(void);
 /**
  * 添加新的定时任务。
  * @param job  任务结构体指针（会自动生成 id）
- * @return 成功返回 DAIMA_OK，若任务数已满返回 DAIMA_ERR_NO_MEM
+ * @return 成功返回 0，若任务数已满返回 ERR_NO_MEM
  */
 err_t cron_add_job(cron_job_t *job);
 
 /**
  * 按 ID 移除定时任务。
  * @param job_id  8 位任务 ID
- * @return 成功返回 DAIMA_OK，未找到返回 DAIMA_ERR_NOT_FOUND
+ * @return 成功返回 0，未找到返回 ERR_NOT_FOUND
  */
 err_t cron_remove_job(const char *job_id);
 

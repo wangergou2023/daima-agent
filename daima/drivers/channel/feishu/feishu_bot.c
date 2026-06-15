@@ -17,7 +17,7 @@
 #include "proxy.h"
 static char s_app_id[64] = {0};
 static char s_app_secret[128] = {0};
-static daima_task_t *s_ws_task = NULL;
+static os_task_t *s_ws_task = NULL;
 static feishu_ws_runtime_t s_ws_runtime;
 
 static void feishu_ws_task(void *arg)
@@ -34,10 +34,10 @@ err_t feishu_bot_init(void)
     feishu_ws_runtime_init(&s_ws_runtime);
 
     if (app_id && app_id[0]) {
-        daima_safe_copy(s_app_id, sizeof(s_app_id), app_id);
+        safe_copy(s_app_id, sizeof(s_app_id), app_id);
     }
     if (app_secret && app_secret[0]) {
-        daima_safe_copy(s_app_secret, sizeof(s_app_secret), app_secret);
+        safe_copy(s_app_secret, sizeof(s_app_secret), app_secret);
     }
 
     if (s_app_id[0] && s_app_secret[0]) {
@@ -63,7 +63,7 @@ err_t feishu_bot_start(void)
         pr_warn("Feishu WebSocket task already running");
         return 0;
     }
-    bool ok = daima_task_create(
+    bool ok = task_create(
         feishu_ws_task,
         "feishu_ws",
         FEISHU_POLL_STACK,

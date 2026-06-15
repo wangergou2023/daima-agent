@@ -17,7 +17,7 @@ typedef struct {
     bool enabled;
 } intent_gate_cfg_t;
 
-const char *daima_intent_name(enum intent intent);
+const char *intent_name(enum intent intent);
 intent_gate_cfg_t intent_gate_load_cfg(void);
 err_t intent_gate_classify(const char *user_message,
                                   enum intent *out_intent);

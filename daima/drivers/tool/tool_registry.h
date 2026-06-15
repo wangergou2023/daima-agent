@@ -41,7 +41,7 @@ const char *tool_registry_get_tools_json_for_channel(const char *channel);
  * @param input_json   工具输入的 JSON 字符串
  * @param output       工具结果文本的输出缓冲区
  * @param output_size  输出缓冲区大小
- * @return 成功返回 DAIMA_OK，工具不存在返回 DAIMA_ERR_NOT_FOUND
+ * @return 成功返回 0，工具不存在返回 ERR_NOT_FOUND
  */
 err_t tool_registry_execute(const char *name, const char *input_json,
                                 char *output, size_t output_size);

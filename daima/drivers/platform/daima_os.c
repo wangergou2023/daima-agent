@@ -9,7 +9,7 @@
 
 /* ── Queue implementation ───────────────────────────────────── */
 
-struct daima_queue {
+struct os_queue {
     size_t item_size;
     size_t capacity;
     size_t count;
@@ -37,9 +37,9 @@ static int wait_with_timeout(pthread_cond_t *cond, pthread_mutex_t *mutex, uint3
     return pthread_cond_timedwait(cond, mutex, &ts);
 }
 
-daima_queue_t *daima_queue_create(size_t queue_length, size_t item_size)
+queue_t *queue_create(size_t queue_length, size_t item_size)
 {
-    struct daima_queue *q = kzalloc(sizeof(*q), GFP_KERNEL);
+    struct os_queue *q = kzalloc(sizeof(*q), GFP_KERNEL);
     if (!q) return NULL;
     q->item_size = item_size;
     q->capacity = queue_length;
@@ -54,9 +54,9 @@ daima_queue_t *daima_queue_create(size_t queue_length, size_t item_size)
     return q;
 }
 
-bool daima_queue_send(daima_queue_t *queue, const void *item, uint32_t timeout_ms)
+bool queue_send(queue_t *queue, const void *item, uint32_t timeout_ms)
 {
-    struct daima_queue *q = (struct daima_queue *)queue;
+    struct os_queue *q = (struct os_queue *)queue;
     if (!q) return false;
 
     pthread_mutex_lock(&q->mutex);
@@ -77,9 +77,9 @@ bool daima_queue_send(daima_queue_t *queue, const void *item, uint32_t timeout_m
     return true;
 }
 
-bool daima_queue_receive(daima_queue_t *queue, void *out_item, uint32_t timeout_ms)
+bool queue_receive(queue_t *queue, void *out_item, uint32_t timeout_ms)
 {
-    struct daima_queue *q = (struct daima_queue *)queue;
+    struct os_queue *q = (struct os_queue *)queue;
     if (!q) return false;
 
     pthread_mutex_lock(&q->mutex);
@@ -102,15 +102,15 @@ bool daima_queue_receive(daima_queue_t *queue, void *out_item, uint32_t timeout_
 
 /* ── Event groups ────────────────────────────────────────────── */
 
-struct daima_event_group {
+struct os_event_group {
     pthread_mutex_t mutex;
     pthread_cond_t cond;
     uint32_t bits;
 };
 
-daima_event_group_t *daima_event_group_create(void)
+os_event_group_t *os_event_group_create(void)
 {
-    struct daima_event_group *g = kzalloc(sizeof(*g), GFP_KERNEL);
+    struct os_event_group *g = kzalloc(sizeof(*g), GFP_KERNEL);
     if (!g) return NULL;
     pthread_mutex_init(&g->mutex, NULL);
     pthread_cond_init(&g->cond, NULL);
@@ -118,13 +118,13 @@ daima_event_group_t *daima_event_group_create(void)
     return g;
 }
 
-uint32_t daima_event_group_wait_bits(daima_event_group_t *group,
+uint32_t os_event_group_wait_bits(os_event_group_t *group,
                                     uint32_t bits_to_wait_for,
                                     bool clear_on_exit,
                                     bool wait_for_all,
                                     uint32_t timeout_ms)
 {
-    struct daima_event_group *g = (struct daima_event_group *)group;
+    struct os_event_group *g = (struct os_event_group *)group;
     if (!g) return 0;
 
     pthread_mutex_lock(&g->mutex);
@@ -149,9 +149,9 @@ uint32_t daima_event_group_wait_bits(daima_event_group_t *group,
     }
 }
 
-uint32_t daima_event_group_set_bits(daima_event_group_t *group, uint32_t bits)
+uint32_t os_event_group_set_bits(os_event_group_t *group, uint32_t bits)
 {
-    struct daima_event_group *g = (struct daima_event_group *)group;
+    struct os_event_group *g = (struct os_event_group *)group;
     if (!g) return 0;
 
     pthread_mutex_lock(&g->mutex);
@@ -164,31 +164,31 @@ uint32_t daima_event_group_set_bits(daima_event_group_t *group, uint32_t bits)
 
 /* ── Tasks ───────────────────────────────────────────────────── */
 
-struct daima_task {
+struct os_task {
     pthread_t thread;
 };
 
 typedef struct {
-    daima_task_fn_t fn;
+    os_task_fn_t fn;
     void *arg;
 } task_wrapper_t;
 
 static void *task_trampoline(void *arg)
 {
     task_wrapper_t *wrap = (task_wrapper_t *)arg;
-    daima_task_fn_t fn = wrap->fn;
+    os_task_fn_t fn = wrap->fn;
     void *fn_arg = wrap->arg;
     kfree(wrap);
     fn(fn_arg);
     return NULL;
 }
 
-bool daima_task_create(daima_task_fn_t task_func, const char *name,
+bool task_create(os_task_fn_t task_func, const char *name,
                       uint32_t stack_size, void *arg,
-                      uint32_t priority, daima_task_t **out_handle)
+                      uint32_t priority, os_task_t **out_handle)
 {
     (void)name; (void)stack_size; (void)priority;
-    struct daima_task *task = kmalloc(sizeof(*task), GFP_KERNEL);
+    struct os_task *task = kmalloc(sizeof(*task), GFP_KERNEL);
     if (!task) return false;
 
     task_wrapper_t *wrap = kmalloc(sizeof(*wrap), GFP_KERNEL);
@@ -211,7 +211,7 @@ bool daima_task_create(daima_task_fn_t task_func, const char *name,
     return true;
 }
 
-void daima_task_delay(uint32_t delay_ms)
+void task_delay(uint32_t delay_ms)
 {
     if (delay_ms == WAIT_FOREVER) {
         while (1) { sleep(1); }
@@ -219,23 +219,23 @@ void daima_task_delay(uint32_t delay_ms)
     usleep((useconds_t)delay_ms * 1000U);
 }
 
-void daima_task_delete(daima_task_t *handle)
+void os_task_delete(os_task_t *handle)
 {
     if (!handle) {
         pthread_exit(NULL);
         return;
     }
-    struct daima_task *task = (struct daima_task *)handle;
+    struct os_task *task = (struct os_task *)handle;
     pthread_cancel(task->thread);
     kfree(task);
 }
 
 /* ── Timers ──────────────────────────────────────────────────── */
 
-struct daima_timer {
+struct os_timer {
     uint32_t period_ms;
     bool auto_reload;
-    daima_timer_cb_t callback;
+    os_timer_cb_t callback;
     void *timer_id;
     int running;
     pthread_t thread;
@@ -243,11 +243,11 @@ struct daima_timer {
 
 static void *timer_thread(void *arg)
 {
-    struct daima_timer *t = (struct daima_timer *)arg;
+    struct os_timer *t = (struct os_timer *)arg;
     while (t->running) {
         usleep((useconds_t)t->period_ms * 1000U);
         if (!t->running) break;
-        t->callback((daima_timer_t *)t);
+        t->callback((os_timer_t *)t);
         if (!t->auto_reload) {
             t->running = 0;
             break;
@@ -256,27 +256,27 @@ static void *timer_thread(void *arg)
     return NULL;
 }
 
-daima_timer_t *daima_timer_create(const char *name,
+os_timer_t *os_timer_create(const char *name,
                                 uint32_t period_ms,
                                 bool auto_reload,
                                 void *timer_id,
-                                daima_timer_cb_t callback)
+                                os_timer_cb_t callback)
 {
     (void)name;
-    struct daima_timer *t = kzalloc(sizeof(*t), GFP_KERNEL);
+    struct os_timer *t = kzalloc(sizeof(*t), GFP_KERNEL);
     if (!t) return NULL;
     t->period_ms = period_ms;
     t->auto_reload = auto_reload;
     t->callback = callback;
     t->timer_id = timer_id;
     t->running = 0;
-    return (daima_timer_t *)t;
+    return (os_timer_t *)t;
 }
 
-bool daima_timer_start(daima_timer_t *timer, uint32_t timeout_ms)
+bool os_timer_start(os_timer_t *timer, uint32_t timeout_ms)
 {
     (void)timeout_ms;
-    struct daima_timer *t = (struct daima_timer *)timer;
+    struct os_timer *t = (struct os_timer *)timer;
     if (!t) return false;
     if (t->running) return true;
     t->running = 1;
@@ -288,19 +288,19 @@ bool daima_timer_start(daima_timer_t *timer, uint32_t timeout_ms)
     return true;
 }
 
-bool daima_timer_stop(daima_timer_t *timer, uint32_t timeout_ms)
+bool os_timer_stop(os_timer_t *timer, uint32_t timeout_ms)
 {
     (void)timeout_ms;
-    struct daima_timer *t = (struct daima_timer *)timer;
+    struct os_timer *t = (struct os_timer *)timer;
     if (!t) return false;
     t->running = 0;
     return true;
 }
 
-bool daima_timer_delete(daima_timer_t *timer, uint32_t timeout_ms)
+bool os_timer_delete(os_timer_t *timer, uint32_t timeout_ms)
 {
     (void)timeout_ms;
-    struct daima_timer *t = (struct daima_timer *)timer;
+    struct os_timer *t = (struct os_timer *)timer;
     if (!t) return false;
     t->running = 0;
     kfree(t);

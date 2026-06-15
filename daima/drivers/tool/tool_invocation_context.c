@@ -49,7 +49,7 @@ static char *patch_cron_action_add_target(const llm_tool_call_t *call, const str
         missing_chat_id = false;
     }
 
-    if (channel && strcmp(channel, DAIMA_CHAN_FEISHU) == 0 && missing_chat_id) {
+    if (channel && strcmp(channel, CHAN_FEISHU) == 0 && missing_chat_id) {
         char default_chat_id[64];
         if (feishu_targets_get_default(default_chat_id, sizeof(default_chat_id))) {
             json_set_string(root, "chat_id", default_chat_id);

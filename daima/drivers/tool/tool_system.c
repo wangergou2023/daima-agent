@@ -216,7 +216,7 @@ err_t tool_terminal_execute(const char *input_json, char *output, size_t output_
         command = cJSON_GetStringValue(cJSON_GetObjectItem(root, "cmd"));
     }
     const char *workdir = cJSON_GetStringValue(cJSON_GetObjectItem(root, "workdir"));
-    const char *effective_workdir = (workdir && workdir[0]) ? workdir : daima_path_workspace_dir();
+    const char *effective_workdir = (workdir && workdir[0]) ? workdir : path_workspace_dir();
     const char *inline_sudo_password = cJSON_GetStringValue(cJSON_GetObjectItem(root, "sudo_password"));
     int timeout_seconds = json_get_int_or_default(root, "timeout", TERMINAL_DEFAULT_TIMEOUT);
 
@@ -286,7 +286,7 @@ err_t tool_terminal_execute(const char *input_json, char *output, size_t output_
 
     terminal_exec_result_t result;
     memset(&result, 0, sizeof(result));
-    daima_fs_ensure_dir(effective_workdir);
+    fs_ensure_dir(effective_workdir);
     err_t err = terminal_execute_local_shell(
         effective_command ? effective_command : command,
         effective_workdir,

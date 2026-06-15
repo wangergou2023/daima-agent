@@ -180,7 +180,7 @@ static err_t cron_action_add_execute(const char *input_json, char *output, size_
     if (channel) strncpy(job.channel, channel, sizeof(job.channel) - 1);
     if (chat_id) strncpy(job.chat_id, chat_id, sizeof(job.chat_id) - 1);
 
-    if (strcmp(job.channel, DAIMA_CHAN_FEISHU) == 0 &&
+    if (strcmp(job.channel, CHAN_FEISHU) == 0 &&
         (job.chat_id[0] == '\0' || strcmp(job.chat_id, "cron") == 0)) {
         char default_chat_id[64];
         if (feishu_targets_get_default(default_chat_id, sizeof(default_chat_id))) {
@@ -188,14 +188,14 @@ static err_t cron_action_add_execute(const char *input_json, char *output, size_
         }
     }
 
-    if (strcmp(job.channel, DAIMA_CHAN_WEBSOCKET) == 0 &&
+    if (strcmp(job.channel, CHAN_WEBSOCKET) == 0 &&
         (job.chat_id[0] == '\0' || strcmp(job.chat_id, "cron") == 0)) {
         snprintf(output, output_size,
                  "错误：cron action=add 使用 channel='websocket' 时必须提供有效 chat_id");
         cJSON_Delete(root);
         return ERR_INVALID_ARG;
     }
-    if (strcmp(job.channel, DAIMA_CHAN_FEISHU) == 0 &&
+    if (strcmp(job.channel, CHAN_FEISHU) == 0 &&
         (job.chat_id[0] == '\0' || strcmp(job.chat_id, "cron") == 0)) {
         snprintf(output, output_size,
                  "错误：cron action=add 使用 channel='feishu' 时必须提供有效 chat_id，或在 config.json 的 feishu.default_chat_id 中配置默认接收人/群");

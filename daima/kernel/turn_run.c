@@ -101,7 +101,7 @@ err_t agent_turn_run(
     *out_tool_budget_exhausted = false;
     *out_cancelled = false;
 
-    char *tool_output = daima_calloc(1, TOOL_OUTPUT_SIZE);
+    char *tool_output = platform_calloc(1, TOOL_OUTPUT_SIZE);
     if (unlikely(!tool_output)) {
         return ERR_NO_MEM;
     }

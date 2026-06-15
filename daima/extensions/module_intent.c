@@ -11,7 +11,7 @@ static err_t on_intent(struct message *msg)
 {
 #if AGENT_EXTENSIONS_ENABLED
     intent_gate_classify(msg->content, &msg->intent);
-    pr_info("Intent classified: %s -> %s", msg->content, daima_intent_name(msg->intent));
+    pr_info("Intent classified: %s -> %s", msg->content, intent_name(msg->intent));
 #endif
     return 0;
 }

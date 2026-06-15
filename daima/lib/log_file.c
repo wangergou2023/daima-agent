@@ -63,12 +63,12 @@ static void trim_if_needed(const char *path)
     kfree(buf);
 }
 
-void daima_log_file_write(int level, const char *tag, const char *msg)
+void log_file_write(int level, const char *tag, const char *msg)
 {
-    const char *path = daima_path_log_file();
+    const char *path = path_log_file();
     if (!path) return;
 
-    daima_fs_ensure_dir(daima_path_memory_dir());
+    fs_ensure_dir(path_memory_dir());
 
     struct timeval tv;
     gettimeofday(&tv, NULL);

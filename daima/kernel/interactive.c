@@ -14,7 +14,7 @@ err_t channel_runtime_request_sudo(const struct message *msg,
     if (!msg || !request_id || !prompt_text) {
         return ERR_INVALID_ARG;
     }
-    if (strcmp(msg->channel, DAIMA_CHAN_WEBSOCKET) == 0) {
+    if (strcmp(msg->channel, CHAN_WEBSOCKET) == 0) {
         return ws_server_send_sudo_request(msg->chat_id, request_id, prompt_text);
     }
     return ERR_FAIL;

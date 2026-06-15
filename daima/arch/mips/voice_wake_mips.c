@@ -31,7 +31,7 @@ typedef struct {
 
 static bool s_running = false;
 static bool s_recording = false;
-static daima_task_t *s_task = NULL;
+static os_task_t *s_task = NULL;
 static int s_poll_ms = DEFAULT_WAKE_GPIO_POLL_MS;
 static int s_debounce_ms = DEFAULT_WAKE_GPIO_DEBOUNCE_MS;
 
@@ -77,7 +77,7 @@ static int gpio_export(int gpio)
 
     for (int i = 0; i < 50; i++) {
         if (path_exists(path)) return 0;
-        daima_task_delay(10);
+        task_delay(10);
     }
     pr_err("GPIO %d export timeout", gpio);
     return -1;
@@ -382,7 +382,7 @@ static void voice_wake_task(void *arg)
             }
             s_recording = false;
         }
-        daima_task_delay((uint32_t)s_poll_ms);
+        task_delay((uint32_t)s_poll_ms);
     }
 
     wake_gpio_close(&gpio);
@@ -395,7 +395,7 @@ err_t voice_wake_start(void)
     s_running = true;
     s_recording = false;
     pr_info("Starting wake GPIO thread");
-    if (!daima_task_create(voice_wake_task, "voice_wake",
+    if (!task_create(voice_wake_task, "voice_wake",
                           4096, NULL, 4, &s_task)) {
         s_running = false;
         return ERR_FAIL;
@@ -409,7 +409,7 @@ void voice_wake_stop(void)
     pr_info("Stopping wake GPIO thread");
     s_running = false;
     if (s_task) {
-        daima_task_delete(s_task);
+        os_task_delete(s_task);
         s_task = NULL;
     }
 }

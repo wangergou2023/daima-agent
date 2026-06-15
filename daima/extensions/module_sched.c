@@ -34,7 +34,7 @@ static err_t replace_run(struct message *msg, char *system_prompt,
         return ERR_FAIL;
     }
 
-    pr_info("Coordinator: launching %d sub-agents for intent=%s", rq.nr_agents, daima_intent_name(msg->intent));
+    pr_info("Coordinator: launching %d sub-agents for intent=%s", rq.nr_agents, intent_name(msg->intent));
     char thinking_msg[512];
     int off = snprintf(thinking_msg, sizeof(thinking_msg),
                        "🤖 Coordinator 并行处理中 (%d个子Agent", rq.nr_agents);
@@ -49,7 +49,7 @@ static err_t replace_run(struct message *msg, char *system_prompt,
     sched_start(&rq, system_prompt, messages, tools_json);
     err_t err = sched_wait(&rq);
     if (err == 0) {
-        char *merged = daima_calloc(1, SCHED_MERGED_MAX);
+        char *merged = platform_calloc(1, SCHED_MERGED_MAX);
         if (!merged) {
             sched_exit(&rq);
             return ERR_NO_MEM;

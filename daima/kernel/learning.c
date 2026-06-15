@@ -170,9 +170,9 @@ static err_t append_skill_review_queue(cJSON *skill_obj, const char *chat_id)
         return 0;
     }
 
-    FILE *f = fopen(daima_path_skill_review_queue_file(), "a");
+    FILE *f = fopen(path_skill_review_queue_file(), "a");
     if (!f) {
-        pr_err("Cannot open %s", daima_path_skill_review_queue_file());
+        pr_err("Cannot open %s", path_skill_review_queue_file());
         return ERR_FAIL;
     }
 

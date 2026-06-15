@@ -23,7 +23,7 @@ typedef struct {
     int max_tokens;
 } category_model_resolution_t;
 
-static void safe_copy(char *dst, size_t dst_size, const char *src)
+static void copy_field(char *dst, size_t dst_size, const char *src)
 {
     if (!dst || dst_size == 0) {
         return;
@@ -54,9 +54,9 @@ static int add_profile(category_router_cfg_t *cfg,
     }
 
     int idx = cfg->profile_count++;
-    daima_category_profile_t *profile = &cfg->profiles[idx];
-    safe_copy(profile->name, sizeof(profile->name), name);
-    safe_copy(profile->model, sizeof(profile->model), model);
+    category_profile_t *profile = &cfg->profiles[idx];
+    copy_field(profile->name, sizeof(profile->name), name);
+    copy_field(profile->model, sizeof(profile->model), model);
     profile->context_limit = context_limit;
     profile->max_tokens = max_tokens;
     return idx;
@@ -197,8 +197,8 @@ static bool find_provider_by_model(cJSON *json_root,
             continue;
         }
 
-        safe_copy(out->provider_name, sizeof(out->provider_name), provider->string);
-        safe_copy(out->model, sizeof(out->model), provider_model->valuestring);
+        copy_field(out->provider_name, sizeof(out->provider_name), provider->string);
+        copy_field(out->model, sizeof(out->model), provider_model->valuestring);
         read_provider_limits(provider, &out->context_limit, &out->max_tokens);
         return true;
     }
@@ -229,8 +229,8 @@ static bool find_provider_by_name(cJSON *json_root,
         return false;
     }
 
-    safe_copy(out->provider_name, sizeof(out->provider_name), provider_name);
-    safe_copy(out->model, sizeof(out->model), p_model->valuestring);
+    copy_field(out->provider_name, sizeof(out->provider_name), provider_name);
+    copy_field(out->model, sizeof(out->model), p_model->valuestring);
     read_provider_limits(provider, &out->context_limit, &out->max_tokens);
     return true;
 }
@@ -250,8 +250,8 @@ static bool resolve_active_provider_model(cJSON *json_root, category_model_resol
         return true;
     }
 
-    safe_copy(out->provider_name, sizeof(out->provider_name), runtime_config_get_active_provider_name());
-    safe_copy(out->model, sizeof(out->model), active_model);
+    copy_field(out->provider_name, sizeof(out->provider_name), runtime_config_get_active_provider_name());
+    copy_field(out->model, sizeof(out->model), active_model);
     out->context_limit = runtime_config_get_context_limit_tokens();
     out->max_tokens = runtime_config_get_max_output_tokens();
     return true;
@@ -459,7 +459,7 @@ static char *read_category_config(char *out_path, size_t out_path_size)
         snprintf(env_config_dir, sizeof(env_config_dir), "%s/spiffs_data/config", env_home);
         config_dir = env_config_dir;
     } else {
-        config_dir = daima_path_config_dir();
+        config_dir = path_config_dir();
     }
 
     snprintf(out_path, out_path_size, "%s/category_routing.json", config_dir);
@@ -493,11 +493,11 @@ category_router_cfg_t category_router_load_and_get_cfg(void)
     }
 
     s_loaded = true;
-    safe_copy(s_loaded_home, sizeof(s_loaded_home), home_key);
+    copy_field(s_loaded_home, sizeof(s_loaded_home), home_key);
     return s_cfg;
 }
 
-const daima_category_profile_t *category_router_resolve(enum intent intent)
+const category_profile_t *category_router_resolve(enum intent intent)
 {
     category_router_load_and_get_cfg();
     if (!s_cfg.enabled || intent < 0 || intent >= INTENT_COUNT) {
@@ -511,7 +511,7 @@ const daima_category_profile_t *category_router_resolve(enum intent intent)
     return &s_cfg.profiles[profile_index];
 }
 
-const daima_category_profile_t *category_router_resolve_for_role(agent_role_t role)
+const category_profile_t *category_router_resolve_for_role(agent_role_t role)
 {
     category_router_load_and_get_cfg();
     if (!s_cfg.enabled || role < 0 || role >= AGENT_ROLE_COUNT) {

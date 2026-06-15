@@ -30,8 +30,8 @@ static void agent_loop_task(void *arg)
     (void)arg;
     pr_info("Agent loop started");
 
-    char *system_prompt = daima_calloc(1, CONTEXT_BUF_SIZE);
-    char *history_json = daima_calloc(1, LLM_STREAM_BUF_SIZE);
+    char *system_prompt = platform_calloc(1, CONTEXT_BUF_SIZE);
+    char *history_json = platform_calloc(1, LLM_STREAM_BUF_SIZE);
 
     if (unlikely(!system_prompt || !history_json)) {
         pr_err("Failed to allocate PSRAM buffers");
@@ -135,7 +135,7 @@ err_t agent_loop_start(void)
 
     for (size_t i = 0; i < (sizeof(stack_candidates) / sizeof(stack_candidates[0])); i++) {
         uint32_t stack_size = stack_candidates[i];
-        bool ok = daima_task_create(
+        bool ok = task_create(
             agent_loop_task, "agent_loop",
             stack_size, NULL,
             AGENT_PRIO, NULL);
@@ -145,7 +145,7 @@ err_t agent_loop_start(void)
             return 0;
         }
 
-        pr_warn("agent_loop create failed (stack=%u, free_mem=%u, largest_free=%u), retrying...", (unsigned)stack_size, (unsigned)daima_get_free_memory(), (unsigned)daima_get_largest_free_block());
+        pr_warn("agent_loop create failed (stack=%u, free_mem=%u, largest_free=%u), retrying...", (unsigned)stack_size, (unsigned)platform_free_memory(), (unsigned)platform_largest_free_block());
     }
 
     return ERR_FAIL;

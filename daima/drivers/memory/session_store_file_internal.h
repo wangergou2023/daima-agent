@@ -6,7 +6,7 @@
 #include "drivers/memory/session_store.h"
 
 err_t session_store_file_artifact_path(const char *chat_id,
-                                             daima_session_artifact_kind_t kind,
+                                             session_artifact_kind_t kind,
                                              char *buf,
                                              size_t size);
 

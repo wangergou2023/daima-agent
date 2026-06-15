@@ -81,11 +81,11 @@ void feishu_ws_runtime_run(feishu_ws_runtime_t *rt,
     while (1) {
         feishu_ws_config_t cfg = {0};
         if (feishu_api_pull_ws_config(app_id, app_secret, &cfg) != 0) {
-            daima_task_delay(5000);
+            task_delay(5000);
             continue;
         }
 
-        daima_safe_copy(rt->url, sizeof(rt->url), cfg.url);
+        safe_copy(rt->url, sizeof(rt->url), cfg.url);
         rt->service_id = cfg.service_id;
         rt->ping_interval_ms = cfg.ping_interval_ms;
         rt->reconnect_interval_ms = cfg.reconnect_interval_ms;
@@ -96,7 +96,7 @@ void feishu_ws_runtime_run(feishu_ws_runtime_t *rt,
             if (rt->reconnect_nonce_ms > 0) {
                 wait_ms += (rand() % rt->reconnect_nonce_ms);
             }
-            daima_task_delay((uint32_t)wait_ms);
+            task_delay((uint32_t)wait_ms);
             continue;
         }
 
@@ -143,8 +143,8 @@ void feishu_ws_runtime_run(feishu_ws_runtime_t *rt,
                 ping.service = rt->service_id;
                 ping.method = 0;
                 ping.header_count = 1;
-                daima_safe_copy(ping.headers[0].key, sizeof(ping.headers[0].key), "type");
-                daima_safe_copy(ping.headers[0].value, sizeof(ping.headers[0].value), "ping");
+                safe_copy(ping.headers[0].key, sizeof(ping.headers[0].key), "type");
+                safe_copy(ping.headers[0].value, sizeof(ping.headers[0].value), "ping");
                 feishu_ws_send_frame(&conn, &ping, NULL, 0);
                 last_ping = now;
             }
@@ -153,6 +153,6 @@ void feishu_ws_runtime_run(feishu_ws_runtime_t *rt,
         feishu_ws_conn_close(&conn);
         rt->connected = false;
         pr_warn("Feishu WS disconnected");
-        daima_task_delay(3000);
+        task_delay(3000);
     }
 }

@@ -28,32 +28,32 @@
 #include "autoconf.h"
 #include "linux/kernel.h"
 #include "linux/printk.h"
-void daima_bootstrap_print_usage(const char *prog)
+void bootstrap_print_usage(const char *prog)
 {
     printf("Usage: %s [--help]\n", prog);
     printf("\n");
-    printf("Daima home: %s\n", daima_path_home());
-    printf("Runtime configuration is loaded from %s\n", daima_path_runtime_config_file());
-    printf("Example template: %s/config.example.json\n", daima_path_config_dir());
+    printf("Daima home: %s\n", path_home());
+    printf("Runtime configuration is loaded from %s\n", path_runtime_config_file());
+    printf("Example template: %s/config.example.json\n", path_config_dir());
 }
 
 static void ensure_spiffs_layout(void)
 {
-    daima_fs_ensure_dir(daima_path_home());
-    daima_fs_ensure_dir(daima_path_spiffs_base());
-    daima_fs_ensure_dir(daima_path_config_dir());
-    daima_fs_ensure_dir(daima_path_memory_dir());
-    daima_fs_ensure_dir(daima_path_session_dir());
-    daima_fs_ensure_dir(daima_path_cache_dir());
-    daima_fs_ensure_dir(daima_path_web_dir());
-    daima_fs_ensure_dir(daima_path_feishu_image_dir());
-    daima_fs_ensure_dir(daima_path_skills_dir());
-    daima_fs_ensure_dir(daima_path_workspace_dir());
+    fs_ensure_dir(path_home());
+    fs_ensure_dir(path_spiffs_base());
+    fs_ensure_dir(path_config_dir());
+    fs_ensure_dir(path_memory_dir());
+    fs_ensure_dir(path_session_dir());
+    fs_ensure_dir(path_cache_dir());
+    fs_ensure_dir(path_web_dir());
+    fs_ensure_dir(path_feishu_image_dir());
+    fs_ensure_dir(path_skills_dir());
+    fs_ensure_dir(path_workspace_dir());
 }
 
-void daima_bootstrap_prepare_runtime(void)
+void bootstrap_prepare_runtime(void)
 {
-    daima_paths_init();
+    paths_init();
     ensure_spiffs_layout();
     err_t cfg_err = runtime_config_init();
     if (cfg_err != 0) {
@@ -61,7 +61,7 @@ void daima_bootstrap_prepare_runtime(void)
     }
 }
 
-bool daima_bootstrap_get_primary_ipv4(char *out, size_t out_sz)
+bool bootstrap_get_primary_ipv4(char *out, size_t out_sz)
 {
     if (!out || out_sz == 0) {
         return false;

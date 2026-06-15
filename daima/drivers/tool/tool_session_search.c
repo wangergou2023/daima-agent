@@ -66,7 +66,7 @@ err_t tool_session_search_execute(const char *input_json, char *output, size_t o
         return ERR_INVALID_ARG;
     }
 
-    daima_session_record_t records[SESSION_SEARCH_MAX_SESSIONS];
+    session_record_t records[SESSION_SEARCH_MAX_SESSIONS];
     int record_count = 0;
     memset(records, 0, sizeof(records));
     if (session_store_list_records(records, SESSION_SEARCH_MAX_SESSIONS, &record_count) != 0) {
@@ -87,7 +87,7 @@ err_t tool_session_search_execute(const char *input_json, char *output, size_t o
     bool need_summaries = strcmp(target, "messages") != 0 && strcmp(target, "facts") != 0;
 
     for (int i = 0; i < record_count; i++) {
-        const daima_session_record_t *record = &records[i];
+        const session_record_t *record = &records[i];
         if (chat_id_filter && chat_id_filter[0] && strcmp(chat_id_filter, record->chat_id) != 0) {
             continue;
         }

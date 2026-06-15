@@ -86,14 +86,14 @@ char *feishu_download_message_image(const char *tenant_token,
         return NULL;
     }
 
-    daima_fs_ensure_dir(daima_path_cache_dir());
-    daima_fs_ensure_dir(daima_path_feishu_image_dir());
+    fs_ensure_dir(path_cache_dir());
+    fs_ensure_dir(path_feishu_image_dir());
 
     const char *content_type = header_value_ci(resp.headers, "Content-Type");
     const char *ext = guess_image_ext_from_type(content_type);
     char path[512];
     snprintf(path, sizeof(path), "%s/%s_%ld%s",
-             daima_path_feishu_image_dir(), image_key, (long)time(NULL), ext);
+             path_feishu_image_dir(), image_key, (long)time(NULL), ext);
 
     FILE *f = fopen(path, "wb");
     if (!f) {

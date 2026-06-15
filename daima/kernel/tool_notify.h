@@ -13,7 +13,7 @@ typedef struct {
     const char *default_text;
     bool ok;
     long elapsed_ms;
-} daima_tool_activity_event_t;
+} tool_activity_event_t;
 
 err_t channel_runtime_send_tool_activity(const struct message *msg,
-                                              const daima_tool_activity_event_t *event);
+                                              const tool_activity_event_t *event);

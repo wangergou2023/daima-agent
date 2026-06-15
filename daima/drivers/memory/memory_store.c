@@ -23,13 +23,13 @@ err_t memory_store_init(void)
 {
     /* SPIFFS 是扁平结构——不需要真正创建目录。
        这里只需确认能打开 base 路径。 */
-    pr_info("Memory store initialized at %s", daima_path_spiffs_base());
+    pr_info("Memory store initialized at %s", path_spiffs_base());
     return 0;
 }
 
 err_t memory_read_long_term(char *buf, size_t size)
 {
-    FILE *f = fopen(daima_path_memory_file(), "r");
+    FILE *f = fopen(path_memory_file(), "r");
     if (!f) {
         buf[0] = '\0';
         return ERR_NOT_FOUND;
@@ -43,9 +43,9 @@ err_t memory_read_long_term(char *buf, size_t size)
 
 err_t memory_write_long_term(const char *content)
 {
-    FILE *f = fopen(daima_path_memory_file(), "w");
+    FILE *f = fopen(path_memory_file(), "w");
     if (!f) {
-        pr_err("Cannot write %s", daima_path_memory_file());
+        pr_err("Cannot write %s", path_memory_file());
         return ERR_FAIL;
     }
     fputs(content, f);
@@ -60,7 +60,7 @@ err_t memory_append_today(const char *note)
     get_date_str(date_str, sizeof(date_str), 0);
 
     char path[BUF_SMALL];
-    snprintf(path, sizeof(path), "%s/%s.md", daima_path_memory_dir(), date_str);
+    snprintf(path, sizeof(path), "%s/%s.md", path_memory_dir(), date_str);
 
     FILE *f = fopen(path, "a");
     if (!f) {
@@ -88,11 +88,11 @@ err_t memory_read_recent(char *buf, size_t size, int days)
         get_date_str(date_str, sizeof(date_str), i);
 
         char path[BUF_SMALL];
-        snprintf(path, sizeof(path), "%s/%s.md", daima_path_memory_dir(), date_str);
+        snprintf(path, sizeof(path), "%s/%s.md", path_memory_dir(), date_str);
 
         FILE *f = fopen(path, "r");
         if (!f) {
-            snprintf(path, sizeof(path), "%s/daily/%s.md", daima_path_memory_dir(), date_str);
+            snprintf(path, sizeof(path), "%s/daily/%s.md", path_memory_dir(), date_str);
             f = fopen(path, "r");
         }
         if (!f) continue;

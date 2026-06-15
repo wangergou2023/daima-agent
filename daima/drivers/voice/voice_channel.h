@@ -55,7 +55,7 @@ err_t voice_channel_send_reply(const char *chat_id, const char *text);
  * @param out_pcm    输出: PCM 数据 (16-bit signed LE)
  * @param out_len    输出: PCM 字节数
  * @param out_rate   输出: 采样率 (Hz)，如 16000 或 24000
- * @return DAIMA_OK 成功，其他为失败
+ * @return 0 成功，其他为失败
  */
 err_t voice_channel_get_tts_pcm(const char *text,
                                      unsigned char **out_pcm,

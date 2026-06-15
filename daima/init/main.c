@@ -46,15 +46,15 @@ int main(int argc, char **argv)
     if (argc > 1) {
         const char *arg = argv[1];
         if (strcmp(arg, "-h") == 0 || strcmp(arg, "--help") == 0) {
-            daima_bootstrap_print_usage(argv[0]);
+            bootstrap_print_usage(argv[0]);
             return 0;
         }
         fprintf(stderr, "Unsupported option: %s\n", arg);
-        daima_bootstrap_print_usage(argv[0]);
+        bootstrap_print_usage(argv[0]);
         return 1;
     }
 
-    daima_bootstrap_prepare_runtime();
+    bootstrap_prepare_runtime();
 
     const char *runtime_tz = resolve_runtime_timezone();
     setenv("TZ", runtime_tz, 1);
@@ -63,7 +63,7 @@ int main(int argc, char **argv)
     pr_info("========================================");
     pr_info("  Daima - Host AI Agent (Linux)");
     pr_info("========================================");
-    pr_info("Free memory: %d bytes", (int)daima_get_free_memory());
+    pr_info("Free memory: %d bytes", (int)platform_free_memory());
     pr_info("Timezone: %s", runtime_tz);
 
     do_basic_setup();
@@ -82,7 +82,7 @@ int main(int argc, char **argv)
 
     pr_info("All services started!");
     char host_ip[INET_ADDRSTRLEN] = "0.0.0.0";
-    daima_bootstrap_get_primary_ipv4(host_ip, sizeof(host_ip));
+    bootstrap_get_primary_ipv4(host_ip, sizeof(host_ip));
     pr_info("代马 Daima 已就绪，Web UI: http://%s:%d", host_ip, runtime_config_get_web_port());
 
     while (1) {

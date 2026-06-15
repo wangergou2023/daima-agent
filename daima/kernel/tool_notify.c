@@ -73,7 +73,7 @@ static bool terminal_command_is_noteworthy(const char *command)
     return str_contains_any(command, keywords, sizeof(keywords) / sizeof(keywords[0]));
 }
 
-static bool tool_activity_should_send_feishu(const daima_tool_activity_event_t *event)
+static bool tool_activity_should_send_feishu(const tool_activity_event_t *event)
 {
     if (!event || !event->tool_name) {
         return false;
@@ -97,7 +97,7 @@ static bool tool_activity_should_send_feishu(const daima_tool_activity_event_t *
     return false;
 }
 
-static void format_feishu_tool_activity_line(const daima_tool_activity_event_t *event,
+static void format_feishu_tool_activity_line(const tool_activity_event_t *event,
                                              char *buf,
                                              size_t size)
 {
@@ -159,16 +159,16 @@ generic_success:
 }
 
 err_t channel_runtime_send_tool_activity(const struct message *msg,
-                                              const daima_tool_activity_event_t *event)
+                                              const tool_activity_event_t *event)
 {
     if (!msg || !event || !event->default_text) {
         return ERR_INVALID_ARG;
     }
 
-    if (strcmp(msg->channel, DAIMA_CHAN_WEBSOCKET) == 0) {
+    if (strcmp(msg->channel, CHAN_WEBSOCKET) == 0) {
         return ws_server_send_tool_event(msg->chat_id, event->default_text);
     }
-    if (strcmp(msg->channel, DAIMA_CHAN_FEISHU) == 0) {
+    if (strcmp(msg->channel, CHAN_FEISHU) == 0) {
         if (!tool_activity_should_send_feishu(event)) {
             return 0;
         }

@@ -166,9 +166,9 @@ static void handle_message_event(const char *app_id, const char *app_secret, cJS
     feishu_targets_record(route_id, chat_id, chat_type, sender_id);
 
     struct message msg = {0};
-    strncpy(msg.channel, DAIMA_CHAN_FEISHU, sizeof(msg.channel) - 1);
+    strncpy(msg.channel, CHAN_FEISHU, sizeof(msg.channel) - 1);
     strncpy(msg.chat_id, route_id, sizeof(msg.chat_id) - 1);
-    strncpy(msg.source, DAIMA_MSG_SOURCE_USER, sizeof(msg.source) - 1);
+    strncpy(msg.source, MSG_SOURCE_USER, sizeof(msg.source) - 1);
     msg.content = strdup(cleaned);
     msg.image_path = image_path;
 

@@ -2,4 +2,4 @@
 
 #pragma once
 
-void daima_log_file_write(int level, const char *tag, const char *msg);
+void log_file_write(int level, const char *tag, const char *msg);

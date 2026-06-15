@@ -19,7 +19,7 @@ static bool validate_spiffs_path(const char *path)
 {
     if (!path) return false;
     if (strstr(path, "..") != NULL) return false;
-    return daima_path_is_in_spiffs(path);
+    return path_is_in_spiffs(path);
 }
 
 static bool get_workspace_root(char *root, size_t root_size)
@@ -27,7 +27,7 @@ static bool get_workspace_root(char *root, size_t root_size)
     if (!root || root_size == 0) {
         return false;
     }
-    return strscpy(root, daima_path_workspace_dir(), root_size) < root_size;
+    return strscpy(root, path_workspace_dir(), root_size) < root_size;
 }
 
 static bool path_is_under_root(const char *path, const char *root)
@@ -113,7 +113,7 @@ bool tool_files_resolve_read_path(const char *path, char *resolved, size_t resol
         return false;
     }
 
-    if (daima_path_resolve_spiffs_shortcut(path, resolved, resolved_size)) {
+    if (path_resolve_spiffs_shortcut(path, resolved, resolved_size)) {
         return true;
     }
 
@@ -141,7 +141,7 @@ bool tool_files_resolve_read_path(const char *path, char *resolved, size_t resol
 
 bool tool_files_resolve_write_path(const char *path, char *resolved, size_t resolved_size)
 {
-    if (daima_path_resolve_spiffs_shortcut(path, resolved, resolved_size)) {
+    if (path_resolve_spiffs_shortcut(path, resolved, resolved_size)) {
         return true;
     }
     if (validate_spiffs_path(path)) {
@@ -155,7 +155,7 @@ bool tool_files_resolve_list_dir_path(const char *path, char *resolved, size_t r
     if (!path || !path[0]) {
         return resolve_workspace_path(".", resolved, resolved_size, false);
     }
-    if (daima_path_resolve_spiffs_shortcut(path, resolved, resolved_size)) {
+    if (path_resolve_spiffs_shortcut(path, resolved, resolved_size)) {
         return true;
     }
     if (validate_spiffs_path(path)) {

@@ -134,7 +134,7 @@ static void pcm_buf_flush_to_asr(void)
     kfree(pcm_copy);
 
     err_t err = voice_channel_handle_audio(
-        DAIMA_CHAN_VECTOR, wav_buf, wav_size,
+        CHAN_VECTOR, wav_buf, wav_size,
         NULL, NULL, NULL, NULL, NULL, NULL, NULL);
     kfree(wav_buf);
 
@@ -333,13 +333,13 @@ err_t vector_channel_start(void)
 
     if (start_connect) {
         /* 启动后台连接任务（不阻塞） */
-        daima_task_create(vector_connect_task, "vector_conn",
+        task_create(vector_connect_task, "vector_conn",
                           MCP_POLL_STACK, NULL, MCP_POLL_PRIO, NULL);
     }
 
     if (start_poll) {
         /* 启动后台轮询任务 */
-        daima_task_create(vector_poll_task, "vector_poll",
+        task_create(vector_poll_task, "vector_poll",
                           MCP_POLL_STACK, NULL, MCP_POLL_PRIO, NULL);
     }
 
@@ -382,7 +382,7 @@ err_t vector_channel_play_pcm(const unsigned char *pcm, size_t pcm_len, uint32_t
     struct sockaddr_un addr;
     memset(&addr, 0, sizeof(addr));
     addr.sun_family = AF_UNIX;
-    snprintf(addr.sun_path, sizeof(addr.sun_path), "/tmp/daima_spk.sock");
+    snprintf(addr.sun_path, sizeof(addr.sun_path), "/tmp/spk.sock");
 
     if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
         pr_warn("PlayPCM: connect failed (robot-mcp not ready?)");

@@ -52,7 +52,7 @@ static bool read_skill_info(const char *skill_name, const char *scope, skill_inf
     if (!skill_meta_resolve_path(skill_name, NULL, path, sizeof(path))) {
         return false;
     }
-    daima_skill_meta_t meta = {0};
+    skill_meta_t meta = {0};
     if (!skill_meta_read_file(path, &meta)) {
         return false;
     }
@@ -204,9 +204,9 @@ static err_t skills_action_list_execute(const char *input_json, char *output, si
         cJSON_Delete(root);
         return ERR_INVALID_ARG;
     }
-    DIR *dir = opendir(daima_path_skills_dir());
+    DIR *dir = opendir(path_skills_dir());
     if (!dir) {
-        snprintf(output, output_size, "错误：无法打开技能目录 %s", daima_path_skills_dir());
+        snprintf(output, output_size, "错误：无法打开技能目录 %s", path_skills_dir());
         cJSON_Delete(root);
         return ERR_FAIL;
     }
@@ -217,7 +217,7 @@ static err_t skills_action_list_execute(const char *input_json, char *output, si
                    &count,
                    (int)(sizeof(infos) / sizeof(infos[0])),
                    "",
-                   daima_path_skills_dir(),
+                   path_skills_dir(),
                    "common",
                    channel,
                    pattern);

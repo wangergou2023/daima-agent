@@ -23,13 +23,13 @@ enum {
 };
 
 int printk(const char *fmt, ...);
-void daima_log_level_set(const char *tag, int level);
-void daima_log_write(int level, const char *tag, const char *fmt, ...);
+void log_level_set(const char *tag, int level);
+void log_write(int level, const char *tag, const char *fmt, ...);
 
 #define LOG_HOOK_PRE  0
 #define LOG_HOOK_POST 1
-typedef void (*daima_log_hook_t)(int phase, void *ctx);
-void daima_log_set_hook(daima_log_hook_t hook);
+typedef void (*log_hook_t)(int phase, void *ctx);
+void log_set_hook(log_hook_t hook);
 
 #define pr_emerg(fmt, ...) printk(KERN_EMERG fmt, ##__VA_ARGS__)
 #define pr_err(fmt, ...)   printk(KERN_ERR fmt, ##__VA_ARGS__)

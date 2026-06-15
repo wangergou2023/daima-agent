@@ -11,7 +11,7 @@
 #define LOG_LINE_MAX 2048
 
 static const struct tool s_daima_log_tool = {
-    .name = "daima_log",
+    .name = "log_tool",
     .description = "读取 daima 自身运行日志，用于诊断工具失败、网络错误、系统异常。支持 tail / search / errors。",
     .input_schema_json =
         "{\"type\":\"object\","
@@ -98,7 +98,7 @@ err_t tool_daima_log_execute(const char *input_json, char *output, size_t output
     const char *action = cJSON_GetStringValue(cJSON_GetObjectItem(input, "action"));
     if (!action || !action[0]) action = "tail";
 
-    const char *path = daima_path_log_file();
+    const char *path = path_log_file();
     FILE *f = fopen(path, "r");
     if (!f) {
         snprintf(output, output_size, "（日志文件为空或不存在）");

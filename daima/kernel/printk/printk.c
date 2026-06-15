@@ -9,15 +9,15 @@
 #include <time.h>
 
 static int s_log_level = LOG_INFO;
-static daima_log_hook_t s_log_hook = NULL;
+static log_hook_t s_log_hook = NULL;
 
-void daima_log_level_set(const char *tag, int level)
+void log_level_set(const char *tag, int level)
 {
     (void)tag;
     s_log_level = level;
 }
 
-void daima_log_set_hook(daima_log_hook_t hook)
+void log_set_hook(log_hook_t hook)
 {
     s_log_hook = hook;
 }
@@ -51,7 +51,7 @@ static int printk_level_from_prefix(const char **fmt)
     return LOG_INFO;
 }
 
-static void daima_log_vwrite(int level, const char *tag, const char *fmt, va_list ap)
+static void log_vwrite(int level, const char *tag, const char *fmt, va_list ap)
 {
     if (level > s_log_level) return;
 
@@ -74,16 +74,16 @@ static void daima_log_vwrite(int level, const char *tag, const char *fmt, va_lis
     fprintf(stderr, "%s\n", msg_buf);
     fflush(stderr);
 
-    daima_log_file_write(level, tag, msg_buf);
+    log_file_write(level, tag, msg_buf);
 
     if (s_log_hook) s_log_hook(LOG_HOOK_POST, &hook_state);
 }
 
-void daima_log_write(int level, const char *tag, const char *fmt, ...)
+void log_write(int level, const char *tag, const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
-    daima_log_vwrite(level, tag, fmt, ap);
+    log_vwrite(level, tag, fmt, ap);
     va_end(ap);
 }
 
@@ -92,7 +92,7 @@ int printk(const char *fmt, ...)
     int level = printk_level_from_prefix(&fmt);
     va_list ap;
     va_start(ap, fmt);
-    daima_log_vwrite(level, "kernel", fmt, ap);
+    log_vwrite(level, "kernel", fmt, ap);
     va_end(ap);
     return 0;
 }

@@ -15,7 +15,7 @@ static err_t on_intent(struct message *msg)
         struct plan *plan = agent_extension_state_plan();
         err_t err = plan_review_generate(msg->intent, msg->content, "", plan);
         if (err == 0 && plan->has_plan && plan->reviewed) {
-            pr_info("Plan generated and reviewed for intent=%s", daima_intent_name(msg->intent));
+            pr_info("Plan generated and reviewed for intent=%s", intent_name(msg->intent));
         }
     }
 #endif

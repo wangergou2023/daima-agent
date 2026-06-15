@@ -34,7 +34,7 @@ const char *err_name(err_t err);
     do {                                                                           \
         err_t __err = (x);                                                    \
         if (__err != 0) {                                                   \
-            fprintf(stderr, "DAIMA_ERROR_CHECK failed: %s (%d) at %s:%d\n",         \
+            fprintf(stderr, "ERR_CHECK failed: %s (%d) at %s:%d\n",         \
                     err_name(__err), (int)__err, __FILE__, __LINE__);      \
             abort();                                                               \
         }                                                                          \

@@ -43,28 +43,28 @@ bool agent_env_bool_or_default(const char *name, bool fallback)
 const char *agent_msg_source_or_default(const struct message *msg)
 {
     if (!msg) {
-        return DAIMA_MSG_SOURCE_USER;
+        return MSG_SOURCE_USER;
     }
     if (msg->source[0]) {
         return msg->source;
     }
-    return DAIMA_MSG_SOURCE_USER;
+    return MSG_SOURCE_USER;
 }
 
 bool agent_msg_is_internal_control(const struct message *msg)
 {
-    return strcmp(agent_msg_source_or_default(msg), DAIMA_MSG_SOURCE_INTERNAL) == 0;
+    return strcmp(agent_msg_source_or_default(msg), MSG_SOURCE_INTERNAL) == 0;
 }
 
 bool agent_msg_is_synthetic_event(const struct message *msg)
 {
     const char *source = agent_msg_source_or_default(msg);
-    if (strcmp(source, DAIMA_MSG_SOURCE_CRON) == 0 ||
-        strcmp(source, DAIMA_MSG_SOURCE_HEARTBEAT) == 0 ||
-        strcmp(source, DAIMA_MSG_SOURCE_INTERNAL) == 0) {
+    if (strcmp(source, MSG_SOURCE_CRON) == 0 ||
+        strcmp(source, MSG_SOURCE_HEARTBEAT) == 0 ||
+        strcmp(source, MSG_SOURCE_INTERNAL) == 0) {
         return true;
     }
-    return msg && strcmp(msg->channel, DAIMA_CHAN_SYSTEM) == 0;
+    return msg && strcmp(msg->channel, CHAN_SYSTEM) == 0;
 }
 
 const char *agent_msg_role_for_current_turn(const struct message *msg)
@@ -79,10 +79,10 @@ const char *agent_session_role_for_inbound_msg(const struct message *msg)
     }
 
     const char *source = agent_msg_source_or_default(msg);
-    if (strcmp(source, DAIMA_MSG_SOURCE_USER) == 0) {
+    if (strcmp(source, MSG_SOURCE_USER) == 0) {
         return "user";
     }
-    if (strcmp(source, DAIMA_MSG_SOURCE_INTERNAL) == 0) {
+    if (strcmp(source, MSG_SOURCE_INTERNAL) == 0) {
         return NULL;
     }
     return "system";

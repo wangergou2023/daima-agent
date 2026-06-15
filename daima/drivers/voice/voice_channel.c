@@ -419,9 +419,9 @@ err_t voice_channel_handle_audio_base64(const char *chat_id,
     }
 
     struct message msg = {0};
-    strncpy(msg.channel, DAIMA_CHAN_VOICE, sizeof(msg.channel) - 1);
+    strncpy(msg.channel, CHAN_VOICE, sizeof(msg.channel) - 1);
     strncpy(msg.chat_id, chat_id, sizeof(msg.chat_id) - 1);
-    strncpy(msg.source, DAIMA_MSG_SOURCE_USER, sizeof(msg.source) - 1);
+    strncpy(msg.source, MSG_SOURCE_USER, sizeof(msg.source) - 1);
     msg.content = strdup(text);
     if (!msg.content) return ERR_NO_MEM;
 
@@ -597,9 +597,9 @@ err_t voice_channel_handle_audio(const char *chat_id,
     if (strlen(t) <= 1 && (*t < 'A' || *t > 'z')) return 0;
 
     struct message msg = {0};
-    strncpy(msg.channel, DAIMA_CHAN_VOICE, sizeof(msg.channel) - 1);
+    strncpy(msg.channel, CHAN_VOICE, sizeof(msg.channel) - 1);
     strncpy(msg.chat_id, chat_id, sizeof(msg.chat_id) - 1);
-    strncpy(msg.source, DAIMA_MSG_SOURCE_USER, sizeof(msg.source) - 1);
+    strncpy(msg.source, MSG_SOURCE_USER, sizeof(msg.source) - 1);
     msg.content = strdup(t);
     if (!msg.content) return ERR_NO_MEM;
 

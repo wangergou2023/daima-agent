@@ -17,7 +17,7 @@
 
 static void targets_path(char *buf, size_t size)
 {
-    snprintf(buf, size, "%s/feishu_targets.json", daima_path_cache_dir());
+    snprintf(buf, size, "%s/feishu_targets.json", path_cache_dir());
 }
 
 static cJSON *load_targets_root(void)

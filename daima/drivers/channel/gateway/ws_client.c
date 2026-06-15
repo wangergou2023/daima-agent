@@ -277,8 +277,8 @@ static bool save_uploaded_image(ws_client_t *client, const char *payload, uint64
     strftime(day, sizeof(day), "%Y-%m-%d", &tm_now);
 
     char upload_root[512];
-    snprintf(upload_root, sizeof(upload_root), "%s/uploads/%s", daima_path_spiffs_base(), day);
-    if (!daima_fs_ensure_dir_recursive(upload_root)) {
+    snprintf(upload_root, sizeof(upload_root), "%s/uploads/%s", path_spiffs_base(), day);
+    if (!fs_ensure_dir_recursive(upload_root)) {
         return false;
     }
 
@@ -297,7 +297,7 @@ static bool save_uploaded_image(ws_client_t *client, const char *payload, uint64
 static bool is_allowed_uploaded_image_path(const char *path)
 {
     if (!path || !path[0]) return false;
-    const char *base = daima_path_spiffs_base();
+    const char *base = path_spiffs_base();
     if (!base || !base[0]) return false;
 
     char prefix[512];
@@ -651,9 +651,9 @@ static void ws_handle_chat_message(int fd, ws_client_t *client, cJSON *root)
     agent_cancel_request(chat_id, "new_web_message");
 
     struct message msg = {0};
-    strncpy(msg.channel, DAIMA_CHAN_WEBSOCKET, sizeof(msg.channel) - 1);
+    strncpy(msg.channel, CHAN_WEBSOCKET, sizeof(msg.channel) - 1);
     strncpy(msg.chat_id, chat_id, sizeof(msg.chat_id) - 1);
-    strncpy(msg.source, DAIMA_MSG_SOURCE_USER, sizeof(msg.source) - 1);
+    strncpy(msg.source, MSG_SOURCE_USER, sizeof(msg.source) - 1);
     msg.content = strdup(content->valuestring);
     if (valid_image_path) {
         msg.image_path = strdup(image_path_value);
@@ -714,9 +714,9 @@ static void ws_handle_pet_action(int fd, ws_client_t *client, cJSON *root)
     char *pet_prompt = pet_build_action_prompt(action, pet_id);
     if (pet_prompt) {
         struct message msg = {0};
-        strncpy(msg.channel, DAIMA_CHAN_PET, sizeof(msg.channel) - 1);
+        strncpy(msg.channel, CHAN_PET, sizeof(msg.channel) - 1);
         strncpy(msg.chat_id, pet_chat_id, sizeof(msg.chat_id) - 1);
-        strncpy(msg.source, DAIMA_MSG_SOURCE_USER, sizeof(msg.source) - 1);
+        strncpy(msg.source, MSG_SOURCE_USER, sizeof(msg.source) - 1);
         msg.content = pet_prompt;
         message_bus_push_inbound(&msg);
     }
@@ -741,9 +741,9 @@ static void ws_handle_sudo_password(int fd, ws_client_t *client, cJSON *root)
                      pwd->valuestring,
                      (cancelled && cJSON_IsTrue(cancelled)) ? 1 : 0);
             struct message msg = {0};
-            strncpy(msg.channel, DAIMA_CHAN_WEBSOCKET, sizeof(msg.channel) - 1);
+            strncpy(msg.channel, CHAN_WEBSOCKET, sizeof(msg.channel) - 1);
             strncpy(msg.chat_id, chat_id, sizeof(msg.chat_id) - 1);
-            strncpy(msg.source, DAIMA_MSG_SOURCE_INTERNAL, sizeof(msg.source) - 1);
+            strncpy(msg.source, MSG_SOURCE_INTERNAL, sizeof(msg.source) - 1);
             msg.content = payload2;
             message_bus_push_inbound(&msg);
         }

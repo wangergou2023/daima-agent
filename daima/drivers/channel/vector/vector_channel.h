@@ -20,7 +20,7 @@ err_t vector_channel_ensure_started(void);
 
 /**
  * 将文本回复发送到 Vector 扬声器。
- * 实际音频播放由 TTS 管线生成 PCM 后经 /tmp/daima_spk.sock 发送给 robot-mcp。
+ * 实际音频播放由 TTS 管线生成 PCM 后经 /tmp/spk.sock 发送给 robot-mcp。
  */
 err_t vector_channel_send_reply(const char *chat_id, const char *text);
 

@@ -33,8 +33,8 @@ static void log_tool_payload_preview(const char *phase,
 {
     char input_preview[360];
     char output_preview[360];
-    daima_shorten_text(input, input_preview, sizeof(input_preview), 320);
-    daima_shorten_text(output, output_preview, sizeof(output_preview), 320);
+    text_shorten(input, input_preview, sizeof(input_preview), 320);
+    text_shorten(output, output_preview, sizeof(output_preview), 320);
     pr_info("tool_payload %s chat=%s tool=%s id=%s err=%s input_len=%u input=%s output_len=%u output=%s", phase ? phase : "-", msg && msg->chat_id[0] ? msg->chat_id : "-", tool_name && tool_name[0] ? tool_name : "-", tool_id && tool_id[0] ? tool_id : "-", err_name(err), input ? (unsigned)strlen(input) : 0, input_preview[0] ? input_preview : "<empty>", output ? (unsigned)strlen(output) : 0, output_preview[0] ? output_preview : "<empty>");
 }
 
@@ -129,8 +129,8 @@ static void collect_tool_failure_work_item(tool_failure_observer_t *observer,
 
     char input_preview[256];
     char output_preview[256];
-    daima_shorten_text(tool_input, input_preview, sizeof(input_preview), 220);
-    daima_shorten_text(tool_output, output_preview, sizeof(output_preview), 220);
+    text_shorten(tool_input, input_preview, sizeof(input_preview), 220);
+    text_shorten(tool_output, output_preview, sizeof(output_preview), 220);
 
     char title[256];
     if (tool_err == ERR_NOT_FOUND) {
@@ -306,17 +306,17 @@ static bool should_auto_verify_code_path(const char *path)
     if (!path || !path[0]) {
         return false;
     }
-    if (strcmp(path, "CMakeLists.txt") == 0 || daima_str_ends_with(path, "/CMakeLists.txt")) {
+    if (strcmp(path, "CMakeLists.txt") == 0 || str_ends_with(path, "/CMakeLists.txt")) {
         return true;
     }
-    return daima_str_ends_with(path, ".c") ||
-           daima_str_ends_with(path, ".h") ||
-           daima_str_ends_with(path, ".cc") ||
-           daima_str_ends_with(path, ".cpp") ||
-           daima_str_ends_with(path, ".cxx") ||
-           daima_str_ends_with(path, ".hh") ||
-           daima_str_ends_with(path, ".hpp") ||
-           daima_str_ends_with(path, ".hxx");
+    return str_ends_with(path, ".c") ||
+           str_ends_with(path, ".h") ||
+           str_ends_with(path, ".cc") ||
+           str_ends_with(path, ".cpp") ||
+           str_ends_with(path, ".cxx") ||
+           str_ends_with(path, ".hh") ||
+           str_ends_with(path, ".hpp") ||
+           str_ends_with(path, ".hxx");
 }
 
 static bool extract_tool_path(const char *tool_name, const char *tool_input, char *buf, size_t size)
@@ -448,7 +448,7 @@ static void extract_output_tail_snippet(const char *output, char *buf, size_t si
         }
     }
 
-    daima_shorten_text(start, buf, size, 120);
+    text_shorten(start, buf, size, 120);
 }
 
 static void append_verification_note(char **io_final_text,
@@ -543,7 +543,7 @@ cJSON *agent_turn_build_tool_results(const llm_response_t *resp,
     for (int i = 0; i < resp->call_count; i++) {
         const llm_tool_call_t *call = &resp->calls[i];
         const char *tool_input = call->input ? call->input : "{}";
-        daima_tool_runtime_result_t rt = {0};
+        tool_runtime_result_t rt = {0};
         log_tool_payload_preview("before_runtime",
                                  msg,
                                  call->name,
@@ -609,8 +609,8 @@ cJSON *agent_turn_build_tool_results(const llm_response_t *resp,
         } else {
             char input_preview[240];
             char output_preview[240];
-            daima_shorten_text(tool_input, input_preview, sizeof(input_preview), 220);
-            daima_shorten_text(tool_output, output_preview, sizeof(output_preview), 220);
+            text_shorten(tool_input, input_preview, sizeof(input_preview), 220);
+            text_shorten(tool_output, output_preview, sizeof(output_preview), 220);
             pr_warn("Tool %s failed: %s input=%s output=%s", call->name, err_name(tool_err), input_preview, output_preview);
         }
 

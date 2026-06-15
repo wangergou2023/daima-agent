@@ -72,7 +72,7 @@ int runtime_config_clamp_int(int value, int min_value, int max_value, int fallba
 
 static char *read_config_text(void)
 {
-    FILE *f = fopen(daima_path_runtime_config_file(), "rb");
+    FILE *f = fopen(path_runtime_config_file(), "rb");
     char *buf = NULL;
     long size = 0;
     size_t n = 0;
@@ -155,16 +155,16 @@ err_t runtime_config_init(void)
 
     reset_defaults();
 
-    if (access(daima_path_runtime_config_file(), F_OK) != 0) {
-        pr_warn("Runtime config missing: %s", daima_path_runtime_config_file());
-        pr_warn("Please create it with reference to: %s/config.example.json", daima_path_config_dir());
+    if (access(path_runtime_config_file(), F_OK) != 0) {
+        pr_warn("Runtime config missing: %s", path_runtime_config_file());
+        pr_warn("Please create it with reference to: %s/config.example.json", path_config_dir());
         s_cfg.loaded = 1;
         return 0;
     }
 
     text = read_config_text();
     if (!text) {
-        pr_warn("Cannot read runtime config: %s", daima_path_runtime_config_file());
+        pr_warn("Cannot read runtime config: %s", path_runtime_config_file());
         s_cfg.loaded = 1;
         return 0;
     }
@@ -173,7 +173,7 @@ err_t runtime_config_init(void)
     kfree(text);
     if (!root || !cJSON_IsObject(root)) {
         cJSON_Delete(root);
-        pr_warn("Invalid runtime config JSON: %s", daima_path_runtime_config_file());
+        pr_warn("Invalid runtime config JSON: %s", path_runtime_config_file());
         s_cfg.loaded = 1;
         return 0;
     }
@@ -182,7 +182,7 @@ err_t runtime_config_init(void)
     cJSON_Delete(root);
     s_cfg.loaded = 1;
 
-    pr_info("Runtime config loaded: %s%s%s", daima_path_runtime_config_file(), s_cfg.active_provider[0] ? " active_provider=" : "", s_cfg.active_provider[0] ? s_cfg.active_provider : "");
+    pr_info("Runtime config loaded: %s%s%s", path_runtime_config_file(), s_cfg.active_provider[0] ? " active_provider=" : "", s_cfg.active_provider[0] ? s_cfg.active_provider : "");
     return 0;
 }
 
@@ -234,7 +234,7 @@ static err_t write_config_json_atomic(cJSON *root)
     }
 
     char tmp_path[1024];
-    snprintf(tmp_path, sizeof(tmp_path), "%s.tmp", daima_path_runtime_config_file());
+    snprintf(tmp_path, sizeof(tmp_path), "%s.tmp", path_runtime_config_file());
     FILE *f = fopen(tmp_path, "wb");
     if (!f) {
         kfree(text);
@@ -251,7 +251,7 @@ static err_t write_config_json_atomic(cJSON *root)
         unlink(tmp_path);
         return ERR_FAIL;
     }
-    if (rename(tmp_path, daima_path_runtime_config_file()) != 0) {
+    if (rename(tmp_path, path_runtime_config_file()) != 0) {
         unlink(tmp_path);
         return ERR_FAIL;
     }

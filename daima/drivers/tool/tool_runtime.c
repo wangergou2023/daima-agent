@@ -64,7 +64,7 @@ static void maybe_retry_terminal_with_web_sudo(const llm_tool_call_t *call,
     if (!call || !msg || !tool_output || strcmp(call->name, "terminal") != 0) {
         return;
     }
-    if (strcmp(msg->channel, DAIMA_CHAN_WEBSOCKET) != 0) {
+    if (strcmp(msg->channel, CHAN_WEBSOCKET) != 0) {
         return;
     }
 
@@ -114,7 +114,7 @@ err_t tool_runtime_execute_call(const llm_tool_call_t *call,
                                      const struct message *msg,
                                      char *tool_output,
                                      size_t tool_output_size,
-                                     daima_tool_runtime_result_t *out_result)
+                                     tool_runtime_result_t *out_result)
 {
     if (!call || !msg || !tool_output || tool_output_size == 0 || !out_result) {
         return ERR_INVALID_ARG;

@@ -7,18 +7,18 @@
 #include <stdint.h>
 
 /* 通道标识 */
-#define DAIMA_CHAN_WEBSOCKET  "websocket"
-#define DAIMA_CHAN_PET        "pet"
-#define DAIMA_CHAN_VOICE      "voice"
-#define DAIMA_CHAN_FEISHU     "feishu"
-#define DAIMA_CHAN_SYSTEM     "system"
-#define DAIMA_CHAN_VECTOR     "vector"
+#define CHAN_WEBSOCKET  "websocket"
+#define CHAN_PET        "pet"
+#define CHAN_VOICE      "voice"
+#define CHAN_FEISHU     "feishu"
+#define CHAN_SYSTEM     "system"
+#define CHAN_VECTOR     "vector"
 
 /* 消息来源类型 */
-#define DAIMA_MSG_SOURCE_USER      "user"
-#define DAIMA_MSG_SOURCE_CRON      "cron"
-#define DAIMA_MSG_SOURCE_HEARTBEAT "heartbeat"
-#define DAIMA_MSG_SOURCE_INTERNAL  "internal"
+#define MSG_SOURCE_USER      "user"
+#define MSG_SOURCE_CRON      "cron"
+#define MSG_SOURCE_HEARTBEAT "heartbeat"
+#define MSG_SOURCE_INTERNAL  "internal"
 
 /* 总线消息类型 */
 struct message {

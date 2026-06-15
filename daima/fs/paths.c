@@ -44,9 +44,9 @@ typedef struct {
     char cron_file[PATH_MAX];
     char heartbeat_file[PATH_MAX];
     char ca_cert_file[PATH_MAX];
-} daima_paths_state_t;
+} paths_state_t;
 
-static daima_paths_state_t s_paths = {0};
+static paths_state_t s_paths = {0};
 
 static void safe_copy(char *dst, size_t dst_size, const char *src)
 {
@@ -196,7 +196,7 @@ static void ensure_initialized(void)
     }
 }
 
-void daima_paths_init(void)
+void paths_init(void)
 {
     ensure_initialized();
 }
@@ -208,36 +208,36 @@ void daima_paths_init(void)
         return s_paths.field_name;       \
     }
 
-PATH_GETTER(daima_path_home, home)
-PATH_GETTER(daima_path_spiffs_base, spiffs_base)
-PATH_GETTER(daima_path_config_dir, config_dir)
-PATH_GETTER(daima_path_memory_dir, memory_dir)
-PATH_GETTER(daima_path_session_dir, session_dir)
-PATH_GETTER(daima_path_cache_dir, cache_dir)
-PATH_GETTER(daima_path_checkpoint_dir, checkpoint_dir)
-PATH_GETTER(daima_path_web_dir, web_dir)
-PATH_GETTER(daima_path_feishu_image_dir, feishu_image_dir)
-PATH_GETTER(daima_path_skills_dir, skills_dir)
-PATH_GETTER(daima_path_workspace_dir, workspace_dir)
-PATH_GETTER(daima_path_runtime_config_file, runtime_config_file)
-PATH_GETTER(daima_path_bootstrap_file, bootstrap_file)
-PATH_GETTER(daima_path_identity_file, identity_file)
-PATH_GETTER(daima_path_soul_file, soul_file)
-PATH_GETTER(daima_path_user_file, user_file)
-PATH_GETTER(daima_path_memory_file, memory_file)
-PATH_GETTER(daima_path_skill_review_queue_file, skill_review_queue_file)
-PATH_GETTER(daima_path_todo_file, todo_file)
-PATH_GETTER(daima_path_work_items_file, work_items_file)
-PATH_GETTER(daima_path_log_file, log_file)
-PATH_GETTER(daima_path_web_index_file, web_index_file)
-PATH_GETTER(daima_path_web_css_file, web_css_file)
-PATH_GETTER(daima_path_web_js_file, web_js_file)
-PATH_GETTER(daima_path_prompt_debug_file, prompt_debug_file)
-PATH_GETTER(daima_path_cron_file, cron_file)
-PATH_GETTER(daima_path_heartbeat_file, heartbeat_file)
-PATH_GETTER(daima_path_ca_cert_file, ca_cert_file)
+PATH_GETTER(path_home, home)
+PATH_GETTER(path_spiffs_base, spiffs_base)
+PATH_GETTER(path_config_dir, config_dir)
+PATH_GETTER(path_memory_dir, memory_dir)
+PATH_GETTER(path_session_dir, session_dir)
+PATH_GETTER(path_cache_dir, cache_dir)
+PATH_GETTER(path_checkpoint_dir, checkpoint_dir)
+PATH_GETTER(path_web_dir, web_dir)
+PATH_GETTER(path_feishu_image_dir, feishu_image_dir)
+PATH_GETTER(path_skills_dir, skills_dir)
+PATH_GETTER(path_workspace_dir, workspace_dir)
+PATH_GETTER(path_runtime_config_file, runtime_config_file)
+PATH_GETTER(path_bootstrap_file, bootstrap_file)
+PATH_GETTER(path_identity_file, identity_file)
+PATH_GETTER(path_soul_file, soul_file)
+PATH_GETTER(path_user_file, user_file)
+PATH_GETTER(path_memory_file, memory_file)
+PATH_GETTER(path_skill_review_queue_file, skill_review_queue_file)
+PATH_GETTER(path_todo_file, todo_file)
+PATH_GETTER(path_work_items_file, work_items_file)
+PATH_GETTER(path_log_file, log_file)
+PATH_GETTER(path_web_index_file, web_index_file)
+PATH_GETTER(path_web_css_file, web_css_file)
+PATH_GETTER(path_web_js_file, web_js_file)
+PATH_GETTER(path_prompt_debug_file, prompt_debug_file)
+PATH_GETTER(path_cron_file, cron_file)
+PATH_GETTER(path_heartbeat_file, heartbeat_file)
+PATH_GETTER(path_ca_cert_file, ca_cert_file)
 
-bool daima_path_is_in_spiffs(const char *path)
+bool path_is_in_spiffs(const char *path)
 {
     ensure_initialized();
     if (!path || !path[0]) return false;
@@ -249,7 +249,7 @@ bool daima_path_is_in_spiffs(const char *path)
     return path[base_len] == '\0' || path[base_len] == '/';
 }
 
-bool daima_path_resolve_spiffs_shortcut(const char *path, char *resolved, size_t resolved_size)
+bool path_resolve_spiffs_shortcut(const char *path, char *resolved, size_t resolved_size)
 {
     ensure_initialized();
     if (!path || !resolved || resolved_size == 0) {

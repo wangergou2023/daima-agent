@@ -36,7 +36,7 @@ static void build_state_path(const char *chat_id, char *path, size_t path_size)
     }
     safe_chat_id[off] = '\0';
 
-    snprintf(path, path_size, "%s/session_%s_enforcer.json", daima_path_session_dir(), safe_chat_id);
+    snprintf(path, path_size, "%s/session_%s_enforcer.json", path_session_dir(), safe_chat_id);
 }
 
 static bool load_state(const char *chat_id, todo_enforcer_state_t *state)
@@ -88,8 +88,8 @@ static err_t save_state(const char *chat_id, const todo_enforcer_state_t *state)
 {
     char path[BUF_PATH];
     build_state_path(chat_id, path, sizeof(path));
-    mkdir(daima_path_spiffs_base(), 0700);
-    mkdir(daima_path_session_dir(), 0700);
+    mkdir(path_spiffs_base(), 0700);
+    mkdir(path_session_dir(), 0700);
 
     cJSON *root = cJSON_CreateObject();
     if (!root) {

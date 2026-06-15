@@ -17,7 +17,7 @@ static err_t recovery_path(const char *chat_id, char *buf, size_t size)
     if (!chat_id || !chat_id[0] || !buf || size == 0) {
         return ERR_INVALID_ARG;
     }
-    snprintf(buf, size, "%s/session_%s_recovery.json", daima_path_session_dir(), chat_id);
+    snprintf(buf, size, "%s/session_%s_recovery.json", path_session_dir(), chat_id);
     return 0;
 }
 

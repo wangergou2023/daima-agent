@@ -19,13 +19,13 @@ void agent_prompt_dump_snapshot(const struct message *msg, const char *system_pr
         return;
     }
 
-    daima_fs_ensure_dir(daima_path_cache_dir());
+    fs_ensure_dir(path_cache_dir());
 
     char chat_slug[96];
     agent_chat_id_to_slug(msg->chat_id, chat_slug, sizeof(chat_slug));
 
     char per_chat_path[256];
-    snprintf(per_chat_path, sizeof(per_chat_path), "%s/prompt_%s.md", daima_path_cache_dir(), chat_slug);
+    snprintf(per_chat_path, sizeof(per_chat_path), "%s/prompt_%s.md", path_cache_dir(), chat_slug);
 
     time_t now = time(NULL);
     struct tm tm_info;
@@ -43,12 +43,12 @@ void agent_prompt_dump_snapshot(const struct message *msg, const char *system_pr
              "- `USER.md`: `%s`\n"
              "- `MEMORY.md`: `%s`\n"
              "- `Skills`: `%s`\n",
-             daima_path_bootstrap_file(),
-             daima_path_identity_file(),
-             daima_path_soul_file(),
-             daima_path_user_file(),
-             daima_path_memory_file(),
-             daima_path_skills_dir());
+             path_bootstrap_file(),
+             path_identity_file(),
+             path_soul_file(),
+             path_user_file(),
+             path_memory_file(),
+             path_skills_dir());
 
     const char *meta_fmt =
         "# Final Prompt Snapshot\n\n"
@@ -61,7 +61,7 @@ void agent_prompt_dump_snapshot(const struct message *msg, const char *system_pr
         "## Prompt\n\n"
         "%s\n";
 
-    FILE *f = fopen(daima_path_prompt_debug_file(), "w");
+    FILE *f = fopen(path_prompt_debug_file(), "w");
     if (f) {
         fprintf(f, meta_fmt,
                 ts_buf,

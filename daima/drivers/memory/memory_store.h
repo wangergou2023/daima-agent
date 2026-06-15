@@ -12,7 +12,7 @@ err_t memory_store_init(void);
 
 /**
  * 读取长期记忆（MEMORY.md）到缓冲区。
- * @return 成功返回 DAIMA_OK，文件不存在返回 DAIMA_ERR_NOT_FOUND
+ * @return 成功返回 0，文件不存在返回 ERR_NOT_FOUND
  */
 err_t memory_read_long_term(char *buf, size_t size);
 
