@@ -9,7 +9,7 @@ export AGENT_ROOT := $(TOPDIR)
 export AGENT_DIR := $(AGENT_ROOT)
 BUILD_DIR := build-kbuild
 export BUILD_DIR
-AGENT_BIN := $(BUILD_DIR)/daima
+AGENT_BIN := $(BUILD_DIR)/agent
 
 ARCH ?= host
 export ARCH
@@ -38,10 +38,10 @@ core-y += extensions/
 agent-dirs := $(patsubst %/,%,$(core-y))
 agent_builtin := $(foreach d,$(agent-dirs),$(d)/built-in.o)
 
-.PHONY: all daima host mips arm arch-obj cjson modules test clean mrproper distclean help menuconfig defconfig config $(agent-dirs)
+.PHONY: all agent host mips arm arch-obj cjson modules test clean mrproper distclean help menuconfig defconfig config $(agent-dirs)
 
 all: kbuild
-kbuild: daima
+kbuild: agent
 
 $(BUILD_DIR):
 	$(Q)mkdir -p $(BUILD_DIR)
@@ -58,11 +58,11 @@ cjson: $(BUILD_DIR)
 arch-obj: $(BUILD_DIR)
 	$(Q)$(MAKE) -f $(TOPDIR)/scripts/Makefile.build obj=arch/$(ARCH)
 
-daima: $(agent-dirs) cjson arch-obj
-	@echo "  LD      daima"
+agent: $(agent-dirs) cjson arch-obj
+	@echo "  LD      agent"
 	$(Q)awk '!seen[$$0]++' $(BUILD_DIR)/objects.list > $(BUILD_DIR)/objects.link
 	$(Q)$(CC) $(AGENT_CFLAGS) -o $(AGENT_BIN) @$(BUILD_DIR)/objects.link $(LDFLAGS)
-	@echo "  DONE    daima"
+	@echo "  DONE    agent"
 
 kbuild-doc-check:
 	$(Q)$(MAKE) KBUILD_DOC_ONLY=1 kbuild
