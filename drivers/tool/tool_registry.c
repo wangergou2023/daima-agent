@@ -281,8 +281,19 @@ static bool channel_allows_tool(const char *channel, const char *tool_name)
 }
 
 err_t tool_registry_execute(const char *name, const char *input_json,
-                                char *output, size_t output_size)
+                                 char *output, size_t output_size)
 {
+    /* 优先从 tool_bus 查找 */
+    if (tool_bus) {
+        struct device *dev = bus_find_device(tool_bus, name);
+        if (dev && dev->drv && dev->drv->priv) {
+            struct tool_driver *tdrv = (struct tool_driver *)dev->drv->priv;
+            pr_info("Executing tool via bus: %s", name);
+            return tdrv->execute(input_json, output, output_size);
+        }
+    }
+
+    /* fallback: 搜索静态数组 */
     for (int i = 0; i < s_tool_count; i++) {
         if (strcmp(s_tools[i].name, name) == 0) {
             pr_info("Executing tool: %s", name);

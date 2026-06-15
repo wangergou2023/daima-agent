@@ -102,7 +102,6 @@ int driver_register(struct driver *drv, struct bus_type *bus)
             bus->name ? bus->name : "<unnamed>",
             drv->name ? drv->name : "<unnamed>");
 
-    bus_probe_all(bus);
     return 0;
 }
 
