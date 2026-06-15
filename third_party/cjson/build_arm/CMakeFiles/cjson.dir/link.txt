@@ -1,2 +1,0 @@
-/opt/homebrew/bin/arm-linux-musleabihf-ar qc libcjson.a CMakeFiles/cjson.dir/cJSON.c.o
-/opt/homebrew/bin/arm-linux-musleabihf-ranlib libcjson.a

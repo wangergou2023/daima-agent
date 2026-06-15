@@ -1,9 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/cmake_install.cmake",
-		"/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/tests/cmake_install.cmake",
-		"/Users/wangergou/code/github/wire-os/daima-agent/third_party/cjson/build_arm/fuzzing/cmake_install.cmake"
-	],
-	"Parallel" : false
-}
