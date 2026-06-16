@@ -65,7 +65,7 @@ static void memory_task(void *arg)
             if (chat_id) {
                 char history[131072];
                 err_t err = session_store_get_history_json(chat_id, history, sizeof(history), -1);
-                if (err == 0 && history[0]) {
+                if (err == 0 && history[0] && strlen(history) > 10) {
                     cJSON *reply = cJSON_CreateObject();
                     cJSON_AddStringToObject(reply, "chat_id", chat_id);
                     cJSON_AddStringToObject(reply, "history", history);
@@ -75,6 +75,8 @@ static void memory_task(void *arg)
                 } else {
                     strscpy(task.status, TASK_FAILED, sizeof(task.status));
                 }
+            } else {
+                strscpy(task.status, TASK_FAILED, sizeof(task.status));
             }
             cJSON_Delete(root);
         }

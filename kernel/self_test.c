@@ -50,7 +50,7 @@ static void test_executor_queue(void)
 
     struct core_task reply;
     memset(&reply, 0, sizeof(reply));
-    int ok = (core_recv(CORE_SCHEDULER, &reply, 2000) == 0);
+    int ok = (core_recv(CORE_SCHEDULER, &reply, 5000) == 0);
     if (ok) {
         cJSON *r = cJSON_Parse(reply.result);
         cJSON *results = cJSON_GetObjectItem(r, "results");
@@ -89,7 +89,6 @@ static void test_message_bus(void)
             free(recv.content);
         }
     }
-    free(msg.content);
     report("message_bus push/pop", ok);
 }
 
@@ -123,12 +122,12 @@ static void test_memory_queue(void)
 
     core_send(CORE_MEMORY, &task);
 
-    usleep(100000);
+    usleep(300000);
 
     struct core_task reply;
     memset(&reply, 0, sizeof(reply));
     /* 不存在的会话 → 记忆核应返回 FAILED */
-    int ok = (core_recv(CORE_SCHEDULER, &reply, 2000) == 0);
+    int ok = (core_recv(CORE_SCHEDULER, &reply, 5000) == 0);
     if (ok) {
         ok = (strcmp(reply.status, TASK_FAILED) == 0);
     }

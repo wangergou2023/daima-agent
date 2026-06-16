@@ -151,6 +151,7 @@ err_t tool_registry_init(void)
     if (tool_bus) {
         driver_register(&tool_weather_driver()->drv, tool_bus);
         driver_register(&tool_get_time_driver()->drv, tool_bus);
+        driver_register(&tool_files_driver()->drv, tool_bus);
         driver_register(&tool_apply_patch_driver()->drv, tool_bus);
         driver_register(&tool_restore_file_driver()->drv, tool_bus);
         driver_register(&tool_todo_driver()->drv, tool_bus);
