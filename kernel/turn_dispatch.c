@@ -67,3 +67,52 @@ err_t dispatch_compress_context(const char *chat_id)
     kfree(task.payload);
     return ret;
 }
+
+/* 同步桥接：向执行核发工具执行任务，阻塞等回复 */
+err_t tool_execute_via_core(const char *name, const char *input,
+                             char *output, size_t output_size)
+{
+    struct core_task task;
+    memset(&task, 0, sizeof(task));
+    snprintf(task.id, sizeof(task.id), "et_%d", ++s_task_seq);
+    strscpy(task.type, TASK_EXECUTE_TOOLS, sizeof(task.type));
+    task.timeout_ms = 30000;
+
+    cJSON *payload = cJSON_CreateObject();
+    cJSON *tools = cJSON_CreateArray();
+    cJSON *tool = cJSON_CreateObject();
+    cJSON_AddStringToObject(tool, "id", "1");
+    cJSON_AddStringToObject(tool, "name", name);
+    cJSON_AddStringToObject(tool, "input", input);
+    cJSON_AddItemToArray(tools, tool);
+    cJSON_AddItemToObject(payload, "tools", tools);
+    task.payload = cJSON_PrintUnformatted(payload);
+    cJSON_Delete(payload);
+
+    core_send(CORE_EXECUTOR, &task);
+    kfree(task.payload);
+
+    /* 阻塞等回复 */
+    struct core_task reply;
+    memset(&reply, 0, sizeof(reply));
+    err_t err = core_recv(CORE_SCHEDULER, &reply, 30000);
+    if (err != 0) {
+        snprintf(output, output_size, "executor core timeout");
+        return ERR_TIMEOUT;
+    }
+
+    cJSON *root = cJSON_Parse(reply.result ? reply.result : "{}");
+    cJSON *results = cJSON_GetObjectItem(root, "results");
+    if (results && cJSON_IsArray(results)) {
+        cJSON *r = cJSON_GetArrayItem(results, 0);
+        if (r) {
+            const char *out = cJSON_GetStringValue(cJSON_GetObjectItem(r, "output"));
+            cJSON *err_j = cJSON_GetObjectItem(r, "err");
+            if (out) strscpy(output, out, output_size);
+            err = err_j ? (err_t)cJSON_GetNumberValue(err_j) : ERR_FAIL;
+        }
+    }
+    cJSON_Delete(root);
+    kfree(reply.result);
+    return err;
+}

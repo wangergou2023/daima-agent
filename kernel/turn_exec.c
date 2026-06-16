@@ -12,6 +12,7 @@
 #include "linux/slab.h"
 #include "linux/kernel.h"
 #include "cjson.h"
+#include "turn_dispatch.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -100,7 +101,8 @@ cJSON *agent_turn_build_tool_results(const llm_response_t *resp,
 
         log_tool_payload_preview("before_runtime", msg, call->name, call->id, tool_input, NULL, 0);
 
-        err_t tool_err = tool_runtime_execute_call(call, msg, tool_output, tool_output_size, &rt);
+        err_t tool_err = tool_execute_via_core(call->name, tool_input,
+                                                tool_output, tool_output_size);
         if (rt.effective_input) tool_input = rt.effective_input;
 
         log_tool_payload_preview(rt.effective_input ? "after_runtime_patched" : "after_runtime",
