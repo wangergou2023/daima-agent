@@ -88,13 +88,13 @@ static void process_core_reply(void)
     const char *chat_id = turn_context_find_by_task(reply.id);
     if (!chat_id) {
         pr_warn("loop: orphan task reply %s, discarded", reply.id);
-        kfree(reply.payload); kfree(reply.result);
+        kfree(reply.result);
         return;
     }
 
     struct turn_snapshot *snap = turn_context_load(chat_id);
     if (!snap) {
-        kfree(reply.payload); kfree(reply.result);
+        kfree(reply.result);
         return;
     }
 

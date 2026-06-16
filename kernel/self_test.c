@@ -179,6 +179,28 @@ static void test_real_tool_via_executor(void)
     report("real tool via executor core", ok);
 }
 
+/* 测 6: 端到端 pipeline — 消息入站 → 出站 */
+static void test_message_pipeline(void)
+{
+    struct message msg;
+    memset(&msg, 0, sizeof(msg));
+    strscpy(msg.channel, "system", sizeof(msg.channel));
+    strscpy(msg.chat_id, "test_pipeline", sizeof(msg.chat_id));
+    strscpy(msg.source, "internal", sizeof(msg.source));
+    msg.content = strdup("ping");
+
+    message_bus_push_outbound(&msg);
+
+    struct message recv;
+    memset(&recv, 0, sizeof(recv));
+    int ok = (message_bus_pop_outbound(&recv, 2000) == 0);
+    if (ok) {
+        ok = (strcmp(recv.channel, "system") == 0);
+        free(recv.content);
+    }
+    report("message pipeline inbound→outbound", ok);
+}
+
 int agent_self_test(void)
 {
     pr_info("========================================");
@@ -193,6 +215,7 @@ int agent_self_test(void)
     test_tool_bus_bindings();
     test_memory_queue();
     test_real_tool_via_executor();
+    test_message_pipeline();
 
     pr_info("----------------------------------------");
     pr_info("  Results: %d/%d passed", tests_pass, tests_run);
