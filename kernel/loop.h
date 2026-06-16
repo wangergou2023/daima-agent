@@ -3,6 +3,9 @@
 #pragma once
 
 #include "err.h"
+#include "bus.h"
+
+void agent_process_message(struct message *msg);
 
 /**
  * 初始化智能体主循环。

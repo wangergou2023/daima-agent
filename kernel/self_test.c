@@ -3,6 +3,7 @@
 #include "linux/printk.h"
 #include "linux/bus.h"
 #include "bus.h"
+#include "loop.h"
 #include "linux/slab.h"
 #include "linux/kernel.h"
 #include "drivers/tool/tool_registry.h"
@@ -201,6 +202,29 @@ static void test_message_pipeline(void)
     report("message pipeline inbound→outbound", ok);
 }
 
+/* 测 7: 完整 LLM 调用 — 推真实消息，等 LLM 回复 */
+static void test_llm_pipeline(void)
+{
+    struct message msg;
+    memset(&msg, 0, sizeof(msg));
+    strscpy(msg.channel, "websocket", sizeof(msg.channel));
+    strscpy(msg.chat_id, "self_test_llm", sizeof(msg.chat_id));
+    strscpy(msg.source, "user", sizeof(msg.source));
+    msg.content = strdup("reply OK");
+
+    agent_process_message(&msg);
+
+    struct message reply;
+    memset(&reply, 0, sizeof(reply));
+    int ok = (message_bus_pop_outbound(&reply, 2000) == 0);
+    if (ok) {
+        ok = reply.content && strlen(reply.content) > 0;
+        pr_info("  LLM response: %.80s...", reply.content ? reply.content : "null");
+        free(reply.content);
+    }
+    report("LLM end-to-end pipeline", ok);
+}
+
 int agent_self_test(void)
 {
     pr_info("========================================");
@@ -216,6 +240,7 @@ int agent_self_test(void)
     test_memory_queue();
     test_real_tool_via_executor();
     test_message_pipeline();
+    test_llm_pipeline();
 
     pr_info("----------------------------------------");
     pr_info("  Results: %d/%d passed", tests_pass, tests_run);

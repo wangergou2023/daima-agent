@@ -169,6 +169,11 @@ static void agent_loop_task(void *arg)
     }
 }
 
+void agent_process_message(struct message *msg)
+{
+    process_new_message(msg);
+}
+
 err_t agent_loop_init(void)
 {
     err_t err = context_compressor_init();
