@@ -111,6 +111,7 @@ int do_basic_setup(void)
     BUG_ON(bus_init() != 0);
     BUG_ON(bus_channel_register_all() != 0);
     BUG_ON(bus_llm_register_all() != 0);
+    executor_core_start();
 
     cron_service_start();
     heartbeat_start();

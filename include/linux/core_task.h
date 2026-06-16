@@ -43,3 +43,6 @@ err_t core_recv(int core_id, struct core_task *task, uint32_t timeout_ms);
 
 /* 回复 task 结果给调度核 */
 err_t core_reply(const struct core_task *task);
+
+/* 核启动 */
+err_t executor_core_start(void);
