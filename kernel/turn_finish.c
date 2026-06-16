@@ -154,7 +154,7 @@ void agent_turn_finish(
 
     /* 异步通知记忆核压缩上下文（fire-and-forget） */
     if (turn_err == 0 && msg && msg->chat_id[0]) {
-        dispatch_compress_context(msg->chat_id);
+        /* dispatch_compress_context(msg->chat_id); */
     }
 
     pr_info("Free memory: %d bytes", (int)platform_free_memory());
