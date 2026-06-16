@@ -5,6 +5,7 @@
 
 #include "bus.h"
 #include "linux/bus.h"
+#include "linux/core_task.h"
 #include "hooks.h"
 #include "drivers/memory/memory_store.h"
 #include "drivers/memory/session_store.h"
@@ -93,6 +94,7 @@ int do_basic_setup(void)
 {
     pr_info("core_initcall...");
     BUG_ON(message_bus_init() != 0);
+    BUG_ON(core_ipc_init() != 0);
     agent_hooks_init();
 
     pr_info("postcore_initcall...");
