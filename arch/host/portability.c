@@ -2,12 +2,8 @@
  * 所有 #ifdef 平台差异集中于此文件。
  */
 #include "arch/host/portability.h"
-
 #include <string.h>
-
-#ifdef __linux__
-#include <sys/sysinfo.h>
-#endif
+#include <stdio.h>
 
 /* ---- memrchr ----------------------------------------------------------- */
 
@@ -30,10 +26,16 @@ void *host_memrchr(const void *s, int c, size_t n)
 
 size_t host_platform_free_memory(void)
 {
-#ifdef __linux__
-    struct sysinfo info;
-    if (sysinfo(&info) == 0)
-        return (size_t)info.freeram;
-#endif
+    FILE *f = fopen("/proc/meminfo", "r");
+    if (!f) return 0;
+    char line[256];
+    size_t free_kb = 0;
+    while (fgets(line, sizeof(line), f)) {
+        if (sscanf(line, "MemAvailable: %zu kB", &free_kb) == 1) {
+            fclose(f);
+            return free_kb * 1024;
+        }
+    }
+    fclose(f);
     return 0;
 }
