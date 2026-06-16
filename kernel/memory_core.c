@@ -82,7 +82,6 @@ static void memory_task(void *arg)
         kfree(task.payload);
         task.result = result;
         core_reply(&task);
-        kfree(task.result);
     }
 }
 

@@ -43,7 +43,6 @@ err_t dispatch_save_session(const char *chat_id, const char *role, const char *c
 
     pr_debug("dispatch: save_session → memory_core (task %s)", task.id);
     err_t ret = core_send(CORE_MEMORY, &task);
-    kfree(task.payload);
     return ret;
 }
 
@@ -64,7 +63,6 @@ err_t dispatch_compress_context(const char *chat_id)
 
     pr_debug("dispatch: compress_context → memory_core (task %s)", task.id);
     err_t ret = core_send(CORE_MEMORY, &task);
-    kfree(task.payload);
     return ret;
 }
 
@@ -90,7 +88,6 @@ err_t tool_execute_via_core(const char *name, const char *input,
     cJSON_Delete(payload);
 
     core_send(CORE_EXECUTOR, &task);
-    kfree(task.payload);
 
     /* 阻塞等回复 */
     struct core_task reply;

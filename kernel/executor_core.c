@@ -73,7 +73,6 @@ static void executor_task(void *arg)
         task.result = result_str;
 
         core_reply(&task);
-        kfree(task.result);
     }
 
     kfree(output);

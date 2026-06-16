@@ -5,6 +5,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <stdbool.h>
 
 #include "channel_router.h"
 #include "bootstrap.h"
@@ -31,6 +32,8 @@
 #include "drivers/tool/tool_registry.h"
 #include "drivers/voice/voice_channel.h"
 #include "drivers/voice/voice_wake.h"
+
+int agent_self_test(void);
 static const char *resolve_runtime_timezone(void)
 {
     return runtime_config_get_timezone();
@@ -38,6 +41,8 @@ static const char *resolve_runtime_timezone(void)
 
 int main(int argc, char **argv)
 {
+    bool test_mode = false;
+
 #ifdef BUILD_FOR_MIPS
     /* Auto-register systemd service on boot (rootfs is RO, runtime link needed each boot) */
     mkdir("/run/systemd/system", 0755);
@@ -50,9 +55,13 @@ int main(int argc, char **argv)
             bootstrap_print_usage(argv[0]);
             return 0;
         }
-        fprintf(stderr, "Unsupported option: %s\n", arg);
-        bootstrap_print_usage(argv[0]);
-        return 1;
+        if (strcmp(arg, "--test") == 0) {
+            test_mode = true;
+        } else {
+            fprintf(stderr, "Unsupported option: %s\n", arg);
+            bootstrap_print_usage(argv[0]);
+            return 1;
+        }
     }
 
     bootstrap_prepare_runtime();
@@ -73,6 +82,12 @@ int main(int argc, char **argv)
     BUG_ON(tool_registry_init() != 0);
     of_populate_default();  /* 加载 device_tree.json 中未注册的设备 */
     BUG_ON(agent_loop_init() != 0);
+
+    if (test_mode) {
+        int ret = agent_self_test();
+        pr_info("Self-test %s", ret == 0 ? "PASSED" : "FAILED");
+        return ret;
+    }
 
     BUG_ON(channel_router_start() != 0);
 
