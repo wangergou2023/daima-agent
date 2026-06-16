@@ -46,3 +46,4 @@ err_t core_reply(const struct core_task *task);
 
 /* 核启动 */
 err_t executor_core_start(void);
+err_t memory_core_start(void);
