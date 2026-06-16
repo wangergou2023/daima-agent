@@ -6,6 +6,7 @@ obj-y += tool_feedback.o tool_guard.o tool_notify.o
 obj-y += channel_policy.o channel_router.o channel_runtime.o
 obj-y += context_build.o context_compress.o context_ops.o
 obj-y += turn_common.o turn_prepare.o turn_run.o turn_exec.o turn_finish.o turn_persist.o
+obj-y += tool_exec_fail.o auto_verify.o
 obj-y += interactive.o runtime.o runtime_sections.o
 obj-y += work_item.o workqueue.o
 obj-y += sched/ time/
