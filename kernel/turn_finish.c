@@ -19,6 +19,7 @@
 #include "drivers/skill/skill_tools.h"
 #include "linux/slab.h"
 #endif
+#include "turn_dispatch.h"
 #ifdef TODO_ENFORCER_ENABLED
 static void read_todo_counts(int *out_total, int *out_completed)
 {
@@ -149,6 +150,11 @@ void agent_turn_finish(
     if (IS_ENABLED(CONFIG_SESSION_RECOVERY_ENABLED) &&
         turn_err == 0 && msg && msg->chat_id[0]) {
         session_recovery_clear(msg->chat_id);
+    }
+
+    /* 异步通知记忆核压缩上下文（fire-and-forget） */
+    if (turn_err == 0 && msg && msg->chat_id[0]) {
+        dispatch_compress_context(msg->chat_id);
     }
 
     pr_info("Free memory: %d bytes", (int)platform_free_memory());
