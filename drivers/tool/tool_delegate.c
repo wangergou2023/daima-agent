@@ -84,9 +84,11 @@ static err_t delegate_task_execute(const char *input_json,
 
 static struct tool s_delegate_task = {
     .name = "delegate_task",
-    .description = "将复杂任务拆解为多个子 Agent 并行处理（PLANNER+EXECUTOR+REVIEWER）。"
-                   "适用于需要分工协作的开发任务。"
-                   "参数: task(任务描述), intent(IMPLEMENT或FIX), agent_count(可选，限制数量)",
+    .description = "将复杂任务拆解为多个子 Agent 并行处理。"
+                   "PARALLEL IS DEFAULT — 并行是默认模式，串行是例外。"
+                   "当你需要分工协作时，不要自己做——分解任务，一次性分发给 PLANNER+EXECUTOR+REVIEWER，让它们并行工作。"
+                   "子 Agent 会独立执行并返回结果，你无需等待中间过程。"
+                   "参数: task(任务描述), intent(IMPLEMENT或FIX), agent_count(可选)",
     .input_schema_json =
         "{\"type\":\"object\","
         "\"properties\":{"
