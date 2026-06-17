@@ -9,6 +9,7 @@
 #include "drivers/tool/tool_registry.h"
 #include "kernel/sched/sched.h"
 #include "plan.h"
+#include "drivers/tool/tool_delegate.h"
 #include "cjson.h"
 #include <stdio.h>
 #include <string.h>
@@ -287,6 +288,28 @@ static void test_subagent_dispatch(void)
     report("subagent dispatch (IMPLEMENT→3 agents)", ok);
 }
 
+/* 测 10: delegate_task 真实执行 */
+static void test_delegate_task_exec(void)
+{
+    char output[16384];
+    memset(output, 0, sizeof(output));
+
+    const char *input =
+        "{\"task\":\"执行 terminal 命令 echo subagent_ok，"
+        "只输出结果不要做其他操作\",\"intent\":\"IMPLEMENT\"}";
+
+    const struct tool *t = tool_delegate_definition();
+    err_t err = t->execute(input, output, sizeof(output));
+    int ok = (err == 0);
+    if (ok) {
+        ok = (output[0] && !strstr(output, "失败") && strlen(output) > 20);
+        pr_info("  result: %.120s...", output);
+    } else {
+        pr_info("  failed: err=%d output=%.120s", err, output);
+    }
+    report("delegate_task real execution", ok);
+}
+
 int agent_self_test(void)
 {
     pr_info("========================================");
@@ -305,6 +328,7 @@ int agent_self_test(void)
     test_llm_pipeline();
     test_async_compress_dispatch();
     test_subagent_dispatch();
+    test_delegate_task_exec();
 
     pr_info("----------------------------------------");
     pr_info("  Results: %d/%d passed", tests_pass, tests_run);

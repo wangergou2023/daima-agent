@@ -4,6 +4,7 @@
 #include "plan.h"
 #include "turn_common.h"
 #include "runtime.h"
+#include "drivers/llm/llm_proxy.h"
 #include "linux/printk.h"
 #include "linux/slab.h"
 #include "cjson.h"
