@@ -48,8 +48,11 @@ static void process_new_message(struct message *msg)
         strscpy(test_msg.chat_id, msg->chat_id, sizeof(test_msg.chat_id));
         strscpy(test_msg.source, "internal", sizeof(test_msg.source));
         test_msg.content = strdup(
-            "使用 delegate_task 工具，统计 /home/wangergou/code/github/daima-agent/kernel/ "
-            "下所有 .c 文件行数总和。只输出最终数字。");
+            "使用 delegate_task 工具，同时执行以下三个检查："
+            "1) free -h 查看内存使用"
+            "2) df -h 查看磁盘使用"
+            "3) uname -a 查看系统版本"
+            "每个子Agent负责一项，并行处理，完成后汇总输出。");
         message_bus_push_inbound(&test_msg);
 
         agent_cleanup_inbound_msg(msg);
@@ -123,8 +126,11 @@ static void process_new_message_async(struct message *msg)
         strscpy(test_msg.chat_id, msg->chat_id, sizeof(test_msg.chat_id));
         strscpy(test_msg.source, "internal", sizeof(test_msg.source));
         test_msg.content = strdup(
-            "使用 delegate_task 工具，统计 /home/wangergou/code/github/daima-agent/kernel/ "
-            "下所有 .c 文件行数总和。只输出最终数字。");
+            "使用 delegate_task 工具，同时执行以下三个检查："
+            "1) free -h 查看内存使用"
+            "2) df -h 查看磁盘使用"
+            "3) uname -a 查看系统版本"
+            "每个子Agent负责一项，并行处理，完成后汇总输出。");
         message_bus_push_inbound(&test_msg);
 
         agent_cleanup_inbound_msg(msg);
