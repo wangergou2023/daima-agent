@@ -15,7 +15,7 @@ skill_module (三层模型)     ✅  probe/load/unload，bus_device_exists 依�
 Level 2 custom_tools.json   ✅  零编译扩展 tool，通过已有 driver 执行
 Level 3 of_populate()       ✅  统一 JSON → bus/device 解析入口
 3 核 IPC                    ✅  scheduler / executor / memory 独立队列
-agent --test                ✅  7/7 通过（含 LLM 端到端）
+agent --test                ✅  8/8 通过（含 LLM 端到端 + 异步压缩调度）
 热插拔 reprobe 链          ❌ 待实现
 ```
 
@@ -396,7 +396,7 @@ main()
 多核运行时:
   ├── scheduler core (loop.c)          ← 非阻塞轮询：新消息 + 核间回复
   ├── executor core (executor_core.c)  ← TASK_EXECUTE_TOOLS → tool_registry_execute
-  └── memory core (memory_core.c)      ← TASK_LOAD/TASK_SAVE/TASK_COMPRESS
+  └── memory core (memory_core.c)      ← TASK_LOAD/TASK_SAVE/TASK_COMPRESS (schedule_if_needed)
 ```
 
 ### 总线架构

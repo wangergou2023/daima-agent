@@ -225,6 +225,33 @@ static void test_llm_pipeline(void)
     report("LLM end-to-end pipeline", ok);
 }
 
+
+/* 测 8: 异步压缩调度 */
+static void test_async_compress_dispatch(void)
+{
+    struct core_task task;
+    memset(&task, 0, sizeof(task));
+    snprintf(task.id, sizeof(task.id), "test_cc_1");
+    strscpy(task.type, TASK_COMPRESS_CONTEXT, sizeof(task.type));
+
+    cJSON *p = cJSON_CreateObject();
+    cJSON_AddStringToObject(p, "chat_id", "self_test_llm");
+    task.payload = cJSON_PrintUnformatted(p);
+    cJSON_Delete(p);
+
+    core_send(CORE_MEMORY, &task);
+    usleep(200000);
+
+    struct core_task reply;
+    memset(&reply, 0, sizeof(reply));
+    int ok = (core_recv(CORE_SCHEDULER, &reply, 5000) == 0);
+    if (ok) {
+        ok = (strcmp(reply.status, TASK_DONE) == 0);
+    }
+    kfree(reply.result);
+    report("async compress dispatch", ok);
+}
+
 int agent_self_test(void)
 {
     pr_info("========================================");
@@ -241,6 +268,7 @@ int agent_self_test(void)
     test_real_tool_via_executor();
     test_message_pipeline();
     test_llm_pipeline();
+    test_async_compress_dispatch();
 
     pr_info("----------------------------------------");
     pr_info("  Results: %d/%d passed", tests_pass, tests_run);

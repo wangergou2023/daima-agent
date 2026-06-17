@@ -1,6 +1,6 @@
 # Agent Self-Test (`--test`) 文档
 
-`./build-kbuild/agent --test` 运行 7 个自动化测试，覆盖多核架构、消息总线、LLM 完整链路。
+`./build-kbuild/agent --test` 运行 8 个自动化测试，覆盖多核架构、消息总线、LLM 完整链路、异步压缩调度。
 
 ## 使用
 
@@ -36,6 +36,7 @@ main.c
 | 5 | real tool via executor core | `get_current_time` 经执行核执行 → 返回有效时间字符串 | core_ipc, executor_core |
 | 6 | message pipeline inbound→outbound | push outbound → pop 通道信息一致 | message_bus |
 | 7 | LLM end-to-end pipeline | agent_process_message("reply OK") → LLM API 请求 → 回复验证 | LLM API key |
+| 8 | async compress dispatch | TASK_COMPRESS_CONTEXT → 记忆核 → context_compressor_schedule_if_needed | memory_core |
 
 ### 测试 7 详细说明
 
@@ -59,10 +60,11 @@ main.c
 17:21:41 [TEST] ✅ PASS: memory queue + load nonexistent
 17:21:41 [TEST] ✅ PASS: real tool via executor core
 17:21:41 [TEST] ✅ PASS: message pipeline inbound→outbound
-17:29:51 [TEST] ✅ PASS: LLM end-to-end pipeline
+117:29:51 [TEST] ✅ PASS: LLM end-to-end pipeline
   LLM response: OK...
+17:29:51 [TEST] ✅ PASS: async compress dispatch
 ----------------------------------------
-  Results: 7/7 passed
+  Results: 8/8 passed
 ========================================
 ```
 

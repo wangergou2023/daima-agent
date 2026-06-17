@@ -25,9 +25,13 @@ static void memory_task(void *arg)
         char *result = NULL;
 
         if (strcmp(task.type, TASK_COMPRESS_CONTEXT) == 0) {
-            /* context_compressor_maybe_compact 需要 cJSON** 参数，
-             * 记忆核无法拿到 messages，暂时作为 no-op 占位。 */
-            strscpy(task.status, TASK_DONE, sizeof(task.status));
+            cJSON *root = cJSON_Parse(task.payload ? task.payload : "{}");
+            const char *chat_id = cJSON_GetStringValue(cJSON_GetObjectItem(root, "chat_id"));
+            if (chat_id && context_compressor_schedule_if_needed(chat_id) == 0)
+                strscpy(task.status, TASK_DONE, sizeof(task.status));
+            else
+                strscpy(task.status, TASK_FAILED, sizeof(task.status));
+            cJSON_Delete(root);
 
         } else if (strcmp(task.type, TASK_SAVE_SESSION) == 0) {
             cJSON *root = cJSON_Parse(task.payload ? task.payload : "{}");
