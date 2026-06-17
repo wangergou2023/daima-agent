@@ -20,16 +20,30 @@
 #include "os.h"
 #include "drivers/platform/platform.h"
 #include "drivers/tool/tool_registry.h"
+#include "drivers/channel/gateway/ws_server.h"
 #include "cjson.h"
 #include "linux/slab.h"
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
+int agent_self_test(void);
+
 #define TURN_BUF_SIZE 131072
 
 static void process_new_message(struct message *msg)
 {
+    /* 自检命令拦截 */
+    if (msg->content && strncmp(msg->content, "!test", 5) == 0) {
+        int ret = agent_self_test();
+        char result[256];
+        snprintf(result, sizeof(result),
+                 "{\"type\":\"self_test_result\",\"passed\":%d,\"total\":7}", ret == 0 ? 1 : 0);
+        ws_server_send(msg->chat_id, result);
+        agent_cleanup_inbound_msg(msg);
+        return;
+    }
+
     /* 同步路径：直接加载历史，不走记忆核 */
     msg->intent = INTENT_OPEN;
     agent_extension_state_reset();
@@ -83,6 +97,17 @@ static void process_new_message(struct message *msg)
 /* 异步路径：把历史加载分发给记忆核，切出去等回复 */
 static void process_new_message_async(struct message *msg)
 {
+    /* 自检命令拦截 */
+    if (msg->content && strncmp(msg->content, "!test", 5) == 0) {
+        int ret = agent_self_test();
+        char result[256];
+        snprintf(result, sizeof(result),
+                 "{\"type\":\"self_test_result\",\"passed\":%d,\"total\":7}", ret == 0 ? 1 : 0);
+        ws_server_send(msg->chat_id, result);
+        agent_cleanup_inbound_msg(msg);
+        return;
+    }
+
     msg->intent = INTENT_OPEN;
     agent_extension_state_reset();
 
