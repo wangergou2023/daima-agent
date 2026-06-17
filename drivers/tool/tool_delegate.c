@@ -23,9 +23,11 @@ static err_t delegate_task_execute(const char *input_json,
     cJSON *count_j = cJSON_GetObjectItem(input, "agent_count");
     if (count_j && cJSON_IsNumber(count_j)) agent_count = count_j->valueint;
 
+    /* strdup task before freeing input JSON */
+    char *task_copy = task ? strdup(task) : NULL;
     cJSON_Delete(input);
 
-    if (!task || !task[0]) {
+    if (!task_copy || !task_copy[0]) {
         snprintf(output, output_size, "delegate_task: missing 'task' field");
         return ERR_INVALID_ARG;
     }
@@ -33,14 +35,15 @@ static err_t delegate_task_execute(const char *input_json,
     enum intent it = INTENT_IMPLEMENT;
     if (intent_str && strcmp(intent_str, "FIX") == 0) it = INTENT_FIX;
 
-    struct plan p = { .has_plan = true, .reviewed = true, .plan_text = (char *)task };
+    struct plan p = { .has_plan = true, .reviewed = true, .plan_text = task_copy };
 
     struct sched_runqueue rq;
     memset(&rq, 0, sizeof(rq));
-    err_t err = sched_dispatch(it, &p, task, &rq);
+    err_t err = sched_dispatch(it, &p, task_copy, &rq);
     if (err != 0 || rq.nr_agents <= 0) {
         sched_exit(&rq);
         snprintf(output, output_size, "delegate_task: dispatch failed, %d agents", rq.nr_agents);
+        kfree(task_copy);
         return ERR_FAIL;
     }
 
@@ -48,7 +51,7 @@ static err_t delegate_task_execute(const char *input_json,
     if (agent_count > 0 && agent_count < rq.nr_agents)
         rq.nr_agents = agent_count;
 
-    pr_info("delegate_task: launching %d sub-agents for '%s'", rq.nr_agents, task);
+    pr_info("delegate_task: launching %d sub-agents for '%s'", rq.nr_agents, task_copy);
     rq.timeout_ms = runtime_config_get_request_timeout_ms() + 10000;
 
     /* 构建 subagent 的 system prompt 和 messages */
@@ -59,7 +62,7 @@ static err_t delegate_task_execute(const char *input_json,
     cJSON *msgs = cJSON_CreateArray();
     cJSON *um = cJSON_CreateObject();
     cJSON_AddStringToObject(um, "role", "user");
-    cJSON_AddStringToObject(um, "content", task);
+    cJSON_AddStringToObject(um, "content", task_copy);
     cJSON_AddItemToArray(msgs, um);
 
     const char *tj = tool_registry_get_tools_json_for_channel("websocket");
@@ -70,12 +73,14 @@ static err_t delegate_task_execute(const char *input_json,
     if (err != 0) {
         sched_exit(&rq);
         snprintf(output, output_size, "delegate_task: wait failed: %s", err_name(err));
+        kfree(task_copy);
         return ERR_FAIL;
     }
 
     char *merged = kzalloc(MERGED_MAX, GFP_KERNEL);
     if (!merged) {
         sched_exit(&rq);
+        kfree(task_copy);
         return ERR_NO_MEM;
     }
     sched_merge(&rq, merged, MERGED_MAX);
@@ -87,6 +92,7 @@ static err_t delegate_task_execute(const char *input_json,
         snprintf(output, output_size, "delegate_task: no output from %d agents", rq.nr_agents);
     }
     kfree(merged);
+    kfree(task_copy);
     return 0;
 }
 
