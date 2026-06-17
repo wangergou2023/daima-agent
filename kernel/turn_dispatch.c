@@ -25,7 +25,8 @@ err_t dispatch_execute_tools(const char *tools_json)
 }
 
 /* 向记忆核发会话保存任务（fire-and-forget，不等待回复） */
-err_t dispatch_save_session(const char *chat_id, const char *role, const char *content)
+static err_t dispatch_save_session_ex(const char *chat_id, const char *role,
+                                       const char *content, const char *source)
 {
     struct core_task task;
     memset(&task, 0, sizeof(task));
@@ -37,13 +38,25 @@ err_t dispatch_save_session(const char *chat_id, const char *role, const char *c
     cJSON_AddStringToObject(payload, "chat_id", chat_id);
     cJSON_AddStringToObject(payload, "role", role);
     cJSON_AddStringToObject(payload, "content", content);
+    if (source && source[0])
+        cJSON_AddStringToObject(payload, "source", source);
     task.payload = cJSON_PrintUnformatted(payload);
     cJSON_Delete(payload);
     task.timeout_ms = 0;  /* 无需回复 */
 
     pr_debug("dispatch: save_session → memory_core (task %s)", task.id);
-    err_t ret = core_send(CORE_MEMORY, &task);
-    return ret;
+    return core_send(CORE_MEMORY, &task);
+}
+
+err_t dispatch_save_session(const char *chat_id, const char *role, const char *content)
+{
+    return dispatch_save_session_ex(chat_id, role, content, NULL);
+}
+
+err_t dispatch_save_session_sourced(const char *chat_id, const char *role,
+                                     const char *content, const char *source)
+{
+    return dispatch_save_session_ex(chat_id, role, content, source);
 }
 
 /* 向记忆核发上下文压缩任务（fire-and-forget） */

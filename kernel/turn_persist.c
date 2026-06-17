@@ -13,6 +13,7 @@
 #include "linux/printk.h"
 #include "cjson.h"
 #include "linux/slab.h"
+#include "turn_dispatch.h"
 static bool should_save_assistant_reply(const struct message *msg, const char *final_text)
 {
     return msg && final_text && final_text[0] && !agent_msg_is_internal_control(msg);
@@ -67,44 +68,20 @@ void agent_turn_save_session(const struct message *msg, const char *final_text, 
         return;
     }
 
-    err_t save_inbound = 0;
-    err_t save_asst = 0;
-    bool saved_any = false;
     const char *inbound_role = agent_session_role_for_inbound_msg(msg);
 
     if (inbound_role) {
-        const char *inbound_text = msg->content ? msg->content : "";
-        save_inbound = session_store_append_ex(
-            msg->chat_id,
-            inbound_role,
-            inbound_text,
-            agent_msg_source_or_default(msg));
-        if (save_inbound == 0) {
-            saved_any = true;
-        }
+        dispatch_save_session_sourced(msg->chat_id, inbound_role,
+                                       msg->content ? msg->content : "",
+                                       agent_msg_source_or_default(msg));
     }
 
     if (should_save_assistant_reply(msg, final_text)) {
-        char *assistant_payload = build_assistant_session_content_json(final_text, reasoning);
-        if (assistant_payload) {
-            save_asst = session_store_append(msg->chat_id, "assistant", assistant_payload);
-            kfree(assistant_payload);
-        } else {
-            save_asst = ERR_NO_MEM;
+        char *payload = build_assistant_session_content_json(final_text, reasoning);
+        if (payload) {
+            dispatch_save_session(msg->chat_id, "assistant", payload);
+            kfree(payload);
         }
-        if (save_asst == 0) {
-            saved_any = true;
-        }
-    }
-
-    if (save_inbound != 0 || save_asst != 0) {
-        pr_warn("Session save failed for chat %s (source=%s, inbound=%s, assistant=%s)", msg->chat_id, agent_msg_source_or_default(msg), err_name(save_inbound), err_name(save_asst));
-        return;
-    }
-
-    if (!saved_any) {
-        pr_info("Skip session save for chat %s (source=%s)", msg->chat_id, agent_msg_source_or_default(msg));
-        return;
     }
 
     pr_info("Session saved for chat %s (source=%s)", msg->chat_id, agent_msg_source_or_default(msg));

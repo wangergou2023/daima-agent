@@ -38,9 +38,13 @@ static void memory_task(void *arg)
             const char *chat_id = cJSON_GetStringValue(cJSON_GetObjectItem(root, "chat_id"));
             const char *role = cJSON_GetStringValue(cJSON_GetObjectItem(root, "role"));
             const char *content = cJSON_GetStringValue(cJSON_GetObjectItem(root, "content"));
+            const char *source = cJSON_GetStringValue(cJSON_GetObjectItem(root, "source"));
 
             if (chat_id && content) {
-                session_store_append(chat_id, role ? role : "assistant", content);
+                if (source && source[0])
+                    session_store_append_ex(chat_id, role ? role : "assistant", content, source);
+                else
+                    session_store_append(chat_id, role ? role : "assistant", content);
                 strscpy(task.status, TASK_DONE, sizeof(task.status));
             } else {
                 strscpy(task.status, TASK_FAILED, sizeof(task.status));
