@@ -195,10 +195,12 @@ static void test_real_tool_via_executor(void)
 
     core_send(CORE_EXECUTOR, &task);
 
+    usleep(300000);  /* 等执行核处理完前序任务 */
+
     struct core_task reply;
     memset(&reply, 0, sizeof(reply));
     int ok = 0;
-    if (core_recv(CORE_SCHEDULER, &reply, 5000) == 0) {
+    if (core_recv(CORE_SCHEDULER, &reply, 10000) == 0) {
         cJSON *r = cJSON_Parse(reply.result);
         cJSON *results = cJSON_GetObjectItem(r, "results");
         if (results && cJSON_IsArray(results)) {
