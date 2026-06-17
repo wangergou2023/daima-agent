@@ -50,15 +50,24 @@ static err_t delegate_task_execute(const char *input_json,
     pr_info("delegate_task: launching %d sub-agents for '%s'", rq.nr_agents, task);
     rq.timeout_ms = runtime_config_get_request_timeout_ms() + 10000;
 
-    char *system_prompt = NULL;
-    cJSON *messages = cJSON_CreateArray();
-    char *tools = NULL;
+    /* 构建 subagent 的 system prompt 和 messages */
+    const char *sp =
+        "你是一个子Agent，负责执行主Agent分配的子任务。"
+        "请专注于你的任务，完成后返回结果。不要调用 delegate_task。";
 
-    sched_start(&rq, system_prompt, messages, tools);
+    cJSON *msgs = cJSON_CreateArray();
+    cJSON *um = cJSON_CreateObject();
+    cJSON_AddStringToObject(um, "role", "user");
+    cJSON_AddStringToObject(um, "content", task);
+    cJSON_AddItemToArray(msgs, um);
+
+    const char *tj = tool_registry_get_tools_json();
+
+    sched_start(&rq, sp, msgs, tj);
     err = sched_wait(&rq);
+    cJSON_Delete(msgs);
     if (err != 0) {
         sched_exit(&rq);
-        cJSON_Delete(messages);
         snprintf(output, output_size, "delegate_task: wait failed: %s", err_name(err));
         return ERR_FAIL;
     }
@@ -66,12 +75,10 @@ static err_t delegate_task_execute(const char *input_json,
     char *merged = kzalloc(MERGED_MAX, GFP_KERNEL);
     if (!merged) {
         sched_exit(&rq);
-        cJSON_Delete(messages);
         return ERR_NO_MEM;
     }
     sched_merge(&rq, merged, MERGED_MAX);
     sched_exit(&rq);
-    cJSON_Delete(messages);
 
     if (merged[0]) {
         strscpy(output, merged, output_size);
