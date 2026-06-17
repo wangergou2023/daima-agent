@@ -53,8 +53,8 @@ static err_t delegate_task_execute(const char *input_json,
 
     /* 构建 subagent 的 system prompt 和 messages */
     const char *sp =
-        "你是一个子Agent，负责执行主Agent分配的子任务。"
-        "请专注于你的任务，完成后返回结果。不要调用 delegate_task。";
+        "You are a sub-agent. Focus on your assigned task, "
+        "complete it, and return the result. Do NOT call delegate_task.";
 
     cJSON *msgs = cJSON_CreateArray();
     cJSON *um = cJSON_CreateObject();
@@ -62,7 +62,7 @@ static err_t delegate_task_execute(const char *input_json,
     cJSON_AddStringToObject(um, "content", task);
     cJSON_AddItemToArray(msgs, um);
 
-    const char *tj = tool_registry_get_tools_json();
+    const char *tj = tool_registry_get_tools_json_for_channel("websocket");
 
     sched_start(&rq, sp, msgs, tj);
     err = sched_wait(&rq);

@@ -2,18 +2,15 @@
 #include "autoconf.h"
 #include "linux/printk.h"
 #include "drivers/llm/llm_proxy.h"
-
+#include "linux/slab.h"
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 #include "linux/kernel.h"
+
 void sched_agent_init(struct sched_agent *agent, const struct sched_class *cls,
                       const char *task)
 {
-    if (!agent || !cls) {
-        return;
-    }
-
+    if (!agent || !cls) return;
     memset(agent, 0, sizeof(*agent));
     agent->pid = -1;
     agent->class = (enum sched_class_id)cls->priority;
@@ -28,14 +25,20 @@ void sched_agent_launch(struct sched_agent *agent, const char *prompt,
 {
     if (!agent || agent->state != SCHED_AGENT_WAITING) return;
 
-    /* 固定 model，避免多线程安全问题和 proxy 兼容性 */
-    const char *model = llm_get_model_name();
+    /* strip newlines: cJSON doesn't escape them, breaks JSON */
+    char safe[2048];
+    if (prompt) {
+        const char *s = prompt; char *d = safe;
+        while (*s && (size_t)(d - safe) < sizeof(safe) - 1) {
+            *d = (*s == '\n' || *s == '\r') ? ' ' : *s; d++; s++;
+        }
+        *d = '\0';
+    } else safe[0] = '\0';
 
     llm_response_t resp;
     memset(&resp, 0, sizeof(resp));
-    agent->error = llm_chat_tools_with_model(prompt ? prompt : "",
-                                              messages, tools,
-                                              model, &resp);
+    agent->error = llm_chat_tools_with_model(safe, messages, tools,
+                                              llm_get_model_name(), &resp);
     if (agent->error == 0 && resp.text) {
         strscpy(agent->result, resp.text, sizeof(agent->result));
         agent->state = SCHED_AGENT_DONE;
@@ -54,6 +57,5 @@ bool sched_agent_is_done(struct sched_agent *agent)
 
 void sched_agent_reap(struct sched_agent *agent)
 {
-    /* sync 模式下 launch 时已完成，无需 reap */
     (void)agent;
 }

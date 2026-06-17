@@ -295,8 +295,8 @@ static void test_delegate_task_exec(void)
     memset(output, 0, sizeof(output));
 
     const char *input =
-        "{\"task\":\"执行 terminal 命令 echo subagent_ok，"
-        "只输出结果不要做其他操作\",\"intent\":\"IMPLEMENT\"}";
+        "{\"task\":\"run terminal command: echo subagent_ok\","
+        "\"intent\":\"IMPLEMENT\"}";
 
     const struct tool *t = tool_delegate_definition();
     err_t err = t->execute(input, output, sizeof(output));
