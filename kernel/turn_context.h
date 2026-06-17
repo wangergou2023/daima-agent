@@ -19,6 +19,11 @@ struct turn_snapshot {
     char pending_task_id[16];  /* 当前等待的 task_id，空表示无等待 */
     uint64_t dispatched_at;
     uint32_t timeout_ms;
+
+    /* async load 用：保存原始消息内容 */
+    char msg_content[8192];
+    char msg_image_path[256];
+    int msg_intent;
 };
 
 /* 按 chat_id 存取快照 */

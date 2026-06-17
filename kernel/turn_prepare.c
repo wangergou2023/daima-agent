@@ -287,7 +287,11 @@ err_t agent_turn_prepare(
     agent_prompt_dump_snapshot(msg, system_prompt);
     pr_info("LLM turn context: channel=%s chat_id=%s source=%s", msg->channel, msg->chat_id, agent_msg_source_or_default(msg));
 
-    session_store_get_history_json(msg->chat_id, history_json, history_json_size, AGENT_MAX_HISTORY);
+    if (history_json && history_json[0]) {
+        /* 已有预加载的历史，跳过 session_store_get_history_json */
+    } else {
+        session_store_get_history_json(msg->chat_id, history_json, history_json_size, AGENT_MAX_HISTORY);
+    }
 
     cJSON *messages = cJSON_Parse(history_json);
     if (!messages) messages = cJSON_CreateArray();
