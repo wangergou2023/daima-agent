@@ -25,7 +25,6 @@ void sched_agent_launch(struct sched_agent *agent, const char *prompt,
 {
     if (!agent || agent->state != SCHED_AGENT_WAITING) return;
 
-    /* 显式清零 safe buffer，避免残留数据 */
     char safe[2048];
     memset(safe, 0, sizeof(safe));
     if (prompt) {
