@@ -7,7 +7,7 @@
 ```
 核心 struct + API         ✅  include/linux/bus.h + ipc/bus_device.c
 3 条总线实例               ✅  ipc/bus_init.c
-tool_bus (25 个工具)       ✅  name-match → 独立 driver 绑定
+tool_bus (26 个工具)       ✅  name-match → 独立 driver 绑定
 tool_device / tool_driver  ✅  声明层/执行层拆分，container_of 执行
 channel_bus (4 个通道)     ✅  feishu/vector/voice/gateway → name match
 llm_bus (2 个协议驱动)      ✅  openai_compatible + anthropic_compatible
@@ -389,7 +389,7 @@ main()
             └── anthropic_compatible
 
   └─ llm_proxy_init()                 ← 读运行时配置（API key / model / URL）
-   └─ tool_registry_init()             ← 25 个工具注册到 tool_bus
+   └─ tool_registry_init()             ← 26 个工具注册到 tool_bus
         ├── driver_register() → 独立 tool_driver  (name match 绑定)
         └── device_register() → tool_bus           (自动 probe)
 
@@ -503,6 +503,8 @@ device_register(dev, bus)
   loop.c / turn_run.c / turn_finish.c / intent.c / plan.c / router.c
   ├── 收新消息
   ├── 非阻塞检查回复
+  ├── intent 纯 LLM 分类（无关键词匹配）
+  ├── subagent 由 LLM 通过 delegate_task 工具自主决定
   ├── 调 LLM
   └── 调度执行核 / 记忆核
 
