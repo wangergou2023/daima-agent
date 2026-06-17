@@ -12,7 +12,10 @@ tool_device / tool_driver  ✅  声明层/执行层拆分，container_of 执行
 channel_bus (4 个通道)     ✅  feishu/vector/voice/gateway → name match
 llm_bus (2 个协议驱动)      ✅  openai_compatible + anthropic_compatible
 skill_module (三层模型)     ✅  probe/load/unload，bus_device_exists 依赖检查
-JSON 设备树解析             ❌ 待实现
+Level 2 custom_tools.json   ✅  零编译扩展 tool，通过已有 driver 执行
+Level 3 of_populate()       ✅  统一 JSON → bus/device 解析入口
+3 核 IPC                    ✅  scheduler / executor / memory 独立队列
+agent --test                ✅  7/7 通过（含 LLM 端到端）
 热插拔 reprobe 链          ❌ 待实现
 ```
 
@@ -389,6 +392,11 @@ main()
    └─ tool_registry_init()             ← 25 个工具注册到 tool_bus
         ├── driver_register() → 独立 tool_driver  (name match 绑定)
         └── device_register() → tool_bus           (自动 probe)
+
+多核运行时:
+  ├── scheduler core (loop.c)          ← 非阻塞轮询：新消息 + 核间回复
+  ├── executor core (executor_core.c)  ← TASK_EXECUTE_TOOLS → tool_registry_execute
+  └── memory core (memory_core.c)      ← TASK_LOAD/TASK_SAVE/TASK_COMPRESS
 ```
 
 ### 总线架构
@@ -486,6 +494,27 @@ device_register(dev, bus)
                          │     tool_bus       │  ← 这些 driver 挂在
                          │ terminal/files/... │     tool_bus 上
                          └───────────────────┘
+```
+
+### 多核分工
+
+```
+大核 (scheduler core)
+  loop.c / turn_run.c / turn_finish.c / intent.c / plan.c / router.c
+  ├── 收新消息
+  ├── 非阻塞检查回复
+  ├── 调 LLM
+  └── 调度执行核 / 记忆核
+
+执行核 (executor core)
+  executor_core.c
+  └── TASK_EXECUTE_TOOLS → tool_registry_execute → core_reply
+
+记忆核 (memory core)
+  memory_core.c
+  ├── TASK_LOAD_CONTEXT  → session_store_get_history_json
+  ├── TASK_SAVE_SESSION  → session_store_append
+  └── TASK_COMPRESS_CONTEXT → 预留（当前 no-op）
 ```
 
 ### 当前文件结构

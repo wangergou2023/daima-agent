@@ -57,8 +57,8 @@ REPORTING-BUGS  ✅ Bug 报告指南                  ✅                    完
 | kernel/exit.c | Agent 销毁 (do_exit 风格) | 0.5h |
 | kernel/sysctl.c | 运行时参数 (/proc/sys 风格) | 1h |
 | scripts/kernel-doc | 内核文档生成工具 | 0.5h |
-| JSON 设备树解析 | 统一 JSON → bus/device/driver 解析入口 | 2h |
-| 热插拔 reprobe 链 | python 上线 → pptx 自动可用 | 1h |
+| 热插拔 reprobe 链 | tool/skill 依赖上线 → 自动可用 | 1h |
+| 记忆核真正异步压缩 | 把 context_compressor 改成消息可传递的异步版本 | 2h |
 
 ### 🟡 中优先级
 
@@ -149,6 +149,23 @@ channel_bus: feishu/vector/voice/gateway → name match
 llm_bus:   openai_compatible + anthropic_compatible
 skill_module: ✅ probe/load/unload, bus_device_exists 依赖检查
 tool_device/tool_driver: ✅ 声明层/执行层拆分, container_of 执行
+custom_tools.json: ✅ Level 2 零编译扩展 tool
+of_populate(): ✅ Level 3 JSON → bus/device 统一解析
+3-core IPC: ✅ scheduler / executor / memory 三核分工
+self-test: ✅ 7/7 通过（含 LLM 端到端）
+```
+
+
+### 多核异步调度 ✅
+
+```
+include/linux/core_task.h  ✅ core_task 协议（type/status/payload/result）
+ipc/core_ipc.c             ✅ 3 个独立队列（scheduler/executor/memory）
+kernel/executor_core.c     ✅ 无状态工具执行 worker
+kernel/memory_core.c       ✅ 无状态会话/上下文 worker
+kernel/turn_dispatch.c     ✅ fire-and-forget 调度层
+kernel/turn_context.c      ✅ turn 快照存储
+kernel/loop.c              ✅ async multiplex：新消息 + 核间回复
 ```
 
 ### 细节对齐
