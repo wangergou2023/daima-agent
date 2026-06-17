@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 #include "linux/kernel.h"
 void sched_agent_init(struct sched_agent *agent, const struct sched_class *cls,
                       const char *task)
@@ -27,12 +28,14 @@ void sched_agent_launch(struct sched_agent *agent, const char *prompt,
 {
     if (!agent || agent->state != SCHED_AGENT_WAITING) return;
 
-    /* sync LLM call */
+    /* 固定 model，避免多线程安全问题和 proxy 兼容性 */
+    const char *model = llm_get_model_name();
+
     llm_response_t resp;
     memset(&resp, 0, sizeof(resp));
     agent->error = llm_chat_tools_with_model(prompt ? prompt : "",
                                               messages, tools,
-                                              llm_get_model_name(), &resp);
+                                              model, &resp);
     if (agent->error == 0 && resp.text) {
         strscpy(agent->result, resp.text, sizeof(agent->result));
         agent->state = SCHED_AGENT_DONE;
