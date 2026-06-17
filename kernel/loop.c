@@ -47,7 +47,7 @@ static void process_new_message(struct message *msg)
         strscpy(test_msg.channel, msg->channel, sizeof(test_msg.channel));
         strscpy(test_msg.chat_id, msg->chat_id, sizeof(test_msg.chat_id));
         strscpy(test_msg.source, "internal", sizeof(test_msg.source));
-        test_msg.content = strdup("生成一个python hello world脚本，不要做其他操作");
+        test_msg.content = strdup("写一个python hello world脚本，不要做其他操作");
         message_bus_push_inbound(&test_msg);
 
         agent_cleanup_inbound_msg(msg);
@@ -121,7 +121,7 @@ static void process_new_message_async(struct message *msg)
         strscpy(test_msg.channel, msg->channel, sizeof(test_msg.channel));
         strscpy(test_msg.chat_id, msg->chat_id, sizeof(test_msg.chat_id));
         strscpy(test_msg.source, "internal", sizeof(test_msg.source));
-        test_msg.content = strdup("生成一个python hello world脚本，不要做其他操作");
+        test_msg.content = strdup("写一个python hello world脚本，不要做其他操作");
         message_bus_push_inbound(&test_msg);
 
         agent_cleanup_inbound_msg(msg);
