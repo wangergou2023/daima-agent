@@ -70,7 +70,7 @@ static err_t replace_run(struct message *msg, char *system_prompt,
 static agent_extension_hooks_t ext = {
     .name = "coordinator",
     .replace_run = replace_run,
-    .enabled = true,
+    .enabled = false,   /* 改由 LLM 通过 delegate_task 工具自主决定 */
 };
 
 static int __init sched_module_init(void)
