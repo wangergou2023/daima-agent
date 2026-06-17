@@ -15,7 +15,7 @@ skill_module (三层模型)     ✅  probe/load/unload，bus_device_exists 依�
 Level 2 custom_tools.json   ✅  零编译扩展 tool，通过已有 driver 执行
 Level 3 of_populate()       ✅  统一 JSON → bus/device 解析入口
 3 核 IPC                    ✅  scheduler / executor / memory 独立队列
-agent --test                ✅  8/8 通过（含 LLM 端到端 + 异步压缩调度）
+agent --test                ✅  9/10 通过（含 LLM 端到端 + subagent）
 热插拔 reprobe 链          ❌ 待实现
 ```
 
@@ -515,8 +515,11 @@ device_register(dev, bus)
 记忆核 (memory core)
   memory_core.c
   ├── TASK_LOAD_CONTEXT  → session_store_get_history_json
-  ├── TASK_SAVE_SESSION  → session_store_append
-  └── TASK_COMPRESS_CONTEXT → 预留（当前 no-op）
+  ├── TASK_SAVE_SESSION  → session_store_append（已接入 turn_finish）
+  └── TASK_COMPRESS_CONTEXT → context_compressor_schedule_if_needed
+
+Subagent (调度核内)
+  delegate_task 工具 → sched_dispatch → PLANNER+EXECUTOR+REVIEWER 并行
 ```
 
 ### 当前文件结构
