@@ -14,6 +14,7 @@
 #include "drivers/tool/tool_session_search.h"
 #include "drivers/tool/tool_vector_common.h"
 #include "drivers/tool/tool_custom.h"
+#include "drivers/tool/tool_delegate.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -214,6 +215,7 @@ err_t tool_registry_init(void)
     register_tool(tool_robot_drive_off_charger_definition());
     register_tool(tool_robot_play_animation_definition());
     register_tool(tool_robot_get_battery_definition());
+    register_tool(tool_delegate_definition());
 
     build_tools_json();
 
