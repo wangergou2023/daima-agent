@@ -285,6 +285,10 @@ static void build_openai_api_url(void)
     if (s_use_anthropic_api) {
         if (strstr(base, "/v1/messages")) {
             safe_copy(s_openai_api_url, sizeof(s_openai_api_url), base);
+        } else if (strstr(base, "api.deepseek.com")) {
+            const char *suffix = strstr(base, "/anthropic") ? "v1/messages" : "anthropic/v1/messages";
+            snprintf(s_openai_api_url, sizeof(s_openai_api_url),
+                     str_ends_with(base, "/") ? "%s%s" : "%s/%s", base, suffix);
         } else if (str_ends_with(base, "/")) {
             snprintf(s_openai_api_url, sizeof(s_openai_api_url), "%sv1/messages", base);
         } else {
