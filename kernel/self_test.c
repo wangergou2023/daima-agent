@@ -22,11 +22,42 @@
 static int tests_run = 0;
 static int tests_pass = 0;
 
+typedef struct { char name[64]; int ok; } test_result_t;
+static test_result_t s_results[16];
+static int s_result_count = 0;
+
 static void report(const char *name, int ok)
 {
     tests_run++;
     if (ok) tests_pass++;
+    if (s_result_count < 16) {
+        strscpy(s_results[s_result_count].name, name, sizeof(s_results[s_result_count].name));
+        s_results[s_result_count].ok = ok;
+        s_result_count++;
+    }
     pr_info("[TEST] %s: %s", ok ? PASS : FAIL, name);
+}
+
+/* 返回结构化 JSON 结果 */
+char *agent_self_test_results_json(void)
+{
+    cJSON *root = cJSON_CreateObject();
+    cJSON_AddStringToObject(root, "type", "self_test_result");
+    cJSON_AddNumberToObject(root, "total", tests_run);
+    cJSON_AddNumberToObject(root, "passed", tests_pass);
+
+    cJSON *items = cJSON_CreateArray();
+    for (int i = 0; i < s_result_count; i++) {
+        cJSON *item = cJSON_CreateObject();
+        cJSON_AddStringToObject(item, "name", s_results[i].name);
+        cJSON_AddBoolToObject(item, "ok", s_results[i].ok);
+        cJSON_AddItemToArray(items, item);
+    }
+    cJSON_AddItemToObject(root, "items", items);
+
+    char *json = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+    return json;
 }
 
 /* 测 1: 执行核队列通信 */

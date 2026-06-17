@@ -2166,3 +2166,37 @@ button:disabled {
     transform-origin: bottom right;
   }
 }
+
+/* Self-Test Report */
+.self-test-report {
+  background: var(--card-bg, #1e1e2e);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 8px 0;
+  border: 1px solid var(--border, #333);
+}
+.st-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.st-title { font-weight: 700; font-size: 1.05em; }
+.st-score { font-weight: 700; font-size: 0.95em; }
+.st-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bar-bg, #333);
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.st-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+.st-items { display: flex; flex-direction: column; gap: 4px; }
+.st-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 0.9em; }
+.st-icon { width: 20px; }
+.st-item.pass .st-name { color: var(--text, #ccc); }
+.st-item.fail .st-name { color: #f87171; }

@@ -28,6 +28,7 @@
 #include <unistd.h>
 
 int agent_self_test(void);
+char *agent_self_test_results_json(void);
 
 #define TURN_BUF_SIZE 131072
 
@@ -36,10 +37,9 @@ static void process_new_message(struct message *msg)
     /* 自检命令拦截 */
     if (msg->content && strncmp(msg->content, "!test", 5) == 0) {
         int ret = agent_self_test();
-        char result[256];
-        snprintf(result, sizeof(result),
-                 "{\"type\":\"self_test_result\",\"passed\":%d,\"total\":9}", ret == 0 ? 9 : 0);
-        ws_server_send(msg->chat_id, result);
+        char *json = agent_self_test_results_json();
+        ws_server_send(msg->chat_id, json);
+        kfree(json);
 
         /* 推送真实测试消息——走完整 LLM + subagent 流程 */
         struct message test_msg;
@@ -114,10 +114,9 @@ static void process_new_message_async(struct message *msg)
     /* 自检命令拦截 */
     if (msg->content && strncmp(msg->content, "!test", 5) == 0) {
         int ret = agent_self_test();
-        char result[256];
-        snprintf(result, sizeof(result),
-                 "{\"type\":\"self_test_result\",\"passed\":%d,\"total\":9}", ret == 0 ? 9 : 0);
-        ws_server_send(msg->chat_id, result);
+        char *json = agent_self_test_results_json();
+        ws_server_send(msg->chat_id, json);
+        kfree(json);
 
         /* 推送真实测试消息——走完整 LLM + subagent 流程 */
         struct message test_msg;

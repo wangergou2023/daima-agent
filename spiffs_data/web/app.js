@@ -1240,6 +1240,10 @@ function connect() {
         clearPendingImage();
         return;
       }
+      if (data.type === 'self_test_result') {
+        renderSelfTestReport(data);
+        return;
+      }
       if (data.type === 'stopped') {
         if (data.chat_id === chatId && stopRequested) {
           pendingAssistantResponse = false;
@@ -1818,6 +1822,34 @@ async function initApp() {
 
   await loadSessions();
   connect();
+}
+
+function renderSelfTestReport(data) {
+  const pct = data.passed * 100 / data.total;
+  const color = pct === 100 ? '#22c55e' : pct >= 80 ? '#f59e0b' : '#ef4444';
+
+  let itemsHtml = '';
+  (data.items || []).forEach(function(item) {
+    const icon = item.ok ? '✅' : '❌';
+    const cls = item.ok ? 'pass' : 'fail';
+    itemsHtml += '<div class="st-item '+cls+'"><span class="st-icon">'+icon+'</span><span class="st-name">'+item.name+'</span></div>';
+  });
+
+  const html =
+    '<div class="self-test-report">' +
+    '<div class="st-header">' +
+    '<span class="st-title">🔍 自检报告</span>' +
+    '<span class="st-score" style="color:'+color+'">'+data.passed+'/'+data.total+' 通过</span>' +
+    '</div>' +
+    '<div class="st-bar"><div class="st-bar-fill" style="width:'+pct+'%;background:'+color+'"></div></div>' +
+    '<div class="st-items">'+itemsHtml+'</div>' +
+    '</div>';
+
+  const div = document.createElement('div');
+  div.className = 'message system';
+  div.innerHTML = html;
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
 }
 
 initApp();
