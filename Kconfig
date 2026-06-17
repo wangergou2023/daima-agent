@@ -12,6 +12,13 @@ config INTENT_GATE_ENABLED
     bool "意图分类门控"
     default y
 
+config INTENT_GATE_LLM_FALLBACK
+    bool "LLM回退分类"
+    default y
+    help
+      关键词匹配失败后，用 LLM 重新判别意图（IMPLEMENT/FIX/QA/INVESTIGATE）。
+      关闭时只依赖关键词，可能导致 subagent 无法触发。
+
 config PLAN_REVIEW_ENABLED
     bool "计划评审"
     default y
