@@ -7,6 +7,8 @@
 #include "linux/slab.h"
 #include "linux/kernel.h"
 #include "drivers/tool/tool_registry.h"
+#include "kernel/sched/sched.h"
+#include "plan.h"
 #include "cjson.h"
 #include <stdio.h>
 #include <string.h>
@@ -252,6 +254,39 @@ static void test_async_compress_dispatch(void)
     report("async compress dispatch", ok);
 }
 
+/* 测 9: subagent 调度验证 */
+static void test_subagent_dispatch(void)
+{
+    struct sched_runqueue rq;
+    memset(&rq, 0, sizeof(rq));
+
+    struct plan test_plan = {
+        .has_plan = true,
+        .reviewed = true,
+        .plan_text = "test plan",
+    };
+
+    int ok = (sched_dispatch(INTENT_IMPLEMENT, &test_plan,
+                              "test task", &rq) == 0);
+    if (ok) {
+        ok = (rq.nr_agents >= 2);
+        if (ok) {
+            bool has_planner = false, has_executor = false, has_reviewer = false;
+            for (int i = 0; i < rq.nr_agents && i < SCHED_MAX_AGENTS; i++) {
+                int cls = rq.agents[i].class;
+                if (cls == SCHED_CLASS_PLANNER) has_planner = true;
+                if (cls == SCHED_CLASS_EXECUTOR) has_executor = true;
+                if (cls == SCHED_CLASS_REVIEWER) has_reviewer = true;
+            }
+            ok = has_planner && has_executor && has_reviewer;
+            pr_info("  agents=%d PLANNER=%d EXECUTOR=%d REVIEWER=%d",
+                    rq.nr_agents, has_planner, has_executor, has_reviewer);
+        }
+    }
+    sched_exit(&rq);
+    report("subagent dispatch (IMPLEMENT→3 agents)", ok);
+}
+
 int agent_self_test(void)
 {
     pr_info("========================================");
@@ -269,6 +304,7 @@ int agent_self_test(void)
     test_message_pipeline();
     test_llm_pipeline();
     test_async_compress_dispatch();
+    test_subagent_dispatch();
 
     pr_info("----------------------------------------");
     pr_info("  Results: %d/%d passed", tests_pass, tests_run);
