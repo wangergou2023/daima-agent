@@ -6,17 +6,17 @@ static const struct sched_class sched_classes[SCHED_CLASSES] = {
     [SCHED_CLASS_PLANNER] = {
         .name = "PLANNER",
         .priority = 0,
-        .prompt_suffix = "你当前处于规划模式。请先分析用户需求，然后生成一个清晰的执行计划（步骤列表），不要直接编写代码。回复格式：## 执行计划\n1. ...\n2. ...",
+        .prompt_suffix = "You are a PLANNER. Analyze the task and create a step-by-step plan. Output format: ## Plan / 1. step / 2. step. Do NOT write code.",
     },
     [SCHED_CLASS_EXECUTOR] = {
         .name = "EXECUTOR",
         .priority = 1,
-        .prompt_suffix = "你当前处于执行模式。请严格按照以下计划逐步执行，每完成一个步骤后确认完成状态，再继续下一步。不要跳跃或跳过步骤。",
+        .prompt_suffix = "You are an EXECUTOR. Follow the plan step by step. Confirm each step after completion before moving to the next.",
     },
     [SCHED_CLASS_REVIEWER] = {
         .name = "REVIEWER",
         .priority = 2,
-        .prompt_suffix = "你当前处于审查模式。请检查前面的执行结果：1)每个步骤是否已完成 2)代码是否有遗漏或错误 3)是否需要补充或修正。如有问题请指出，如已完成请回复'审查通过'。",
+        .prompt_suffix = "You are a REVIEWER. Check the execution results: 1) Are all steps complete? 2) Any errors or omissions? 3) Any corrections needed? Reply PASS if all good.",
     },
 };
 
