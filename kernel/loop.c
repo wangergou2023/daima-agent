@@ -38,8 +38,18 @@ static void process_new_message(struct message *msg)
         int ret = agent_self_test();
         char result[256];
         snprintf(result, sizeof(result),
-                 "{\"type\":\"self_test_result\",\"passed\":%d,\"total\":7}", ret == 0 ? 1 : 0);
+                 "{\"type\":\"self_test_result\",\"passed\":%d,\"total\":9}", ret == 0 ? 9 : 0);
         ws_server_send(msg->chat_id, result);
+
+        /* 推送真实测试消息——走完整 LLM + subagent 流程 */
+        struct message test_msg;
+        memset(&test_msg, 0, sizeof(test_msg));
+        strscpy(test_msg.channel, msg->channel, sizeof(test_msg.channel));
+        strscpy(test_msg.chat_id, msg->chat_id, sizeof(test_msg.chat_id));
+        strscpy(test_msg.source, "internal", sizeof(test_msg.source));
+        test_msg.content = strdup("生成一个python hello world脚本，不要做其他操作");
+        message_bus_push_inbound(&test_msg);
+
         agent_cleanup_inbound_msg(msg);
         return;
     }
@@ -102,8 +112,18 @@ static void process_new_message_async(struct message *msg)
         int ret = agent_self_test();
         char result[256];
         snprintf(result, sizeof(result),
-                 "{\"type\":\"self_test_result\",\"passed\":%d,\"total\":7}", ret == 0 ? 1 : 0);
+                 "{\"type\":\"self_test_result\",\"passed\":%d,\"total\":9}", ret == 0 ? 9 : 0);
         ws_server_send(msg->chat_id, result);
+
+        /* 推送真实测试消息——走完整 LLM + subagent 流程 */
+        struct message test_msg;
+        memset(&test_msg, 0, sizeof(test_msg));
+        strscpy(test_msg.channel, msg->channel, sizeof(test_msg.channel));
+        strscpy(test_msg.chat_id, msg->chat_id, sizeof(test_msg.chat_id));
+        strscpy(test_msg.source, "internal", sizeof(test_msg.source));
+        test_msg.content = strdup("生成一个python hello world脚本，不要做其他操作");
+        message_bus_push_inbound(&test_msg);
+
         agent_cleanup_inbound_msg(msg);
         return;
     }
