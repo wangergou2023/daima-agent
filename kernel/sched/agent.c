@@ -25,19 +25,9 @@ void sched_agent_launch(struct sched_agent *agent, const char *prompt,
 {
     if (!agent || agent->state != SCHED_AGENT_WAITING) return;
 
-    char safe[2048];
-    memset(safe, 0, sizeof(safe));
-    if (prompt) {
-        const char *s = prompt; char *d = safe;
-        while (*s && (size_t)(d - safe) < sizeof(safe) - 1) {
-            *d++ = (*s == '\n' || *s == '\r') ? ' ' : *s;
-            s++;
-        }
-    }
-
     llm_response_t resp;
     memset(&resp, 0, sizeof(resp));
-    agent->error = llm_chat_tools_with_model(safe[0] ? safe : "ok", messages, tools,
+    agent->error = llm_chat_tools_with_model(prompt ? prompt : "ok", messages, tools,
                                               llm_get_model_name(), &resp);
     if (agent->error == 0 && resp.text) {
         strscpy(agent->result, resp.text, sizeof(agent->result));
