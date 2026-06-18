@@ -411,6 +411,42 @@ static char *build_request_body(const char *system_prompt,
 
     char *post_data = cJSON_PrintUnformatted(body);
     cJSON_Delete(body);
+
+    /* 修复 DeepSeek Anthropic API 偶发 400: 对非 ASCII 做 \uXXXX 转义 */
+    if (post_data && s_use_anthropic_api) {
+        size_t len = strlen(post_data);
+        size_t escaped_len = 0;
+        for (size_t i = 0; i < len; i++) {
+            unsigned char c = (unsigned char)post_data[i];
+            escaped_len += (c > 127) ? 6 : 1;  /* \uXXXX = 6 chars */
+        }
+        if (escaped_len > len) {
+            char *escaped = kmalloc(escaped_len + 1, GFP_KERNEL);
+            if (escaped) {
+                size_t j = 0;
+                for (size_t i = 0; i < len; i++) {
+                    unsigned char c = (unsigned char)post_data[i];
+                    if (c > 127) {
+                        /* 读取完整 UTF-8 序列获取 Unicode code point */
+                        unsigned int cp = c;
+                        int trail = 0;
+                        if ((c & 0xE0) == 0xC0)      { cp = c & 0x1F; trail = 1; }
+                        else if ((c & 0xF0) == 0xE0) { cp = c & 0x0F; trail = 2; }
+                        else if ((c & 0xF8) == 0xF0) { cp = c & 0x07; trail = 3; }
+                        for (int t = 0; t < trail && i + 1 + t < len; t++)
+                            cp = (cp << 6) | ((unsigned char)post_data[i + 1 + t] & 0x3F);
+                        i += trail;
+                        j += snprintf(escaped + j, 7, "\\u%04X", cp);
+                    } else {
+                        escaped[j++] = c;
+                    }
+                }
+                escaped[j] = '\0';
+                kfree(post_data);
+                post_data = escaped;
+            }
+        }
+    }
     return post_data;
 }
 
