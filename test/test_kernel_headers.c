@@ -2,8 +2,6 @@
 #include "linux/list.h"
 #include "linux/printk.h"
 #include "linux/slab.h"
-#include "linux/irq.h"
-#include "linux/sysctl.h"
 
 #include <assert.h>
 #include <stddef.h>
@@ -50,6 +48,5 @@ int main(void)
     kfree(buf);
 
     assert(strcmp(KERN_ERR, "<3>") == 0);
-    assert(irq_init() == 0);
     return 0;
 }

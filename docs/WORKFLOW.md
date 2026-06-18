@@ -15,7 +15,6 @@ main()
   │                   → executor_core_start + memory_core_start
   ├─ llm_proxy_init()               → 读取 config.json 配置 LLM API
   ├─ tool_registry_init()           → 注册 25 个内置工具
-  ├─ of_populate_default()          → 加载 device_tree.json
   ├─ agent_loop_init()              → 后台压缩线程 + 学习审阅
   ├─ agent_loop_start()             → Agent 主循环线程
   └─ ws_server_start()              → WebSocket 服务器 (port 1234)
@@ -175,19 +174,6 @@ CORE_EXECUTOR(2)  → 工具执行
 通信: core_send(core_id, &task) → queue(32深度) → core_recv → core_reply
 ```
 
-## 设备树
-
-`spiffs_data/config/device_tree.json` 可选，用于动态注册 LLM 设备：
-
-```json
-{"devices": [
-  {"bus":"llm_bus", "name":"deepseek_anthropic",
-   "data":{"protocol":"anthropic","health_url":"https://api.deepseek.com/anthropic/v1/models"}}
-]}
-```
-
-`bus_llm.c` 的 probe 会读取 `data.health_url` 做 HTTP GET 连通性检查。
-
 ## 速查
 
 | 操作 | 命令 |
@@ -196,4 +182,4 @@ CORE_EXECUTOR(2)  → 工具执行
 | 测试 | `make test` |
 | 运行 | `AGENT_HOME=~/.agent-data ./build-kbuild/agent` |
 | 自检 | Web UI 发 `!test` |
-| 代码检查 | `perl scripts/checkpatch.pl --no-tree --strict <file.c>` |
+| 代码检查 | `.clang-format` (主) / `perl scripts/checkpatch.pl --no-tree --strict <file.c>` (备选) |

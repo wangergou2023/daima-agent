@@ -1,6 +1,6 @@
 # test/ — 测试
 
-**47 测试文件，平铺目录。** 无标准框架，纯 C + `assert.h`。`make test` 运行全部。
+**50 测试文件，平铺目录。** 无标准框架，纯 C + `assert.h`。`make test` 运行全部。
 
 ## OVERVIEW
 
@@ -18,7 +18,7 @@
 | 上下文测试 | `test_compaction_recovery.c`, `test_context_skills_summary.c` | 压缩/摘要 |
 | 安全/编辑 | `test_safe_edit.c`, `test_hashline.c`, `test_apply_patch.c` | 文件安全 |
 | 配置测试 | `test_runtime_config.c`, `test_rules_injection.c`, `test_paths.c` | 配置/路径 |
-| 其他 | `test_merge.c`, `test_text.c`, `test_pet_event.c`, `test_voice_stub.c` 等 | — |
+| 其他 | `test_text.c`, `test_pet_event.c`, `test_voice_stub.c` 等 | — |
 
 ## CONVENTIONS
 

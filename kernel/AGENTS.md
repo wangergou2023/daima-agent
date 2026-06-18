@@ -1,6 +1,6 @@
 # kernel/ — 核心子系统
 
-**85 源文件，5 子目录。** Turn 流水线、多核调度、意图/规划/路由、扩展钩子系统。
+**92 源文件，3 子目录。** Turn 流水线、多核调度、意图/规划/路由、扩展钩子系统。
 
 ## OVERVIEW
 
@@ -10,21 +10,19 @@ Agent 的大脑。消息从 IPC 总线和通道流入，经 intent→plan→turn
 
 ```
 kernel/
-├── loop.c/runtime.c/sysctl.c        # 主循环 + 运行时配置
+├── loop.c/runtime.c               # 主循环 + 运行时配置
 ├── turn_{prepare,run,exec,finish,persist,dispatch,context,common}.c  # Turn 流水线
 ├── intent.c/plan.c/roles.c/router.c # 意图/规划/角色/路由
-├── hooks.c/state.c/cancel.c         # 扩展钩子 + 取消令牌
-├── context_{build,compress,ops}.c   # 上下文构建/压缩
+├── hooks.c/state.c/cancel.c       # 扩展钩子 + 取消令牌
+├── context_{build,compress,ops}.c # 上下文构建/压缩
 ├── channel_{policy,router,runtime}.c # 通道策略/路由/分发
 ├── tool_{feedback,guard,notify,exec_fail}.c + auto_verify.c  # 工具反馈系统
 ├── executor_core.c/memory_core.c/compaction.c  # 多核执行器
 ├── interview.c/learning.c/team.c/ralph.c/todo.c/recovery.c/rules.c  # 功能模块
 ├── work_item.c/workqueue.c/debug.c/self_test.c  # 工具类
-├── sched/                           # 多 Agent 调度器
-├── time/                            # Cron 定时器
-├── printk/                          # 内核风格日志
-├── irq/                             # 信号存根
-└── driver/                          # 驱动核心桥接
+├── sched/                         # 多 Agent 调度器
+├── time/                          # Cron 定时器
+└── printk/                        # 内核风格日志
 ```
 
 ## WHERE TO LOOK

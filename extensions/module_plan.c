@@ -7,10 +7,6 @@
 #include "linux/module.h"
 #include "linux/printk.h"
 
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("agent");
-MODULE_DESCRIPTION("Agent Extension: plan_review");
-
 /**
  * intent 钩子：对 IMPLEMENT/FIX 意图调用 LLM 生成计划并评审。
  * Plan 不可含 TODO/TBD 占位符，plan.c 会拒绝并重生成。
@@ -58,15 +54,10 @@ static agent_extension_hooks_t ext = {
     .enabled = true,
 };
 
-static int __init plan_module_init(void)
+int __init plan_module_init(void)
 {
     agent_hooks_register(&ext);
     return 0;
 }
 
-static void __exit plan_module_exit(void)
-{
-}
-
 module_init(plan_module_init);
-module_exit(plan_module_exit);

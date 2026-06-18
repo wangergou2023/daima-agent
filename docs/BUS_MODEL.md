@@ -13,7 +13,6 @@ channel_bus (4 个通道)     ✅  feishu/vector/voice/gateway → name match
 llm_bus (2 个协议驱动)      ✅  openai_compatible + anthropic_compatible
 skill_module (三层模型)     ✅  probe/load/unload，bus_device_exists 依赖检查
 Level 2 custom_tools.json   ✅  零编译扩展 tool，通过已有 driver 执行
-Level 3 of_populate()       ✅  统一 JSON → bus/device 解析入口
 3 核 IPC                    ✅  scheduler / executor / memory 独立队列
 agent --test                ✅  9/10 通过（含 LLM 端到端 + subagent）
 热插拔 reprobe 链          ❌ 待实现
@@ -39,7 +38,7 @@ agent --test                ✅  9/10 通过（含 LLM 端到端 + subagent）
 | `device` | `device` | 能力声明 ("我叫 xxx") |
 | `driver` | `driver` | 能力实现 ("我能做 xxx") |
 | `probe()` | `probe()` | 检查依赖是否满足 → 绑定 |
-| device tree | `spiffs_data/` | JSON 文件描述设备资源 |
+| device tree | N/A（已删除 JSON 间接层，改用代码直注册） | LLM 设备直接在 `bus_llm.c` 中硬编码注册 |
 | name match | name match | 字符串精确匹配 |
 | `insmod/rmmod` | `skill_module.{load,unload}` | 加载/卸载一组设备 |
 
@@ -209,41 +208,19 @@ struct skill_module {
 };
 ```
 
-## 设备树 (spiffs_data/)
+## 设备注册
 
-统一入口文件，一个函数路由到所有 bus：
-
-```json
-// device.json
-{
-  "devices": [
-    // tool bus - 普通工具
-    {"bus":"tool", "name":"read_file",  "driver":"tool_files_read",  "schema":{...}},
-    {"bus":"tool", "name":"write_file", "driver":"tool_files_write", "schema":{...}},
-    {"bus":"tool", "name":"terminal",   "driver":"tool_terminal",    "schema":{...}},
-
-    // tool bus - skill (带依赖，依赖 tool_bus 上的 terminal/files)
-    {"bus":"tool", "name":"pptx",
-     "driver":"skill_pptx",
-     "dependencies":[{"bus":"tool","name":"terminal"}, {"bus":"tool","name":"files"}]},
-
-    // llm bus
-    {"bus":"llm", "name":"deepseek-v4",
-     "driver":"openai_compatible",
-     "url":"http://10.3.20.46:4000",
-     "model":"deepseek-v4-pro"}
-  ]
-}
-```
-
-解析时自动路由：
+LLM 设备原通过 `of_populate()` 解析 JSON 设备树注册，现已改为代码直接注册：
 
 ```c
-// of_populate_all("spiffs_data/device.json")
-//   {"bus":"tool", ...} → tool_bus.add_device()
-//   {"bus":"llm", ...}  → llm_bus.add_device()
-//   {"bus":"llm", ...}  → llm_bus.add_device()
+// bus_llm.c — 4 个设备硬编码注册（替代 device_tree.json）
+device_register(llm_device_deepseek);
+device_register(llm_device_openai);
+device_register(llm_device_anthropic);
+device_register(llm_device_deepseek_anthropic);
 ```
+
+Tool 设备和 Channel 设备同样通过代码直接注册（`tool_registry_init()` / `bus_channel_register_all()`），不再走 JSON 间接层。
 
 ## 生命周期管理
 
@@ -296,8 +273,9 @@ bus_create(&llm_bus);      // LLM 后端
 driver_register(&tool_files_read_driver, &tool_bus);
 driver_register(&skill_pptx_driver, &tool_bus);
 
-// 3. 设备树解析（普通 tool）
-parse_device_tree("spiffs_data/tools/device.json", &tool_bus);
+// 3. 设备注册（代码直注册，替代 JSON 设备树）
+tool_registry_init();        // 25 个内置工具直注册
+bus_llm_register_all();      // 4 个 LLM 设备直注册
 
 // 4. Skill 模块加载（通过 skill_module）
 skill_module_load(&skill_pptx);
@@ -531,7 +509,7 @@ ipc/
 ├── bus_device.c   ✨    设备总线核心（10 个 API 函数）
 ├── bus_init.c     ✨    3 条总线实例创建
 ├── bus_channel.c  ✨    通道驱动注册
-├── bus_llm.c      ✨    LLM 协议驱动注册
+├── bus_llm.c      ✨    LLM 协议驱动 + 4 设备直注册
 └── Makefile
 
 include/linux/

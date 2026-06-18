@@ -6,10 +6,6 @@
 #include "linux/module.h"
 #include "linux/printk.h"
 
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("agent");
-MODULE_DESCRIPTION("Agent Extension: intent_gate");
-
 /**
  * intent 钩子：对每条入站消息进行意图分类。
  * @param msg 入站消息指针，分类结果写入 msg->intent
@@ -30,15 +26,10 @@ static agent_extension_hooks_t ext = {
     .enabled = true,
 };
 
-static int __init intent_module_init(void)
+int __init intent_module_init(void)
 {
     agent_hooks_register(&ext);
     return 0;
 }
 
-static void __exit intent_module_exit(void)
-{
-}
-
 module_init(intent_module_init);
-module_exit(intent_module_exit);

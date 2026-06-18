@@ -20,13 +20,11 @@ init/           ✅ main.c + Kconfig              ✅ main.c             完成
 ipc/            ✅ 消息队列/信号量               ✅ bus.c (消息总线)     完成
                 ✅ bus_device / bus_init           ✅ bus/driver/device 核心
                 ✅ bus_channel / bus_llm           ✅ 通道/LLM 总线驱动
-kernel/         ✅ sched/ time/ locking/ ...     ✅ sched/ time/       基础完成
-                                                ✅ printk/ irq/ workqueue
-                                                ❌ locking/ power/ fork/exit
+kernel/         ✅ sched/ time/ locking/ ...     ✅ sched/ time/ printk/ 基础完成
 lib/            ✅ 通用库                        ✅ lib/               完成
 mm/             ✅ 内存管理                      N/A                  不需要
 net/            ✅ 网络栈                        ✅ net/               完成
-scripts/        ✅ Kbuild/Kconfig/checkpatch     ✅ Kbuild/Kconfig     完成
+scripts/        ✅ Kbuild/Kconfig/checkpatch     ✅ Kbuild 完成
                                                 ✅ checkpatch.pl
                                                 ✅ get_maintainer.pl
                                                 ❌ kernel-doc
@@ -41,7 +39,6 @@ COPYING         ✅ GPL-2.0                       ✅ MIT                完成
 CREDITS         ✅ 维护者列表                    ✅                    完成
 MAINTAINERS     ✅ 子系统维护者                  ✅                    完成
 Makefile        ✅ Kbuild                        ✅ Kbuild             完成
-Kconfig         ✅ 顶层配置                      ✅ Kconfig            完成
 README          ✅ 项目说明                      ✅                    完成
 REPORTING-BUGS  ✅ Bug 报告指南                  ✅                    完成
 ```
@@ -52,12 +49,9 @@ REPORTING-BUGS  ✅ Bug 报告指南                  ✅                    完
 
 | 任务 | 说明 | 预估 |
 |------|------|------|
-| kernel/locking/ | mutex.c, spinlock.c | 1h |
 | kernel/fork.c | Agent 创建 (copy_process 风格) | 1h |
 | kernel/exit.c | Agent 销毁 (do_exit 风格) | 0.5h |
-| kernel/sysctl.c | 运行时参数 (/proc/sys 风格) | 1h |
 | scripts/kernel-doc | 内核文档生成工具 | 0.5h |
-| 热插拔 reprobe 链 | tool/skill 依赖上线 → 自动可用 | 1h |
 | 热插拔 reprobe 链 | tool/skill 依赖上线 → 自动可用 | 1h |
 
 ### 🟡 中优先级
@@ -91,13 +85,12 @@ REPORTING-BUGS  → Bug 报告指南
 ### scripts/ ✅
 
 ```
-scripts/checkpatch.pl       → 内核原样复制
+scripts/checkpatch.pl       → 内核原样复制 (备选)
 scripts/get_maintainer.pl   → 维护者查询
 scripts/Makefile.build      → obj-y 递归编译引擎
-scripts/Kbuild.include      → Kbuild 编译规则
+scripts/Kbuild.include      → Kbuild 编译规则 (精简版 7 行)
 scripts/Kconfig.include     → Kconfig 语法支持
-scripts/menuconfig.py       → ncurses TUI 配置
-scripts/kconfig.py          → Kconfig 解析器
+scripts/Makefile.clean      → 清理规则
 ```
 
 ### Kbuild 递归构建 ✅
@@ -150,7 +143,7 @@ llm_bus:   openai_compatible + anthropic_compatible
 skill_module: ✅ probe/load/unload, bus_device_exists 依赖检查
 tool_device/tool_driver: ✅ 声明层/执行层拆分, container_of 执行
 custom_tools.json: ✅ Level 2 零编译扩展 tool
-of_populate(): ✅ Level 3 JSON → bus/device 统一解析
+bus_llm: ✅ 4 设备硬编码直接注册 (替代 JSON 设备树)
 3-core IPC: ✅ scheduler / executor / memory 三核分工
 self-test: ✅ 8/8 通过（含 LLM 端到端 + 异步压缩调度）
 ```

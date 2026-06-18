@@ -7,10 +7,6 @@
 #include "linux/module.h"
 #include "linux/printk.h"
 
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("agent");
-MODULE_DESCRIPTION("Agent Extension: team_mode");
-
 /**
  * replace_run 钩子：当有计划且已评审时，启动团队模式编排。
  * 编排失败时返回 ERR_FAIL 让钩子链继续。
@@ -54,15 +50,10 @@ static agent_extension_hooks_t ext = {
     .enabled = true,
 };
 
-static int __init team_module_init(void)
+int __init team_module_init(void)
 {
     agent_hooks_register(&ext);
     return 0;
 }
 
-static void __exit team_module_exit(void)
-{
-}
-
 module_init(team_module_init);
-module_exit(team_module_exit);

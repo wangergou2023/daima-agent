@@ -13,10 +13,6 @@
 #include <string.h>
 #include "linux/slab.h"
 
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("agent");
-MODULE_DESCRIPTION("Agent Extension: coordinator");
-
 /**
  * replace_run 钩子：按意图启动多 Agent 并行调度。
  * 流程：sched_dispatch → sched_start → sched_wait → sched_merge。
@@ -89,15 +85,10 @@ static agent_extension_hooks_t ext = {
     .enabled = false,   /* 改由 LLM 通过 delegate_task 工具自主决定 */
 };
 
-static int __init sched_module_init(void)
+int __init sched_module_init(void)
 {
     agent_hooks_register(&ext);
     return 0;
 }
 
-static void __exit sched_module_exit(void)
-{
-}
-
 module_init(sched_module_init);
-module_exit(sched_module_exit);

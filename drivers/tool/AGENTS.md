@@ -1,6 +1,6 @@
 # drivers/tool/ — 工具驱动系统
 
-**58 源文件。** Agent 可调用的 26+ 工具能力，注册在 `tool_bus` 上。
+**60 源文件。** Agent 可调用的 34 工具能力，注册在 `tool_bus` 上。
 
 ## OVERVIEW
 

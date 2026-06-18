@@ -6,10 +6,6 @@
 #include "linux/module.h"
 #include "linux/printk.h"
 
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("agent");
-MODULE_DESCRIPTION("Agent Extension: category_router");
-
 /**
  * before_run 钩子：根据消息意图解析模型配置，重写模型选择。
  * @param msg            入站消息
@@ -40,15 +36,10 @@ static agent_extension_hooks_t ext = {
     .enabled = true,
 };
 
-static int __init router_module_init(void)
+int __init router_module_init(void)
 {
     agent_hooks_register(&ext);
     return 0;
 }
 
-static void __exit router_module_exit(void)
-{
-}
-
 module_init(router_module_init);
-module_exit(router_module_exit);

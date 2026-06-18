@@ -1,0 +1,23 @@
+# Daima Agent — 对齐 scripts/checkpatch.pl 强制规则
+# 替换 7861 行 Perl → 25 行声明式配置
+---
+BasedOnStyle: LLVM
+Language: Cpp
+UseTab: Always
+TabWidth: 8
+IndentWidth: 8
+ColumnLimit: 100
+InsertNewlineAtEOF: true
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterFunction: true
+  AfterStruct: false
+  AfterEnum: false
+  AfterControlStatement: Never
+  BeforeElse: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+IndentCaseLabels: false
+AlignAfterOpenBracket: DontAlign
+PointerAlignment: Right

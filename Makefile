@@ -28,7 +28,7 @@ endif
 
 # 核心目录列表 (Kbuild 风格 obj-y 清单)
 core-y := init/
-core-y += kernel/ kernel/sched/ kernel/time/ kernel/printk/ kernel/irq/ kernel/driver/
+core-y += kernel/ kernel/sched/ kernel/time/ kernel/printk/
 core-y += ipc/ lib/ net/ fs/
 core-y += drivers/llm/ drivers/channel/feishu/ drivers/channel/vector/ drivers/channel/gateway/
 core-y += drivers/tool/ drivers/memory/ drivers/skill/ drivers/voice/
@@ -38,7 +38,7 @@ core-y += extensions/
 agent-dirs := $(patsubst %/,%,$(core-y))
 agent_builtin := $(foreach d,$(agent-dirs),$(d)/built-in.o)
 
-.PHONY: all agent host mips arm arch-obj cjson modules test clean mrproper distclean help menuconfig defconfig config $(agent-dirs)
+.PHONY: all agent host mips arm arch-obj cjson modules test clean mrproper distclean help $(agent-dirs)
 
 all: kbuild
 kbuild: agent
@@ -67,13 +67,6 @@ agent: $(agent-dirs) cjson arch-obj
 kbuild-doc-check:
 	$(Q)$(MAKE) KBUILD_DOC_ONLY=1 kbuild
 
-menuconfig:
-	python3 scripts/menuconfig.py
-defconfig:
-	python3 scripts/kconfig.py defconfig
-	make oldconfig
-config:
-	python3 scripts/kconfig.py list
 
 host: kbuild
 mips:
@@ -106,5 +99,4 @@ distclean: mrproper
 help:
 	@echo "make / make host     build x86_64 via Kbuild"
 	@echo "make mips|arm        cross-compile"
-	@echo "make menuconfig      interactive config"
 	@echo "make test clean mrproper distclean"

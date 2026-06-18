@@ -15,7 +15,6 @@
 ## 快速开始
 
 ```bash
-make menuconfig    # 配置功能
 make               # 编译
 make test          # 测试
 ./build-kbuild/agent  # 运行
@@ -34,12 +33,10 @@ agent/
 │   ├── sched/{core,class,agent}.c      ← kernel/sched/ (多核调度)
 │   ├── time/timer.c                    ← kernel/time/ (hrtimer)
 │   ├── printk/printk.c                 ← kernel/printk/
-│   ├── irq/irq.c                       ← kernel/irq/
 │   ├── workqueue.c                     ← kernel/workqueue.c
-│   ├── sysctl.c                        ← kernel/sysctl.c
 │   ├── loop / hooks / intent / plan / roles / router
 │   └── turn_{common,prepare,run,exec,finish,persist}
-├── ipc/bus.c                           ← kernel/ipc/
+├── ipc/                                ← kernel/ipc/ (总线模型 + 核间 IPC)
 ├── lib/                                ← kernel/lib/
 ├── net/                                ← kernel/net/
 ├── fs/                                 ← kernel/fs/
@@ -62,26 +59,24 @@ agent/
 ```
 ├── arch/{host,mips,arm}/               ← kernel/arch/
 ├── extensions/module_*.c               ← LKM (可加载模块)
-├── include/linux/                      ← include/linux/
+  ├── include/linux/                      ← include/linux/
 │   ├── kernel.h     ARRAY_SIZE / container_of
 │   ├── slab.h       kmalloc / kfree
 │   ├── list.h       内核链表
 │   ├── printk.h     pr_err / pr_info
 │   ├── mutex / compiler / types / sched
 │   └── init / module / workqueue
-├── include/generated/autoconf.h        ← 构建生成
-└── Kconfig                             ← 功能开关
 ```
 
 ### 构建脚本 & 顶层文件
 
 ```
 scripts/
-├── Kbuild.include    Kbuild 编译引擎
+├── Kbuild.include    Kbuild 编译引擎 (精简版 7 行)
 ├── Makefile.build    obj-y 递归编译
-├── checkpatch.pl     代码风格检查 (照抄内核)
-├── menuconfig.py     ncurses 交互配置
-└── kconfig.py        Kconfig 解析器
+├── checkpatch.pl     代码风格检查 (备选，7861 行)
+├── Kconfig.include   Kconfig 语法支持
+└── Makefile.clean    清理规则
 
 顶层文件:
 ├── COPYING           MIT License
@@ -89,6 +84,7 @@ scripts/
 ├── MAINTAINERS       子系统维护者
 ├── REPORTING-BUGS    Bug 报告指南
 ├── Makefile          Kbuild 顶层
+├── .clang-format     代码风格 (主，25 行)
 └── .config           运行时配置
 ```
 
@@ -97,11 +93,11 @@ scripts/
 | 命令 | 说明 |
 |------|------|
 | `make` | Kbuild 编译 → `build-kbuild/agent` |
+| `make V=1` | 详细输出 |
+| `make V=2` | 详细输出 + 重编译原因诊断 |
 | `make clean` | 清理编译产物 |
 | `make mrproper` | 清理 + 删除 `.config` |
-| `make menuconfig` | ncurses 交互配置 |
-| `make defconfig` | 默认配置 |
-| `make test` | 运行测试 |
+| `make test` | 运行测试 (47 单元) |
 | `make mips` | MIPS 交叉编译 |
 | `make arm` | ARM 交叉编译 |
 
@@ -110,12 +106,11 @@ scripts/
 | 特性 | 实现 |
 |------|------|
 | 构建系统 | Kbuild 递归 + `obj-y` (零 cmake) |
-| 配置系统 | Kconfig + `make menuconfig` (ncurses) |
-| 驱动模型 | `struct agent_driver` + `probe()/remove()` |
-| 模块系统 | `extensions/module_*` + `MODULE_LICENSE` |
-| 初始化链 | `core_initcall` → `device_initcall` 8 级 |
+| 驱动模型 | `struct driver` + `probe()/remove()` (3 条总线) |
+| 模块系统 | `extensions/` + `ext_init.c` 显式初始化链 |
+| 初始化链 | `do_basic_setup()` 4 级手动链 (bootstrap.c) |
 | 平台抽象 | `arch/{host,mips,arm}/` + per-arch Makefile |
-| 代码风格 | `checkpatch.pl` + kernel-doc |
+| 代码风格 | `.clang-format` (主) + `checkpatch.pl` (备选) |
 | 多核调度 | `kernel/sched/{core,class,agent}.c` |
 | [总线模型](docs/BUS_MODEL.md) | `bus_type` + `device` + `driver` + `probe()` |
 

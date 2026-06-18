@@ -9,6 +9,7 @@
 #include "linux/bus.h"
 #include "linux/core_task.h"
 #include "hooks.h"
+#include "../extensions/ext_init.h"
 #include "drivers/memory/memory_store.h"
 #include "drivers/memory/session_store.h"
 #include "proxy.h"
@@ -116,6 +117,7 @@ int do_basic_setup(void)
     BUG_ON(message_bus_init() != 0);
     BUG_ON(core_ipc_init() != 0);
     agent_hooks_init();
+    extensions_init();
 
     /* 第 2 级：postcore_initcall — 存储层（内存 + 会话持久化） */
     pr_info("postcore_initcall...");

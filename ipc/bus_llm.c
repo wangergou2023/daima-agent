@@ -4,6 +4,7 @@
 #include "linux/slab.h"
 #include "cjson.h"
 #include "net/http.h"
+#include <string.h>
 
 static int llm_device_health_check(struct device *dev)
 {
@@ -60,13 +61,39 @@ static struct driver anthropic_compatible_drv = {
 
 int bus_llm_register_all(void)
 {
-    if (!llm_bus) {
-        pr_err("llm_bus not initialized");
-        return -1;
-    }
+	if (!llm_bus) {
+		pr_err("llm_bus not initialized");
+		return -1;
+	}
 
-    driver_register(&openai_compatible_drv, llm_bus);
-    driver_register(&anthropic_compatible_drv, llm_bus);
+	driver_register(&openai_compatible_drv, llm_bus);
+	driver_register(&anthropic_compatible_drv, llm_bus);
 
-    return 0;
+	/* 直接注册 LLM 设备（不再通过 JSON 设备树） */
+	struct {
+		const char *name;
+		const char *data;
+	} llm_devices[] = {
+		{"deepseek_anthropic", "{\"protocol\":\"anthropic\",\"health_url\":\"https://api.deepseek.com/anthropic/v1/models\"}"},
+		{"moonshot",           "{\"protocol\":\"openai\",\"health_url\":\"https://api.moonshot.cn/v1/models\"}"},
+		{"bigmodel",           "{\"protocol\":\"openai\",\"health_url\":\"https://open.bigmodel.cn/api/paas/v4/models\"}"},
+		{"ingenic_local_kimi", "{\"protocol\":\"openai\",\"health_url\":\"http://10.3.20.46:4000/v1/models\"}"},
+	};
+
+	for (size_t i = 0; i < sizeof(llm_devices) / sizeof(llm_devices[0]); i++) {
+		struct device *dev = kmalloc(sizeof(*dev), GFP_KERNEL);
+		if (!dev) continue;
+		memset(dev, 0, sizeof(*dev));
+		dev->name = strdup(llm_devices[i].name);
+		dev->data = strdup(llm_devices[i].data);
+		if (!dev->name || !dev->data) {
+			kfree(dev->name);
+			kfree(dev->data);
+			kfree(dev);
+			continue;
+		}
+		device_register(dev, llm_bus);
+	}
+
+	return 0;
 }

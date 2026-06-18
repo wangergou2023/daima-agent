@@ -108,15 +108,3 @@ int bus_channel_register_all(void);
  * @return 0 成功，负数错误码
  */
 int bus_llm_register_all(void);
-
-/**
- * 从 JSON 设备树文件解析并注册设备。
- * @param json_path  JSON 文件路径
- * @return 0 成功，负数错误码
- */
-int of_populate(const char *json_path);
-/**
- * 从默认设备树文件（config/devices.json）解析并注册设备。
- * @return 0 成功，负数错误码
- */
-int of_populate_default(void);

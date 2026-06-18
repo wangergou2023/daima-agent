@@ -1,8 +1,0 @@
-menu "LLM Driver"
-config LLM_OPENAI
-    bool "OpenAI 协议支持"
-    default y
-config LLM_ANTHROPIC
-    bool "Anthropic 协议支持"
-    default y
-endmenu

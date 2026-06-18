@@ -10,10 +10,6 @@
 #include <stdio.h>
 #include <string.h>
 
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("agent");
-MODULE_DESCRIPTION("Agent Extension: agent_roles");
-
 /**
  * 根据计划评审状态选择活跃角色。
  * 无计划时用 roles[0]（FAST），已评审计划且有第二角色时用 roles[1]。
@@ -84,15 +80,10 @@ static agent_extension_hooks_t ext = {
     .enabled = true,
 };
 
-static int __init roles_module_init(void)
+int __init roles_module_init(void)
 {
     agent_hooks_register(&ext);
     return 0;
 }
 
-static void __exit roles_module_exit(void)
-{
-}
-
 module_init(roles_module_init);
-module_exit(roles_module_exit);

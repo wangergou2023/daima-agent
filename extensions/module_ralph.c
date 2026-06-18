@@ -9,10 +9,6 @@
 #include <string.h>
 #include "linux/slab.h"
 
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("agent");
-MODULE_DESCRIPTION("Agent Extension: ralph_loop");
-
 /**
  * prepare 钩子：占位实现，当前无操作。
  */
@@ -74,15 +70,10 @@ static agent_extension_hooks_t ext = {
     .enabled = true,
 };
 
-static int __init ralph_module_init(void)
+int __init ralph_module_init(void)
 {
     agent_hooks_register(&ext);
     return 0;
 }
 
-static void __exit ralph_module_exit(void)
-{
-}
-
 module_init(ralph_module_init);
-module_exit(ralph_module_exit);

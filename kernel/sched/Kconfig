@@ -1,7 +1,0 @@
-menu "Scheduler"
-config SCHED_COORDINATOR
-    bool "多Agent并行调度"
-    default y
-    help
-      PLANNER + EXECUTOR + REVIEWER 并行执行
-endmenu

@@ -35,7 +35,11 @@ static err_t delegate_task_execute(const char *input_json,
     enum intent it = INTENT_IMPLEMENT;
     if (intent_str && strcmp(intent_str, "FIX") == 0) it = INTENT_FIX;
 
-    struct plan p = { .has_plan = true, .reviewed = true, .plan_text = task_copy };
+    struct plan p = { .has_plan = true, .reviewed = true };
+    if (task_copy) {
+        strncpy(p.plan_text, task_copy, sizeof(p.plan_text) - 1);
+        p.plan_text[sizeof(p.plan_text) - 1] = '\0';
+    }
 
     struct sched_runqueue rq;
     memset(&rq, 0, sizeof(rq));

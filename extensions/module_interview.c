@@ -11,10 +11,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("agent");
-MODULE_DESCRIPTION("Agent Extension: prometheus_interview");
-
 /**
  * replace_run 钩子：检查 IMPLEMENT 意图是否需要访谈澄清。
  * 若用户需求不明确（单角色、无计划），以问题列表代替执行。
@@ -52,15 +48,10 @@ static agent_extension_hooks_t ext = {
     .enabled = true,
 };
 
-static int __init interview_module_init(void)
+int __init interview_module_init(void)
 {
     agent_hooks_register(&ext);
     return 0;
 }
 
-static void __exit interview_module_exit(void)
-{
-}
-
 module_init(interview_module_init);
-module_exit(interview_module_exit);

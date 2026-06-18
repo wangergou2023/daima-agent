@@ -16,7 +16,7 @@ AGENT_CFLAGS := -I$(AGENT_DIR) -I$(AGENT_DIR)/include -I$(AGENT_DIR)/include/gen
     -iquote $(AGENT_DIR)/kernel/time -iquote $(AGENT_DIR)/ipc \
     -iquote $(AGENT_DIR)/lib -iquote $(AGENT_DIR)/net -iquote $(AGENT_DIR)/fs \
     -iquote $(AGENT_DIR)/include/linux \
-    -iquote $(AGENT_DIR)/kernel/printk -iquote $(AGENT_DIR)/kernel/irq \
+    -iquote $(AGENT_DIR)/kernel/printk \
     -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -DAGENT_HOST=1 -DENABLE_VISION=1
 
 ifneq ($(BREW_OPENSSL),)

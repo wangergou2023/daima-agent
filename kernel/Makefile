@@ -1,4 +1,4 @@
-obj-y := locking/ loop.o hooks.o state.o cancel.o debug.o
+obj-y := loop.o hooks.o state.o cancel.o debug.o
 obj-y += intent.o plan.o roles.o router.o
 obj-y += interview.o learning.o team.o ralph.o
 obj-y += compaction.o recovery.o todo.o rules.o

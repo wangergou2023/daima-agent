@@ -9,9 +9,6 @@ test_bus_model: test_bus_model.c ../ipc/bus_device.c ../ipc/bus_init.c ../driver
 test_cancel_race: test_cancel_race.c ../kernel/cancel.c
 	$(CC) $(CFLAGS) -o $(BUILD_DIR)/$@ $^ $(LDLIBS) -lpthread
 
-test_device_tree: test_device_tree.c ../ipc/of.c ../ipc/bus_device.c ../ipc/bus_init.c ../drivers/platform/os.c ../drivers/platform/platform.c ../arch/host/portability.c ../fs/paths.c ../fs/fs.c ../lib/cjson.c
-	$(CC) $(CFLAGS) -o $(BUILD_DIR)/$@ $^ $(LDLIBS) -lpthread
-
 test_locking: test_locking.c
 	$(CC) $(CFLAGS) -o $(BUILD_DIR)/$@ $^ $(LDLIBS) -lpthread
 
@@ -21,11 +18,10 @@ PRINTK_SRC = ../kernel/printk/printk.c ../lib/log_file.c
 SAFE_EDIT_SRC = ../drivers/tool/tool_safe_edit.c
 HASHLINE_SRC = ../drivers/tool/tool_hashline.c
 
-test: test_bus_model test_cancel_race test_device_tree test_locking test_kernel_headers test_tts_player test_work_item test_webfetch test_pet_event test_safe_edit test_hashline test_apply_patch test_terminal test_runtime_config test_llm_openai_payload test_llm_anthropic_payload test_llm_http_async test_llm_async_chat test_model_fallback test_session_history_reasoning test_paths test_rules_injection test_tool_protocol_guard test_agent_hooks test_intent_gate test_agent_roles test_agent_coordinator test_category_router test_plan_review test_prometheus_interview test_team_mode test_files_tool test_cron_tool test_skills_tool test_skill_summary test_context_skills_summary test_tool_surface test_skill_scoped_tools test_tool_invocation_context test_json_helpers test_text test_session_file_common test_compaction_recovery test_session_recovery test_todo_enforcer test_ralph_loop
+test: test_bus_model test_cancel_race test_locking test_kernel_headers test_tts_player test_work_item test_webfetch test_pet_event test_safe_edit test_hashline test_apply_patch test_terminal test_runtime_config test_llm_openai_payload test_llm_anthropic_payload test_llm_http_async test_llm_async_chat test_model_fallback test_session_history_reasoning test_paths test_rules_injection test_tool_protocol_guard test_agent_hooks test_intent_gate test_agent_roles test_agent_coordinator test_category_router test_plan_review test_prometheus_interview test_team_mode test_files_tool test_cron_tool test_skills_tool test_skill_summary test_context_skills_summary test_tool_surface test_skill_scoped_tools test_tool_invocation_context test_json_helpers test_text test_session_file_common test_compaction_recovery test_session_recovery test_todo_enforcer test_ralph_loop
 	mkdir -p $(BUILD_DIR)
 	$(BUILD_DIR)/test_bus_model
 	$(BUILD_DIR)/test_cancel_race
-	$(BUILD_DIR)/test_device_tree
 	$(BUILD_DIR)/test_locking
 	$(BUILD_DIR)/test_kernel_headers
 	$(BUILD_DIR)/test_tts_player
@@ -79,8 +75,8 @@ test_pptx_generator:
 test_tts_player: test_tts_player.c
 	$(CC) $(CFLAGS) -o $(BUILD_DIR)/$@ $< $(LDLIBS)
 
-test_kernel_headers: test_kernel_headers.c ../kernel/irq/irq.c
-	$(CC) $(CFLAGS) -o $(BUILD_DIR)/$@ $^ $(LDLIBS)
+test_kernel_headers: test_kernel_headers.c
+	$(CC) $(CFLAGS) -o $(BUILD_DIR)/$@ $< $(LDLIBS)
 
 test_work_item: test_work_item.c ../drivers/tool/tool_work_item.c ../kernel/work_item.c ../lib/json_helpers.c ../fs/paths.c ../fs/fs.c ../lib/cjson.c
 	$(CC) $(CFLAGS) -o $(BUILD_DIR)/$@ $^ $(LDLIBS)
