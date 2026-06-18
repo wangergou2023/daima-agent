@@ -1,13 +1,19 @@
+/* 计划生成与审查：plan_review_generate() 为 IMPLEMENT/FIX 意图生成执行计划，
+ * plan_review_inject_to_prompt() 将计划注入 system prompt。
+ * 计划模板包含理解目标→定位代码→最小改动→验证四步，杜绝 TODO/TBD 占位符。 */
+
 #include "plan.h"
 
 #include <stdio.h>
 #include <string.h>
 
+/** 判断该意图是否需要生成执行计划。IMPLEMENT 和 FIX 需要，QA/OPEN/INVESTIGATE 不需要。 */
 static bool plan_review_intent_requires_plan(enum intent intent)
 {
     return intent == INTENT_IMPLEMENT || intent == INTENT_FIX;
 }
 
+/** 检查文本是否包含编号步骤（如 "1. xxx"）。 */
 static bool plan_review_has_numbered_step(const char *text)
 {
     if (!text) {
@@ -22,6 +28,7 @@ static bool plan_review_has_numbered_step(const char *text)
     return false;
 }
 
+/** 检查文本是否仅包含占位符（空文本 或 [步骤1描述] / TODO / TBD）。 */
 static bool plan_review_is_placeholder_only(const char *text)
 {
     if (!text || !text[0]) {
@@ -33,6 +40,8 @@ static bool plan_review_is_placeholder_only(const char *text)
            strstr(text, "TBD") != NULL;
 }
 
+/** 生成执行计划：根据 intent 和用户消息构建四步模板计划，验证无占位符后设置 has_plan=true。
+ *  非 IMPLEMENT/FIX 意图直接返回 false，不生成计划。 */
 err_t plan_review_generate(enum intent intent,
                                   const char *user_message,
                                   const char *system_prompt,
@@ -77,6 +86,7 @@ err_t plan_review_generate(enum intent intent,
     return 0;
 }
 
+/** 将已评审通过的计划注入到 system prompt 末尾，指导 agent 按步骤执行。 */
 err_t plan_review_inject_to_prompt(const struct plan *plan,
                                           char *system_prompt,
                                           size_t system_prompt_size)

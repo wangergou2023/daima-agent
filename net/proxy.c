@@ -1,13 +1,21 @@
+/* HTTP 代理实现：从 Kconfig/autoconf 加载代理配置，支持 HTTP 和 SOCKS5。 */
+
 #include "proxy.h"
 #include "autoconf.h"
 
 #include <string.h>
 #include <stdlib.h>
 #include "linux/printk.h"
-static char s_proxy_host[64] = {0};
-static uint16_t s_proxy_port = 0;
-static char s_proxy_type[8] = "http";
 
+/* 代理配置（进程级静态变量） */
+static char s_proxy_host[64] = {0};          /* 代理主机 */
+static uint16_t s_proxy_port = 0;           /* 代理端口 */
+static char s_proxy_type[8] = "http";       /* 代理类型：http 或 socks5 */
+
+/**
+ * 从 Kconfig 生成的 SECRET_PROXY_* 宏加载代理配置。
+ * @return 始终返回 0
+ */
 err_t http_proxy_init(void)
 {
     if (SECRET_PROXY_HOST[0] != '\0' && SECRET_PROXY_PORT[0] != '\0') {
@@ -26,6 +34,7 @@ err_t http_proxy_init(void)
     return 0;
 }
 
+/** 运行时设置代理。 */
 err_t http_proxy_set(const char *host, uint16_t port, const char *type)
 {
     strncpy(s_proxy_host, host, sizeof(s_proxy_host) - 1);
@@ -35,6 +44,7 @@ err_t http_proxy_set(const char *host, uint16_t port, const char *type)
     return 0;
 }
 
+/** 清空代理配置。 */
 err_t http_proxy_clear(void)
 {
     s_proxy_host[0] = '\0';
@@ -44,6 +54,7 @@ err_t http_proxy_clear(void)
     return 0;
 }
 
+/** 代理是否已配置。 */
 bool http_proxy_is_enabled(void)
 {
     return s_proxy_host[0] != '\0' && s_proxy_port != 0;
@@ -64,7 +75,7 @@ const char *http_proxy_type(void)
     return s_proxy_type;
 }
 
-/* Proxy TLS tunnel is not used in host mode */
+/* 代理 TLS 隧道在 host 模式下未使用 */
 struct proxy_conn { int unused; };
 
 proxy_conn_t *proxy_conn_open(const char *host, int port, int timeout_ms)

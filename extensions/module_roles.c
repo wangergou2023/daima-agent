@@ -1,3 +1,5 @@
+/* Agent 角色模块：按意图分配角色链（FAST/PLANNER/EXECUTOR/REVIEWER），注入角色提示到 system prompt。 */
+
 #include "hooks.h"
 #include "roles.h"
 #include "state.h"
@@ -11,6 +13,14 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("agent");
 MODULE_DESCRIPTION("Agent Extension: agent_roles");
+
+/**
+ * 根据计划评审状态选择活跃角色。
+ * 无计划时用 roles[0]（FAST），已评审计划且有第二角色时用 roles[1]。
+ * @param roles      角色数组（最多 3 个）
+ * @param role_count 角色数量
+ * @return 当前活跃角色
+ */
 static agent_role_t active_role_for_plan(const agent_role_t roles[3], int role_count)
 {
     if (role_count <= 0) return AGENT_ROLE_FAST;
@@ -20,6 +30,11 @@ static agent_role_t active_role_for_plan(const agent_role_t roles[3], int role_c
     return roles[0];
 }
 
+/**
+ * intent 钩子：按意图解析角色链，设置活跃角色。
+ * @param msg 入站消息
+ * @return 始终返回 0
+ */
 static err_t on_intent(struct message *msg)
 {
 #if AGENT_EXTENSIONS_ENABLED
@@ -34,6 +49,14 @@ static err_t on_intent(struct message *msg)
     return 0;
 }
 
+/**
+ * prepare 钩子：将当前角色名和角色提示追加到 system prompt 末尾。
+ * @param msg               入站消息（未使用）
+ * @param system_prompt     system prompt 缓冲区
+ * @param system_prompt_size 缓冲区大小
+ * @param messages          JSON 消息数组（未使用）
+ * @return 始终返回 0
+ */
 static err_t on_prepare(struct message *msg, char *system_prompt,
                               size_t system_prompt_size, cJSON *messages)
 {

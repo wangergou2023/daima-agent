@@ -1,9 +1,14 @@
+/* 哈希行（Hashline）——安全编辑的前缀机制。
+ * 每行标记 "行号#FNV1a哈希|"，用于在 apply_patch 时校验行内容未被漂移修改。
+ * 哈希算法：FNV-1a 32-bit，取低 16 位以 4 位 hex 表示。 */
+
 #include "drivers/tool/tool_hashline.h"
 
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 
+/* FNV-1a 32-bit 哈希，用于行内容校验。 */
 static uint32_t hashline_fnv1a_32(const char *data, size_t len)
 {
     uint32_t hash = 0x811c9dc5;
@@ -14,6 +19,7 @@ static uint32_t hashline_fnv1a_32(const char *data, size_t len)
     return hash;
 }
 
+/* 计算单行内容的 4 位 hex 哈希值。 */
 void hashline_hash_line(const char *content, char hash_out[5])
 {
     if (!hash_out) {
@@ -23,6 +29,7 @@ void hashline_hash_line(const char *content, char hash_out[5])
     snprintf(hash_out, 5, "%04x", (unsigned)(hash & 0xffffu));
 }
 
+/* 生成 "行号#hash|" 前缀字符串。 */
 void hashline_make_prefix(int line_number, const char *line_content,
                           char *prefix_buf, size_t prefix_size)
 {
@@ -34,6 +41,7 @@ void hashline_make_prefix(int line_number, const char *line_content,
     snprintf(prefix_buf, prefix_size, "%d#%s|", line_number, hash);
 }
 
+/* 判断字符串是否为 4 位小写 hex（[0-9a-f]{4}）。 */
 static bool is_lower_hex4(const char *text)
 {
     if (!text) {
@@ -47,6 +55,7 @@ static bool is_lower_hex4(const char *text)
     return true;
 }
 
+/* 剥离行首的 "行号#hash|" 前缀，返回原始内容指针。若格式不匹配则原样返回。 */
 const char *hashline_strip_prefix(const char *line)
 {
     if (!line || !isdigit((unsigned char)line[0])) {
@@ -67,6 +76,13 @@ const char *hashline_strip_prefix(const char *line)
     return p + 5;
 }
 
+/**
+ * 验证行内容与期望哈希值是否匹配。
+ * @param line_number   行号
+ * @param line_content  行内容（不含前缀）
+ * @param expected_hash 期望的 4 位 hex 哈希
+ * @return true 表示匹配
+ */
 bool hashline_verify_line(int line_number, const char *line_content,
                           const char *expected_hash)
 {

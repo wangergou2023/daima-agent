@@ -1,3 +1,5 @@
+/* 工具反馈系统：解析工具调用结果，生成人类可读的活动摘要并发送到通道。 */
+
 #include "tool_feedback.h"
 
 #include <stdbool.h>
@@ -28,6 +30,7 @@ static const char *tool_display_name(const char *tool_name)
     return tool_name;
 }
 
+/** 提取路径的尾部文件名（最后一个 '/' 之后的部分）。 */
 static const char *path_tail(const char *path)
 {
     if (!path || !path[0]) return "";
@@ -42,6 +45,7 @@ static bool output_is_human_error(const char *tool_output)
             strncmp(tool_output, "Error:", strlen("Error:")) == 0);
 }
 
+/** 从解析的工具输入中提取操作目标摘要（terminal→命令，files→路径，cron→名称等）。 */
 static void summarize_tool_target(const char *tool_name, const char *tool_input, char *buf, size_t size)
 {
     if (!buf || size == 0) return;
@@ -90,6 +94,7 @@ static void summarize_tool_target(const char *tool_name, const char *tool_input,
     cJSON_Delete(root);
 }
 
+/** 判断工具执行是否成功：terminal 检查 exit_code，其他工具检查 err == 0。 */
 static bool tool_result_success(const char *tool_name, err_t exec_err, const char *tool_output, char *detail, size_t detail_size)
 {
     if (detail && detail_size > 0) {
@@ -140,6 +145,7 @@ static bool tool_result_success(const char *tool_name, err_t exec_err, const cha
     return false;
 }
 
+/** 构建工具活动事件并发送到通道：汇总目标、判断成败、格式化行、发送通知。 */
 void agent_tool_feedback_send_activity(const struct message *msg,
                                        const char *tool_name,
                                        const char *tool_input,

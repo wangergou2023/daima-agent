@@ -1,3 +1,5 @@
+/* 意图分类模块：在 on_intent 钩子中调用 intent_gate_classify，将用户消息分类为 QA/IMPLEMENT/INVESTIGATE/FIX/OPEN。 */
+
 #include "hooks.h"
 #include "intent.h"
 #include "autoconf.h"
@@ -7,6 +9,12 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("agent");
 MODULE_DESCRIPTION("Agent Extension: intent_gate");
+
+/**
+ * intent 钩子：对每条入站消息进行意图分类。
+ * @param msg 入站消息指针，分类结果写入 msg->intent
+ * @return 始终返回 0
+ */
 static err_t on_intent(struct message *msg)
 {
 #if AGENT_EXTENSIONS_ENABLED

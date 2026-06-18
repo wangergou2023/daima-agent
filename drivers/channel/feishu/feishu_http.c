@@ -1,3 +1,6 @@
+/* 飞书 HTTP API——封装 libcurl 实现飞书 Open API 调用。
+ * 提供 POST JSON 和 GET 两种方法，自动管理 Bearer Token 和 JSON 解析。 */
+
 #include "drivers/channel/feishu/feishu_http.h"
 
 #include <curl/curl.h>
@@ -7,6 +10,8 @@
 #include "http.h"
 #include "linux/printk.h"
 #include "linux/slab.h"
+
+/* 释放 HTTP 响应资源（body 由 kmalloc 分配）。 */
 void feishu_http_response_free(feishu_http_response_t *resp)
 {
     if (!resp) return;
@@ -15,6 +20,7 @@ void feishu_http_response_free(feishu_http_response_t *resp)
     resp->status = 0;
 }
 
+/* 发送 HTTP 请求（POST/GET），自动添加 Bearer Token 和 Content-Type 头。 */
 static err_t feishu_http_request(const char *url, const char *token,
                                         const char *method, const char *post_data,
                                         int timeout_ms, feishu_http_response_t *out)
@@ -47,6 +53,7 @@ static err_t feishu_http_request(const char *url, const char *token,
     return 0;
 }
 
+/* POST JSON 请求快捷封装。 */
 err_t feishu_http_post_json(const char *url, const char *token,
                                    const char *json_body, int timeout_ms,
                                    feishu_http_response_t *out)
@@ -54,12 +61,14 @@ err_t feishu_http_post_json(const char *url, const char *token,
     return feishu_http_request(url, token, "POST", json_body, timeout_ms, out);
 }
 
+/* GET 请求快捷封装。 */
 err_t feishu_http_get(const char *url, const char *token,
                              int timeout_ms, feishu_http_response_t *out)
 {
     return feishu_http_request(url, token, "GET", NULL, timeout_ms, out);
 }
 
+/* 解析飞书 API JSON 响应，检查 code==0，失败时打印警告并返回 NULL。 */
 cJSON *feishu_http_parse_json(feishu_http_response_t *resp)
 {
     if (!resp || !resp->body) return NULL;

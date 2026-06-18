@@ -1,3 +1,7 @@
+/* 运行时配置管理：从 spiffs_data/config/config.json 加载全局配置，提供 getter 函数。
+ * 配置段包括 common(通用)、providers(LLM提供者)、feishu、audio、mips、web 等。
+ * 所有整型值均经过 clamp 钳制，字符串有默认 fallback。 */
+
 #include "runtime.h"
 #include "paths.h"
 #include "runtime_internal.h"
@@ -12,11 +16,13 @@
 #include "linux/printk.h"
 #include "linux/slab.h"
 #include "linux/kernel.h"
+/* 默认常量 */
 static const char *DEFAULT_TIMEZONE = "CST-8";
 static const char *DEFAULT_LLM_MODEL = "kimi-k2.5";
 static const char *DEFAULT_WEB_PET_PACKAGE_ID = "guga.codex-pet";
 static const char *DEFAULT_TERMINAL_SECURITY_LEVEL = "build";
 
+/* 各配置段默认值枚举 */
 enum {
     DEFAULT_WEB_PORT = 1234,
     DEFAULT_COMPRESS_TRIGGER_MSGS = 12,
@@ -35,8 +41,10 @@ enum {
     DEFAULT_LLM_REQUEST_TIMEOUT_MS = 300 * 1000,
 };
 
+/* 全局运行时配置状态单例 */
 static runtime_config_state_t s_cfg;
 
+/** 重置所有配置为默认值。 */
 static void reset_defaults(void)
 {
     memset(&s_cfg, 0, sizeof(s_cfg));
@@ -62,6 +70,7 @@ static void reset_defaults(void)
     strscpy(s_cfg.provider_model, DEFAULT_LLM_MODEL, sizeof(s_cfg.provider_model));
 }
 
+/** 钳制整型配置值到 [min_value, max_value] 范围内，超出返回 fallback。 */
 int runtime_config_clamp_int(int value, int min_value, int max_value, int fallback)
 {
     if (value < min_value || value > max_value) {
@@ -70,6 +79,7 @@ int runtime_config_clamp_int(int value, int min_value, int max_value, int fallba
     return value;
 }
 
+/** 读取配置文件文本内容（最大 128KB）。调用方负责 kfree。 */
 static char *read_config_text(void)
 {
     FILE *f = fopen(path_runtime_config_file(), "rb");
@@ -148,6 +158,7 @@ bool runtime_config_json_read_bool(const cJSON *root, const char *key, bool *out
     return false;
 }
 
+/** 运行时配置初始化：读 JSON → 应用各段值 → 标记已加载。文件不存在时使用默认值。 */
 err_t runtime_config_init(void)
 {
     char *text = NULL;
@@ -222,6 +233,7 @@ const char *runtime_config_get_terminal_security_level(void)
         : DEFAULT_TERMINAL_SECURITY_LEVEL;
 }
 
+/** 原子写入 JSON 配置到磁盘（先写 .tmp 再 rename）。 */
 static err_t write_config_json_atomic(cJSON *root)
 {
     if (!root) {
@@ -318,6 +330,7 @@ const char *runtime_config_get_provider_model(void)
     return s_cfg.provider_model[0] ? s_cfg.provider_model : DEFAULT_LLM_MODEL;
 }
 
+/** 根据 provider 名称查找其 model 字段（从 providers[] 数组中查找）。 */
 const char *runtime_config_get_provider_model_for_name(const char *provider_name)
 {
     if (!provider_name || !provider_name[0]) {
@@ -369,6 +382,7 @@ bool runtime_config_provider_needs_reasoning_content(void)
     return s_cfg.provider_needs_reasoning_content;
 }
 
+/** 获取上下文限制 token 数：provider 级优先 → common 级 → 0。 */
 int runtime_config_get_context_limit_tokens(void)
 {
     if (s_cfg.provider_context_limit_tokens > 0) {
@@ -377,6 +391,7 @@ int runtime_config_get_context_limit_tokens(void)
     return s_cfg.common_context_limit_tokens;
 }
 
+/** 获取最大输出 token 数：provider 级 → common 级 → LLM_MAX_TOKENS。 */
 int runtime_config_get_max_output_tokens(void)
 {
     if (s_cfg.provider_max_output_tokens > 0) {
@@ -388,6 +403,7 @@ int runtime_config_get_max_output_tokens(void)
     return LLM_MAX_TOKENS;
 }
 
+/** 获取请求超时：provider 级 → DEFAULT_LLM_REQUEST_TIMEOUT_MS(300s)。 */
 int runtime_config_get_request_timeout_ms(void)
 {
     if (s_cfg.provider_request_timeout_ms > 0) {

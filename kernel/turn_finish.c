@@ -1,3 +1,6 @@
+/* Turn 收尾清理：分发最终回复、保存会话、释放资源、清除恢复标记。
+ * 负责处理取消/错误/正常三种结局，统一调用 cleanup/clear 钩子。 */
+
 #include "turn_finish.h"
 
 #include <stdio.h>
@@ -22,6 +25,7 @@
 #include "ralph.h"
 #include "turn_dispatch.h"
 #ifdef TODO_ENFORCER_ENABLED
+/** 读取 TODO 文件并统计 total/completed 数量。 */
 static void read_todo_counts(int *out_total, int *out_completed)
 {
     *out_total = 0;
@@ -72,6 +76,14 @@ static void read_todo_counts(int *out_total, int *out_completed)
 }
 #endif
 
+/** Turn 收尾入口。
+ *  取消 → 释放资源并返回；正常/错误 → 分发回复、保存会话、清理恢复标记和 TODO 进度。
+ *  @param io_final_text      最终回复文本（可能被修改或释放）
+ *  @param io_reasoning_text  推理文本（可能被释放）
+ *  @param turn_err           turn_run 返回的错误码
+ *  @param iteration          实际 LLM 调用轮次
+ *  @param tool_budget_exhausted 是否预算耗尽
+ *  @param cancelled          是否被取消 */
 void agent_turn_finish(
     struct message *msg,
     char **io_final_text,

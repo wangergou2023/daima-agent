@@ -1,3 +1,5 @@
+/* 调度协调模块：replace_run 钩子中启动多 Agent 并行调度（PLANNER+EXECUTOR+REVIEWER），合并输出。 */
+
 #include "hooks.h"
 #include "kernel/sched/sched.h"
 #include "turn_persist.h"
@@ -14,6 +16,18 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("agent");
 MODULE_DESCRIPTION("Agent Extension: coordinator");
+
+/**
+ * replace_run 钩子：按意图启动多 Agent 并行调度。
+ * 流程：sched_dispatch → sched_start → sched_wait → sched_merge。
+ * 单 Agent 时（nr_agents <= 1）返回 ERR_FAIL 让钩子链继续。
+ * @param msg             入站消息
+ * @param system_prompt   system prompt
+ * @param messages        JSON 消息数组
+ * @param tools_json      工具 JSON
+ * @param out_final_text  输出：合并后的最终文本
+ * @return 成功返回 0，失败返回 ERR_FAIL
+ */
 static err_t replace_run(struct message *msg, char *system_prompt,
                                cJSON *messages, const char *tools_json,
                                char **out_final_text)
@@ -34,6 +48,7 @@ static err_t replace_run(struct message *msg, char *system_prompt,
         return ERR_FAIL;
     }
 
+    /* 通知用户并行调度信息 */
     pr_info("Coordinator: launching %d sub-agents for intent=%s", rq.nr_agents, intent_name(msg->intent));
     char thinking_msg[512];
     int off = snprintf(thinking_msg, sizeof(thinking_msg),
@@ -45,6 +60,7 @@ static err_t replace_run(struct message *msg, char *system_prompt,
     snprintf(thinking_msg + off, sizeof(thinking_msg) - (size_t)off, ")");
     agent_turn_queue_outbound_text(msg, strdup(thinking_msg), NULL, true);
 
+    /* 启动并行调度，超时比 LLM 请求多 10 秒 */
     rq.timeout_ms = runtime_config_get_request_timeout_ms() + 10000;
     sched_start(&rq, system_prompt, messages, tools_json);
     err_t err = sched_wait(&rq);

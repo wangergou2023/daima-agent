@@ -1,3 +1,5 @@
+/* Agent 唯一入口。4 阶段启动流程：agent_home 准备 → spiffs 初始化 → do_basic_setup → agent_start。 */
+
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <string.h>
@@ -34,21 +36,38 @@
 #include "drivers/voice/voice_wake.h"
 
 int agent_self_test(void);
+
+/**
+ * 从运行时配置解析当前时区。
+ * @return 时区字符串（如 "Asia/Shanghai"）。
+ */
 static const char *resolve_runtime_timezone(void)
 {
     return runtime_config_get_timezone();
 }
 
+/**
+ * 程序主入口。4 阶段启动：
+ *   阶段 1: 参数解析 + bootstrap_prepare_runtime() — 路径初始化 + 目录创建 + 配置加载
+ *   阶段 2: do_basic_setup() — 8 级 initcall 链（消息总线、IPC、存储、cron、设备总线）
+ *   阶段 3: llm_proxy_init + tool_registry_init + agent_loop_init — 驱动和循环初始化
+ *   阶段 4: channel_router_start + agent_loop_start + ws_server_start — 启动所有服务
+ *
+ * @param argc 参数个数
+ * @param argv 参数列表，支持 --help、--test
+ * @return 0 成功，非 0 失败
+ */
 int main(int argc, char **argv)
 {
     bool test_mode = false;
 
 #ifdef BUILD_FOR_MIPS
-    /* Auto-register systemd service on boot (rootfs is RO, runtime link needed each boot) */
+    /* MIPS 平台：每次启动自动注册 systemd 服务（rootfs 只读，需运行时链接） */
     mkdir("/run/systemd/system", 0755);
     symlink("/data/agent-data/agent.service", "/run/systemd/system/agent.service");
 #endif
 
+    /* 阶段 1a: 命令行参数解析 */
     if (argc > 1) {
         const char *arg = argv[1];
         if (strcmp(arg, "-h") == 0 || strcmp(arg, "--help") == 0) {
@@ -64,8 +83,10 @@ int main(int argc, char **argv)
         }
     }
 
+    /* 阶段 1b: 运行时准备 — 路径、目录、配置 */
     bootstrap_prepare_runtime();
 
+    /* 设置时区 */
     const char *runtime_tz = resolve_runtime_timezone();
     setenv("TZ", runtime_tz, 1);
     tzset();
@@ -76,27 +97,33 @@ int main(int argc, char **argv)
     pr_info("Free memory: %d bytes", (int)platform_free_memory());
     pr_info("Timezone: %s", runtime_tz);
 
+    /* 阶段 2: 基础设置 — 8 级 initcall 链 */
     BUG_ON(do_basic_setup() != 0);
 
+    /* 阶段 3: 驱动层初始化 — LLM 代理、工具注册、设备树加载、Agent 循环 */
     BUG_ON(llm_proxy_init() != 0);
     BUG_ON(tool_registry_init() != 0);
     of_populate_default();  /* 加载 device_tree.json 中未注册的设备 */
     BUG_ON(agent_loop_init() != 0);
 
+    /* 自检模式：运行自检后退出 */
     if (test_mode) {
         int ret = agent_self_test();
         pr_info("Self-test %s", ret == 0 ? "PASSED" : "FAILED");
         return ret;
     }
 
+    /* 阶段 4a: 启动通道路由（飞书/Vector/WebSocket） */
     BUG_ON(channel_router_start() != 0);
 
+    /* 阶段 4b: 启动 Agent 主循环和 WebSocket 服务 */
     BUG_ON(agent_loop_start() != 0);
     err_t ws_err = ws_server_start();
     if (ws_err != 0) {
         pr_warn("WebSocket server failed to start: %s", err_name(ws_err));
     }
 
+    /* 阶段 4c: 打印就绪信息，进入空闲循环 */
     pr_info("All services started!");
     char host_ip[INET_ADDRSTRLEN] = "0.0.0.0";
     bootstrap_get_primary_ipv4(host_ip, sizeof(host_ip));

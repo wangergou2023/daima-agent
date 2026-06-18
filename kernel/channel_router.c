@@ -1,3 +1,6 @@
+/* 通道路由：出站消息异步分发任务。
+ * dispatch_outbound_task() 无限循环从总线弹出消息 → 调用 channel_runtime_dispatch_outbound() 发送。 */
+
 #include "channel_router.h"
 #include "channel_runtime.h"
 #include "turn_common.h"
@@ -11,6 +14,7 @@
 #include "linux/printk.h"
 #include "os.h"
 #include "linux/slab.h"
+/** 出站分发任务：循环弹出出站消息 → 按通道发送到对应终端。 */
 static void dispatch_outbound_task(void *arg)
 {
     (void)arg;

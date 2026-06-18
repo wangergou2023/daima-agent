@@ -1,3 +1,8 @@
+/* 调度器核心实现：runqueue 管理、agent 调度（dispatch/start/wait/merge/exit）。
+ * sched_dispatch() 根据 intent 创建对应调度类的 agent 队列，
+ * sched_start() 按优先级顺序启动 agent，sched_wait() 轮询等待完成，
+ * sched_merge() 合并多 agent 输出为最终回复。 */
+
 #include "sched.h"
 #include "autoconf.h"
 #include "linux/compiler.h"
@@ -7,6 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "linux/kernel.h"
+/** 检查 runqueue 的链表是否已初始化。 */
 static bool sched_runqueue_has_list(const struct sched_runqueue *rq)
 {
     return rq && rq->agent_list.next && rq->agent_list.prev;
@@ -16,6 +22,7 @@ void sched_init(void)
 {
 }
 
+/** 为 agent 设置任务描述：[调度类名] 用户任务 + 计划文本。 */
 static void sched_set_task_description(struct sched_agent *agent,
                                        const struct plan *plan,
                                        const char *user_msg)
@@ -42,6 +49,7 @@ static void sched_set_task_description(struct sched_agent *agent,
     }
 }
 
+/** 将新 agent 入队：初始化 → 设置 pid → 加入链表 → nr_agents++。 */
 void sched_enqueue(struct sched_runqueue *rq, const struct sched_class *cls,
                    const char *task)
 {
@@ -56,6 +64,7 @@ void sched_enqueue(struct sched_runqueue *rq, const struct sched_class *cls,
     rq->nr_agents++;
 }
 
+/** 将运行中的 agent 标记为 DONE 并减少运行计数。 */
 void sched_dequeue(struct sched_runqueue *rq, struct sched_agent *agent)
 {
     if (unlikely(!rq || !agent || agent->state != SCHED_AGENT_RUNNING)) {
@@ -67,6 +76,8 @@ void sched_dequeue(struct sched_runqueue *rq, struct sched_agent *agent)
     }
 }
 
+/** 从队列中选出下一个 WAITING 状态且 class 优先级最高的 agent。
+ *  调度类 ID 越小优先级越高（PLANNER=0 > EXECUTOR=1 > REVIEWER=2）。 */
 struct sched_agent *sched_pick_next(struct sched_runqueue *rq)
 {
     struct sched_agent *best = NULL;
@@ -87,6 +98,8 @@ struct sched_agent *sched_pick_next(struct sched_runqueue *rq)
     return best;
 }
 
+/** 完成 agent 执行：根据错误码设置最终状态（DONE/TIMEOUT/ERROR），更新 runqueue 计数。
+ *  @param err  0=成功，ERR_TIMEOUT=超时，其他=错误 */
 void sched_complete(struct sched_runqueue *rq, struct sched_agent *agent,
                     err_t err)
 {
@@ -107,6 +120,9 @@ void sched_complete(struct sched_runqueue *rq, struct sched_agent *agent,
     }
 }
 
+/** 调度入口：根据 intent 决定需要哪些调度类 → 创建 runqueue 并填充 agent。
+ *  IMPLEMENT → PLANNER+EXECUTOR+REVIEWER，FIX → EXECUTOR+REVIEWER，其他 → 单 EXECUTOR。
+ *  @return 0 成功，ERR_INVALID_ARG 失败 */
 err_t sched_dispatch(enum intent intent, const struct plan *plan,
                            const char *user_msg, struct sched_runqueue *rq)
 {
@@ -132,6 +148,8 @@ err_t sched_dispatch(enum intent intent, const struct plan *plan,
     return 0;
 }
 
+/** 启动调度：按优先级顺序逐个 pick → launch agent。
+ *  每个 agent 获得拼接了 prompt_suffix 和 task_desc 的独立 system prompt。 */
 void sched_start(struct sched_runqueue *rq,
                  const char *system_prompt, cJSON *messages, const char *tools)
 {
@@ -160,6 +178,8 @@ void sched_start(struct sched_runqueue *rq,
     }
 }
 
+/** 等待所有 agent 完成：轮询 checklist → reap → complete，每 100ms 检查一次。
+ *  超时后未完成的 agent 强制标记为 TIMEOUT。 */
 err_t sched_wait(struct sched_runqueue *rq)
 {
     if (unlikely(!rq)) {
@@ -207,6 +227,8 @@ err_t sched_wait(struct sched_runqueue *rq)
     return 0;
 }
 
+/** 合并多 agent 输出：收集各 agent 状态摘要 + EXECUTOR 结果 + REVIEWER 审查。
+ *  PLANNER 输出不展示给用户（内部计划用），REVIEWER 通过时仅显示审查通过。 */
 void sched_merge(struct sched_runqueue *rq, char *output, size_t size)
 {
     if (unlikely(!rq || !output || size == 0)) {
@@ -311,6 +333,7 @@ void sched_merge(struct sched_runqueue *rq, char *output, size_t size)
     strscpy(rq->merged, output, sizeof(rq->merged));
 }
 
+/** 清理 runqueue：释放所有 agent 的 async LLM 会话、消息、响应，并清零整个结构。 */
 void sched_exit(struct sched_runqueue *rq)
 {
     if (unlikely(!rq)) {

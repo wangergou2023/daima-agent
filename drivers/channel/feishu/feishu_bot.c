@@ -1,3 +1,5 @@
+/* 飞书机器人——凭据加载、WebSocket 启动与消息发送入口。 */
+
 #include "drivers/channel/feishu/feishu_bot.h"
 
 #include <stdbool.h>
@@ -15,17 +17,21 @@
 #include "os.h"
 #include "text.h"
 #include "proxy.h"
-static char s_app_id[64] = {0};
-static char s_app_secret[128] = {0};
-static os_task_t *s_ws_task = NULL;
-static feishu_ws_runtime_t s_ws_runtime;
 
+/* 凭据和运行时状态 */
+static char s_app_id[64] = {0};           /* 飞书应用 App ID */
+static char s_app_secret[128] = {0};      /* 飞书应用 App Secret */
+static os_task_t *s_ws_task = NULL;       /* WebSocket 连接任务句柄 */
+static feishu_ws_runtime_t s_ws_runtime;  /* WS 运行时状态 */
+
+/* WebSocket 任务入口：启动飞书 WS 长连接循环。 */
 static void feishu_ws_task(void *arg)
 {
     (void)arg;
     feishu_ws_runtime_run(&s_ws_runtime, s_app_id, s_app_secret);
 }
 
+/* 初始化飞书机器人：从运行时配置加载凭据，初始化 WS 运行时。 */
 err_t feishu_bot_init(void)
 {
     const char *app_id = runtime_config_get_feishu_app_id();
@@ -50,6 +56,7 @@ err_t feishu_bot_init(void)
     return 0;
 }
 
+/* 启动飞书 WebSocket 连接任务（若凭据已配置）。 */
 err_t feishu_bot_start(void)
 {
     if (s_app_id[0] == '\0' || s_app_secret[0] == '\0') {
@@ -78,6 +85,7 @@ err_t feishu_bot_start(void)
     return 0;
 }
 
+/* 向指定 chat_id 发送飞书卡片消息。 */
 err_t feishu_send_card(const char *chat_id, const char *markdown)
 {
     if (!chat_id || !markdown) return ERR_INVALID_ARG;
@@ -88,6 +96,7 @@ err_t feishu_send_card(const char *chat_id, const char *markdown)
     return feishu_api_send_card(s_app_id, s_app_secret, chat_id, markdown);
 }
 
+/* 回复指定消息的飞书卡片（通过 message_id）。 */
 err_t feishu_reply_card(const char *message_id, const char *markdown)
 {
     if (!message_id || !markdown) return ERR_INVALID_ARG;

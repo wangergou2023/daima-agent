@@ -1,8 +1,12 @@
+/* Team 模式：多 agent 协作编排。
+ * team_mode_orchestrate() 生成初始合并结果，team_mode_inject_to_prompt() 注入到 system prompt。 */
+
 #include "team.h"
 
 #include <stdio.h>
 #include <string.h>
 
+/** 编排 Team 模式：根据 plan 生成 multi-agent 合并结果字符串。 */
 err_t team_mode_orchestrate(const struct plan *plan,
                                    const char *system_prompt,
                                    const char *tools_json,
@@ -39,6 +43,7 @@ err_t team_mode_orchestrate(const struct plan *plan,
     return 0;
 }
 
+/** 将 Team 编排结果注入 system prompt。 */
 err_t team_mode_inject_to_prompt(const team_orchestrator_t *team,
                                        char *system_prompt,
                                        size_t system_prompt_size)

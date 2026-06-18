@@ -1,3 +1,5 @@
+/* 工具运行时——执行调度、日志记录与 sudo 重试。 */
+
 #include "drivers/tool/tool_runtime.h"
 
 #include <stdio.h>
@@ -11,6 +13,8 @@
 #include "cjson.h"
 #include "linux/printk.h"
 #include "linux/slab.h"
+
+/* 记录工具执行前的输入日志，将换行/回车/制表符替换为空格方便阅读。 */
 static void log_tool_runtime_input(const char *phase,
                                    const char *tool_name,
                                    const char *input_json)
@@ -29,6 +33,7 @@ static void log_tool_runtime_input(const char *phase,
     pr_info("%s tool=%s input_len=%u input=%s%s", phase, tool_name && tool_name[0] ? tool_name : "<missing>", (unsigned)n, preview, n > shown ? "..." : "");
 }
 
+/* 记录工具执行后的结果日志：工具名、错误码、耗时、输入/输出预览。 */
 static void log_tool_runtime_result(const char *tool_name,
                                     const char *input_json,
                                     const char *output,
@@ -56,6 +61,11 @@ static void log_tool_runtime_result(const char *tool_name,
     pr_info("execute result tool=%s err=%s elapsed_ms=%ld input_len=%u input=%s output_len=%u output=%s", tool_name && tool_name[0] ? tool_name : "<missing>", err_name(err), elapsed_ms, (unsigned)in_len, input_preview[0] ? input_preview : "<empty>", (unsigned)out_len, output_preview[0] ? output_preview : "<empty>");
 }
 
+/**
+ * 当 terminal 工具返回 sudo_password_required 状态时，
+ * 通过 WebSocket 通道向用户请求密码并以新参数重试执行。
+ * 仅对 websocket 通道生效，其他通道静默跳过。
+ */
 static void maybe_retry_terminal_with_web_sudo(const llm_tool_call_t *call,
                                                const struct message *msg,
                                                char *tool_output,
@@ -110,6 +120,16 @@ static void maybe_retry_terminal_with_web_sudo(const llm_tool_call_t *call,
     cJSON_Delete(root);
 }
 
+/**
+ * 执行一次 LLM 工具调用。
+ * 流程：参数校验 → 上下文补丁 → 注册表执行 → sudo 重试 → 耗时统计 → 日志输出。
+ * @param call              LLM 返回的工具调用
+ * @param msg               当前消息上下文
+ * @param tool_output       执行结果输出缓冲区
+ * @param tool_output_size  缓冲区大小
+ * @param out_result        执行结果元信息（耗时、有效输入等）
+ * @return 执行错误码（0 表示成功）
+ */
 err_t tool_runtime_execute_call(const llm_tool_call_t *call,
                                      const struct message *msg,
                                      char *tool_output,

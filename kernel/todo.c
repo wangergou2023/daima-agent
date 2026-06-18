@@ -1,3 +1,6 @@
+/* Todo 强制执行器：跟踪 per-session TODO 进度，N 轮无进展时在 system prompt 中注入警告。
+ * todo_enforcer_record_progress() 更新 stale 计数，todo_enforcer_inject_prompt() 注入警告。 */
+
 #include "todo.h"
 
 #include "paths.h"
@@ -119,6 +122,7 @@ static err_t save_state(const char *chat_id, const todo_enforcer_state_t *state)
     return written == len ? 0 : ERR_FAIL;
 }
 
+/** 加载 TODO 强制执行器配置（允许的最大 stale 轮次）。 */
 todo_enforcer_cfg_t todo_enforcer_load_cfg(void)
 {
     todo_enforcer_cfg_t cfg = {
@@ -128,6 +132,7 @@ todo_enforcer_cfg_t todo_enforcer_load_cfg(void)
     return cfg;
 }
 
+/** 记录本轮 TODO 进度：对比上轮完成数，无进展则 stale_count++。 */
 err_t todo_enforcer_record_progress(const char *chat_id, int todo_count, int completed_count)
 {
     if (!chat_id || !chat_id[0]) {
@@ -161,6 +166,7 @@ err_t todo_enforcer_record_progress(const char *chat_id, int todo_count, int com
     return save_state(chat_id, &next);
 }
 
+/** 当 stale 计数超过阈值时，在 system prompt 注入任务进度警告。 */
 err_t todo_enforcer_inject_prompt(const char *chat_id, char *system_prompt, size_t system_prompt_size)
 {
     if (!chat_id || !chat_id[0] || !system_prompt || system_prompt_size == 0) {

@@ -1,3 +1,6 @@
+/* 行为规则注入：从 AGENTS.md / spiffs_data/config/AGENTS.md 加载项目规则，
+ * 拼接到 system prompt 前作为 ## 项目规则 段，限制每个文件最大 4096 字节。 */
+
 #include "rules.h"
 
 #include <stdio.h>
@@ -55,6 +58,8 @@ static bool append_file_limited(char *buffer, size_t buffer_size, size_t *offset
     return true;
 }
 
+/** 加载项目行为规则到 buffer 中。依次读取 AGENTS.md 和 spiffs_data/config/AGENTS.md，
+ *  拼接在 "## 项目规则" 标题下。 */
 err_t rules_injection_load(char *buffer, size_t buffer_size)
 {
     if (!buffer || buffer_size == 0) {

@@ -1,13 +1,18 @@
+/* Agent 角色定义与映射：FAST/PLANNER/EXECUTOR/REVIEWER 四种角色的 category 和 prompt 后缀。
+ * agent_roles_for_intent() 根据意图返回所需角色链。 */
+
 #include "roles.h"
 
 #include <stddef.h>
 
+/* 角色定义结构体：名称、类别、prompt 后缀指令 */
 typedef struct {
     const char *name;
     const char *category;
     const char *prompt_suffix;
 } agent_role_def_t;
 
+/* 角色定义表：FAST(快速回答)→PLANNER(规划)→EXECUTOR(执行)→REVIEWER(审查) */
 static const agent_role_def_t s_role_defs[AGENT_ROLE_COUNT] = {
     [AGENT_ROLE_FAST] = {
         .name = "FAST",
@@ -57,6 +62,12 @@ const char *agent_role_category(agent_role_t role)
     return def ? def->category : "unknown";
 }
 
+/** 根据意图返回角色链。
+ *  QA/INVESTIGATE/OPEN → FAST（1个）
+ *  IMPLEMENT → PLANNER+EXECUTOR+REVIEWER（3个）
+ *  FIX → PLANNER+EXECUTOR（2个）
+ *  @param roles_out  输出：最多3个角色的数组
+ *  @return           角色个数 */
 int agent_roles_for_intent(enum intent intent, agent_role_t roles_out[3])
 {
     if (!roles_out) {

@@ -1,3 +1,7 @@
+/* Turn 运行阶段：LLM 工具调用主循环。
+ * 在 AGENT_MAX_TOOL_ITER 轮次内反复调用 LLM → 工具执行 → 模型回退，
+ * 直到 LLM 返回纯文本（无工具调用）、取消、或用尽预算。 */
+
 #include "turn_run.h"
 #include "turn_exec.h"
 #include "cancel.h"
@@ -18,6 +22,8 @@
 #include "linux/slab.h"
 #define TOOL_OUTPUT_SIZE  (8 * 1024)
 
+/** 检查取消令牌并标记取消状态。返回 true 表示已被取消。
+ *  @param stage  描述当前阶段的字符串，用于日志 */
 static bool mark_cancelled_if_needed(const struct message *msg,
                                      uint64_t cancel_token,
                                      bool *out_cancelled,
@@ -31,6 +37,7 @@ static bool mark_cancelled_if_needed(const struct message *msg,
     return true;
 }
 
+/** 可取消版 LLM 调用：进入当前轮取消上下文后调用 llm_chat_tools_with_model。 */
 static err_t cancellable_llm_chat_tools(const struct message *msg,
                                                uint64_t cancel_token,
                                                const char *system_prompt,
@@ -45,6 +52,7 @@ static err_t cancellable_llm_chat_tools(const struct message *msg,
     return err;
 }
 
+/** 可取消版模型回退调用：临时设置覆盖模型，调用后恢复原模型。 */
 static err_t cancellable_model_fallback_chat_tools(const struct message *msg,
                                                          uint64_t cancel_token,
                                                          const char *system_prompt,
@@ -65,6 +73,7 @@ static err_t cancellable_model_fallback_chat_tools(const struct message *msg,
     return err;
 }
 
+/** 可取消版工具结果构建：进入取消上下文后执行 agent_turn_build_tool_results。 */
 static cJSON *cancellable_build_tool_results(const struct message *msg,
                                              uint64_t cancel_token,
                                              const llm_response_t *resp,
@@ -78,6 +87,16 @@ static cJSON *cancellable_build_tool_results(const struct message *msg,
     return tool_results;
 }
 
+/** Turn 主执行循环入口。
+ *  运行 LLM→工具→LLM 循环，最多 AGENT_MAX_TOOL_ITER 轮。
+ *  每轮支持取消检查、模型回退、非恢复性协议错误中断。
+ *  用尽轮次或工具协议崩溃时自动生成强制最终回复。
+ *  @param out_final_text          输出：最终回复文本（由调用方释放）
+ *  @param out_reasoning_text      输出：最终推理文本
+ *  @param out_iteration           输出：实际消耗轮次
+ *  @param out_tool_budget_exhausted 输出：是否因轮次用尽而中止
+ *  @param out_cancelled           输出：是否被取消令牌中断
+ *  @return                        0 成功，ERR_INVALID_ARG / ERR_NO_MEM 失败 */
 err_t agent_turn_run(
     const char *system_prompt,
     cJSON *messages,
@@ -114,12 +133,14 @@ err_t agent_turn_run(
     memset(&stats, 0, sizeof(stats));
 
     while (iteration < AGENT_MAX_TOOL_ITER) {
+        /* 每次 LLM 调用前检查取消 */
         if (mark_cancelled_if_needed(msg, cancel_token, out_cancelled, "before LLM call")) {
             break;
         }
 
         llm_response_t resp;
         memset(&resp, 0, sizeof(resp));
+        /* 根据配置选择直连 LLM 或走模型回退路径 */
         if (IS_ENABLED(CONFIG_MODEL_FALLBACK_ENABLED)) {
             err = cancellable_model_fallback_chat_tools(msg, cancel_token, system_prompt, messages, tools_json, model_override, &resp);
         } else {
@@ -131,6 +152,7 @@ err_t agent_turn_run(
                 err = 0;
                 break;
             }
+            /* LLM 调用失败时保存崩溃快照供下次恢复 */
             if (IS_ENABLED(CONFIG_SESSION_RECOVERY_ENABLED)) {
                 session_recovery_save_crash(msg->chat_id, msg->content, err_name(err));
             }
@@ -143,6 +165,7 @@ err_t agent_turn_run(
             break;
         }
 
+        /* 无工具调用 → LLM 给出最终文本回答，结束循环 */
         if (!resp.tool_use) {
             if (resp.text && resp.text_len > 0) {
                 final_text = strdup(resp.text);
@@ -157,11 +180,13 @@ err_t agent_turn_run(
 
         pr_info("Tool use iteration %d: %d calls", iteration + 1, resp.call_count);
 
+        /* 将 assistant 消息（含工具调用）追加进历史 */
         cJSON *asst_msg = cJSON_CreateObject();
         cJSON_AddStringToObject(asst_msg, "role", "assistant");
         cJSON_AddItemToObject(asst_msg, "content", agent_turn_build_assistant_content(&resp));
         cJSON_AddItemToArray(messages, asst_msg);
 
+        /* 将工具执行结果以 user 角色追加进历史，LLM 可据此决定下一步 */
         cJSON *tool_results = cancellable_build_tool_results(
             msg, cancel_token, &resp, tool_output, TOOL_OUTPUT_SIZE, &stats);
         cJSON *result_msg = cJSON_CreateObject();
@@ -176,6 +201,7 @@ err_t agent_turn_run(
             break;
         }
 
+        /* 检测不可恢复的工具协议错误（如模型幻觉出不存在的工具名） */
         if (stats.unrecoverable_tool_protocol_error) {
             pr_warn("Unrecoverable tool protocol error for chat %s: %s", msg->chat_id, stats.tool_protocol_error_reason);
             final_text = agent_turn_generate_forced_final_response(
@@ -187,6 +213,7 @@ err_t agent_turn_run(
         }
     }
 
+    /* 主循环结束后，若工具预算耗尽且无输出，强制生成最终回复 */
     if (!*out_cancelled && !final_text && iteration >= AGENT_MAX_TOOL_ITER) {
         *out_tool_budget_exhausted = true;
         pr_warn("Tool iteration budget exhausted for chat %s, forcing final response", msg->chat_id);
@@ -197,6 +224,7 @@ err_t agent_turn_run(
         err = 0;
     }
 
+    /* 正常结束后执行自动构建验证（若代码有修改） */
     if (!*out_cancelled) {
         agent_turn_maybe_run_auto_verification(&stats, &final_text);
     }

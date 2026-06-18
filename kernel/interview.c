@@ -1,3 +1,6 @@
+/* Prometheus 面试模式：在 IMPLEMENT 前检查需求是否足够具体。
+ * 若模糊（<20字符 或无文件路径/技术栈/数量约束），通过 LLM 生成 2-3 个澄清问题。 */
+
 #include "interview.h"
 
 #include "cjson.h"
@@ -78,6 +81,7 @@ static bool prometheus_has_quantity_requirement(const char *text)
     return prometheus_contains_any(text, quantity_terms, sizeof(quantity_terms) / sizeof(quantity_terms[0]));
 }
 
+/** 检查消息是否足够具体：≥20 Unicode 字符 + (文件扩展名 或 技术栈关键词 或 数字要求)。 */
 static bool prometheus_message_is_specific(const char *user_message)
 {
     if (!user_message || !user_message[0]) {
@@ -93,6 +97,7 @@ static bool prometheus_message_is_specific(const char *user_message)
            prometheus_has_quantity_requirement(user_message);
 }
 
+/** 不适合 LLM 时使用的硬编码 fallback 澄清问题。 */
 static void prometheus_fallback_questions(const char *user_message, char *out, size_t out_size)
 {
     (void)user_message;
@@ -120,6 +125,7 @@ static bool prometheus_llm_reply_is_specific(const char *text)
     return strncmp(text, "SPECIFIC", 8) == 0;
 }
 
+/** 通过 LLM 生成澄清问题。若 LLM 回复 SPECIFIC 则认为需求已足够具体。 */
 static err_t prometheus_generate_questions_with_llm(const char *user_message,
                                                           char *out,
                                                           size_t out_size)
@@ -174,6 +180,8 @@ static err_t prometheus_generate_questions_with_llm(const char *user_message,
     return 0;
 }
 
+/** Prometheus 检查入口：判断需求是否需要面试澄清。
+ *  @param out  输出：needs_interview=true（需澄清）或 questions="SPECIFIC"（已具体） */
 err_t prometheus_check_needs_interview(const char *user_message,
                                              prometheus_state_t *out)
 {

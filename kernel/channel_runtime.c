@@ -1,3 +1,6 @@
+/* 通道运行时调度：将消息按 channel 类型分发到对应的通道驱动。
+ * channel_runtime_send_text() 是核心路由表，channel_runtime_dispatch_outbound() 是上层封装。 */
+
 #include "channel_runtime.h"
 
 #include <string.h>
@@ -9,6 +12,7 @@
 #include "linux/printk.h"
 #include "drivers/voice/voice_channel.h"
 #include "drivers/voice/tts_player.h"
+/** 按通道类型文本发送：websocket → ws_server，pet → ws_server_pet，voice → tts_speak，feishu → feishu_send_card。 */
 static err_t channel_runtime_send_text(const char *channel,
                                              const char *chat_id,
                                              const char *text,
@@ -41,6 +45,7 @@ static err_t channel_runtime_send_text(const char *channel,
     return ERR_INVALID_ARG;
 }
 
+/** 出站消息分发：调用 channel_runtime_send_text，websocket 发送失败时保存待重发。 */
 err_t channel_runtime_dispatch_outbound(const struct message *msg)
 {
     if (!msg || !msg->content) {

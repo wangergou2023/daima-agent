@@ -1,3 +1,6 @@
+/* 内核风格日志实现：支持 KERN_<LEVEL> 前缀解析、日志等级过滤、HOOK 拦截。
+ * 输出到 stderr + 日志文件，格式：HH:MM:SS.msc [X] tag: message。 */
+
 #include "kernel/printk/printk.h"
 
 #include "log_file.h"
@@ -33,6 +36,7 @@ static const char *level_char(int level)
     }
 }
 
+/** 将内核日志等级（0-7）映射为 agent 内部的日志等级。 */
 static int kernel_level_to_agent(int level)
 {
     if (level <= 3) return LOG_ERROR;
@@ -41,6 +45,7 @@ static int kernel_level_to_agent(int level)
     return LOG_INFO;
 }
 
+/** 从格式字符串中解析 <N> 前缀获取内核日志等级。若无法解析则返回 LOG_INFO。 */
 static int printk_level_from_prefix(const char **fmt)
 {
     const char *p = *fmt;
@@ -51,6 +56,7 @@ static int printk_level_from_prefix(const char **fmt)
     return LOG_INFO;
 }
 
+/** 核心日志写入：等级过滤 → hook 前处理 → 时间戳 → stderr → 日志文件 → hook 后处理。 */
 static void log_vwrite(int level, const char *tag, const char *fmt, va_list ap)
 {
     if (level > s_log_level) return;
@@ -87,6 +93,7 @@ void log_write(int level, const char *tag, const char *fmt, ...)
     va_end(ap);
 }
 
+/** 兼容 Linux 内核的 printk()——解析 <N> 前缀 → log_vwrite()。 */
 int printk(const char *fmt, ...)
 {
     int level = printk_level_from_prefix(&fmt);

@@ -1,3 +1,6 @@
+/* 上下文压缩恢复：上下文压缩时保存活跃 TODO/当前任务/最后用户消息快照，
+ * 压缩后注入到 system prompt，帮助 agent 在上下文窗口缩短后仍能延续任务。 */
+
 #include "compaction.h"
 
 #include "paths.h"
@@ -227,6 +230,7 @@ static err_t load_recovery(const char *path, compaction_recovery_t *recovery)
     return 0;
 }
 
+/** 创建压缩恢复快照：提取 facts 中的待办、summary 中的当前任务、最后用户消息。 */
 err_t compaction_recovery_snapshot(const char *chat_id)
 {
     if (!chat_id || !chat_id[0]) {
@@ -282,6 +286,7 @@ err_t compaction_recovery_snapshot(const char *chat_id)
     return 0;
 }
 
+/** 将压缩恢复信息注入 system prompt（活跃待办 + 当前任务）。 */
 err_t compaction_recovery_inject(const char *chat_id, char *system_prompt, size_t system_prompt_size)
 {
     if (!chat_id || !chat_id[0] || !system_prompt || system_prompt_size == 0) {

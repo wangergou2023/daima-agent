@@ -155,6 +155,7 @@ static void append_verification_note(char **io_final_text, const char *command,
     snprintf(*io_final_text + old_len, note_len + 6, "\n\n%s", detail);
 }
 
+/** 自动构建验证入口：代码文件被修改且未看到显式验证命令时，自动运行 make/cmake --build。 */
 void agent_turn_maybe_run_auto_verification(const turn_exec_stats_t *stats, char **io_final_text)
 {
     if (!stats || !io_final_text || !*io_final_text) return;

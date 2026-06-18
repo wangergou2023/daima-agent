@@ -1,3 +1,8 @@
+/* 安全编辑——读前指纹注册，写前校验行范围未被外部修改。
+ * 核心思路：read 时对指定行范围计算 FNV-1a 哈希并注册指纹；
+ * write/patch 时重新计算同一行范围哈希，若不一致则拒绝（行已漂移）。
+ * 指纹有 TTL（5 分钟），过期自动失效。 */
+
 #include "drivers/tool/tool_safe_edit.h"
 
 #include "linux/printk.h"
@@ -10,11 +15,12 @@
 #include "linux/slab.h"
 #include "linux/kernel.h"
 
-#define SAFE_EDIT_MAX_FILE_SIZE (1024 * 1024)
-#define SAFE_EDIT_TTL_SECONDS   (5 * 60)
-static safe_edit_fingerprint_t s_fingerprints[SAFE_EDIT_MAX_TRACKED];
-static pthread_mutex_t s_fingerprints_mutex = PTHREAD_MUTEX_INITIALIZER;
+#define SAFE_EDIT_MAX_FILE_SIZE (1024 * 1024)    /* 最大文件大小 1MB */
+#define SAFE_EDIT_TTL_SECONDS   (5 * 60)          /* 指纹有效期 5 分钟 */
+static safe_edit_fingerprint_t s_fingerprints[SAFE_EDIT_MAX_TRACKED]; /* 指纹槽位数组 */
+static pthread_mutex_t s_fingerprints_mutex = PTHREAD_MUTEX_INITIALIZER; /* 指纹互斥锁 */
 
+/* FNV-1a 32-bit 哈希（初始种子 0x811c9dc5）。 */
 static uint32_t fnv1a_32(const char *data, size_t len)
 {
     uint32_t hash = 0x811c9dc5;
@@ -25,6 +31,7 @@ static uint32_t fnv1a_32(const char *data, size_t len)
     return hash;
 }
 
+/* FNV-1a 增量更新：在已有哈希值基础上追加数据。 */
 static uint32_t fnv1a_32_update(uint32_t hash, const char *data, size_t len)
 {
     for (size_t i = 0; i < len; i++) {
@@ -34,6 +41,7 @@ static uint32_t fnv1a_32_update(uint32_t hash, const char *data, size_t len)
     return hash;
 }
 
+/* 判断路径是否可追踪：排除远程 URL（http/https/ftp）。 */
 static bool is_trackable_path(const char *path)
 {
     return path && path[0] &&
@@ -42,6 +50,7 @@ static bool is_trackable_path(const char *path)
            strncmp(path, "ftp://", 6) != 0;
 }
 
+/* 在指纹数组中按路径查找（需持有锁）。返回索引或 -1。 */
 static int find_fingerprint_locked(const char *path)
 {
     for (int i = 0; i < SAFE_EDIT_MAX_TRACKED; i++) {
@@ -52,6 +61,7 @@ static int find_fingerprint_locked(const char *path)
     return -1;
 }
 
+/* 查找可用槽位：优先空槽，无空槽时淘汰最久未读的。 */
 static int find_slot_locked(void)
 {
     int oldest = 0;
@@ -66,6 +76,7 @@ static int find_slot_locked(void)
     return oldest;
 }
 
+/* 读取文件的指定行范围，计算 FNV-1a 哈希（增量方式）。 */
 static err_t read_line_range_hash(const char *path, int line_start, int line_end, uint32_t *hash_out)
 {
     if (!path || !hash_out || line_start <= 0 || line_end < line_start) {

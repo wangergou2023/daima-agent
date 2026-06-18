@@ -1,3 +1,5 @@
+/* Ralph Loop 模块：回合结束时未完成 TODO 强制追加警告续推。在 on_finish 钩子中检查并追加中文续推提示。 */
+
 #include "hooks.h"
 #include "ralph.h"
 #include "autoconf.h"
@@ -11,6 +13,9 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("agent");
 MODULE_DESCRIPTION("Agent Extension: ralph_loop");
 
+/**
+ * prepare 钩子：占位实现，当前无操作。
+ */
 static err_t on_prepare(struct message *msg, char *system_prompt,
                               size_t system_prompt_size, cJSON *messages)
 {
@@ -21,12 +26,23 @@ static err_t on_prepare(struct message *msg, char *system_prompt,
     return 0;
 }
 
+/**
+ * finish 钩子：占位实现，实际续推逻辑在 agent_extension_ralph_should_append_warning 中。
+ */
 static void on_finish(struct message *msg, const char *response)
 {
     (void)msg;
     (void)response;
 }
 
+/**
+ * 判断是否需要在响应末尾追加 Ralph Loop 续推警告。
+ * 当回合输出中含 TODO 但未完成时，追加 "⚠️ 还有未完成的任务，请继续。"
+ * @param msg           当前消息
+ * @param iteration     当前迭代次数
+ * @param io_final_text 输入/输出：最终文本（可能被 kmalloc 替换）
+ * @return 已追加警告返回 true，否则返回 false
+ */
 bool agent_extension_ralph_should_append_warning(struct message *msg, int iteration, char **io_final_text)
 {
 #if AGENT_EXTENSIONS_ENABLED

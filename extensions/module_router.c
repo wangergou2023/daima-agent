@@ -1,3 +1,5 @@
+/* 分类路由模块：根据意图选择对应的 LLM 模型（before_run 钩子），支持模型回退和分类路由配置。 */
+
 #include "hooks.h"
 #include "router.h"
 #include "autoconf.h"
@@ -7,6 +9,14 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("agent");
 MODULE_DESCRIPTION("Agent Extension: category_router");
+
+/**
+ * before_run 钩子：根据消息意图解析模型配置，重写模型选择。
+ * @param msg            入站消息
+ * @param model_override 输出：覆盖的模型名
+ * @param tools_json     工具 JSON（未使用）
+ * @return 始终返回 0
+ */
 static err_t before_run(struct message *msg, const char **model_override,
                               const char *tools_json)
 {

@@ -1,3 +1,6 @@
+/* 运行时配置段处理：从 JSON 解析各配置段（common/providers/feishu/audio/mips/web）
+ * 并应用到 runtime_config_state_t 中，所有值经过钳制和校验。 */
+
 #include "runtime_internal.h"
 
 #include <stdio.h>
@@ -6,6 +9,7 @@
 #include "autoconf.h"
 #include "linux/printk.h"
 #include "linux/kernel.h"
+/** 应用 common 段配置：web_port、session_max_msgs、context/max_output tokens、压缩参数等。 */
 static void apply_common_values(runtime_config_state_t *cfg, const cJSON *common)
 {
     int value = 0;
@@ -61,6 +65,7 @@ static void apply_web_values(runtime_config_state_t *cfg, const cJSON *root)
                                     sizeof(cfg->web_default_pet_package_id));
 }
 
+/** 从单个 provider JSON 对象中提取并应用配置（api_key/model/base_url 等）。 */
 static void apply_provider_values(runtime_config_state_t *cfg,
                                   const char *provider_name,
                                   const cJSON *provider)
@@ -95,6 +100,7 @@ static void apply_provider_values(runtime_config_state_t *cfg,
     pr_info("Runtime config applied provider: %s", provider_name);
 }
 
+/** 遍历 providers 对象，收集所有 provider 的名称和 model 到 entries 数组。 */
 static void collect_provider_entries(runtime_config_state_t *cfg, const cJSON *providers)
 {
     const cJSON *entry = NULL;
@@ -177,6 +183,7 @@ static void apply_mips_values(runtime_config_state_t *cfg, const cJSON *root)
     }
 }
 
+/** 激活指定的 provider：从 providers 对象中查找 active_provider 键并应用其配置。 */
 static void apply_active_provider(runtime_config_state_t *cfg,
                                   const cJSON *providers,
                                   const char *active_provider)
@@ -197,6 +204,7 @@ static void apply_active_provider(runtime_config_state_t *cfg,
     apply_provider_values(cfg, active_provider, selected);
 }
 
+/** 配置段应用总入口：从 JSON root 中提取各段并依次应用。 */
 void runtime_config_apply_values(runtime_config_state_t *cfg, const cJSON *root)
 {
     const cJSON *common = NULL;

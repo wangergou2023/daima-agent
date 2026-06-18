@@ -1,3 +1,6 @@
+/* 崩溃恢复：LLM 调用失败时保存崩溃快照（last_user_msg + crash_reason + timestamp），
+ * 下次同 session 重新启动时注入恢复提示到 system prompt，帮助 agent 从断点继续。 */
+
 #include "recovery.h"
 
 #include "paths.h"
@@ -125,6 +128,7 @@ static err_t load_recovery(const char *path, session_recovery_t *recovery)
     return 0;
 }
 
+/** 检查是否有未恢复的崩溃：读 recovery JSON → 校验 TTL（30分钟）→ 超时自动清除。 */
 session_recovery_t session_recovery_check(const char *chat_id)
 {
     session_recovery_t recovery;
@@ -149,6 +153,7 @@ session_recovery_t session_recovery_check(const char *chat_id)
     return recovery;
 }
 
+/** 保存崩溃快照：写入 last_user_msg、crash_reason、时间戳、当前 turn 计数。 */
 err_t session_recovery_save_crash(const char *chat_id,
                                          const char *last_user_msg,
                                          const char *crash_reason)
@@ -191,6 +196,7 @@ err_t session_recovery_save_crash(const char *chat_id,
     return 0;
 }
 
+/** 将恢复提示注入 system prompt：声明崩溃原因/时间/上次用户消息。 */
 err_t session_recovery_inject_prompt(const char *chat_id,
                                             char *system_prompt,
                                             size_t system_prompt_size)

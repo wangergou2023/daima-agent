@@ -1,3 +1,7 @@
+/* 飞书 WebSocket 运行时——长连接管理与事件分发。
+ * 负责：WS 连接建立/断开/重连、帧收发、ping/pong 保活、事件路由。
+ * 重连策略：固定间隔 + 随机抖动（reconnect_nonce_ms）。 */
+
 #include "drivers/channel/feishu/feishu_ws_runtime.h"
 
 #include <stdint.h>
@@ -12,6 +16,8 @@
 #include "text.h"
 #include "cjson.h"
 #include "linux/slab.h"
+
+/* 获取单调时钟毫秒值（用于 ping 间隔计时）。 */
 static int64_t now_ms(void)
 {
     struct timespec ts;
@@ -19,6 +25,7 @@ static int64_t now_ms(void)
     return (int64_t)ts.tv_sec * 1000 + (ts.tv_nsec / 1000000);
 }
 
+/* 初始化 WS 运行时：设置默认 ping/重连参数。 */
 void feishu_ws_runtime_init(feishu_ws_runtime_t *rt)
 {
     if (!rt) return;
@@ -28,6 +35,12 @@ void feishu_ws_runtime_init(feishu_ws_runtime_t *rt)
     rt->reconnect_nonce_ms = 30000;
 }
 
+/**
+ * 处理收到的飞书 WS 帧。
+ * - method==0: 控制帧（pong 时更新 ping_interval，其余忽略）
+ * - type==event: 事件帧，解析 JSON 后交由 feishu_event_handler 处理
+ * - 处理后发送 {"code":200} ACK 确认
+ */
 static void feishu_handle_ws_frame(feishu_ws_conn_t *conn,
                                    const char *app_id,
                                    const char *app_secret,
@@ -67,6 +80,11 @@ static void feishu_handle_ws_frame(feishu_ws_conn_t *conn,
     }
 }
 
+/**
+ * 飞书 WS 主循环（阻塞）。
+ * 流程：拉取 WS 配置 → 建立连接 → 事件循环（收帧/ping保活/断线重连）。
+ * 外层永久循环，断线后自动重连。
+ */
 void feishu_ws_runtime_run(feishu_ws_runtime_t *rt,
                            const char *app_id,
                            const char *app_secret)

@@ -1,3 +1,7 @@
+/* 飞书目标管理——记录活跃飞书会话（route_id→chat_id 映射）。
+ * 持久化到 cache/feishu_targets.json，用于 cron 等场景自动选择回复目标。
+ * 最多保留 FEISHU_TARGETS_MAX 条记录，LRU 淘汰。 */
+
 #include "drivers/channel/feishu/feishu_targets.h"
 
 #include <stdio.h>
@@ -13,13 +17,16 @@
 #include "json_helpers.h"
 #include "linux/slab.h"
 #include "linux/kernel.h"
-#define FEISHU_TARGETS_MAX 16
 
+#define FEISHU_TARGETS_MAX 16  /* 最多记录的飞书目标数 */
+
+/* 获取 targets.json 的完整路径 */
 static void targets_path(char *buf, size_t size)
 {
     snprintf(buf, size, "%s/feishu_targets.json", path_cache_dir());
 }
 
+/* 从 cache/feishu_targets.json 加载目标列表，文件不存在时返回空对象。 */
 static cJSON *load_targets_root(void)
 {
     char path[BUF_SMALL];
@@ -60,6 +67,7 @@ static cJSON *load_targets_root(void)
     return root;
 }
 
+/* 将目标列表 JSON 持久化写入 cache/feishu_targets.json。 */
 static bool save_targets_root(cJSON *root)
 {
     if (!root) return false;
@@ -82,6 +90,15 @@ static bool save_targets_root(cJSON *root)
     return written == len;
 }
 
+/**
+ * 记录或更新飞书会话目标。
+ * 若 route_id 已存在则更新 last_seen 时间戳，否则新增条目。
+ * 超过上限时淘汰最近访问时间最早的条目。
+ * @param route_id   飞书路由 ID（群聊 ID 或用户 ID）
+ * @param chat_id    会话 ID
+ * @param chat_type  会话类型（group/p2p）
+ * @param sender_id  发送者 ID
+ */
 bool feishu_targets_record(const char *route_id,
                            const char *chat_id,
                            const char *chat_type,
@@ -155,6 +172,14 @@ bool feishu_targets_record(const char *route_id,
     return ok;
 }
 
+/**
+ * 获取默认飞书回复目标。
+ * 优先级：1) 配置文件中的 feishu_default_chat_id
+ *        2) targets.json 中最近活跃的 route_id
+ * @param out      输出缓冲区
+ * @param out_size 缓冲区大小
+ * @return 找到默认目标返回 true
+ */
 bool feishu_targets_get_default(char *out, size_t out_size)
 {
     if (!out || out_size == 0) {

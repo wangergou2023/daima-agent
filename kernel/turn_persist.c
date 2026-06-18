@@ -1,3 +1,6 @@
+/* Turn 持久化：保存会话历史、排队出站消息、生成错误回复。
+ * turn_finish 阶段调用，将本轮 assistant 回复和用户消息写入 session_store。 */
+
 #include "turn_persist.h"
 
 #include <stdio.h>
@@ -14,11 +17,14 @@
 #include "cjson.h"
 #include "linux/slab.h"
 #include "turn_dispatch.h"
+
+/** 判断是否应将助手回复保存到会话历史（非内部消息且有内容）。 */
 static bool should_save_assistant_reply(const struct message *msg, const char *final_text)
 {
     return msg && final_text && final_text[0] && !agent_msg_is_internal_control(msg);
 }
 
+/** 构建助手消息的 JSON 载荷（text + 可选 reasoning）。调用方负责释放。 */
 static char *build_assistant_session_content_json(const char *text, const char *reasoning)
 {
     cJSON *root = cJSON_CreateObject();
@@ -34,6 +40,8 @@ static char *build_assistant_session_content_json(const char *text, const char *
     return json;
 }
 
+/** 将回复文本放入出站总线队列，由通道路由异步分发。
+ *  @param free_on_fail  入队失败时是否释放 text（传 true 时调用方不持有所有权） */
 void agent_turn_queue_outbound_text(const struct message *msg, char *text, const char *reasoning, bool free_on_fail)
 {
     if (!msg || !text) {
@@ -62,6 +70,7 @@ void agent_turn_queue_outbound_text(const struct message *msg, char *text, const
     }
 }
 
+/** 保存本轮会话：用户消息 + assistant 回复 → session_store，并触发压缩和复盘。 */
 void agent_turn_save_session(const struct message *msg, const char *final_text, const char *reasoning, int iteration)
 {
     if (!msg || !msg->chat_id[0] || !final_text || !final_text[0]) {
@@ -91,6 +100,7 @@ void agent_turn_save_session(const struct message *msg, const char *final_text, 
     }
 }
 
+/** 生成错误回复文本（工具预算耗尽时的中文提示或通用英文报错）。 */
 char *agent_turn_build_error_reply(bool tool_budget_exhausted)
 {
     if (tool_budget_exhausted) {

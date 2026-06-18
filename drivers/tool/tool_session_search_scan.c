@@ -1,3 +1,7 @@
+/* 会话搜索——文件系统扫描实现。
+ * 遍历会话消息文件和事实文件，按查询字符串匹配并收集结果。
+ * 支持分片（snippet）生成、UTF-8 安全截断、命中统计与分页。 */
+
 #include "drivers/tool/tool_session_search_internal.h"
 
 #include <stdio.h>
@@ -9,6 +13,13 @@
 #include "drivers/memory/session_store.h"
 #include "linux/kernel.h"
 
+/**
+ * 将整数值钳制到 [min_value, max_value] 区间。
+ * @param value     输入值
+ * @param min_value 下限
+ * @param max_value 上限
+ * @return 钳制后的值
+ */
 int tool_session_search_clamp_int(int value, int min_value, int max_value)
 {
     if (value < min_value) return min_value;
@@ -16,6 +27,13 @@ int tool_session_search_clamp_int(int value, int min_value, int max_value)
     return value;
 }
 
+/**
+ * 从 cJSON 对象中读取整数字段，若不存在则返回默认值。
+ * @param obj           目标 JSON 对象
+ * @param key           字段名
+ * @param default_value 字段不存在时的默认值
+ * @return 字段值或默认值
+ */
 int tool_session_search_json_get_int_default(cJSON *obj, const char *key, int default_value)
 {
     cJSON *item = cJSON_GetObjectItem(obj, key);
@@ -25,6 +43,7 @@ int tool_session_search_json_get_int_default(cJSON *obj, const char *key, int de
     return item->valueint;
 }
 
+/* 去除行尾的 \n \r 字符，原地修改。 */
 static void trim_line_end(char *line)
 {
     if (!line) return;
@@ -34,6 +53,7 @@ static void trim_line_end(char *line)
     }
 }
 
+/* 大小写不敏感子串匹配。query 为空时匹配一切。 */
 static bool match_substr(const char *text, const char *query)
 {
     if (!text) return false;
@@ -41,11 +61,21 @@ static bool match_substr(const char *text, const char *query)
     return strcasestr(text, query) != NULL;
 }
 
+/* 判断字节是否为 UTF-8 多字节序列的后续字节（10xxxxxx）。 */
 static bool is_utf8_cont_byte(unsigned char ch)
 {
     return (ch & 0xC0) == 0x80;
 }
 
+/**
+ * 从文本中构建搜索摘要片段。
+ * 若匹配长度小于输出缓冲区，直接复制全文；否则以匹配位置为中心截取，
+ * 保证不会在 UTF-8 多字节序列中间截断。
+ * @param text     原始文本
+ * @param query    搜索关键词（用于定位匹配位置）
+ * @param out      输出缓冲区
+ * @param out_size 缓冲区大小
+ */
 static void build_snippet(const char *text, const char *query, char *out, size_t out_size)
 {
     if (!out || out_size == 0) return;
@@ -92,6 +122,7 @@ static void build_snippet(const char *text, const char *query, char *out, size_t
     }
 }
 
+/* 在统计数组中查找或新增一个会话条目，返回索引（-1 表示已满）。 */
 static int find_or_add_session(session_stat_t stats[], int *count, const char *chat_id)
 {
     for (int i = 0; i < *count; i++) {
@@ -111,6 +142,7 @@ static int find_or_add_session(session_stat_t stats[], int *count, const char *c
     return idx;
 }
 
+/* 仅当首次命中时记录角色和摘要片段。 */
 static void record_first_hit(session_stat_t *stat, const char *role, const char *snippet)
 {
     if (!stat || stat->first_snippet[0]) {
@@ -120,6 +152,7 @@ static void record_first_hit(session_stat_t *stat, const char *role, const char 
     strscpy(stat->first_snippet, snippet ? snippet : "", sizeof(stat->first_snippet));
 }
 
+/* 向命中列表追加一条记录，超过上限时静默丢弃。 */
 static void append_hit(session_hit_t hits[],
                        int *hit_count,
                        const char *chat_id,
@@ -142,6 +175,13 @@ static void append_hit(session_hit_t hits[],
     (*hit_count)++;
 }
 
+/**
+ * 更新指定 chat_id 的最新时间戳（若当前值更近）。
+ * @param stats       会话统计数组
+ * @param stats_count 会话计数指针
+ * @param chat_id     会话标识
+ * @param latest_ts   候选时间戳
+ */
 void tool_session_search_apply_record_latest_ts(session_stat_t stats[],
                                                 int *stats_count,
                                                 const char *chat_id,
@@ -156,6 +196,19 @@ void tool_session_search_apply_record_latest_ts(session_stat_t stats[],
     }
 }
 
+/**
+ * 扫描单个会话消息文件（JSONL 格式）。
+ * 逐行解析 JSON，若 query 非空则进行大小写不敏感匹配，
+ * 命中时生成摘要片段并记录到统计和命中列表。
+ * @param path        会话文件路径
+ * @param chat_id     会话标识
+ * @param query       搜索关键词（NULL 或空串表示不过滤）
+ * @param collect_hits 是否收集详细命中记录
+ * @param stats       会话统计数组
+ * @param stats_count 会话计数指针
+ * @param hits        命中记录数组
+ * @param hit_count   命中计数指针
+ */
 void tool_session_search_inspect_session_file(const char *path,
                                               const char *chat_id,
                                               const char *query,
@@ -217,6 +270,18 @@ void tool_session_search_inspect_session_file(const char *path,
     fclose(f);
 }
 
+/**
+ * 扫描单个会话事实文件（Markdown 格式）。
+ * 跳过 "##" 标题行和列表符号前缀，对正文内容进行匹配。
+ * @param path        事实文件路径
+ * @param chat_id     会话标识
+ * @param query       搜索关键词
+ * @param collect_hits 是否收集详细命中记录
+ * @param stats       会话统计数组
+ * @param stats_count 会话计数指针
+ * @param hits        命中记录数组
+ * @param hit_count   命中计数指针
+ */
 void tool_session_search_inspect_facts_file(const char *path,
                                             const char *chat_id,
                                             const char *query,
@@ -266,6 +331,17 @@ void tool_session_search_inspect_facts_file(const char *path,
     fclose(f);
 }
 
+/**
+ * 读取并扫描会话摘要文件。
+ * 通过 session_store_read_summary 读取摘要内容后进行匹配。
+ * @param chat_id     会话标识
+ * @param query       搜索关键词
+ * @param collect_hits 是否收集详细命中记录
+ * @param stats       会话统计数组
+ * @param stats_count 会话计数指针
+ * @param hits        命中记录数组
+ * @param hit_count   命中计数指针
+ */
 void tool_session_search_inspect_summary_file(const char *chat_id,
                                               const char *query,
                                               bool collect_hits,

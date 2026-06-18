@@ -1,3 +1,6 @@
+/* 调试工具：system prompt 快照 dump 到文件，便于排查 LLM 行为问题。
+ * 环境变量 DEBUG_PROMPT_DUMP=1 时启用，输出 prompt_<slug>.md 和 prompt_debug.md。 */
+
 #include "debug.h"
 #include "fs.h"
 #include "paths.h"
@@ -10,6 +13,7 @@
 #include "turn_common.h"
 #include "autoconf.h"
 
+/** 将当前 system prompt 写入调试快照文件（全局 + 按 chat_id 分文件）。 */
 void agent_prompt_dump_snapshot(const struct message *msg, const char *system_prompt)
 {
     if (!msg || !system_prompt || !system_prompt[0]) {

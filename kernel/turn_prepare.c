@@ -1,3 +1,7 @@
+/* Turn 准备阶段：构建本轮消息内容、拼接系统提示词、加载历史消息。
+ * 将通道策略、规则注入、TODO 强执、崩溃恢复、会话摘要等层层拼入 system_prompt，
+ * 最终输出 LLM API 用的 messages JSON 数组。 */
+
 #include "turn_prepare.h"
 
 #include <stdio.h>
@@ -23,6 +27,11 @@
 #include "drivers/vision/vision_capture.h"
 #include "linux/slab.h"
 #endif
+
+/** 根据消息来源构造当前轮的提示内容字符串。
+ *  对普通用户消息原样返回，对 cron/heartbeat/internal 等系统事件注入上下文说明。
+ *  @param msg  入站消息指针
+ *  @return     由调用方释放的堆字符串，失败返回 NULL */
 static char *build_current_turn_content(const struct message *msg)
 {
     const char *source = agent_msg_source_or_default(msg);
@@ -73,6 +82,9 @@ static char *build_current_turn_content(const struct message *msg)
     return strdup(content);
 }
 
+/** 构建多模态用户消息内容（Vision 模式）。
+ *  有 image_path 直接读取，否则在 MIPS 平台触发摄像头抓拍。
+ *  @return    cJSON 对象（调用方负责 Delete），失败返回 NULL */
 #ifdef ENABLE_VISION
 static cJSON *build_user_vision_content(const char *text, const char *image_path)
 {
@@ -119,6 +131,7 @@ static cJSON *build_user_vision_content(const char *text, const char *image_path
 }
 #endif
 
+/** 向 system prompt 追加当前轮次的运行时上下文（通道、chat_id、消息性质）。 */
 static void append_turn_context_prompt(char *prompt, size_t size, const struct message *msg)
 {
     if (!prompt || size == 0 || !msg) {
@@ -150,6 +163,7 @@ static void append_turn_context_prompt(char *prompt, size_t size, const struct m
     }
 }
 
+/** 将项目行为规则注入到 system prompt 最前端。 */
 #ifdef RULES_INJECTION_ENABLED
 static void prepend_rules_prompt(char *prompt, size_t size, const char *rules)
 {
@@ -166,6 +180,7 @@ static void prepend_rules_prompt(char *prompt, size_t size, const char *rules)
 }
 #endif
 
+/** 追加会话中提取的稳定事实卡片（长期偏好、约束、已确认决定）。 */
 static void append_session_facts_prompt(char *prompt, size_t size, const char *chat_id)
 {
     if (!prompt || size == 0 || !chat_id || !chat_id[0]) {
@@ -197,6 +212,7 @@ static void append_session_facts_prompt(char *prompt, size_t size, const char *c
     }
 }
 
+/** 追加最近一次上下文压缩的结构化摘要。 */
 static void append_session_summary_prompt(char *prompt, size_t size, const char *chat_id)
 {
     if (!prompt || size == 0 || !chat_id || !chat_id[0]) {
@@ -228,6 +244,17 @@ static void append_session_summary_prompt(char *prompt, size_t size, const char 
     }
 }
 
+/** Turn 准备入口：构建 system prompt、加载历史、组装 LLM messages JSON。
+ *  按顺序注入：基础提示 → 行为规则 → 会话摘要 → 压缩恢复 → TODO 强执 →
+ *  崩溃恢复 → 稳定事实 → 运行时上下文 → 通道策略 → plan 注入。
+ *  @param msg                入站消息
+ *  @param plan               已评审的执行计划
+ *  @param system_prompt      输出：组装好的 system prompt
+ *  @param system_prompt_size 缓冲区大小
+ *  @param history_json       输出：会话历史 JSON（预加载或新取）
+ *  @param history_json_size  缓冲区大小
+ *  @param out_messages       输出：LLM 可用的 messages JSON 数组
+ *  @return                   0 成功，ERR_INVALID_ARG / ERR_NO_MEM 失败 */
 err_t agent_turn_prepare(
     const struct message *msg,
     const struct plan *plan,

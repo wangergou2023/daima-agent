@@ -1,3 +1,7 @@
+/* 交互模式：sudo 密码请求与等待机制。
+ * channel_runtime_request_sudo() 向 WebSocket 客户端发送密码请求，
+ * channel_runtime_wait_sudo_password() 阻塞等待 180s 内的密码回复。 */
+
 #include "interactive.h"
 
 #include <string.h>
@@ -7,6 +11,7 @@
 #include "drivers/channel/gateway/ws_server.h"
 #include "linux/slab.h"
 
+/** 向指定通道发送 sudo 密码请求。 */
 err_t channel_runtime_request_sudo(const struct message *msg,
                                         const char *request_id,
                                         const char *prompt_text)
@@ -57,6 +62,7 @@ static bool parse_sudo_password_reply(const char *payload,
     return true;
 }
 
+/** 阻塞等待用户输入 sudo 密码（180s 超时），期间非目标消息暂存并恢复。 */
 bool channel_runtime_wait_sudo_password(const struct message *msg,
                                         const char *request_id,
                                         char *password_out,

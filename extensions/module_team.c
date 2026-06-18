@@ -1,3 +1,5 @@
+/* 团队模式模块：对有评审计划的 IMPLEMENT/FIX 意图进行多子 Agent 编排（replace_run 钩子）。 */
+
 #include "hooks.h"
 #include "state.h"
 #include "team.h"
@@ -8,6 +10,17 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("agent");
 MODULE_DESCRIPTION("Agent Extension: team_mode");
+
+/**
+ * replace_run 钩子：当有计划且已评审时，启动团队模式编排。
+ * 编排失败时返回 ERR_FAIL 让钩子链继续。
+ * @param msg             入站消息
+ * @param system_prompt   system prompt 缓冲区
+ * @param messages        JSON 消息数组
+ * @param tools_json      工具 JSON
+ * @param out_final_text  输出：最终文本
+ * @return 编排成功返回 0，否则返回 ERR_FAIL
+ */
 static err_t replace_run(struct message *msg, char *system_prompt,
                                cJSON *messages, const char *tools_json,
                                char **out_final_text)

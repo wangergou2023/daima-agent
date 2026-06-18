@@ -1,3 +1,6 @@
+/* 通道策略：根据不同通道（voice/feishu/pet）在 system prompt 中注入通道特有的回答要求。
+ * 语音通道要求简短 1-2 句、飞书通道要求 MD 卡片友好、宠物通道委托 pet 模块。 */
+
 #include "channel_policy.h"
 
 #include <stdio.h>
@@ -6,6 +9,7 @@
 #include "drivers/channel/vector/vector_channel.h"
 #include "linux/printk.h"
 #include "drivers/pet/pet_event.h"
+/** 语音通道策略：要求简短回答 + 声音方向感知 + 传感器数据（障碍物/边缘/俯仰角）。 */
 static void append_voice_policy(char *prompt, size_t size, size_t off)
 {
     int n = snprintf(
@@ -64,6 +68,7 @@ static void append_voice_policy(char *prompt, size_t size, size_t off)
     }
 }
 
+/** 飞书通道策略：要求短段落、MD 友好、提示可用 skills 阅读飞书卡片书写技能。 */
 static void append_feishu_policy(char *prompt, size_t size, size_t off)
 {
     int n = snprintf(
@@ -78,6 +83,7 @@ static void append_feishu_policy(char *prompt, size_t size, size_t off)
     }
 }
 
+/** 通道策略追加入口：根据 msg->channel 选择对应的策略函数。 */
 void agent_channel_policy_append(char *prompt, size_t size, const struct message *msg)
 {
     if (!prompt || size == 0 || !msg) {

@@ -17,6 +17,7 @@ typedef struct {
     int count;
 } tool_failure_observer_t;
 
+/** 记录工具调用载荷预览日志（便于调试工具调用问题）。 */
 void log_tool_payload_preview(const char *phase,
                               const struct message *msg,
                               const char *tool_name,
@@ -78,6 +79,8 @@ static void add_string_array_item(cJSON *obj, const char *key, const char *value
     cJSON_AddItemToObject(obj, key, arr);
 }
 
+/** 收集工具失败的工作项：去重 → 构造 title/description/evidence → 存入 work_item 存储。
+ *  同签名失败只记录一次（static observer 去重）。 */
 void collect_tool_failure_work_item(const struct message *msg,
                                      const char *tool_name,
                                      const char *tool_input,

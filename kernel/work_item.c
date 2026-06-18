@@ -1,3 +1,6 @@
+/* 工作任务管理：存储/加载/更新 work_item（缺陷、改进、技术债等）。
+ * JSONL 文件存储（每行一个 JSON），支持 ID 去重、签名去重、批量状态更新。 */
+
 #include "work_item.h"
 
 #include "fs.h"
@@ -23,6 +26,7 @@ static bool str_in_set(const char *value, const char *const *set, size_t count)
     return false;
 }
 
+/** 校验 work_item 的 type/source/status/priority 枚举值是否合法。 */
 bool work_item_type_valid(const char *value)
 {
     static const char *const values[] = {
@@ -127,6 +131,7 @@ static void add_optional_string(cJSON *dst, const cJSON *src, const char *key)
     }
 }
 
+/** 标准化新条目：生成 ID、日期、验证字段 → 构造 cJSON 对象。 */
 static err_t normalize_new_item(const cJSON *input, const char *id, const char *now, cJSON **out_item)
 {
     if (!input || !id || !now || !out_item || !cJSON_IsObject((cJSON *)input)) {
@@ -273,6 +278,7 @@ static int next_sequence_for_date(const cJSON *items, const char *date)
     return max_seq + 1;
 }
 
+/** 添加新工作项：加载现有列表 → 查重 → 生成 ID → 追加一行 JSONL。 */
 err_t work_item_store_add(const cJSON *input, cJSON **out_item)
 {
     if (!input || !out_item) return ERR_INVALID_ARG;
@@ -545,6 +551,7 @@ err_t work_item_store_collect(const char *type,
     return err;
 }
 
+/** 结构化收集工作项：有签名时增量合并到已有项，无签名时作为新项添加。 */
 err_t work_item_store_collect_structured(const cJSON *input, cJSON **out_item)
 {
     if (!input || !cJSON_IsObject((cJSON *)input) || !out_item) {

@@ -1,3 +1,6 @@
+/* 工具活动通知：格式化工具调用事件为人类可读文本并发送到各通道。
+ * 对不同通道使用不同通知策略（websocket 实时、飞书仅发重点）。 */
+
 #include "tool_notify.h"
 
 #include <stdio.h>
@@ -9,6 +12,7 @@
 #include "drivers/channel/gateway/ws_server.h"
 #define FEISHU_TOOL_ACTIVITY_SLOW_MS 1500
 
+/** 工具名 → emoji 图标映射。 */
 static const char *tool_display_icon(const char *tool_name)
 {
     if (!tool_name) return "⚙";
@@ -73,6 +77,7 @@ static bool terminal_command_is_noteworthy(const char *command)
     return str_contains_any(command, keywords, sizeof(keywords) / sizeof(keywords[0]));
 }
 
+/** 飞书通道是否应发送工具活动通知：失败总是发，terminal 慢(>1.5s)或敏感命令发。 */
 static bool tool_activity_should_send_feishu(const tool_activity_event_t *event)
 {
     if (!event || !event->tool_name) {
@@ -97,6 +102,7 @@ static bool tool_activity_should_send_feishu(const tool_activity_event_t *event)
     return false;
 }
 
+/** 格式化飞书工具活动行为单行文本（含图标、名称、目标、耗时/失败原因）。 */
 static void format_feishu_tool_activity_line(const tool_activity_event_t *event,
                                              char *buf,
                                              size_t size)
@@ -158,6 +164,7 @@ generic_success:
     }
 }
 
+/** 分发工具活动通知到各通道：websocket 发送 tool_event，飞书发送格式化卡片行。 */
 err_t channel_runtime_send_tool_activity(const struct message *msg,
                                               const tool_activity_event_t *event)
 {

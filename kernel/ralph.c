@@ -1,3 +1,7 @@
+/* Ralph Loop：TODO 驱动的自循环机制。
+ * 当回合结束仍有未完成 TODO 时，在回复末尾追加 "还有未完成的任务，请继续" 警告。
+ * 与 todo.c 协作，读取 per-session TODO JSON 判断是否应继续。 */
+
 #include "ralph.h"
 
 #include "paths.h"
@@ -111,6 +115,7 @@ ralph_loop_cfg_t ralph_loop_load_cfg(void)
     return cfg;
 }
 
+/** 判断是否应继续循环：检查 TODO 文件中是否有未完成项且未超过最大迭代次数。 */
 bool ralph_loop_should_continue(const char *chat_id, int iteration, const char *final_text)
 {
     (void)final_text;
@@ -139,6 +144,7 @@ void ralph_loop_reset(const char *chat_id)
     unlink(path);
 }
 
+/** 若仍有未完成 TODO，在回复末尾追加警告。调用方 io_final_text 会被释放并替换为新指针。 */
 bool ralph_loop_append_warning_if_needed(const char *chat_id, int iteration,
                                           char **io_final_text)
 {

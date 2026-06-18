@@ -1,3 +1,6 @@
+/* 信号处理框架——存根实现。
+ * 对齐 Linux kernel/irq/，记录最后一次 agent 信号供查询。 */
+
 #include "kernel/irq/irq.h"
 
 #include <signal.h>

@@ -1,3 +1,9 @@
+/* 分类路由：意图/角色到模型的映射引擎。
+ * 从 config.json 或 category_routing.json 加载 category→model 映射，
+ * category_router_resolve() 根据 intent 选择最优模型，
+ * category_router_resolve_for_role() 根据 role 选择模型。
+ * 支持 profiles（模型配置模板）、intent_map（意图→profile）、role_model_map（角色→profile）。 */
+
 #include "router.h"
 
 #include "paths.h"
@@ -12,10 +18,12 @@
 #include <string.h>
 #include "linux/slab.h"
 #include "linux/kernel.h"
+/* 全局路由配置单例 */
 static category_router_cfg_t s_cfg;
 static bool s_loaded = false;
 static char s_loaded_home[BUF_PATH];
 
+/* 模型解析中间结构：provider 名称、模型名、上下文/输出 token 限制 */
 typedef struct {
     char provider_name[64];
     char model[64];
@@ -31,6 +39,7 @@ static void copy_field(char *dst, size_t dst_size, const char *src)
     strscpy(dst, src ? src : "", dst_size);
 }
 
+/** 初始化空路由配置：所有 intent 映射设为 -1（未分配），enabled=true。 */
 static void init_empty_cfg(category_router_cfg_t *cfg)
 {
     memset(cfg, 0, sizeof(*cfg));
@@ -43,6 +52,7 @@ static void init_empty_cfg(category_router_cfg_t *cfg)
     }
 }
 
+/** 向路由配置添加一个模型 profile。返回 profile 索引。 */
 static int add_profile(category_router_cfg_t *cfg,
                        const char *name,
                        const char *model,
@@ -75,6 +85,7 @@ static int find_profile_index(const category_router_cfg_t *cfg, const char *name
     return -1;
 }
 
+/** 字符串键 → intent 枚举映射。 */
 static enum intent intent_from_key(const char *key)
 {
     if (!key) {
@@ -97,6 +108,7 @@ static int role_from_name(const char *name)
     return -1;
 }
 
+/** 默认意图映射：QA→quick 模型，IMPLEMENT/INVESTIGATE/FIX→deep 模型，OPEN→quick。 */
 static void set_default_intent_map(category_router_cfg_t *cfg, int deep, int quick)
 {
     if (!cfg) {
@@ -109,6 +121,7 @@ static void set_default_intent_map(category_router_cfg_t *cfg, int deep, int qui
     cfg->intent_map[INTENT_OPEN] = quick;
 }
 
+/** 加载默认路由配置：用运行时配置中的 active_provider 和 ingenic_local_kimi 分别作为 deep 和 quick。 */
 static void load_default_cfg(category_router_cfg_t *cfg)
 {
     init_empty_cfg(cfg);
@@ -176,6 +189,7 @@ static bool read_provider_limits(cJSON *provider, int *context_limit, int *max_t
     return true;
 }
 
+/** 从 JSON providers 对象中根据 model 字段查找 provider。遍历所有 provider→比较 model 字段。 */
 static bool find_provider_by_model(cJSON *json_root,
                                    const char *model,
                                    category_model_resolution_t *out)
@@ -206,6 +220,7 @@ static bool find_provider_by_model(cJSON *json_root,
     return false;
 }
 
+/** 从 JSON providers 对象中根据 provider 名称查找。键匹配直接取子对象。 */
 static bool find_provider_by_name(cJSON *json_root,
                                    const char *provider_name,
                                    category_model_resolution_t *out)
@@ -257,6 +272,7 @@ static bool resolve_active_provider_model(cJSON *json_root, category_model_resol
     return true;
 }
 
+/** 解析 category 条目中的模型选择：优先 provider_preference 列表 → 其次 model_preference 列表 → fallback 到 active_provider。 */
 static bool resolve_category_model(cJSON *json_root,
                                    cJSON *category,
                                    category_model_resolution_t *out)
@@ -367,6 +383,7 @@ static char *read_file(const char *path)
     return buf;
 }
 
+/** 从 JSON 加载路由配置：解析 categories/profiles → intent_map → role_model_map。 */
 static bool load_json_cfg(category_router_cfg_t *cfg, const char *json_text)
 {
     cJSON *root = cJSON_Parse(json_text);
@@ -472,6 +489,7 @@ static char *read_category_config(char *out_path, size_t out_path_size)
     return read_file(out_path);
 }
 
+/** 加载并返回全局路由配置（带缓存：同 AGENT_HOME 不重复加载）。先读 category_routing.json，不存在则读 config.json。 */
 category_router_cfg_t category_router_load_and_get_cfg(void)
 {
     const char *env_home = getenv("AGENT_HOME");
@@ -497,6 +515,8 @@ category_router_cfg_t category_router_load_and_get_cfg(void)
     return s_cfg;
 }
 
+/** 根据 intent 查找对应的模型 profile。先触发懒加载，再查 intent_map→profiles 索引。
+ *  @return profile 指针或 NULL（路由禁用/无匹配） */
 const category_profile_t *category_router_resolve(enum intent intent)
 {
     category_router_load_and_get_cfg();
@@ -511,6 +531,8 @@ const category_profile_t *category_router_resolve(enum intent intent)
     return &s_cfg.profiles[profile_index];
 }
 
+/** 根据角色查找对应的模型 profile。未匹配时 fallback 到 INTENT_OPEN 对应的 profile。
+ *  @return profile 指针或 NULL */
 const category_profile_t *category_router_resolve_for_role(agent_role_t role)
 {
     category_router_load_and_get_cfg();
@@ -525,6 +547,7 @@ const category_profile_t *category_router_resolve_for_role(agent_role_t role)
     return &s_cfg.profiles[profile_index];
 }
 
+/** 重置路由缓存（仅用于测试）。 */
 void category_router_reset_for_test(void)
 {
     memset(&s_cfg, 0, sizeof(s_cfg));

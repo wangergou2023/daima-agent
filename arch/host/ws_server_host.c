@@ -1,3 +1,32 @@
+/* WebSocket 服务器——TCP 监听、HTTP/WSS 分离、WS 握手、消息分发。
+ *
+ * 架构概览：
+ * 单一 TCP 端口同时服务 HTTP 和 WebSocket 客户端。
+ * 连接建立后读取首个请求行，检测 "Upgrade: websocket" 头：
+ *   - 有升级头 → 执行 WS 握手（RFC 6455 Sec-WebSocket-Accept），升级后由 ws_client 管理
+ *   - 无升级头 → 交由 ws_http_helpers.c 的 HTTP 路由处理
+ *
+ * WebSocket 握手流程（RFC 6455）：
+ *   1. 客户端发送 Sec-WebSocket-Key（随机 16 字节 Base64）
+ *   2. 服务器拼接 Key + WS_GUID（"258EAFA5-E914-47DA-95CA-C5AB0DC85B11"）
+ *   3. SHA1 哈希 → Base64 编码 → 作为 Sec-WebSocket-Accept 返回
+ *   4. 返回 HTTP 101 Switching Protocols，升级完成
+ *
+ * 消息帧协议：
+ *   - 文本帧：opcode 0x1，JSON 格式消息
+ *   - 二进制帧：opcode 0x2
+ *   - 关闭帧：opcode 0x8
+ *   - Ping/Pong：opcode 0x9/0xA，用于连接保活
+ *   - 客户端→服务器帧必须 MASK，服务器→客户端不 MASK
+ *
+ * 消息类型（JSON "type" 字段）：
+ *   - "response"     : Agent 回复文本
+ *   - "reasoning"    : 思维链输出
+ *   - "tool"         : 工具执行事件
+ *   - "sudo_request" : 请求 sudo 密码
+ *   - pet 相关类型：PET_WS_TYPE_RESPONSE 等
+ */
+
 #include "drivers/channel/gateway/ws_server.h"
 #include "drivers/channel/gateway/ws_client.h"
 #include "drivers/channel/gateway/ws_http_helpers.h"
@@ -26,6 +55,8 @@
 
 #include "linux/printk.h"
 #include "cjson.h"
+
+/* Web UI 静态文件缺失时的内置降级 HTML 页面 */
 static const char *UI_FALLBACK_HTML =
     "<!doctype html>\n"
     "<html lang=\"en\">\n"
@@ -40,13 +71,15 @@ static const char *UI_FALLBACK_HTML =
     "</body>\n"
     "</html>\n";
 
-static int s_server_fd = -1;
-static pthread_t s_server_thread;
-static bool s_running = false;
-static int s_server_port = 1234;
+static int s_server_fd = -1;          /* 服务器监听 socket */
+static pthread_t s_server_thread;     /* 服务器线程句柄 */
+static bool s_running = false;        /* 运行状态标志 */
+static int s_server_port = 1234;      /* 监听端口（从 config.json 读取） */
 
+/* RFC 6455 定义的 WebSocket 魔术字符串 GUID */
 static const char *WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
+/* OpenSSL Base64 编码封装。 */
 static void base64_encode(const unsigned char *in, size_t in_len, char *out, size_t out_len)
 {
     int needed = 4 * ((int)in_len + 2) / 3 + 1;
@@ -62,6 +95,7 @@ static void base64_encode(const unsigned char *in, size_t in_len, char *out, siz
     }
 }
 
+/* 配置客户端 socket：SO_KEEPALIVE + TCP keepalive 参数（30s idle, 10s interval, 3 retries）。 */
 static void configure_client_socket(int fd)
 {
     int opt = 1;
@@ -80,6 +114,14 @@ static void configure_client_socket(int fd)
 #endif
 }
 
+/**
+ * WebSocket 握手——RFC 6455 规范实现。
+ * 1. 从 HTTP 请求中提取 Sec-WebSocket-Key
+ * 2. 拼接 WS_GUID 后 SHA1 哈希
+ * 3. Base64 编码作为 Sec-WebSocket-Accept
+ * 4. 返回 HTTP 101 Switching Protocols 响应
+ * @return 0 成功，-1 失败
+ */
 static int ws_handshake_from_request(int client_fd, const char *req)
 {
     const char *key_hdr = "Sec-WebSocket-Key:";
@@ -116,6 +158,12 @@ static int ws_handshake_from_request(int client_fd, const char *req)
     return 0;
 }
 
+/**
+ * 连接分派器：读取首个请求行，判断是 WebSocket 升级还是普通 HTTP。
+ * @return 1=WebSocket（fd 已升级，交由 ws_client 管理），
+ *          0=HTTP（fd 已在路由中关闭），
+ *         -1=错误
+ */
 static int handle_http_or_ws(int client_fd)
 {
     char req[4096];
@@ -131,6 +179,11 @@ static int handle_http_or_ws(int client_fd)
     return ws_http_handle_request(client_fd, req, UI_FALLBACK_HTML);
 }
 
+/**
+ * 服务器主循环（独立线程）。
+ * 使用 select() 同时监听新的 TCP 连接和已有 WS 客户端事件。
+ * 每 1 秒触发一次 keepalive 检查（ping/pong 保活）。
+ */
 static void *ws_server_loop(void *arg)
 {
     (void)arg;
@@ -176,6 +229,7 @@ static void *ws_server_loop(void *arg)
     return NULL;
 }
 
+/* 启动 WebSocket 服务器：创建 TCP socket + bind + listen + 启动工作线程。 */
 err_t ws_server_start(void)
 {
     ws_client_session_init();
@@ -220,11 +274,13 @@ err_t ws_server_start(void)
     return 0;
 }
 
+/* 向指定 chat_id 发送响应文本（无 reasoning）。 */
 err_t ws_server_send(const char *chat_id, const char *text)
 {
     return ws_server_send_with_reasoning(chat_id, text, NULL);
 }
 
+/* 发送回复文本，可附带 reasoning（思维链）。reasoning 先独立发送，然后发送正文。 */
 err_t ws_server_send_with_reasoning(const char *chat_id, const char *text, const char *reasoning)
 {
     if (reasoning && reasoning[0]) {
@@ -245,6 +301,7 @@ err_t ws_server_send_with_reasoning(const char *chat_id, const char *text, const
     return err;
 }
 
+/* 发送工具执行事件通知（type="tool"）。 */
 err_t ws_server_send_tool_event(const char *chat_id, const char *text)
 {
     cJSON *resp = cJSON_CreateObject();
@@ -259,6 +316,7 @@ err_t ws_server_send_tool_event(const char *chat_id, const char *text)
     return err;
 }
 
+/* 向宠物会话发送响应（type=PET_WS_TYPE_RESPONSE，通过 pet_chat_id 路由到对应 WS 客户端）。 */
 err_t ws_server_send_pet_response(const char *pet_chat_id, const char *text)
 {
     char ws_chat_id[64];
@@ -278,6 +336,7 @@ err_t ws_server_send_pet_response(const char *pet_chat_id, const char *text)
     return err;
 }
 
+/* 向 Web 客户端发送 sudo 密码请求（type="sudo_request"）。 */
 err_t ws_server_send_sudo_request(const char *chat_id, const char *request_id, const char *prompt_text)
 {
     cJSON *resp = cJSON_CreateObject();

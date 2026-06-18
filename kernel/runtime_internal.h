@@ -1,3 +1,6 @@
+/* 运行时配置内部结构：定义 runtime_config_state_t 结构体和辅助函数。
+ * 由 runtime.c 和 runtime_sections.c 共享，不对外暴露。 */
+
 #pragma once
 
 #include <stdbool.h>
@@ -5,6 +8,7 @@
 
 #include "cjson.h"
 
+/* 字段最大长度常量 */
 #define RUNTIME_PROVIDER_NAME_MAX 64
 #define RUNTIME_STRING_SMALL_MAX  32
 #define RUNTIME_API_KEY_MAX       320
@@ -17,11 +21,13 @@
 #define RUNTIME_BIGMODEL_KEY_MAX  128
 #define RUNTIME_PROVIDER_MAX      16
 
+/* Provider 条目：名称 + 模型标识 */
 typedef struct {
     char name[RUNTIME_PROVIDER_NAME_MAX];
     char model[RUNTIME_MODEL_MAX];
 } runtime_provider_entry_t;
 
+/* 运行时配置全量状态结构体 */
 typedef struct {
     int loaded;
     int web_port;

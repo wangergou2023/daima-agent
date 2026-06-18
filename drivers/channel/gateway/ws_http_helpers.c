@@ -1,3 +1,37 @@
+/* WebSocket HTTP 辅助函数——HTTP 请求路由与静态资源服务。
+ *
+ * 架构说明：
+ * WebSocket 服务器同时处理 HTTP 和 WS 连接。客户端首先发送 HTTP 请求，
+ * 服务器检查 Upgrade 头：若包含 "websocket" 则执行 WS 握手升级，
+ * 否则交由本文件的 HTTP 路由处理。
+ *
+ * 路由设计（ws_http_handle_request）：
+ *   GET  /                  → index.html（静态文件，无时使用内置降级 HTML）
+ *   GET  /app.css           → 样式表
+ *   GET  /app.js            → 前端 JS
+ *   GET  /pet.js            → 电子宠物 JS
+ *   GET  /pets/...          → 宠物资源文件（二进制，8MB 上限）
+ *   GET  /health            → 健康检查
+ *   GET  /api/context_stats → 上下文统计（tokens/使用率）
+ *   GET  /api/sessions      → 会话列表
+ *   GET  /api/session_history → 会话历史（原始消息）
+ *   GET  /api/ui_config     → UI 配置（宠物包列表、终端安全级别）
+ *   POST /api/session_delete → 删除会话
+ *   POST /api/terminal_security → 设置终端安全级别
+ *
+ * WebSocket 升级握手流程（在 ws_server_host.c 中执行）：
+ *   1. 客户端发送包含 Sec-WebSocket-Key 的 HTTP 请求
+ *   2. 服务器解析 Key，拼接 WS_GUID 后 SHA1 哈希
+ *   3. Base64 编码后以 Sec-WebSocket-Accept 头返回 101 响应
+ *   4. 后续通信使用 WS 帧协议（opcode: text/binary/ping/pong/close）
+ *
+ * WebSocket 帧协议要点：
+ *   - 帧头 2-10 字节（FIN/RSV/opcode/mask/payload_len）
+ *   - 客户端→服务器帧必须 MASK，服务器→客户端帧不 MASK
+ *   - opcode 0x1=文本帧, 0x2=二进制帧, 0x8=关闭帧, 0x9=ping, 0xA=pong
+ *   - ping/pong 用于保活检测，双方收到后应立即回复
+ */
+
 #include "drivers/channel/gateway/ws_http_helpers.h"
 
 #include "paths.h"
@@ -18,6 +52,8 @@
 #include <sys/socket.h>
 #include <time.h>
 #include "linux/slab.h"
+
+/* 通过循环 send() 发送完整数据，处理部分发送和 EINTR。 */
 static int send_all(int fd, const void *buf, size_t len)
 {
     const char *p = (const char *)buf;
@@ -30,6 +66,7 @@ static int send_all(int fd, const void *buf, size_t len)
     return 0;
 }
 
+/* 发送原始字节 HTTP 响应（含 Content-Length）。 */
 static void http_send_response_bytes(int fd, const char *status,
                                      const char *content_type,
                                      const void *body, size_t body_len)
@@ -53,6 +90,7 @@ static void http_send_response_bytes(int fd, const char *status,
     }
 }
 
+/* 发送字符串 HTTP 响应（自动计算 Content-Length）。 */
 static void http_send_response(int fd, const char *status,
                                const char *content_type, const char *body)
 {
@@ -62,6 +100,7 @@ static void http_send_response(int fd, const char *status,
                              body, body_len);
 }
 
+/* 读取文本文件全部内容（返回 kmalloc 的 '\0' 结尾字符串）。 */
 static char *read_text_file(const char *path, size_t max_bytes)
 {
     if (!path || !path[0] || max_bytes == 0) {
@@ -97,6 +136,7 @@ static char *read_text_file(const char *path, size_t max_bytes)
     return buf;
 }
 
+/* 读取二进制文件（返回 kmalloc 缓冲区 + 实际大小）。 */
 static unsigned char *read_binary_file(const char *path, size_t max_bytes, size_t *size_out)
 {
     if (size_out) {
@@ -147,6 +187,7 @@ static unsigned char *read_binary_file(const char *path, size_t max_bytes, size_
     return buf;
 }
 
+/* 尝试从磁盘读取静态文件发送，若文件不存在则使用内置降级内容。 */
 static void http_send_static_file_or_fallback(
     int fd,
     const char *content_type,
@@ -164,6 +205,7 @@ static void http_send_static_file_or_fallback(
     http_send_response(fd, "200 OK", content_type, fallback_body ? fallback_body : "");
 }
 
+/* 根据文件扩展名返回 MIME Content-Type。 */
 static const char *content_type_for_path(const char *path)
 {
     const char *ext = path ? strrchr(path, '.') : NULL;
@@ -181,6 +223,7 @@ static const char *content_type_for_path(const char *path)
     return "application/octet-stream";
 }
 
+/* 校验静态资源路径安全性：无 ".."、仅含字母数字/ /./_/-。 */
 static bool is_safe_asset_relative_path(const char *path)
 {
     if (!path || !path[0] || strstr(path, "..") != NULL) {
@@ -195,6 +238,7 @@ static bool is_safe_asset_relative_path(const char *path)
     return true;
 }
 
+/* 发送二进制文件（图片/字体等），自动检测 Content-Type。 */
 static void http_send_binary_file(int fd, const char *path)
 {
     size_t size = 0;
@@ -209,6 +253,7 @@ static void http_send_binary_file(int fd, const char *path)
     kfree(body);
 }
 
+/* 解析 HTTP 请求行 "METHOD /path HTTP/version"。 */
 static void parse_request_line(const char *req, char *method, size_t msz,
                                char *path, size_t psz)
 {
@@ -228,6 +273,7 @@ static void parse_request_line(const char *req, char *method, size_t msz,
     path[plen] = '\0';
 }
 
+/* 从 URL 中分离 path 和 query string（原地修改 path）。 */
 static void split_path_and_query(char *path, char **query_out)
 {
     if (query_out) {
@@ -246,6 +292,7 @@ static void split_path_and_query(char *path, char **query_out)
     }
 }
 
+/* 从 URL query string 中提取指定 key 的值。 */
 static void query_get_value(const char *query, const char *key, char *out, size_t out_sz)
 {
     if (!out || out_sz == 0) return;
@@ -269,6 +316,7 @@ static void query_get_value(const char *query, const char *key, char *out, size_
     }
 }
 
+/* 校验 chat_id 安全性：仅允许字母数字、下划线和连字符。 */
 static bool is_safe_chat_id(const char *chat_id)
 {
     if (!chat_id || !chat_id[0]) {
@@ -282,6 +330,7 @@ static bool is_safe_chat_id(const char *chat_id)
     return true;
 }
 
+/* 校验终端安全级别：仅允许 "plan" 或 "build"。 */
 static bool is_valid_terminal_security_level(const char *level)
 {
     return level &&
@@ -289,6 +338,7 @@ static bool is_valid_terminal_security_level(const char *level)
             strcmp(level, "build") == 0);
 }
 
+/* 粗略估算 prompt token 数（字数 ÷ 4 + 固定开销）。 */
 static int estimate_prompt_tokens_rough(const char *system_prompt, const cJSON *messages)
 {
     size_t chars = system_prompt ? strlen(system_prompt) : 0;
@@ -303,6 +353,7 @@ static int estimate_prompt_tokens_rough(const char *system_prompt, const cJSON *
     return (int)(chars / 4) + 16;
 }
 
+/* 构建 /api/context_stats 响应：当前模型、token 用量、上下文使用率。 */
 static char *build_context_stats_json(const char *chat_id)
 {
     char history_json[LLM_STREAM_BUF_SIZE];
@@ -343,6 +394,7 @@ static char *build_context_stats_json(const char *chat_id)
     return json;
 }
 
+/* 构建 /api/ui_config 响应：扫描 .codex-pet 目录作为宠物包列表，返回默认包和终端安全级别。 */
 static char *build_ui_config_json(void)
 {
     const char *default_pet_package_id = runtime_config_get_web_default_pet_package_id();
@@ -434,6 +486,7 @@ static char *build_ui_config_json(void)
     return json;
 }
 
+/* qsort 比较函数：按 latest_ts 降序排列会话记录。 */
 static int compare_session_records_recent(const void *a, const void *b)
 {
     const session_record_t *ra = (const session_record_t *)a;
@@ -443,6 +496,7 @@ static int compare_session_records_recent(const void *a, const void *b)
     return strcmp(ra->chat_id, rb->chat_id);
 }
 
+/* 构建 /api/sessions 响应：列出所有会话（chat_id、时间戳、是否有历史/事实/摘要）。 */
 static char *build_sessions_json(void)
 {
     session_record_t records[128];
@@ -478,6 +532,7 @@ static char *build_sessions_json(void)
     return json;
 }
 
+/* 构建 /api/session_history 响应：提取 assistant 消息的纯文本内容（去掉 JSON 包装）。 */
 static char *build_session_history_json(const char *chat_id)
 {
     if (!chat_id || !chat_id[0]) {
@@ -539,6 +594,31 @@ static char *build_session_history_json(const char *chat_id)
     return json;
 }
 
+/**
+ * HTTP 请求路由器。
+ * 在 ws_server_host.c 的主循环中被调用，当客户端请求不包含 WebSocket 升级头时，
+ * 本函数路径路由处理普通 HTTP 请求。
+ *
+ * 路由表：
+ *   GET  /                    → index.html（静态文件或内置降级 HTML）
+ *   GET  /index.html          → 同 /
+ *   GET  /app.css /app.js     → 前端资源
+ *   GET  /pet.js              → 宠物脚本
+ *   GET  /pets/...            → 宠物资源（图片/配置，8MB 上限二进制）
+ *   GET  /health              → "ok"
+ *   GET  /api/context_stats   → {model, used_tokens, context_limit_tokens, usage_percent}
+ *   GET  /api/sessions        → [{chat_id, latest_ts, has_history, has_facts, has_summary}]
+ *   GET  /api/session_history → {chat_id, messages: [{role, content, reasoning}]}
+ *   GET  /api/ui_config       → {pet: {packages, default_package_id}, terminal: {security_level}}
+ *   POST /api/session_delete  → 删除会话
+ *   POST /api/terminal_security → 设置终端安全级别
+ *   其他 → 404
+ *
+ * @param client_fd         客户端 socket fd
+ * @param req               HTTP 请求原始文本
+ * @param ui_fallback_html  当 index.html 不存在时使用的降级 HTML
+ * @return 0 表示正常处理（fd 已关闭），-1 表示错误
+ */
 int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallback_html)
 {
     char method[8] = {0};
@@ -547,6 +627,9 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
     char *query = NULL;
     split_path_and_query(path, &query);
 
+    /* ── POST 路由 ── */
+
+    /* POST /api/session_delete?chat_id=... → 删除指定会话 */
     if (strcmp(method, "POST") == 0 && strcmp(path, "/api/session_delete") == 0) {
         char chat_id[64] = {0};
         query_get_value(query, "chat_id", chat_id, sizeof(chat_id));
@@ -570,6 +653,7 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
         return 0;
     }
 
+    /* POST /api/terminal_security?level=plan|build → 设置终端安全级别 */
     if (strcmp(method, "POST") == 0 && strcmp(path, "/api/terminal_security") == 0) {
         char level[32] = {0};
         query_get_value(query, "level", level, sizeof(level));
@@ -593,12 +677,16 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
         return 0;
     }
 
+    /* ── 仅接受 GET/POST，其他方法返回 405 ── */
     if (strcmp(method, "GET") != 0) {
         http_send_response(client_fd, "405 Method Not Allowed",
                            "text/plain; charset=utf-8", "Method Not Allowed");
         return 0;
     }
 
+    /* ── GET 路由 ── */
+
+    /* GET /, /index.html → 主页，文件不存在时使用内置降级 HTML */
     if (strcmp(path, "/") == 0 || strcmp(path, "/index.html") == 0) {
         http_send_static_file_or_fallback(
             client_fd,
@@ -608,6 +696,7 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
         return 0;
     }
 
+    /* GET /app.css → 前端样式表 */
     if (strcmp(path, "/app.css") == 0) {
         http_send_static_file_or_fallback(
             client_fd,
@@ -617,6 +706,7 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
         return 0;
     }
 
+    /* GET /app.js → 前端脚本 */
     if (strcmp(path, "/app.js") == 0) {
         http_send_static_file_or_fallback(
             client_fd,
@@ -626,6 +716,7 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
         return 0;
     }
 
+    /* GET /pet.js → 宠物前端脚本 */
     if (strcmp(path, "/pet.js") == 0) {
         char asset_path[BUF_LARGE];
         snprintf(asset_path, sizeof(asset_path), "%s/web/pet.js", path_spiffs_base());
@@ -637,6 +728,7 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
         return 0;
     }
 
+    /* GET /pets/... → 宠物资源（二进制文件，8MB 上限，安全路径校验） */
     if (strncmp(path, "/pets/", 6) == 0) {
         const char *relative = path + 6;
         if (!is_safe_asset_relative_path(relative)) {
@@ -652,12 +744,14 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
         return 0;
     }
 
+    /* GET /health → 健康检查 */
     if (strcmp(path, "/health") == 0) {
         http_send_response(client_fd, "200 OK",
                            "text/plain; charset=utf-8", "ok");
         return 0;
     }
 
+    /* GET /api/context_stats → 上下文使用统计（tokens/模型） */
     if (strcmp(path, "/api/context_stats") == 0) {
         char chat_id[64] = {0};
         query_get_value(query, "chat_id", chat_id, sizeof(chat_id));
@@ -677,6 +771,7 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
         return 0;
     }
 
+    /* GET /api/sessions → 会话列表（按最近活跃排序） */
     if (strcmp(path, "/api/sessions") == 0) {
         char *json = build_sessions_json();
         if (!json) {
@@ -691,6 +786,7 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
         return 0;
     }
 
+    /* GET /api/session_history?chat_id=... → 会话历史（提取 assistant 纯文本） */
     if (strcmp(path, "/api/session_history") == 0) {
         char chat_id[64] = {0};
         query_get_value(query, "chat_id", chat_id, sizeof(chat_id));
@@ -714,6 +810,7 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
         return 0;
     }
 
+    /* GET /api/ui_config → UI 配置（宠物包、终端安全级别） */
     if (strcmp(path, "/api/ui_config") == 0) {
         char *json = build_ui_config_json();
         if (!json) {
