@@ -1,12 +1,9 @@
-/* 启动引导：运行时准备、帮助打印、IP 获取。 */
+/* 启动引导：运行时准备、IP 获取。 */
 
 #pragma once
 
 #include <stdbool.h>
 #include <stddef.h>
-
-/** 打印命令行帮助信息。@param prog 程序名（argv[0]） */
-void bootstrap_print_usage(const char *prog);
 
 /** 启动前运行时准备：路径初始化 → 目录创建 → 配置加载。 */
 void bootstrap_prepare_runtime(void);

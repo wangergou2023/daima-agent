@@ -7,7 +7,6 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/stat.h>
-#include <stdbool.h>
 
 #include "channel_router.h"
 #include "bootstrap.h"
@@ -35,8 +34,6 @@
 #include "drivers/voice/voice_channel.h"
 #include "drivers/voice/voice_wake.h"
 
-int agent_self_test(void);
-
 /**
  * 从运行时配置解析当前时区。
  * @return 时区字符串（如 "Asia/Shanghai"）。
@@ -48,18 +45,19 @@ static const char *resolve_runtime_timezone(void)
 
 /**
  * 程序主入口。4 阶段启动：
- *   阶段 1: 参数解析 + bootstrap_prepare_runtime() — 路径初始化 + 目录创建 + 配置加载
+ *   阶段 1: bootstrap_prepare_runtime() — 路径初始化 + 目录创建 + 配置加载
  *   阶段 2: do_basic_setup() — 8 级 initcall 链（消息总线、IPC、存储、cron、设备总线）
  *   阶段 3: llm_proxy_init + tool_registry_init + agent_loop_init — 驱动和循环初始化
  *   阶段 4: channel_router_start + agent_loop_start + ws_server_start — 启动所有服务
  *
- * @param argc 参数个数
- * @param argv 参数列表，支持 --help、--test
+ * @param argc 参数个数（未使用，保留兼容性）
+ * @param argv 参数列表（未使用，保留兼容性）
  * @return 0 成功，非 0 失败
  */
 int main(int argc, char **argv)
 {
-    bool test_mode = false;
+    (void)argc;
+    (void)argv;
 
 #ifdef BUILD_FOR_MIPS
     /* MIPS 平台：每次启动自动注册 systemd 服务（rootfs 只读，需运行时链接） */
@@ -67,23 +65,7 @@ int main(int argc, char **argv)
     symlink("/data/agent-data/agent.service", "/run/systemd/system/agent.service");
 #endif
 
-    /* 阶段 1a: 命令行参数解析 */
-    if (argc > 1) {
-        const char *arg = argv[1];
-        if (strcmp(arg, "-h") == 0 || strcmp(arg, "--help") == 0) {
-            bootstrap_print_usage(argv[0]);
-            return 0;
-        }
-        if (strcmp(arg, "--test") == 0) {
-            test_mode = true;
-        } else {
-            fprintf(stderr, "Unsupported option: %s\n", arg);
-            bootstrap_print_usage(argv[0]);
-            return 1;
-        }
-    }
-
-    /* 阶段 1b: 运行时准备 — 路径、目录、配置 */
+    /* 阶段 1: 运行时准备 — 路径、目录、配置 */
     bootstrap_prepare_runtime();
 
     /* 设置时区 */
@@ -105,13 +87,6 @@ int main(int argc, char **argv)
     BUG_ON(tool_registry_init() != 0);
     of_populate_default();  /* 加载 device_tree.json 中未注册的设备 */
     BUG_ON(agent_loop_init() != 0);
-
-    /* 自检模式：运行自检后退出 */
-    if (test_mode) {
-        int ret = agent_self_test();
-        pr_info("Self-test %s", ret == 0 ? "PASSED" : "FAILED");
-        return ret;
-    }
 
     /* 阶段 4a: 启动通道路由（飞书/Vector/WebSocket） */
     BUG_ON(channel_router_start() != 0);

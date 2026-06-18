@@ -1,4 +1,4 @@
-/* 启动引导：运行时准备 + 8 级 initcall 链。 */
+/* 启动引导：运行时准备 + 8 级 initcall 链 + IP 获取。 */
 
 #include "bootstrap.h"
 #include "fs.h"
@@ -29,19 +29,6 @@
 #include "autoconf.h"
 #include "linux/kernel.h"
 #include "linux/printk.h"
-
-/**
- * 打印命令行帮助信息，显示 agent 主目录和配置文件路径。
- * @param prog 程序名（argv[0]）
- */
-void bootstrap_print_usage(const char *prog)
-{
-    printf("Usage: %s [--help]\n", prog);
-    printf("\n");
-    printf("Agent home: %s\n", path_home());
-    printf("Runtime configuration is loaded from %s\n", path_runtime_config_file());
-    printf("Example template: %s/config.example.json\n", path_config_dir());
-}
 
 /**
  * 创建 SPIFFS 目录布局。

@@ -1,4 +1,4 @@
-/* agent --test 自检：多核 + 总线端到端验证 */
+/* !test 聊天命令自检：多核 + 总线端到端验证 */
 #include "linux/core_task.h"
 #include "linux/printk.h"
 #include "linux/bus.h"
