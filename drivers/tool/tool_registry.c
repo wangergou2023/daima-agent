@@ -181,28 +181,20 @@ err_t tool_registry_init(void)
     register_tool(tool_weather_definition());
     register_tool(tool_get_time_definition());
 
-    /* 注册文件工具 */
     register_tool(tool_files_definition());
     register_tool(tool_apply_patch_definition());
     register_tool(tool_restore_file_definition());
 
-    /* 注册 todo */
     register_tool(tool_todo_definition());
     register_tool(tool_work_item_definition());
     register_tool(tool_webfetch_definition());
     register_tool(tool_log_definition());
 
     register_tool(tool_skills_definition());
-
-    /* 注册 session_search */
     register_tool(tool_session_search_definition());
-
     register_tool(tool_cron_definition());
-
-    /* 注册 terminal */
     register_tool(tool_terminal_definition());
 
-    /* 注册 Vector 机器人工具；是否暴露给模型由当前 channel 决定 */
     tool_vector_init();
     register_tool(tool_robot_drive_straight_definition());
     register_tool(tool_robot_turn_in_place_definition());
@@ -219,7 +211,6 @@ err_t tool_registry_init(void)
 
     build_tools_json();
 
-    /* 加载自定义工具 (spiffs_data/custom_tools.json) */
     tool_custom_load_default();
 
     pr_info("Tool registry initialized");

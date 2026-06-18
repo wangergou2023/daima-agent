@@ -138,3 +138,23 @@ void ralph_loop_reset(const char *chat_id)
     ralph_loop_build_todo_path(chat_id, path, sizeof(path));
     unlink(path);
 }
+
+bool ralph_loop_append_warning_if_needed(const char *chat_id, int iteration,
+                                          char **io_final_text)
+{
+    if (!chat_id || !io_final_text || !*io_final_text)
+        return false;
+    if (!ralph_loop_should_continue(chat_id, iteration, *io_final_text))
+        return false;
+
+    static const char warning[] = "\n\n⚠️ 还有未完成的任务，请继续。";
+    size_t final_len = strlen(*io_final_text);
+    size_t warning_len = sizeof(warning) - 1;
+    char *with_warning = kmalloc(final_len + warning_len + 1, GFP_KERNEL);
+    if (!with_warning) return false;
+    memcpy(with_warning, *io_final_text, final_len);
+    memcpy(with_warning + final_len, warning, warning_len + 1);
+    kfree(*io_final_text);
+    *io_final_text = with_warning;
+    return true;
+}

@@ -1,6 +1,6 @@
 /* delegate_task 工具：LLM 调用它来派发子 Agent 并行工作 */
 #include "drivers/tool/tool_registry.h"
-#include "kernel/sched/sched.h"
+#include "linux/sched_service.h"
 #include "plan.h"
 #include "turn_common.h"
 #include "runtime.h"

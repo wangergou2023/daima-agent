@@ -19,6 +19,7 @@
 #include "drivers/skill/skill_tools.h"
 #include "linux/slab.h"
 #endif
+#include "ralph.h"
 #include "turn_dispatch.h"
 #ifdef TODO_ENFORCER_ENABLED
 static void read_todo_counts(int *out_total, int *out_completed)
@@ -103,6 +104,7 @@ void agent_turn_finish(
     }
 
     if (final_text && final_text[0]) {
+        ralph_loop_append_warning_if_needed(msg->chat_id, iteration, &final_text);
         agent_turn_save_session(msg, final_text, reasoning_text, iteration);
         agent_turn_queue_outbound_text(msg, final_text, reasoning_text, true);
         final_text = NULL;

@@ -100,13 +100,28 @@ err_t tool_execute_via_core(const char *name, const char *input,
     task.payload = cJSON_PrintUnformatted(payload);
     cJSON_Delete(payload);
 
-    core_send(CORE_EXECUTOR, &task);
+    if (core_send(CORE_EXECUTOR, &task) != 0) {
+        pr_err("dispatch: core_send to executor_core failed for task %s", task.id);
+        kfree(task.payload);
+        return ERR_FAIL;
+    }
 
-    /* 阻塞等回复 */
+    /* 阻塞等回复，按 task_id 匹配过滤，避免消费其他核的回复 */
     struct core_task reply;
-    memset(&reply, 0, sizeof(reply));
-    err_t err = core_recv(CORE_SCHEDULER, &reply, 30000);
-    if (err != 0) {
+    err_t err = ERR_TIMEOUT;
+    for (int retry = 0; retry < 100; retry++) {
+        memset(&reply, 0, sizeof(reply));
+        err = core_recv(CORE_SCHEDULER, &reply, 3000);
+        if (err != 0) {
+            snprintf(output, output_size, "executor core timeout");
+            return ERR_TIMEOUT;
+        }
+        if (strcmp(reply.id, task.id) == 0)
+            break;
+        /* 不是我们的回复：放回队列（fire-and-forget 回复由 process_core_reply 处理） */
+        core_reply(&reply);
+    }
+    if (err != 0 || strcmp(reply.id, task.id) != 0) {
         snprintf(output, output_size, "executor core timeout");
         return ERR_TIMEOUT;
     }

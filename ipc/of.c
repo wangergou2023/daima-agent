@@ -68,7 +68,18 @@ int of_populate(const char *json_path)
             struct device *dev = kmalloc(sizeof(*dev), GFP_KERNEL);
             if (!dev) continue;
             memset(dev, 0, sizeof(*dev));
-            dev->name = dev_name;
+
+            /* strdup name: cJSON 内部字符串会在 cJSON_Delete(root) 后失效 */
+            dev->name = strdup(dev_name);
+            if (!dev->name) { kfree(dev); continue; }
+
+            /* 可选的 data 字段：序列化为 JSON 字符串存入 dev->data */
+            cJSON *data_obj = cJSON_GetObjectItem(item, "data");
+            if (data_obj) {
+                char *data_str = cJSON_PrintUnformatted(data_obj);
+                if (data_str)
+                    dev->data = data_str;
+            }
 
             device_register(dev, bus);
             count++;

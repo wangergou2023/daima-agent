@@ -56,17 +56,22 @@ static void memory_task(void *arg)
             const char *chat_id = cJSON_GetStringValue(cJSON_GetObjectItem(root, "chat_id"));
 
             if (chat_id) {
-                char history[131072];
-                err_t err = session_store_get_history_json(chat_id, history, sizeof(history), -1);
-                if (err == 0 && history[0] && strlen(history) > 10) {
-                    cJSON *reply = cJSON_CreateObject();
-                    cJSON_AddStringToObject(reply, "chat_id", chat_id);
-                    cJSON_AddStringToObject(reply, "history", history);
-                    result = cJSON_PrintUnformatted(reply);
-                    cJSON_Delete(reply);
-                    strscpy(task.status, TASK_DONE, sizeof(task.status));
-                } else {
+                char *history = kmalloc(131072, GFP_KERNEL);
+                if (!history) {
                     strscpy(task.status, TASK_FAILED, sizeof(task.status));
+                } else {
+                    err_t err = session_store_get_history_json(chat_id, history, 131072, -1);
+                    if (err == 0 && history[0] && strlen(history) > 10) {
+                        cJSON *reply = cJSON_CreateObject();
+                        cJSON_AddStringToObject(reply, "chat_id", chat_id);
+                        cJSON_AddStringToObject(reply, "history", history);
+                        result = cJSON_PrintUnformatted(reply);
+                        cJSON_Delete(reply);
+                        strscpy(task.status, TASK_DONE, sizeof(task.status));
+                    } else {
+                        strscpy(task.status, TASK_FAILED, sizeof(task.status));
+                    }
+                    kfree(history);
                 }
             } else {
                 strscpy(task.status, TASK_FAILED, sizeof(task.status));

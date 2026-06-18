@@ -18,3 +18,5 @@ bool ralph_loop_should_continue(const char *chat_id,
                                 int iteration,
                                 const char *final_text);
 void ralph_loop_reset(const char *chat_id);
+bool ralph_loop_append_warning_if_needed(const char *chat_id, int iteration,
+                                          char **io_final_text);

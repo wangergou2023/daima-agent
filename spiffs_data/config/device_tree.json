@@ -1,0 +1,8 @@
+{
+  "devices": [
+    {"bus": "llm_bus", "name": "deepseek_anthropic", "data": {"protocol": "anthropic", "health_url": "https://api.deepseek.com/anthropic/v1/models"}},
+    {"bus": "llm_bus", "name": "moonshot",           "data": {"protocol": "openai",    "health_url": "https://api.moonshot.cn/v1/models"}},
+    {"bus": "llm_bus", "name": "bigmodel",           "data": {"protocol": "openai",    "health_url": "https://open.bigmodel.cn/api/paas/v4/models"}},
+    {"bus": "llm_bus", "name": "ingenic_local_kimi", "data": {"protocol": "openai",    "health_url": "http://10.3.20.46:4000/v1/models"}}
+  ]
+}

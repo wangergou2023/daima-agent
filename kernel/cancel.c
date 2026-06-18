@@ -11,6 +11,7 @@
 typedef struct {
     char chat_id[64];
     uint64_t generation;
+    bool cancelled;
 } cancel_slot_t;
 
 static pthread_mutex_t s_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -58,6 +59,7 @@ static cancel_slot_t *find_or_create_slot_locked(const char *chat_id)
     }
     strscpy(slot->chat_id, chat_id, sizeof(slot->chat_id));
     slot->generation = 0;
+    slot->cancelled = false;
     return slot;
 }
 
@@ -65,6 +67,12 @@ uint64_t agent_cancel_begin_turn(const char *chat_id)
 {
     pthread_mutex_lock(&s_mutex);
     cancel_slot_t *slot = find_or_create_slot_locked(chat_id);
+    if (slot) {
+        slot->generation++;
+        if (slot->generation == 0)
+            slot->generation = 1;
+        slot->cancelled = false;
+    }
     uint64_t token = slot ? slot->generation : 0;
     pthread_mutex_unlock(&s_mutex);
     return token;
@@ -72,22 +80,17 @@ uint64_t agent_cancel_begin_turn(const char *chat_id)
 
 void agent_cancel_request(const char *chat_id, const char *reason)
 {
-    uint64_t generation = 0;
-
     pthread_mutex_lock(&s_mutex);
     cancel_slot_t *slot = find_or_create_slot_locked(chat_id);
     if (slot) {
+        slot->cancelled = true;
         slot->generation++;
-        if (slot->generation == 0) {
+        if (slot->generation == 0)
             slot->generation = 1;
-        }
-        generation = slot->generation;
     }
     pthread_mutex_unlock(&s_mutex);
 
-    if (generation > 0) {
-        pr_info("Cancel requested for chat=%s generation=%llu reason=%s", chat_id, (unsigned long long)generation, reason && reason[0] ? reason : "-");
-    }
+    pr_info("Cancel requested for chat=%s reason=%s", chat_id, reason && reason[0] ? reason : "-");
 }
 
 bool agent_cancel_is_cancelled(const char *chat_id, uint64_t token)
@@ -98,7 +101,7 @@ bool agent_cancel_is_cancelled(const char *chat_id, uint64_t token)
 
     pthread_mutex_lock(&s_mutex);
     cancel_slot_t *slot = find_slot_locked(chat_id);
-    bool cancelled = slot && slot->generation != token;
+    bool cancelled = slot && (slot->generation != token || slot->cancelled);
     pthread_mutex_unlock(&s_mutex);
     return cancelled;
 }

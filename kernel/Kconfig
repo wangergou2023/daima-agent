@@ -1,4 +1,8 @@
 menu "Kernel Features"
+config LOCKING
+	bool "内核锁子系统 (mutex + spinlock)"
+	default y
+
 config PRINTK
     bool "printk 日志子系统"
     default y

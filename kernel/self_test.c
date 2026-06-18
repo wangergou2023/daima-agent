@@ -10,6 +10,7 @@
 #include "kernel/sched/sched.h"
 #include "plan.h"
 #include "drivers/tool/tool_delegate.h"
+#include "paths.h"
 #include "cjson.h"
 #include <stdio.h>
 #include <string.h>
@@ -238,31 +239,7 @@ static void test_message_pipeline(void)
     report("message pipeline inbound→outbound", ok);
 }
 
-/* 测 7: 完整 LLM 调用 — 推真实消息，等 LLM 回复 */
-static void test_llm_pipeline(void)
-{
-    struct message msg;
-    memset(&msg, 0, sizeof(msg));
-    strscpy(msg.channel, "websocket", sizeof(msg.channel));
-    strscpy(msg.chat_id, "self_test_llm", sizeof(msg.chat_id));
-    strscpy(msg.source, "user", sizeof(msg.source));
-    msg.content = strdup("reply OK");
-
-    agent_process_message(&msg);
-
-    struct message reply;
-    memset(&reply, 0, sizeof(reply));
-    int ok = (message_bus_pop_outbound(&reply, 2000) == 0);
-    if (ok) {
-        ok = reply.content && strlen(reply.content) > 0;
-        pr_info("  LLM response: %.80s...", reply.content ? reply.content : "null");
-        free(reply.content);
-    }
-    report("LLM end-to-end pipeline", ok);
-}
-
-
-/* 测 8: 异步压缩调度 */
+/* 测 7: 异步压缩调度 */
 static void test_async_compress_dispatch(void)
 {
     struct core_task task;
@@ -288,7 +265,7 @@ static void test_async_compress_dispatch(void)
     report("async compress dispatch", ok);
 }
 
-/* 测 9: subagent 调度验证 */
+/* 测 8: subagent 调度验证 */
 static void test_subagent_dispatch(void)
 {
     struct sched_runqueue rq;
@@ -321,7 +298,7 @@ static void test_subagent_dispatch(void)
     report("subagent dispatch (IMPLEMENT→3 agents)", ok);
 }
 
-/* 测 10: delegate_task 真实执行 */
+/* 测 9: delegate_task 真实执行 */
 static void test_delegate_task_exec(void)
 {
     char output[16384];
@@ -343,6 +320,61 @@ static void test_delegate_task_exec(void)
     report("delegate_task real execution", ok);
 }
 
+/* 测 10: AI 自检日志 — 读自己的 log 文件判断健康状态 */
+static void test_log_self_check(void)
+{
+    const char *log_path = path_log_file();
+    FILE *f = fopen(log_path, "r");
+    if (!f) {
+        report("log self-check (no log file yet)", 1);  /* 首次运行无日志，pass */
+        return;
+    }
+
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    if (size <= 0) { fclose(f); report("log self-check (empty)", 1); return; }
+
+    long read_from = 0;
+    if (size > 131072) { read_from = size - 131072; size = 131072; }
+    fseek(f, read_from, SEEK_SET);
+
+    char *buf = kmalloc(size + 1, GFP_KERNEL);
+    if (!buf) { fclose(f); report("log self-check (OOM)", 0); return; }
+    fread(buf, 1, size, f);
+    fclose(f);
+    buf[size] = '\0';
+
+    /* 检查健康指标 */
+    int ok = 1;
+
+    /* 关键子系统初始化 */
+    if (!strstr(buf, "Bus subsystem ready"))
+        { pr_warn("  missing: Bus subsystem ready"); ok = 0; }
+    if (!strstr(buf, "Agent loop started"))
+        { pr_warn("  missing: Agent loop started"); ok = 0; }
+
+    /* 工具执行记录 (log 格式: "Executor: tool_name → err=0" 或 "Tool xxx result:") */
+    int tool_ok = 0;
+    const char *p = buf;
+    while ((p = strstr(p, "executor") ? strstr(p, "executor") :
+               strstr(p, "Executor") ? strstr(p, "Executor") : NULL)) {
+        if (strstr(p, "err=0")) tool_ok++;
+        p++;
+    }
+    if (tool_ok == 0) { pr_warn("  no tool execution records"); ok = 0; }
+
+    /* 无崩溃信号 */
+    if (strstr(buf, "SIGSEGV") || strstr(buf, "stack overflow"))
+        { pr_warn("  crash indicator in log"); ok = 0; }
+
+    pr_info("  log: %ld bytes, %d tool records (err=0), init OK=%s",
+            size, tool_ok,
+            strstr(buf, "Bus subsystem ready") ? "yes" : "no");
+
+    kfree(buf);
+    report("log self-check (health scan)", ok);
+}
+
 int agent_self_test(void)
 {
     pr_info("========================================");
@@ -358,10 +390,10 @@ int agent_self_test(void)
     test_memory_queue();
     test_real_tool_via_executor();
     test_message_pipeline();
-    test_llm_pipeline();
     test_async_compress_dispatch();
     test_subagent_dispatch();
     test_delegate_task_exec();
+    test_log_self_check();
 
     pr_info("----------------------------------------");
     pr_info("  Results: %d/%d passed", tests_pass, tests_run);

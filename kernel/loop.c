@@ -38,7 +38,41 @@ static void process_new_message(struct message *msg)
     if (msg->content && strncmp(msg->content, "!test", 5) == 0) {
         int ret = agent_self_test();
         char *json = agent_self_test_results_json();
-        ws_server_send(msg->chat_id, json);
+
+        cJSON *root = cJSON_Parse(json);
+        int total = 0, passed = 0;
+        cJSON *t = cJSON_GetObjectItem(root, "total");
+        cJSON *p = cJSON_GetObjectItem(root, "passed");
+        if (cJSON_IsNumber(t)) total = t->valueint;
+        if (cJSON_IsNumber(p)) passed = p->valueint;
+
+        char buf[4096];
+        int off = snprintf(buf, sizeof(buf),
+                "🔍 自检完成：%d/%d 通过\n\n", passed, total);
+
+        cJSON *items = cJSON_GetObjectItem(root, "items");
+        if (items && cJSON_IsArray(items)) {
+            cJSON *item;
+            cJSON_ArrayForEach(item, items) {
+                const char *name = cJSON_GetStringValue(
+                    cJSON_GetObjectItem(item, "name"));
+                cJSON *ok = cJSON_GetObjectItem(item, "ok");
+                if (name && (size_t)off < sizeof(buf) - 64) {
+                    off += snprintf(buf + off, sizeof(buf) - off,
+                            "%s %s\n",
+                            cJSON_IsTrue(ok) ? "✅" : "❌", name);
+                }
+            }
+        }
+        cJSON_Delete(root);
+
+        struct message reply;
+        memset(&reply, 0, sizeof(reply));
+        strscpy(reply.channel, msg->channel, sizeof(reply.channel));
+        strscpy(reply.chat_id, msg->chat_id, sizeof(reply.chat_id));
+        reply.content = strdup(buf);
+        message_bus_push_outbound(&reply);
+
         kfree(json);
 
         /* 推送真实测试消息——走完整 LLM + subagent 流程 */
@@ -116,7 +150,41 @@ static void process_new_message_async(struct message *msg)
     if (msg->content && strncmp(msg->content, "!test", 5) == 0) {
         int ret = agent_self_test();
         char *json = agent_self_test_results_json();
-        ws_server_send(msg->chat_id, json);
+
+        cJSON *root = cJSON_Parse(json);
+        int total = 0, passed = 0;
+        cJSON *t = cJSON_GetObjectItem(root, "total");
+        cJSON *p = cJSON_GetObjectItem(root, "passed");
+        if (cJSON_IsNumber(t)) total = t->valueint;
+        if (cJSON_IsNumber(p)) passed = p->valueint;
+
+        char buf[4096];
+        int off = snprintf(buf, sizeof(buf),
+                "🔍 自检完成：%d/%d 通过\n\n", passed, total);
+
+        cJSON *items = cJSON_GetObjectItem(root, "items");
+        if (items && cJSON_IsArray(items)) {
+            cJSON *item;
+            cJSON_ArrayForEach(item, items) {
+                const char *name = cJSON_GetStringValue(
+                    cJSON_GetObjectItem(item, "name"));
+                cJSON *ok = cJSON_GetObjectItem(item, "ok");
+                if (name && (size_t)off < sizeof(buf) - 64) {
+                    off += snprintf(buf + off, sizeof(buf) - off,
+                            "%s %s\n",
+                            cJSON_IsTrue(ok) ? "✅" : "❌", name);
+                }
+            }
+        }
+        cJSON_Delete(root);
+
+        struct message reply;
+        memset(&reply, 0, sizeof(reply));
+        strscpy(reply.channel, msg->channel, sizeof(reply.channel));
+        strscpy(reply.chat_id, msg->chat_id, sizeof(reply.chat_id));
+        reply.content = strdup(buf);
+        message_bus_push_outbound(&reply);
+
         kfree(json);
 
         /* 推送真实测试消息——走完整 LLM + subagent 流程 */
@@ -172,7 +240,14 @@ static void process_new_message_async(struct message *msg)
     load_task.payload = cJSON_PrintUnformatted(lp);
     cJSON_Delete(lp);
     strscpy(snap.pending_task_id, load_task.id, sizeof(snap.pending_task_id));
-    core_send(CORE_MEMORY, &load_task);
+    if (core_send(CORE_MEMORY, &load_task) != 0) {
+        pr_err("loop: core_send to memory_core failed for chat=%s, aborting turn", msg->chat_id);
+        kfree(load_task.payload);
+        char *ft = NULL, *rt = NULL;
+        agent_turn_finish(msg, &ft, &rt, ERR_FAIL, 0, false, false);
+        agent_cleanup_inbound_msg(msg);
+        return;
+    }
 
     turn_context_save(&snap);
     agent_cleanup_inbound_msg(msg);

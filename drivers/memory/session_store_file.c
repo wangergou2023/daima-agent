@@ -13,6 +13,7 @@
 #include <string.h>
 #include <time.h>
 #include <sys/stat.h>
+#include <sys/file.h>
 
 #include "cjson.h"
 #include "linux/list.h"
@@ -70,6 +71,7 @@ static err_t file_append_ex(const char *chat_id,
         pr_err("Cannot open session file %s", path);
         return ERR_FAIL;
     }
+    flock(fileno(f), LOCK_EX);
 
     cJSON *obj = cJSON_CreateObject();
     cJSON_AddStringToObject(obj, "role", role);
@@ -104,6 +106,7 @@ static err_t file_get_history_json(const char *chat_id, char *buf, size_t size, 
         snprintf(buf, size, "[]");
         return 0;
     }
+    flock(fileno(f), LOCK_SH);
 
     int configured_max = runtime_config_get_session_max_msgs();
     int effective_max = max_msgs;
@@ -201,6 +204,7 @@ static err_t file_rewrite_from_array(const char *chat_id, const cJSON *messages)
         pr_err("Cannot rewrite session file %s", path);
         return ERR_FAIL;
     }
+    flock(fileno(f), LOCK_EX);
 
     const cJSON *msg = NULL;
     cJSON_ArrayForEach(msg, messages) {
