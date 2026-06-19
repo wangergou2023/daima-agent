@@ -37,9 +37,9 @@ Daima Agent — 嵌入式 AI Agent，C11 + Kbuild，单二进制。Linux 内核 
 ├── arch/{host,mips,arm}/        # 平台抽象（见 arch/AGENTS.md）
 ├── extensions/                  # LKM 风格模块（见 extensions/AGENTS.md）
 ├── scripts/                     # Kbuild 引擎（Makefile.build, Kbuild.include）+ checkpatch.pl
-├── test/                        # 47 单元测试（见 test/AGENTS.md）
+├── test/                        # 48 单元测试（见 test/AGENTS.md）
 ├── spiffs_data/                 # 运行时数据（config/skills/web/ca/cron.json/pets）
-├── docs/                        # BUS_MODEL.md, REARCH.md, WORKFLOW.md, self_test.md
+├── docs/                        # ARCHITECTURE.md
 ├── packaging/deb/               # Debian 打包脚本
 ├── .github/workflows/           # CI（ARM cmake 构建）
 ├── .clang-format                # C 代码风格（25 行，替代 checkpatch.pl）
@@ -59,9 +59,9 @@ Daima Agent — 嵌入式 AI Agent，C11 + Kbuild，单二进制。Linux 内核 
 | 锁机制 | `include/linux/mutex.h` `spinlock.h` | pthread 内联宏封装 |
 | 构建系统 | `scripts/Makefile.build` + `scripts/Kbuild.include` | obj-y 递归编译 |
 | 代码风格 | `.clang-format` | 100 字符行宽，tab 缩进（`checkpatch.pl` 作为备选） |
-| 测试 | `test/` | `make test`（47 单元），`--test`（10 集成），见 `test/AGENTS.md` |
+| 测试 | `test/` | `make test`（48 单元），`!test` 消息触发集成自检 |
 | 运行时配置 | `spiffs_data/config/config.json` | LLM keys, ports, channels |
-| 运行时自检 | `kernel/self_test.c` | `./agent --test` 运行 10 集成测试 |
+| 运行时自检 | `kernel/self_test.c` | 发 `!test` 消息触发 10 集成测试 |
 
 ## CODE MAP
 
@@ -134,7 +134,7 @@ Daima Agent — 嵌入式 AI Agent，C11 + Kbuild，单二进制。Linux 内核 
 
 - **PLANNER 永不可写代码**：`kernel/sched/class.c` 调度类约束
 - **子 agent 不可递归委托**：`drivers/tool/tool_delegate.c` 禁止调用 `delegate_task`
-- **Skill ≠ Driver**：Skill 是容器，不是驱动（见 `docs/BUS_MODEL.md`）
+- **Skill ≠ Driver**：Skill 是容器，不是驱动（见 `docs/ARCHITECTURE.md`）
 - **不可直写 `cJSON.valueint`**：用 `cJSON_SetNumberValue()`（DEPRECATED API）
 - **不可发半成品消息**：`spiffs_data/config/SOUL.md` 行为边界
 - **Plan 不可含 TODO/TBD**：`kernel/plan.c` 会拒绝并重生成
@@ -152,11 +152,11 @@ make                     # → build-kbuild/agent
 make V=1                 # 详细输出
 make V=2                 # 详细输出 + 重编译原因诊断
 make mips|arm            # 交叉编译
-make test                # 47 单元测试
+make test                # 48 单元测试
 make clean|mrproper      # 清理
 ./run.sh                 # clean + build + run
 ./build-kbuild/agent     # 运行
-./build-kbuild/agent --test  # 运行时自检（10 集成测试）
+./build-kbuild/agent     # 运行（发 !test 触发自检）
 perl scripts/checkpatch.pl --no-tree --strict <file.c>  # 备选风格检查
 ```
 

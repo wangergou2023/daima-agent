@@ -79,7 +79,7 @@ int main(int argc, char **argv)
     pr_info("Free memory: %d bytes", (int)platform_free_memory());
     pr_info("Timezone: %s", runtime_tz);
 
-    /* 阶段 2: 基础设置 — 8 级 initcall 链 */
+    /* 阶段 2: 基础设置 — 4 级手动 initcall 链 */
     BUG_ON(do_basic_setup() != 0);
 
     /* 阶段 3: 驱动层初始化 — LLM 代理、工具注册、Agent 循环 */

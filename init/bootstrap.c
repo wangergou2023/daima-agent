@@ -1,4 +1,4 @@
-/* 启动引导：运行时准备 + 8 级 initcall 链 + IP 获取。 */
+/* 启动引导：运行时准备 + 4 级手动 initcall 链 + IP 获取。 */
 
 #include "bootstrap.h"
 #include "fs.h"
