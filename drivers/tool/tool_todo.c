@@ -62,7 +62,9 @@ static cJSON *todo_load_root(void)
 
 {
 
-    FILE *f = fopen(path_todo_file(), "r");
+    char todo_path[512];
+    snprintf(todo_path, sizeof(todo_path), "%s/TODO.json", path_memory_dir());
+    FILE *f = fopen(todo_path, "r");
 
     if (!f) {
 
@@ -154,7 +156,9 @@ static err_t todo_save_root(cJSON *root)
 
 
 
-    FILE *f = fopen(path_todo_file(), "w");
+    char todo_path[512];
+    snprintf(todo_path, sizeof(todo_path), "%s/TODO.json", path_memory_dir());
+    FILE *f = fopen(todo_path, "w");
 
     if (!f) {
 
@@ -508,7 +512,7 @@ err_t tool_todo_execute(const char *input_json, char *output, size_t output_size
 
     if (!root) {
 
-        snprintf(output, output_size, "错误：无法读取或解析 %s", path_todo_file());
+        snprintf(output, output_size, "错误：无法读取或解析 %s/TODO.json", path_memory_dir());
 
         cJSON_Delete(input);
 

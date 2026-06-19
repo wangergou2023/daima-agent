@@ -32,7 +32,9 @@ static int heartbeat_interval_ms(void)
  */
 static bool heartbeat_has_tasks(void)
 {
-    FILE *f = fopen(path_heartbeat_file(), "r");
+    char hb_path[512];
+    snprintf(hb_path, sizeof(hb_path), "%s/HEARTBEAT.md", path_spiffs_base());
+    FILE *f = fopen(hb_path, "r");
     if (!f) {
         return false;
     }
@@ -91,9 +93,9 @@ static bool heartbeat_send(void)
     strncpy(msg.source, MSG_SOURCE_HEARTBEAT, sizeof(msg.source) - 1);
     snprintf(prompt,
              sizeof(prompt),
-             "Read %s and follow any instructions or tasks listed there. "
+             "Read %s/HEARTBEAT.md and follow any instructions or tasks listed there. "
              "If nothing needs attention, reply with just: HEARTBEAT_OK",
-             path_heartbeat_file());
+             path_spiffs_base());
     msg.content = strdup(prompt);
 
     if (!msg.content) {
@@ -124,7 +126,7 @@ static void heartbeat_timer_callback(os_timer_t *timer)
 
 err_t heartbeat_init(void)
 {
-    pr_info("Heartbeat service initialized (file: %s, interval: %ds)", path_heartbeat_file(), heartbeat_interval_ms() / 1000);
+    pr_info("Heartbeat service initialized (file: %s/HEARTBEAT.md, interval: %ds)", path_spiffs_base(), heartbeat_interval_ms() / 1000);
     return 0;
 }
 

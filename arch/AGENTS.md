@@ -28,11 +28,8 @@ arch/
 │   ├── audio_io_mips.c
 │   ├── vision_capture_mips.c
 │   └── voice_wake_mips.c
-└── arm/                       # ARM 嵌入式（4 文件）
-    ├── Makefile               # CC=arm-linux-gnueabihf-gcc
-    ├── audio_io_arm.c
-    ├── vision_capture_arm.c
-    └── voice_wake_arm.c
+└── arm/                       # ARM 嵌入式（1 文件）
+    └── Makefile               # CC=arm-linux-gnueabihf-gcc，复用 host 存根（无独立 .c 文件）
 ```
 
 ## WHERE TO LOOK
@@ -55,4 +52,4 @@ arch/
 - **平台差异隔离**：所有 `#ifdef __linux__` / `#ifdef __APPLE__` 仅出现在 `host/portability.c`，业务代码通过 `portability.h` 调用
 - **文件共享**：mips/arm 的 `obj-y` 通过 `../host/llm_proxy_host.o` 等路径复用 host 源文件，不复制代码
 - **Stub 模式**：host 的 audio/vision/voice 为 stub（空实现），mips/arm 有真实硬件驱动
-- **Stub 去重**：mips/arm 的 audio_io/vision_capture/voice_wake 通过 `../host/` 引用 host 的 stub 实现，不再维护独立的 dup 文件
+- **Stub 去重**：arm 通过 `../host/` 引用 host 的 stub 实现（无独立 .c 文件），mips 有真实硬件驱动

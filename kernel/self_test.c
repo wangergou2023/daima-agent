@@ -323,7 +323,8 @@ static void test_delegate_task_exec(void)
 /* 测 10: AI 自检日志 — 读自己的 log 文件判断健康状态 */
 static void test_log_self_check(void)
 {
-    const char *log_path = path_log_file();
+    char log_path[512];
+    snprintf(log_path, sizeof(log_path), "%s/agent.log", path_memory_dir());
     FILE *f = fopen(log_path, "r");
     if (!f) {
         report("log self-check (no log file yet)", 1);  /* 首次运行无日志，pass */

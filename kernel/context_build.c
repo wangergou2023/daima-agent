@@ -342,9 +342,7 @@ static size_t append_dynamic_runtime_guide_fallback(char *buf, size_t size, size
         path_memory_dir(),
         path_memory_dir(),
         path_config_dir(),
-        path_config_dir(),
-        path_soul_file(),
-        path_user_file());
+        path_config_dir());
 
     return append_textf(
         buf, size, offset,
@@ -361,7 +359,13 @@ static size_t append_dynamic_runtime_guide_fallback(char *buf, size_t size, size
 err_t context_build_system_prompt_for_channel(const char *channel, char *buf, size_t size)
 {
     size_t off = 0;
-    bool has_bootstrap = file_has_content(path_bootstrap_file());
+    char bs_path[512], id_path[512], soul_path[512], user_path[512];
+    snprintf(bs_path, sizeof(bs_path), "%s/config/BOOTSTRAP.md", path_config_dir());
+    snprintf(id_path, sizeof(id_path), "%s/config/IDENTITY.md", path_config_dir());
+    snprintf(soul_path, sizeof(soul_path), "%s/config/SOUL.md", path_config_dir());
+    snprintf(user_path, sizeof(user_path), "%s/config/USER.md", path_config_dir());
+
+    bool has_bootstrap = file_has_content(bs_path);
 
     off = append_textf(
         buf, size, off,
@@ -369,7 +373,7 @@ err_t context_build_system_prompt_for_channel(const char *channel, char *buf, si
         "> 这是当前轮对话的系统说明。把它当作一份长期有效的操作手册；若与用户当前这轮的明确新指令冲突，以用户当前新指令为准。\n");
 
     if (has_bootstrap) {
-        off = append_file(buf, size, off, path_bootstrap_file(), "Bootstrap");
+        off = append_file(buf, size, off, bs_path, "Bootstrap");
     }
 
     off = append_operator_guide_fallback(buf, size, off, has_bootstrap);
@@ -377,9 +381,9 @@ err_t context_build_system_prompt_for_channel(const char *channel, char *buf, si
     off = append_workspace_context(buf, size, off);
 
     /* 身份与用户配置 */
-    off = append_file(buf, size, off, path_identity_file(), "身份设定");
-    off = append_file(buf, size, off, path_soul_file(), "个性设定");
-    off = append_file(buf, size, off, path_user_file(), "用户信息");
+    off = append_file(buf, size, off, id_path, "身份设定");
+    off = append_file(buf, size, off, soul_path, "个性设定");
+    off = append_file(buf, size, off, user_path, "用户信息");
 
     /* 长期记忆 */
     char mem_buf[4096];

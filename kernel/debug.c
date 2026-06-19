@@ -41,17 +41,11 @@ void agent_prompt_dump_snapshot(const struct message *msg, const char *system_pr
     snprintf(paths_block,
              sizeof(paths_block),
              "## 相关路径\n\n"
-             "- `BOOTSTRAP.md`: `%s`\n"
-             "- `IDENTITY.md`: `%s`\n"
-             "- `SOUL.md`: `%s`\n"
-             "- `USER.md`: `%s`\n"
-             "- `MEMORY.md`: `%s`\n"
+             "- 配置: `%s/config/` (BOOTSTRAP.md, IDENTITY.md, SOUL.md, USER.md)\n"
+             "- `MEMORY.md`: `%s/MEMORY.md`\n"
              "- `Skills`: `%s`\n",
-             path_bootstrap_file(),
-             path_identity_file(),
-             path_soul_file(),
-             path_user_file(),
-             path_memory_file(),
+             path_spiffs_base(),
+             path_memory_dir(),
              path_skills_dir());
 
     const char *meta_fmt =
@@ -65,7 +59,9 @@ void agent_prompt_dump_snapshot(const struct message *msg, const char *system_pr
         "## Prompt\n\n"
         "%s\n";
 
-    FILE *f = fopen(path_prompt_debug_file(), "w");
+    char prompt_path[BUF_LARGE];
+    snprintf(prompt_path, sizeof(prompt_path), "%s/last_prompt.md", path_cache_dir());
+    FILE *f = fopen(prompt_path, "w");
     if (f) {
         fprintf(f, meta_fmt,
                 ts_buf,

@@ -11,7 +11,7 @@ ifeq ($(UNAME_S),Darwin)
     endif
 endif
 
-AGENT_CFLAGS := -I$(AGENT_DIR) -I$(AGENT_DIR)/include -I$(AGENT_DIR)/include/generated \
+AGENT_CFLAGS := -I$(AGENT_DIR) -I$(AGENT_DIR)/include \
     -iquote $(AGENT_DIR)/init -iquote $(AGENT_DIR)/kernel \
     -iquote $(AGENT_DIR)/kernel/time -iquote $(AGENT_DIR)/ipc \
     -iquote $(AGENT_DIR)/lib -iquote $(AGENT_DIR)/net -iquote $(AGENT_DIR)/fs \
@@ -31,4 +31,5 @@ ifneq ($(BREW_CURL),)
 endif
 
 obj-y := portability.o audio_io_stub.o vision_capture_stub.o voice_wake_stub.o
-obj-y += ws_server_host.o llm_http_client_host.o llm_proxy_host.o
+obj-y += ws_server_host.o llm_http_client_host.o
+obj-y += llm_proxy_routing.o llm_proxy_request.o llm_proxy_host.o

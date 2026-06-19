@@ -88,8 +88,8 @@ static void trim_if_needed(const char *path)
  */
 void log_file_write(int level, const char *tag, const char *msg)
 {
-    const char *path = path_log_file();
-    if (!path) return;
+    char log_path[512];
+    snprintf(log_path, sizeof(log_path), "%s/agent.log", path_memory_dir());
 
     fs_ensure_dir(path_memory_dir());
 
@@ -102,7 +102,7 @@ void log_file_write(int level, const char *tag, const char *msg)
     char ts[32];
     strftime(ts, sizeof(ts), "%H:%M:%S", &tm);
 
-    FILE *f = fopen(path, "a");
+    FILE *f = fopen(log_path, "a");
     if (!f) return;
 
     fprintf(f, "%s.%03ld [%s] %s: %s\n",
@@ -110,5 +110,5 @@ void log_file_write(int level, const char *tag, const char *msg)
             level_char(level), tag ? tag : "-", msg ? msg : "");
     fclose(f);
 
-    trim_if_needed(path);
+    trim_if_needed(log_path);
 }

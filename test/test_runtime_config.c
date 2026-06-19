@@ -45,8 +45,11 @@ int main(void)
     paths_init();
     mkdir_p(path_config_dir());
 
+    char cfg_path[512];
+    snprintf(cfg_path, sizeof(cfg_path), "%s/config.json", path_config_dir());
+
     write_file_text(
-        path_runtime_config_file(),
+        cfg_path,
         "{"
         "\"common\":{\"max_output_tokens\":8192},"
         "\"active_provider\":\"p1\","
@@ -59,7 +62,7 @@ int main(void)
     assert(strcmp(runtime_config_get_provider_reasoning_effort(), "") == 0);
 
     write_file_text(
-        path_runtime_config_file(),
+        cfg_path,
         "{"
         "\"common\":{\"max_output_tokens\":8192,\"terminal_security_level\":\"plan\",\"learning_review_enabled\":true},"
         "\"active_provider\":\"p1\","
@@ -74,7 +77,7 @@ int main(void)
     assert(strcmp(runtime_config_get_provider_reasoning_effort(), "high") == 0);
 
     write_file_text(
-        path_runtime_config_file(),
+        cfg_path,
         "{"
         "\"common\":{\"max_output_tokens\":8192},"
         "\"active_provider\":\"p1\","
@@ -84,7 +87,7 @@ int main(void)
     assert(runtime_config_get_max_output_tokens() == 128000);
 
     write_file_text(
-        path_runtime_config_file(),
+        cfg_path,
         "{"
         "\"active_provider\":\"p1\","
         "\"providers\":{\"p1\":{\"model\":\"m\",\"api_key\":\"k\",\"openai_base_url\":\"http://example.test\"}}"

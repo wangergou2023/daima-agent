@@ -1,7 +1,7 @@
 # PROJECT KNOWLEDGE BASE
 
 **Generated:** 2026-06-19
-**Commit:** 0d927af
+**Commit:** c05cf1d
 **Branch:** main
 
 ## OVERVIEW
@@ -13,19 +13,26 @@ Daima Agent — 嵌入式 AI Agent，C11 + Kbuild，单二进制。Linux 内核 
 ```
 ./
 ├── init/main.c                  # 唯一 C 入口 main()
-├── kernel/                      # 核心子系统（92 文件，3 子目录）
-│   ├── loop.c/hooks.c/intent.c/plan.c/roles.c/router.c  # Turn 流水线（平铺文件，非子目录）
+├── kernel/                      # 核心子系统（97 文件，3 子目录）
+│   ├── loop.c/hooks.c/intent.c/plan.c/roles.c/router.c  # Turn 流水线
 │   ├── turn_{prepare,run,exec,finish,persist,dispatch,context,common}.c
+│   ├── context_{build,compress,ops}.c  # 上下文管理
+│   ├── channel_{policy,router,runtime}.c  # 通道策略/路由/分发
+│   ├── tool_{feedback,guard,notify,exec_fail}.c + auto_verify.c  # 工具反馈
+│   ├── executor_core.c/memory_core.c/compaction.c  # 多核执行器
+│   ├── interview.c/learning.c/team.c/ralph.c/todo.c/recovery.c/rules.c  # 功能模块
+│   ├── work_item.c/workqueue.c/debug.c/self_test.c/cancel.c/state.c  # 工具类
 │   ├── sched/                   # 多 Agent 调度（PLANNER/EXECUTOR/REVIEWER）
 │   ├── time/                    # Cron 定时任务
 │   └── printk/                  # 内核风格日志
 ├── drivers/                     # 驱动层（10 子目录）
 │   ├── tool/                    # 34 工具驱动（见 drivers/tool/AGENTS.md）
-│   ├── llm/                     # LLM 协议（OpenAI/Anthropic）
-│   ├── channel/                 # 3 通道（见 drivers/channel/AGENTS.md）
+│   ├── llm/                     # LLM 协议（OpenAI/Anthropic，见 drivers/llm/AGENTS.md）
+│   ├── channel/                 # 4 通道（见 drivers/channel/AGENTS.md）
 │   │   ├── feishu/              # 飞书
 │   │   ├── gateway/             # WebSocket 网关
-│   │   └── vector/              # Vector/MCP 机器人
+│   │   ├── vector/              # Vector/MCP 机器人
+│   │   └── voice/ (在 drivers/voice/)
 │   ├── memory/                  # 会话/内存存储（见 drivers/memory/AGENTS.md）
 │   ├── skill/                   # 技能容器模型（见 drivers/skill/AGENTS.md）
 │   └── voice/vision/platform/pet/audio/
@@ -34,14 +41,14 @@ Daima Agent — 嵌入式 AI Agent，C11 + Kbuild，单二进制。Linux 内核 
 ├── fs/                          # 路径解析 + 目录创建
 ├── lib/                         # 工具库（cJSON/base64/env/text/json_helpers/log）
 ├── include/linux/               # 内核风格头文件（17 文件，见 include/linux/AGENTS.md）
-├── arch/{host,mips,arm}/        # 平台抽象（见 arch/AGENTS.md）
+├── arch/{host,mips,arm}/        # 平台抽象（见 arch/AGENTS.md），arm/ 仅含 Makefile 存根
 ├── extensions/                  # LKM 风格模块（见 extensions/AGENTS.md）
-├── scripts/                     # Kbuild 引擎（Makefile.build, Kbuild.include）+ checkpatch.pl
-├── test/                        # 48 单元测试（见 test/AGENTS.md）
+├── scripts/                     # Kbuild 引擎（6 文件：Makefile.build, Kbuild.include 等）
+├── test/                        # 48 单元测试（45 自动运行，见 test/AGENTS.md）
 ├── spiffs_data/                 # 运行时数据（config/skills/web/ca/cron.json/pets）
 ├── docs/                        # ARCHITECTURE.md
 ├── packaging/deb/               # Debian 打包脚本
-├── .github/workflows/           # CI（ARM cmake 构建）
+├── .github/workflows/           # CI（ARM cmake 构建，非 Kbuild）
 ├── .clang-format                # C 代码风格（25 行，替代 checkpatch.pl）
 └── Makefile                     # Kbuild 顶层
 ```

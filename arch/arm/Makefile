@@ -1,7 +1,7 @@
 # arch/arm/Makefile
 CROSS_COMPILE ?= arm-linux-gnueabihf-
 CC := $(CROSS_COMPILE)gcc
-AGENT_CFLAGS := -I$(AGENT_DIR) -I$(AGENT_DIR)/include -I$(AGENT_DIR)/include/generated \
+AGENT_CFLAGS := -I$(AGENT_DIR) -I$(AGENT_DIR)/include \
     -iquote $(AGENT_DIR)/init -iquote $(AGENT_DIR)/kernel \
     -iquote $(AGENT_DIR)/kernel/time -iquote $(AGENT_DIR)/ipc \
     -iquote $(AGENT_DIR)/lib -iquote $(AGENT_DIR)/net -iquote $(AGENT_DIR)/fs \

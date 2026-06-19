@@ -198,9 +198,9 @@ err_t tool_log_execute(const char *input_json, char *output, size_t output_size)
 
 
 
-    const char *path = path_log_file();
-
-    FILE *f = fopen(path, "r");
+    char log_path[512];
+    snprintf(log_path, sizeof(log_path), "%s/agent.log", path_memory_dir());
+    FILE *f = fopen(log_path, "r");
 
     if (!f) {
 

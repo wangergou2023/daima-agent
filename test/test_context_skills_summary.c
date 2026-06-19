@@ -43,9 +43,14 @@ int main(void)
     setenv("AGENT_HOME", home, 1);
     paths_init();
 
-    write_text(path_soul_file(), "# SOUL\n");
-    write_text(path_user_file(), "# USER\n");
-    write_text(path_memory_file(), "# MEMORY\n");
+    char soul_path[512], user_path[512];
+    snprintf(soul_path, sizeof(soul_path), "%s/SOUL.md", path_config_dir());
+    snprintf(user_path, sizeof(user_path), "%s/USER.md", path_config_dir());
+    write_text(soul_path, "# SOUL\n");
+    write_text(user_path, "# USER\n");
+    char mem_path[512];
+    snprintf(mem_path, sizeof(mem_path), "%s/MEMORY.md", path_memory_dir());
+    write_text(mem_path, "# MEMORY\n");
 
     for (int i = 0; i < 18; i++) {
         snprintf(dir, sizeof(dir), "%s/filler-%02d", skills_dir, i);

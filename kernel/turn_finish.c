@@ -30,8 +30,9 @@ static void read_todo_counts(int *out_total, int *out_completed)
 {
     *out_total = 0;
     *out_completed = 0;
-
-    FILE *f = fopen(path_todo_file(), "r");
+    char todo_path[512];
+    snprintf(todo_path, sizeof(todo_path), "%s/TODO.json", path_memory_dir());
+    FILE *f = fopen(todo_path, "r");
     if (!f) {
         return;
     }

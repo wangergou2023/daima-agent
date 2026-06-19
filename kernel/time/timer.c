@@ -133,7 +133,9 @@ static void cron_generate_id(char *id_buf)
 
 static err_t cron_load_jobs(void)
 {
-    FILE *f = fopen(path_cron_file(), "r");
+    char cron_path[512];
+    snprintf(cron_path, sizeof(cron_path), "%s/cron.json", path_spiffs_base());
+    FILE *f = fopen(cron_path, "r");
     if (!f) {
         pr_info("No cron file found, starting fresh");
         s_job_count = 0;
@@ -297,9 +299,11 @@ static err_t cron_save_jobs(void)
         return ERR_NO_MEM;
     }
 
-    FILE *f = fopen(path_cron_file(), "w");
+    char cron_path[512];
+    snprintf(cron_path, sizeof(cron_path), "%s/cron.json", path_spiffs_base());
+    FILE *f = fopen(cron_path, "w");
     if (!f) {
-        pr_err("Failed to open %s for writing", path_cron_file());
+        pr_err("Failed to open %s for writing", cron_path);
         kfree(json_str);
         return ERR_FAIL;
     }
@@ -314,7 +318,7 @@ static err_t cron_save_jobs(void)
         return ERR_FAIL;
     }
 
-    pr_info("Saved %d cron jobs to %s", s_job_count, path_cron_file());
+    pr_info("Saved %d cron jobs to %s", s_job_count, cron_path);
     return 0;
 }
 

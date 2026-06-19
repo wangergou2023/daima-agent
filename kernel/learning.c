@@ -170,9 +170,11 @@ static err_t append_skill_review_queue(cJSON *skill_obj, const char *chat_id)
         return 0;
     }
 
-    FILE *f = fopen(path_skill_review_queue_file(), "a");
+    char queue_path[512];
+    snprintf(queue_path, sizeof(queue_path), "%s/SKILL_REVIEW_QUEUE.md", path_memory_dir());
+    FILE *f = fopen(queue_path, "a");
     if (!f) {
-        pr_err("Cannot open %s", path_skill_review_queue_file());
+        pr_err("Cannot open %s", queue_path);
         return ERR_FAIL;
     }
 

@@ -25,7 +25,9 @@ const char *host_tls_ca_cert_path(void)
         return ca;
     }
 
-    const char *fallback = path_ca_cert_file();
+    char ca_path[512];
+    snprintf(ca_path, sizeof(ca_path), "%s/ca/cacert.pem", path_spiffs_base());
+    const char *fallback = ca_path;
     if (fallback && fallback[0] && access(fallback, R_OK) == 0) {
         return fallback;
     }

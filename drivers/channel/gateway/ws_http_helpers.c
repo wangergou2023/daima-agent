@@ -688,30 +688,36 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
 
     /* GET /, /index.html → 主页，文件不存在时使用内置降级 HTML */
     if (strcmp(path, "/") == 0 || strcmp(path, "/index.html") == 0) {
+        char asset_path[BUF_LARGE];
+        snprintf(asset_path, sizeof(asset_path), "%s/index.html", path_web_dir());
         http_send_static_file_or_fallback(
             client_fd,
             "text/html; charset=utf-8",
-            path_web_index_file(),
+            asset_path,
             ui_fallback_html);
         return 0;
     }
 
     /* GET /app.css → 前端样式表 */
     if (strcmp(path, "/app.css") == 0) {
+        char asset_path[BUF_LARGE];
+        snprintf(asset_path, sizeof(asset_path), "%s/app.css", path_web_dir());
         http_send_static_file_or_fallback(
             client_fd,
             "text/css; charset=utf-8",
-            path_web_css_file(),
+            asset_path,
             "");
         return 0;
     }
 
     /* GET /app.js → 前端脚本 */
     if (strcmp(path, "/app.js") == 0) {
+        char asset_path[BUF_LARGE];
+        snprintf(asset_path, sizeof(asset_path), "%s/app.js", path_web_dir());
         http_send_static_file_or_fallback(
             client_fd,
             "application/javascript; charset=utf-8",
-            path_web_js_file(),
+            asset_path,
             "");
         return 0;
     }

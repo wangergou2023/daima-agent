@@ -44,23 +44,6 @@ typedef struct {
     char feishu_image_dir[PATH_MAX];     /* 飞书图片缓存目录 */
     char skills_dir[PATH_MAX];           /* 技能目录 */
     char workspace_dir[PATH_MAX];        /* 工作区目录 */
-    char runtime_config_file[PATH_MAX];  /* 运行时配置: config.json */
-    char bootstrap_file[PATH_MAX];       /* 启动提示: BOOTSTRAP.md */
-    char identity_file[PATH_MAX];        /* 身份定义: IDENTITY.md */
-    char soul_file[PATH_MAX];            /* 灵魂约束: SOUL.md */
-    char user_file[PATH_MAX];            /* 用户信息: USER.md */
-    char memory_file[PATH_MAX];          /* 持久内存: MEMORY.md */
-    char skill_review_queue_file[PATH_MAX]; /* 技能评审队列: SKILL_REVIEW_QUEUE.md */
-    char todo_file[PATH_MAX];            /* TODO 持久化: TODO.json */
-    char work_items_file[PATH_MAX];      /* 工作项日志: work_items.jsonl */
-    char log_file[PATH_MAX];             /* 日志文件: agent.log */
-    char web_index_file[PATH_MAX];       /* Web 首页: index.html */
-    char web_css_file[PATH_MAX];         /* Web 样式: app.css */
-    char web_js_file[PATH_MAX];          /* Web 脚本: app.js */
-    char prompt_debug_file[PATH_MAX];    /* Prompt 调试: last_prompt.md */
-    char cron_file[PATH_MAX];            /* Cron 持久化: cron.json */
-    char heartbeat_file[PATH_MAX];       /* 心跳文件: HEARTBEAT.md */
-    char ca_cert_file[PATH_MAX];         /* CA 证书: cacert.pem */
 } paths_state_t;
 
 static paths_state_t s_paths = {0};
@@ -229,37 +212,6 @@ static void build_paths(void)
     join_path2(s_paths.skills_dir, sizeof(s_paths.skills_dir), s_paths.spiffs_base, "skills");
     join_path2(s_paths.workspace_dir, sizeof(s_paths.workspace_dir), s_paths.spiffs_base, "workspace");
 
-    /* 配置文件 (config/) */
-    join_path2(s_paths.runtime_config_file, sizeof(s_paths.runtime_config_file), s_paths.config_dir, "config.json");
-    join_path2(s_paths.bootstrap_file, sizeof(s_paths.bootstrap_file), s_paths.config_dir, "BOOTSTRAP.md");
-    join_path2(s_paths.identity_file, sizeof(s_paths.identity_file), s_paths.config_dir, "IDENTITY.md");
-    join_path2(s_paths.soul_file, sizeof(s_paths.soul_file), s_paths.config_dir, "SOUL.md");
-    join_path2(s_paths.user_file, sizeof(s_paths.user_file), s_paths.config_dir, "USER.md");
-
-    /* 持久化文件 (memory/) */
-    join_path2(s_paths.memory_file, sizeof(s_paths.memory_file), s_paths.memory_dir, "MEMORY.md");
-    join_path2(s_paths.skill_review_queue_file, sizeof(s_paths.skill_review_queue_file), s_paths.memory_dir, "SKILL_REVIEW_QUEUE.md");
-    join_path2(s_paths.todo_file, sizeof(s_paths.todo_file), s_paths.memory_dir, "TODO.json");
-    join_path2(s_paths.work_items_file, sizeof(s_paths.work_items_file), s_paths.memory_dir, "work_items.jsonl");
-    join_path2(s_paths.log_file, sizeof(s_paths.log_file), s_paths.memory_dir, "agent.log");
-
-    /* Web UI 文件 (web/) */
-    join_path2(s_paths.web_index_file, sizeof(s_paths.web_index_file), s_paths.web_dir, "index.html");
-    join_path2(s_paths.web_css_file, sizeof(s_paths.web_css_file), s_paths.web_dir, "app.css");
-    join_path2(s_paths.web_js_file, sizeof(s_paths.web_js_file), s_paths.web_dir, "app.js");
-
-    /* 缓存/调试文件 */
-    join_path2(s_paths.prompt_debug_file, sizeof(s_paths.prompt_debug_file), s_paths.cache_dir, "last_prompt.md");
-
-    /* SPIFFS 根文件 */
-    join_path2(s_paths.cron_file, sizeof(s_paths.cron_file), s_paths.spiffs_base, "cron.json");
-    join_path2(s_paths.heartbeat_file, sizeof(s_paths.heartbeat_file), s_paths.spiffs_base, "HEARTBEAT.md");
-
-    /* CA 证书 */
-    char ca_dir[PATH_MAX];
-    join_path2(ca_dir, sizeof(ca_dir), s_paths.spiffs_base, "ca");
-    join_path2(s_paths.ca_cert_file, sizeof(s_paths.ca_cert_file), ca_dir, "cacert.pem");
-
     s_paths.initialized = 1;
 }
 
@@ -296,23 +248,6 @@ PATH_GETTER(path_web_dir, web_dir)
 PATH_GETTER(path_feishu_image_dir, feishu_image_dir)
 PATH_GETTER(path_skills_dir, skills_dir)
 PATH_GETTER(path_workspace_dir, workspace_dir)
-PATH_GETTER(path_runtime_config_file, runtime_config_file)
-PATH_GETTER(path_bootstrap_file, bootstrap_file)
-PATH_GETTER(path_identity_file, identity_file)
-PATH_GETTER(path_soul_file, soul_file)
-PATH_GETTER(path_user_file, user_file)
-PATH_GETTER(path_memory_file, memory_file)
-PATH_GETTER(path_skill_review_queue_file, skill_review_queue_file)
-PATH_GETTER(path_todo_file, todo_file)
-PATH_GETTER(path_work_items_file, work_items_file)
-PATH_GETTER(path_log_file, log_file)
-PATH_GETTER(path_web_index_file, web_index_file)
-PATH_GETTER(path_web_css_file, web_css_file)
-PATH_GETTER(path_web_js_file, web_js_file)
-PATH_GETTER(path_prompt_debug_file, prompt_debug_file)
-PATH_GETTER(path_cron_file, cron_file)
-PATH_GETTER(path_heartbeat_file, heartbeat_file)
-PATH_GETTER(path_ca_cert_file, ca_cert_file)
 
 /**
  * 判断路径是否在 SPIFFS 目录下。

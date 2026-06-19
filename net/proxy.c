@@ -1,4 +1,4 @@
-/* HTTP 代理实现：从 Kconfig/autoconf 加载代理配置，支持 HTTP 和 SOCKS5。 */
+/* HTTP 代理实现：从 autoconf 加载代理配置，支持 HTTP 和 SOCKS5。 */
 
 #include "proxy.h"
 #include "autoconf.h"
@@ -13,7 +13,7 @@ static uint16_t s_proxy_port = 0;           /* 代理端口 */
 static char s_proxy_type[8] = "http";       /* 代理类型：http 或 socks5 */
 
 /**
- * 从 Kconfig 生成的 SECRET_PROXY_* 宏加载代理配置。
+ * 从 autoconf 的 SECRET_PROXY_* 宏加载代理配置。
  * @return 始终返回 0
  */
 err_t http_proxy_init(void)

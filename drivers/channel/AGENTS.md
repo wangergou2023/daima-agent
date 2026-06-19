@@ -6,14 +6,13 @@
 
 ## OVERVIEW
 
-3 通道实现，注册在 `channel_bus`，共 31 文件（C + H + Makefile）。
+4 通道实现（含 voice 在 drivers/voice/），注册在 `channel_bus`，共 31 文件（C + H + Makefile）。
 
 ```
 drivers/channel/
 ├── feishu/        飞书通道（20 文件）— WebSocket 长连接 + Open API
 ├── gateway/       WebSocket 网关（6 文件）— 原生 WS 服务 + HTTP 路由 + 前端资源
 ├── vector/        Vector/MCP 机器人（5 文件）— JSON-RPC 2.0 + 音频流
-├── Kconfig        功能开关 (FEISHU_ENABLED / VECTOR_ENABLED / GATEWAY_ENABLED)
 └── Makefile       obj-y := feishu/ vector/ gateway/
 ```
 
@@ -45,4 +44,4 @@ drivers/channel/
 - **网关**：原生 TCP WS 服务，同端口复用 HTTP + WS (Upgrade 头检测)，客户端帧帧间必须 MASK，服务器→客户端不 MASK，Ping/Pong keepalive，过期驱逐
 - **Vector**：通过 fork+exec+pipe 启动子进程 robot-mcp，MCP JSON-RPC 2.0 协议，`setlinebuf` 保证行缓冲，异步音频通知 (notifications/audio/chunk + done)，base64 PCM 解码
 - **消息入站**：3 通道均构造 `struct message` (channel/chat_id/source/content/image_path) → `message_bus_push_inbound()`
-- **Kconfig**：`FEISHU_ENABLED` / `VECTOR_ENABLED` / `GATEWAY_ENABLED`，默认 y
+- **消息入站**：4 通道均构造 `struct message` (channel/chat_id/source/content/image_path) → `message_bus_push_inbound()`

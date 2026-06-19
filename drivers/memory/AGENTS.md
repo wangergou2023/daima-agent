@@ -6,7 +6,7 @@
 
 ## OVERVIEW
 
-会话存储 + 长期记忆管理。`memory_store` 持久化键值对与每日笔记，`session_store` 管理对话历史文件，支持事实提取、上下文压缩摘要、会话恢复。postcore_initcall（level 2），IPC 之后、总线之前初始化。
+会话存储 + 长期记忆管理。`memory_store` 持久化键值对与每日笔记，`session_store` 管理对话历史文件，支持事实提取、上下文压缩摘要、会话恢复。postcore(2) 初始化，IPC 之后、总线之前。
 
 ## STRUCTURE
 
@@ -49,4 +49,4 @@ drivers/memory/
 - **事实去重：** 合并时按行去重（忽略 `-` / `*` / `+` 前缀），最多 12 行，超出时 FIFO 淘汰旧行
 - **压缩摘要过滤：** `[上下文压缩摘要]` 前缀的消息不在历史读取中返回
 - **环形缓冲读取：** `file_get_history_json` 用 `SESSION_MAX_MSGS` 环形数组取尾部 N 条
-- **初始化链：** `memory_store_init()` 在 `postcore_initcall(2)` 调用，`session_store_init()` 首次使用时延迟绑定
+- **初始化链：** `memory_store_init()` 在 `postcore(2)` 调用，`session_store_init()` 首次使用时延迟绑定

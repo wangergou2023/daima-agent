@@ -32,7 +32,9 @@ static void run_tool(const char *input, char *output, size_t output_size)
 
 static void read_first_line(char *buf, size_t size)
 {
-    FILE *f = fopen(path_work_items_file(), "r");
+    char wi_path[512];
+    snprintf(wi_path, sizeof(wi_path), "%s/work_items.jsonl", path_memory_dir());
+    FILE *f = fopen(wi_path, "r");
     assert(f);
     assert(fgets(buf, (int)size, f));
     fclose(f);
@@ -40,7 +42,9 @@ static void read_first_line(char *buf, size_t size)
 
 static int count_valid_work_items(void)
 {
-    FILE *f = fopen(path_work_items_file(), "r");
+    char wi_path[512];
+    snprintf(wi_path, sizeof(wi_path), "%s/work_items.jsonl", path_memory_dir());
+    FILE *f = fopen(wi_path, "r");
     assert(f);
     int count = 0;
     char buf[16384];
@@ -158,7 +162,9 @@ int main(void)
     run_tool(update_input, out, sizeof(out));
     assert(strstr(out, "P0 defect planned"));
 
-    FILE *f = fopen(path_work_items_file(), "a");
+    char wi_path[512];
+    snprintf(wi_path, sizeof(wi_path), "%s/work_items.jsonl", path_memory_dir());
+    FILE *f = fopen(wi_path, "a");
     assert(f);
     fprintf(f, "{bad-json\n");
     fclose(f);
@@ -180,7 +186,7 @@ int main(void)
     run_tool("{\"action\":\"list\",\"status\":\"triaged\"}", out, sizeof(out));
     assert(strstr(out, "apply_patch 连续收到空参数"));
 
-    FILE *wf = fopen(path_work_items_file(), "r");
+    FILE *wf = fopen(wi_path, "r");
     assert(wf);
     bool saw_signature = false;
     bool saw_occurrences = false;

@@ -29,7 +29,9 @@ err_t memory_store_init(void)
 
 err_t memory_read_long_term(char *buf, size_t size)
 {
-    FILE *f = fopen(path_memory_file(), "r");
+    char mem_path[512];
+    snprintf(mem_path, sizeof(mem_path), "%s/MEMORY.md", path_memory_dir());
+    FILE *f = fopen(mem_path, "r");
     if (!f) {
         buf[0] = '\0';
         return ERR_NOT_FOUND;
@@ -43,9 +45,11 @@ err_t memory_read_long_term(char *buf, size_t size)
 
 err_t memory_write_long_term(const char *content)
 {
-    FILE *f = fopen(path_memory_file(), "w");
+    char mem_path[512];
+    snprintf(mem_path, sizeof(mem_path), "%s/MEMORY.md", path_memory_dir());
+    FILE *f = fopen(mem_path, "w");
     if (!f) {
-        pr_err("Cannot write %s", path_memory_file());
+        pr_err("Cannot write %s", mem_path);
         return ERR_FAIL;
     }
     fputs(content, f);

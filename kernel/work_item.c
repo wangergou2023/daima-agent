@@ -185,8 +185,10 @@ static err_t append_item_line(const cJSON *item)
     char *line = cJSON_PrintUnformatted((cJSON *)item);
     if (!line) return ERR_NO_MEM;
 
+    char wi_path[512];
+    snprintf(wi_path, sizeof(wi_path), "%s/work_items.jsonl", path_memory_dir());
     fs_ensure_dir(path_memory_dir());
-    FILE *f = fopen(path_work_items_file(), "a");
+    FILE *f = fopen(wi_path, "a");
     if (!f) {
         kfree(line);
         return ERR_FAIL;
@@ -212,7 +214,9 @@ err_t work_item_store_load(work_item_list_t *out)
     out->invalid_lines = 0;
     if (!out->items) return ERR_NO_MEM;
 
-    FILE *f = fopen(path_work_items_file(), "r");
+    char wi_path[512];
+    snprintf(wi_path, sizeof(wi_path), "%s/work_items.jsonl", path_memory_dir());
+    FILE *f = fopen(wi_path, "r");
     if (!f) return 0;
 
     char line[WORK_ITEM_LINE_MAX];
@@ -433,8 +437,10 @@ static void merge_evidence(cJSON *existing, const cJSON *incoming)
 
 static err_t rewrite_items(const cJSON *items)
 {
+    char wi_path[512];
+    snprintf(wi_path, sizeof(wi_path), "%s/work_items.jsonl", path_memory_dir());
     fs_ensure_dir(path_memory_dir());
-    FILE *f = fopen(path_work_items_file(), "w");
+    FILE *f = fopen(wi_path, "w");
     if (!f) return ERR_FAIL;
 
     const cJSON *item = NULL;

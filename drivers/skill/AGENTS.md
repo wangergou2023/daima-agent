@@ -2,7 +2,7 @@
 
 ## OVERVIEW
 
-技能容器模型，三层架构（容器→设备→驱动），区别于扁平 `struct tool_driver` 模型。`skill_loader_init()` 在 `subsys_initcall(4)` 被调用，加载 `spiffs_data/skills/` 下 19 个技能目录并构建系统提示摘要。
+技能容器模型，三层架构（容器→设备→驱动），区别于扁平 `struct tool_driver` 模型。`skill_loader_init()` 在 `subsys(3)` 被调用，加载 `spiffs_data/skills/` 下 19 个技能目录并构建系统提示摘要。
 
 ## STRUCTURE
 

@@ -32,397 +32,348 @@ char *agent_self_test_results_json(void);
 
 #define TURN_BUF_SIZE 131072
 
+/* 处理 !test 自检命令，返回 true 表示已处理（调用者应直接 return） */
+static bool handle_self_test_command(struct message *msg)
+{
+	if (!msg->content || strncmp(msg->content, "!test", 5) != 0)
+		return false;
+
+	int ret = agent_self_test();
+	char *json = agent_self_test_results_json();
+
+	cJSON *root = cJSON_Parse(json);
+	int total = 0, passed = 0;
+	cJSON *t = cJSON_GetObjectItem(root, "total");
+	cJSON *p = cJSON_GetObjectItem(root, "passed");
+	if (cJSON_IsNumber(t)) total = t->valueint;
+	if (cJSON_IsNumber(p)) passed = p->valueint;
+
+	char buf[4096];
+	int off = snprintf(buf, sizeof(buf),
+			"🔍 自检完成：%d/%d 通过\n\n", passed, total);
+
+	cJSON *items = cJSON_GetObjectItem(root, "items");
+	if (items && cJSON_IsArray(items)) {
+		cJSON *item;
+		cJSON_ArrayForEach(item, items) {
+			const char *name = cJSON_GetStringValue(
+				cJSON_GetObjectItem(item, "name"));
+			cJSON *ok = cJSON_GetObjectItem(item, "ok");
+			if (name && (size_t)off < sizeof(buf) - 64) {
+				off += snprintf(buf + off, sizeof(buf) - off,
+						"%s %s\n",
+						cJSON_IsTrue(ok) ? "✅" : "❌", name);
+			}
+		}
+	}
+	cJSON_Delete(root);
+
+	struct message reply;
+	memset(&reply, 0, sizeof(reply));
+	strscpy(reply.channel, msg->channel, sizeof(reply.channel));
+	strscpy(reply.chat_id, msg->chat_id, sizeof(reply.chat_id));
+	reply.content = strdup(buf);
+	message_bus_push_outbound(&reply);
+
+	kfree(json);
+
+	/* 推送真实测试消息——走完整 LLM + subagent 流程 */
+	struct message test_msg;
+	memset(&test_msg, 0, sizeof(test_msg));
+	strscpy(test_msg.channel, msg->channel, sizeof(test_msg.channel));
+	strscpy(test_msg.chat_id, msg->chat_id, sizeof(test_msg.chat_id));
+	strscpy(test_msg.source, "internal", sizeof(test_msg.source));
+	test_msg.content = strdup(
+		"使用 delegate_task 工具，同时执行以下三个检查："
+		"1) free -h 查看内存使用"
+		"2) df -h 查看磁盘使用"
+		"3) uname -a 查看系统版本"
+		"每个子Agent负责一项，并行处理，完成后汇总输出。");
+	message_bus_push_inbound(&test_msg);
+
+	agent_cleanup_inbound_msg(msg);
+	return true;
+}
+
+/* 通用前置处理：意图设置、状态重置、内部控制检查。
+ * 返回 0 继续处理，非 0 表示已终止（调用者应 return） */
+static err_t common_preamble(struct message *msg)
+{
+	msg->intent = INTENT_OPEN;
+	agent_extension_state_reset();
+
+	if (agent_hooks_trigger_intent(msg) != 0) {
+		char *ft = NULL, *rt = NULL;
+		agent_turn_finish(msg, &ft, &rt, ERR_FAIL, 0, false, false);
+		return ERR_FAIL;
+	}
+
+	if (agent_msg_is_internal_control(msg)) {
+		pr_info("Dropping internal control %s:%s", msg->channel, msg->chat_id);
+		agent_cleanup_inbound_msg(msg);
+		return ERR_FAIL;
+	}
+
+	return 0;
+}
+
+/* 执行 turn 核心流水线：replace_run → before_run → turn_run。
+ * 调用者负责 cJSON_Delete/kfree/hooks_trigger_finish/agent_turn_finish */
+static err_t turn_execute(struct message *msg, char *sp, cJSON *messages,
+			   const char *tj, const char *chat_id,
+			   char **ft, char **rt, int *it, bool *tbe, bool *cancelled)
+{
+	err_t err = agent_hooks_trigger_replace_run(msg, sp, messages, tj, ft);
+	if (err != 0) {
+		const char *mo = NULL;
+		err = agent_hooks_trigger_before_run(msg, &mo, tj);
+		if (err == 0) {
+			uint64_t ct = agent_cancel_begin_turn(chat_id);
+			err = agent_turn_run(sp, messages, tj, msg, mo, ct,
+					      ft, rt, it, tbe, cancelled);
+		}
+	}
+	return err;
+}
+
 static void process_new_message(struct message *msg)
 {
-    /* 自检命令拦截 */
-    if (msg->content && strncmp(msg->content, "!test", 5) == 0) {
-        int ret = agent_self_test();
-        char *json = agent_self_test_results_json();
+	if (handle_self_test_command(msg))
+		return;
 
-        cJSON *root = cJSON_Parse(json);
-        int total = 0, passed = 0;
-        cJSON *t = cJSON_GetObjectItem(root, "total");
-        cJSON *p = cJSON_GetObjectItem(root, "passed");
-        if (cJSON_IsNumber(t)) total = t->valueint;
-        if (cJSON_IsNumber(p)) passed = p->valueint;
+	if (common_preamble(msg) != 0)
+		return;
 
-        char buf[4096];
-        int off = snprintf(buf, sizeof(buf),
-                "🔍 自检完成：%d/%d 通过\n\n", passed, total);
+	char *sp = platform_calloc(1, TURN_BUF_SIZE);
+	char *hj = platform_calloc(1, TURN_BUF_SIZE);
+	if (!sp || !hj) { kfree(sp); kfree(hj); return; }
 
-        cJSON *items = cJSON_GetObjectItem(root, "items");
-        if (items && cJSON_IsArray(items)) {
-            cJSON *item;
-            cJSON_ArrayForEach(item, items) {
-                const char *name = cJSON_GetStringValue(
-                    cJSON_GetObjectItem(item, "name"));
-                cJSON *ok = cJSON_GetObjectItem(item, "ok");
-                if (name && (size_t)off < sizeof(buf) - 64) {
-                    off += snprintf(buf + off, sizeof(buf) - off,
-                            "%s %s\n",
-                            cJSON_IsTrue(ok) ? "✅" : "❌", name);
-                }
-            }
-        }
-        cJSON_Delete(root);
+	cJSON *messages = NULL;
+	err_t err = agent_turn_prepare(msg, agent_extension_state_plan(),
+					sp, TURN_BUF_SIZE, hj, TURN_BUF_SIZE, &messages);
+	if (err == 0) err = agent_hooks_trigger_prepare(msg, sp, TURN_BUF_SIZE, messages);
 
-        struct message reply;
-        memset(&reply, 0, sizeof(reply));
-        strscpy(reply.channel, msg->channel, sizeof(reply.channel));
-        strscpy(reply.chat_id, msg->chat_id, sizeof(reply.chat_id));
-        reply.content = strdup(buf);
-        message_bus_push_outbound(&reply);
+	char *ft = NULL, *rt = NULL;
+	int it = 0;
+	bool tbe = false, cancelled = false;
 
-        kfree(json);
+	if (err == 0) {
+		const char *tj = tool_registry_get_tools_json_for_channel(msg->channel);
+		err = turn_execute(msg, sp, messages, tj, msg->chat_id,
+				    &ft, &rt, &it, &tbe, &cancelled);
+	}
 
-        /* 推送真实测试消息——走完整 LLM + subagent 流程 */
-        struct message test_msg;
-        memset(&test_msg, 0, sizeof(test_msg));
-        strscpy(test_msg.channel, msg->channel, sizeof(test_msg.channel));
-        strscpy(test_msg.chat_id, msg->chat_id, sizeof(test_msg.chat_id));
-        strscpy(test_msg.source, "internal", sizeof(test_msg.source));
-        test_msg.content = strdup(
-            "使用 delegate_task 工具，同时执行以下三个检查："
-            "1) free -h 查看内存使用"
-            "2) df -h 查看磁盘使用"
-            "3) uname -a 查看系统版本"
-            "每个子Agent负责一项，并行处理，完成后汇总输出。");
-        message_bus_push_inbound(&test_msg);
-
-        agent_cleanup_inbound_msg(msg);
-        return;
-    }
-
-    /* 同步路径：直接加载历史，不走记忆核 */
-    msg->intent = INTENT_OPEN;
-    agent_extension_state_reset();
-
-    if (agent_hooks_trigger_intent(msg) != 0) {
-        char *ft = NULL, *rt = NULL;
-        agent_turn_finish(msg, &ft, &rt, ERR_FAIL, 0, false, false);
-        return;
-    }
-
-    if (agent_msg_is_internal_control(msg)) {
-        pr_info("Dropping internal control %s:%s", msg->channel, msg->chat_id);
-        agent_cleanup_inbound_msg(msg);
-        return;
-    }
-
-    char *sp = platform_calloc(1, TURN_BUF_SIZE);
-    char *hj = platform_calloc(1, TURN_BUF_SIZE);
-    if (!sp || !hj) { kfree(sp); kfree(hj); return; }
-
-    cJSON *messages = NULL;
-    err_t err = agent_turn_prepare(msg, agent_extension_state_plan(),
-                                    sp, TURN_BUF_SIZE, hj, TURN_BUF_SIZE, &messages);
-    if (err == 0) err = agent_hooks_trigger_prepare(msg, sp, TURN_BUF_SIZE, messages);
-
-    char *ft = NULL, *rt = NULL;
-    int it = 0;
-    bool tbe = false, cancelled = false;
-
-    if (err == 0) {
-        const char *tj = tool_registry_get_tools_json_for_channel(msg->channel);
-        err = agent_hooks_trigger_replace_run(msg, sp, messages, tj, &ft);
-        if (err != 0) {
-            const char *mo = NULL;
-            err = agent_hooks_trigger_before_run(msg, &mo, tj);
-            if (err == 0) {
-                uint64_t ct = agent_cancel_begin_turn(msg->chat_id);
-                err = agent_turn_run(sp, messages, tj, msg, mo, ct,
-                                      &ft, &rt, &it, &tbe, &cancelled);
-            }
-        }
-    }
-
-    cJSON_Delete(messages);
-    kfree(sp); kfree(hj);
-    const char *fr = ft ? ft : "";
-    agent_hooks_trigger_finish(msg, fr);
-    agent_turn_finish(msg, &ft, &rt, err, it, tbe, cancelled);
+	cJSON_Delete(messages);
+	kfree(sp); kfree(hj);
+	const char *fr = ft ? ft : "";
+	agent_hooks_trigger_finish(msg, fr);
+	agent_turn_finish(msg, &ft, &rt, err, it, tbe, cancelled);
 }
 
 /* 异步路径：把历史加载分发给记忆核，切出去等回复 */
 static void process_new_message_async(struct message *msg)
 {
-    /* 自检命令拦截 */
-    if (msg->content && strncmp(msg->content, "!test", 5) == 0) {
-        int ret = agent_self_test();
-        char *json = agent_self_test_results_json();
+	if (handle_self_test_command(msg))
+		return;
 
-        cJSON *root = cJSON_Parse(json);
-        int total = 0, passed = 0;
-        cJSON *t = cJSON_GetObjectItem(root, "total");
-        cJSON *p = cJSON_GetObjectItem(root, "passed");
-        if (cJSON_IsNumber(t)) total = t->valueint;
-        if (cJSON_IsNumber(p)) passed = p->valueint;
+	if (common_preamble(msg) != 0)
+		return;
 
-        char buf[4096];
-        int off = snprintf(buf, sizeof(buf),
-                "🔍 自检完成：%d/%d 通过\n\n", passed, total);
+	/* 存快照 */
+	struct turn_snapshot snap;
+	memset(&snap, 0, sizeof(snap));
+	strscpy(snap.chat_id, msg->chat_id, sizeof(snap.chat_id));
+	strscpy(snap.channel, msg->channel, sizeof(snap.channel));
+	strscpy(snap.source, msg->source, sizeof(snap.source));
+	if (msg->content) strscpy(snap.msg_content, msg->content, sizeof(snap.msg_content));
+	if (msg->image_path) strscpy(snap.msg_image_path, msg->image_path, sizeof(snap.msg_image_path));
+	snap.msg_intent = msg->intent;
 
-        cJSON *items = cJSON_GetObjectItem(root, "items");
-        if (items && cJSON_IsArray(items)) {
-            cJSON *item;
-            cJSON_ArrayForEach(item, items) {
-                const char *name = cJSON_GetStringValue(
-                    cJSON_GetObjectItem(item, "name"));
-                cJSON *ok = cJSON_GetObjectItem(item, "ok");
-                if (name && (size_t)off < sizeof(buf) - 64) {
-                    off += snprintf(buf + off, sizeof(buf) - off,
-                            "%s %s\n",
-                            cJSON_IsTrue(ok) ? "✅" : "❌", name);
-                }
-            }
-        }
-        cJSON_Delete(root);
+	/* 分发加载任务给记忆核 */
+	struct core_task load_task;
+	memset(&load_task, 0, sizeof(load_task));
+	snprintf(load_task.id, sizeof(load_task.id), "ld_%s", msg->chat_id);
+	strscpy(load_task.type, TASK_LOAD_CONTEXT, sizeof(load_task.type));
+	cJSON *lp = cJSON_CreateObject();
+	cJSON_AddStringToObject(lp, "chat_id", msg->chat_id);
+	load_task.payload = cJSON_PrintUnformatted(lp);
+	cJSON_Delete(lp);
+	strscpy(snap.pending_task_id, load_task.id, sizeof(snap.pending_task_id));
+	if (core_send(CORE_MEMORY, &load_task) != 0) {
+		pr_err("loop: core_send to memory_core failed for chat=%s, aborting turn", msg->chat_id);
+		kfree(load_task.payload);
+		char *ft = NULL, *rt = NULL;
+		agent_turn_finish(msg, &ft, &rt, ERR_FAIL, 0, false, false);
+		agent_cleanup_inbound_msg(msg);
+		return;
+	}
 
-        struct message reply;
-        memset(&reply, 0, sizeof(reply));
-        strscpy(reply.channel, msg->channel, sizeof(reply.channel));
-        strscpy(reply.chat_id, msg->chat_id, sizeof(reply.chat_id));
-        reply.content = strdup(buf);
-        message_bus_push_outbound(&reply);
-
-        kfree(json);
-
-        /* 推送真实测试消息——走完整 LLM + subagent 流程 */
-        struct message test_msg;
-        memset(&test_msg, 0, sizeof(test_msg));
-        strscpy(test_msg.channel, msg->channel, sizeof(test_msg.channel));
-        strscpy(test_msg.chat_id, msg->chat_id, sizeof(test_msg.chat_id));
-        strscpy(test_msg.source, "internal", sizeof(test_msg.source));
-        test_msg.content = strdup(
-            "使用 delegate_task 工具，同时执行以下三个检查："
-            "1) free -h 查看内存使用"
-            "2) df -h 查看磁盘使用"
-            "3) uname -a 查看系统版本"
-            "每个子Agent负责一项，并行处理，完成后汇总输出。");
-        message_bus_push_inbound(&test_msg);
-
-        agent_cleanup_inbound_msg(msg);
-        return;
-    }
-
-    msg->intent = INTENT_OPEN;
-    agent_extension_state_reset();
-
-    if (agent_hooks_trigger_intent(msg) != 0) {
-        char *ft = NULL, *rt = NULL;
-        agent_turn_finish(msg, &ft, &rt, ERR_FAIL, 0, false, false);
-        return;
-    }
-
-    if (agent_msg_is_internal_control(msg)) {
-        pr_info("Dropping internal control %s:%s", msg->channel, msg->chat_id);
-        agent_cleanup_inbound_msg(msg);
-        return;
-    }
-
-    /* 存快照 */
-    struct turn_snapshot snap;
-    memset(&snap, 0, sizeof(snap));
-    strscpy(snap.chat_id, msg->chat_id, sizeof(snap.chat_id));
-    strscpy(snap.channel, msg->channel, sizeof(snap.channel));
-    strscpy(snap.source, msg->source, sizeof(snap.source));
-    if (msg->content) strscpy(snap.msg_content, msg->content, sizeof(snap.msg_content));
-    if (msg->image_path) strscpy(snap.msg_image_path, msg->image_path, sizeof(snap.msg_image_path));
-    snap.msg_intent = msg->intent;
-
-    /* 分发加载任务给记忆核 */
-    struct core_task load_task;
-    memset(&load_task, 0, sizeof(load_task));
-    snprintf(load_task.id, sizeof(load_task.id), "ld_%s", msg->chat_id);
-    strscpy(load_task.type, TASK_LOAD_CONTEXT, sizeof(load_task.type));
-    cJSON *lp = cJSON_CreateObject();
-    cJSON_AddStringToObject(lp, "chat_id", msg->chat_id);
-    load_task.payload = cJSON_PrintUnformatted(lp);
-    cJSON_Delete(lp);
-    strscpy(snap.pending_task_id, load_task.id, sizeof(snap.pending_task_id));
-    if (core_send(CORE_MEMORY, &load_task) != 0) {
-        pr_err("loop: core_send to memory_core failed for chat=%s, aborting turn", msg->chat_id);
-        kfree(load_task.payload);
-        char *ft = NULL, *rt = NULL;
-        agent_turn_finish(msg, &ft, &rt, ERR_FAIL, 0, false, false);
-        agent_cleanup_inbound_msg(msg);
-        return;
-    }
-
-    turn_context_save(&snap);
-    agent_cleanup_inbound_msg(msg);
-    /* 切出去，等 process_core_reply 恢复 */
+	turn_context_save(&snap);
+	agent_cleanup_inbound_msg(msg);
+	/* 切出去，等 process_core_reply 恢复 */
 }
 
 static void process_core_reply(void)
 {
-    struct core_task reply;
-    memset(&reply, 0, sizeof(reply));
-    if (core_recv(CORE_SCHEDULER, &reply, 0) != 0) return;
+	struct core_task reply;
+	memset(&reply, 0, sizeof(reply));
+	if (core_recv(CORE_SCHEDULER, &reply, 0) != 0) return;
 
-    const char *chat_id = turn_context_find_by_task(reply.id);
-    if (!chat_id) {
-        pr_warn("loop: orphan task reply %s, discarded", reply.id);
-        kfree(reply.result);
-        return;
-    }
+	const char *chat_id = turn_context_find_by_task(reply.id);
+	if (!chat_id) {
+		pr_warn("loop: orphan task reply %s, discarded", reply.id);
+		kfree(reply.result);
+		return;
+	}
 
-    struct turn_snapshot *snap = turn_context_load(chat_id);
-    if (!snap) {
-        kfree(reply.result);
-        return;
-    }
+	struct turn_snapshot *snap = turn_context_load(chat_id);
+	if (!snap) {
+		kfree(reply.result);
+		return;
+	}
 
-    /* TASK_LOAD_CONTEXT 回复：恢复 turn */
-    if (strstr(reply.id, "ld_") == reply.id) {
-        char *hj = platform_calloc(1, TURN_BUF_SIZE);
-        char *sp = platform_calloc(1, TURN_BUF_SIZE);
-        if (!hj || !sp) { kfree(hj); kfree(sp); turn_context_remove(chat_id); kfree(reply.result); return; }
+	/* TASK_LOAD_CONTEXT 回复：恢复 turn */
+	if (strstr(reply.id, "ld_") == reply.id) {
+		char *hj = platform_calloc(1, TURN_BUF_SIZE);
+		char *sp = platform_calloc(1, TURN_BUF_SIZE);
+		if (!hj || !sp) { kfree(hj); kfree(sp); turn_context_remove(chat_id); kfree(reply.result); return; }
 
-        cJSON *root = cJSON_Parse(reply.result ? reply.result : "{}");
-        const char *history = cJSON_GetStringValue(cJSON_GetObjectItem(root, "history"));
-        if (history) strscpy(hj, history, TURN_BUF_SIZE);
-        cJSON_Delete(root);
+		cJSON *root = cJSON_Parse(reply.result ? reply.result : "{}");
+		const char *history = cJSON_GetStringValue(cJSON_GetObjectItem(root, "history"));
+		if (history) strscpy(hj, history, TURN_BUF_SIZE);
+		cJSON_Delete(root);
 
-        struct message resume_msg;
-        memset(&resume_msg, 0, sizeof(resume_msg));
-        strscpy(resume_msg.chat_id, snap->chat_id, sizeof(resume_msg.chat_id));
-        strscpy(resume_msg.channel, snap->channel, sizeof(resume_msg.channel));
-        strscpy(resume_msg.source, snap->source, sizeof(resume_msg.source));
-        resume_msg.content = snap->msg_content[0] ? strdup(snap->msg_content) : NULL;
-        resume_msg.image_path = snap->msg_image_path[0] ? strdup(snap->msg_image_path) : NULL;
-        resume_msg.intent = snap->msg_intent;
+		struct message resume_msg;
+		memset(&resume_msg, 0, sizeof(resume_msg));
+		strscpy(resume_msg.chat_id, snap->chat_id, sizeof(resume_msg.chat_id));
+		strscpy(resume_msg.channel, snap->channel, sizeof(resume_msg.channel));
+		strscpy(resume_msg.source, snap->source, sizeof(resume_msg.source));
+		resume_msg.content = snap->msg_content[0] ? strdup(snap->msg_content) : NULL;
+		resume_msg.image_path = snap->msg_image_path[0] ? strdup(snap->msg_image_path) : NULL;
+		resume_msg.intent = snap->msg_intent;
 
-        cJSON *messages = NULL;
-        err_t err = agent_turn_prepare(&resume_msg, agent_extension_state_plan(),
-                                        sp, TURN_BUF_SIZE, hj, TURN_BUF_SIZE, &messages);
-        if (err == 0) err = agent_hooks_trigger_prepare(&resume_msg, sp, TURN_BUF_SIZE, messages);
+		cJSON *messages = NULL;
+		err_t err = agent_turn_prepare(&resume_msg, agent_extension_state_plan(),
+						sp, TURN_BUF_SIZE, hj, TURN_BUF_SIZE, &messages);
+		if (err == 0) err = agent_hooks_trigger_prepare(&resume_msg, sp, TURN_BUF_SIZE, messages);
 
-        char *ft = NULL, *rt = NULL;
-        int it = 0;
-        bool tbe = false, cancelled = false;
-        if (err == 0) {
-            const char *tj = tool_registry_get_tools_json_for_channel(snap->channel);
-            err = agent_hooks_trigger_replace_run(&resume_msg, sp, messages, tj, &ft);
-            if (err != 0) {
-                const char *mo = NULL;
-                err = agent_hooks_trigger_before_run(&resume_msg, &mo, tj);
-                if (err == 0) {
-                    uint64_t ct = agent_cancel_begin_turn(snap->chat_id);
-                    err = agent_turn_run(sp, messages, tj, &resume_msg, mo, ct,
-                                          &ft, &rt, &it, &tbe, &cancelled);
-                }
-            }
-        }
-        cJSON_Delete(messages);
-        kfree(sp); kfree(hj);
-        const char *fr = ft ? ft : "";
-        agent_hooks_trigger_finish(&resume_msg, fr);
-        agent_turn_finish(&resume_msg, &ft, &rt, err, it, tbe, cancelled);
-        turn_context_remove(chat_id);
-        kfree(reply.result);
-        return;
-    }
+		char *ft = NULL, *rt = NULL;
+		int it = 0;
+		bool tbe = false, cancelled = false;
+		if (err == 0) {
+			const char *tj = tool_registry_get_tools_json_for_channel(snap->channel);
+			err = turn_execute(&resume_msg, sp, messages, tj, snap->chat_id,
+					    &ft, &rt, &it, &tbe, &cancelled);
+		}
+		cJSON_Delete(messages);
+		kfree(sp); kfree(hj);
+		const char *fr = ft ? ft : "";
+		agent_hooks_trigger_finish(&resume_msg, fr);
+		agent_turn_finish(&resume_msg, &ft, &rt, err, it, tbe, cancelled);
+		turn_context_remove(chat_id);
+		kfree(reply.result);
+		return;
+	}
 
-    /* 工具执行回复（原有逻辑） */
-    cJSON *root = cJSON_Parse(reply.result ? reply.result : "{}");
-    cJSON *results = cJSON_GetObjectItem(root, "results");
-    if (results && cJSON_IsArray(results)) {
-        cJSON *tool_result = cJSON_CreateArray();
-        cJSON *r;
-        cJSON_ArrayForEach(r, results) {
-            cJSON *block = cJSON_CreateObject();
-            cJSON_AddStringToObject(block, "type", "tool_result");
-            cJSON_AddStringToObject(block, "tool_use_id",
-                                    cJSON_GetStringValue(cJSON_GetObjectItem(r, "id")));
-            cJSON_AddStringToObject(block, "content",
-                                    cJSON_GetStringValue(cJSON_GetObjectItem(r, "output")));
-            cJSON_AddItemToArray(tool_result, block);
-        }
-        /* 注入到 messages */
-        cJSON *msg_block = cJSON_CreateObject();
-        cJSON_AddStringToObject(msg_block, "role", "user");
-        cJSON_AddItemToObject(msg_block, "content", tool_result);
-        cJSON_AddItemToArray(snap->messages, msg_block);
-    }
-    cJSON_Delete(root);
+	/* 工具执行回复（原有逻辑） */
+	cJSON *root = cJSON_Parse(reply.result ? reply.result : "{}");
+	cJSON *results = cJSON_GetObjectItem(root, "results");
+	if (results && cJSON_IsArray(results)) {
+		cJSON *tool_result = cJSON_CreateArray();
+		cJSON *r;
+		cJSON_ArrayForEach(r, results) {
+			cJSON *block = cJSON_CreateObject();
+			cJSON_AddStringToObject(block, "type", "tool_result");
+			cJSON_AddStringToObject(block, "tool_use_id",
+						cJSON_GetStringValue(cJSON_GetObjectItem(r, "id")));
+			cJSON_AddStringToObject(block, "content",
+						cJSON_GetStringValue(cJSON_GetObjectItem(r, "output")));
+			cJSON_AddItemToArray(tool_result, block);
+		}
+		/* 注入到 messages */
+		cJSON *msg_block = cJSON_CreateObject();
+		cJSON_AddStringToObject(msg_block, "role", "user");
+		cJSON_AddItemToObject(msg_block, "content", tool_result);
+		cJSON_AddItemToArray(snap->messages, msg_block);
+	}
+	cJSON_Delete(root);
 
-    /* 清除 pending，继续调 LLM */
-    snap->pending_task_id[0] = '\0';
+	/* 清除 pending，继续调 LLM */
+	snap->pending_task_id[0] = '\0';
 
-    char *ft2 = NULL, *rt2 = NULL;
-    int it2 = 0;
-    bool tbe2 = false, cancelled2 = false;
+	char *ft2 = NULL, *rt2 = NULL;
+	int it2 = 0;
+	bool tbe2 = false, cancelled2 = false;
 
-    struct message resume_msg = {
-        .channel = "", .chat_id = "", .source = "", .content = NULL, .reasoning = NULL
-    };
-    strscpy(resume_msg.channel, snap->channel, sizeof(resume_msg.channel));
-    strscpy(resume_msg.chat_id, snap->chat_id, sizeof(resume_msg.chat_id));
+	struct message resume_msg = {
+		.channel = "", .chat_id = "", .source = "", .content = NULL, .reasoning = NULL
+	};
+	strscpy(resume_msg.channel, snap->channel, sizeof(resume_msg.channel));
+	strscpy(resume_msg.chat_id, snap->chat_id, sizeof(resume_msg.chat_id));
 
-    const char *tj = tool_registry_get_tools_json_for_channel(snap->channel);
-    err_t err = agent_turn_run(
-        snap->system_prompt, snap->messages, tj, &resume_msg,
-        NULL, snap->cancel_token,
-        &ft2, &rt2, &it2, &tbe2, &cancelled2);
+	const char *tj = tool_registry_get_tools_json_for_channel(snap->channel);
+	err_t err = agent_turn_run(
+		snap->system_prompt, snap->messages, tj, &resume_msg,
+		NULL, snap->cancel_token,
+		&ft2, &rt2, &it2, &tbe2, &cancelled2);
 
-    const char *fr2 = ft2 ? ft2 : "";
-    agent_hooks_trigger_finish(&resume_msg, fr2);
-    agent_turn_finish(&resume_msg, &ft2, &rt2, err, it2 + snap->iteration, tbe2, cancelled2);
+	const char *fr2 = ft2 ? ft2 : "";
+	agent_hooks_trigger_finish(&resume_msg, fr2);
+	agent_turn_finish(&resume_msg, &ft2, &rt2, err, it2 + snap->iteration, tbe2, cancelled2);
 
-    turn_context_remove(chat_id);
-    kfree(reply.payload); kfree(reply.result);
+	turn_context_remove(chat_id);
+	kfree(reply.payload); kfree(reply.result);
 }
 
 static void agent_loop_task(void *arg)
 {
-    (void)arg;
-    pr_info("Agent loop started (async multiplex mode)");
+	(void)arg;
+	pr_info("Agent loop started (async multiplex mode)");
 
-    while (1) {
-        /* 1. 优先处理执行核回复 */
-        process_core_reply();
+	while (1) {
+		/* 1. 优先处理执行核回复 */
+		process_core_reply();
 
-        /* 2. 检查新消息 */
-        struct message msg;
-        memset(&msg, 0, sizeof(msg));
-        if (message_bus_pop_inbound(&msg, 0) == 0) {
-            process_new_message_async(&msg);
-        } else {
-            /* 无新消息也无回复，稍微休眠 */
-            usleep(50000);  /* 50ms */
-        }
-    }
+		/* 2. 检查新消息 */
+		struct message msg;
+		memset(&msg, 0, sizeof(msg));
+		if (message_bus_pop_inbound(&msg, 0) == 0) {
+			process_new_message_async(&msg);
+		} else {
+			/* 无新消息也无回复，稍微休眠 */
+			usleep(50000);  /* 50ms */
+		}
+	}
 }
 
 void agent_process_message(struct message *msg)
 {
-    process_new_message(msg);
+	process_new_message(msg);
 }
 
 err_t agent_loop_init(void)
 {
-    err_t err = context_compressor_init();
-    if (err != 0) return err;
-    if (runtime_config_get_learning_review_enabled()) {
-        err = learning_review_init();
-        if (err != 0) return err;
-    } else {
-        pr_info("Learning review disabled");
-    }
-    pr_info("Agent loop initialized");
-    return 0;
+	err_t err = context_compressor_init();
+	if (err != 0) return err;
+	if (runtime_config_get_learning_review_enabled()) {
+		err = learning_review_init();
+		if (err != 0) return err;
+	} else {
+		pr_info("Learning review disabled");
+	}
+	pr_info("Agent loop initialized");
+	return 0;
 }
 
 err_t agent_loop_start(void)
 {
-    const uint32_t stacks[] = { AGENT_STACK, 20480, 16384, 14336, 12288 };
-    for (size_t i = 0; i < sizeof(stacks) / sizeof(stacks[0]); i++) {
-        if (task_create(agent_loop_task, "agent_loop", stacks[i], NULL, AGENT_PRIO, NULL)) {
-            pr_info("agent_loop created stack=%u", (unsigned)stacks[i]);
-            return 0;
-        }
-        pr_warn("agent_loop create failed stack=%u retry", (unsigned)stacks[i]);
-    }
-    return ERR_FAIL;
+	const uint32_t stacks[] = { AGENT_STACK, 20480, 16384, 14336, 12288 };
+	for (size_t i = 0; i < sizeof(stacks) / sizeof(stacks[0]); i++) {
+		if (task_create(agent_loop_task, "agent_loop", stacks[i], NULL, AGENT_PRIO, NULL)) {
+			pr_info("agent_loop created stack=%u", (unsigned)stacks[i]);
+			return 0;
+		}
+		pr_warn("agent_loop create failed stack=%u retry", (unsigned)stacks[i]);
+	}
+	return ERR_FAIL;
 }

@@ -39,7 +39,8 @@ daima-agent/
 
 ```
 bootstrap_prepare_runtime()
-  ├── paths_init()            目录创建
+  ├── paths_init()            路径检测（HOME + SPIFFS 布局）
+  ├── ensure_spiffs_layout()  目录创建（10 个目录树）
   └── runtime_config_init()   加载 config.json
 ```
 
