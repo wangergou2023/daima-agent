@@ -16,3 +16,4 @@ build-arm/
 __pycache__/
 test/build/
 .config.old
+.omo/

@@ -13,7 +13,7 @@
  *   1. 环境变量 CA_CERT_FILE
  *   2. 环境变量 CURL_CA_BUNDLE
  *   3. 环境变量 SSL_CERT_FILE
- *   4. 内置路径 path_ca_cert_file()
+ *   4. 内置路径 spiffs_base/ca/cacert.pem
  * @return 可读的 CA 证书路径，找不到返回 NULL
  */
 const char *host_tls_ca_cert_path(void)
@@ -25,7 +25,7 @@ const char *host_tls_ca_cert_path(void)
         return ca;
     }
 
-    char ca_path[512];
+    static char ca_path[512];
     snprintf(ca_path, sizeof(ca_path), "%s/ca/cacert.pem", path_spiffs_base());
     const char *fallback = ca_path;
     if (fallback && fallback[0] && access(fallback, R_OK) == 0) {
