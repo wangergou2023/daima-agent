@@ -25,7 +25,6 @@ daima-agent/
 ├── arch/{host,mips,arm}/    平台抽象
 ├── lib/net/fs/              工具库 / HTTP-TLS / 文件系统
 ├── scripts/                 Kbuild 引擎 (7 行 Kbuild.include)
-├── test/                    48 单元测试
 └── spiffs_data/             运行时数据 (配置/技能/证书)
 ```
 
@@ -334,7 +333,6 @@ Makefile: core-y 目录列表 → scripts/Makefile.build → .c→.o → objects
 | `make V=1` | 详细输出 |
 | `make V=2` | 详细输出 + 重编译原因诊断 |
 | `make clean` | 清理 |
-| `make test` | 48 单元测试 |
 | `make mips\|arm` | 交叉编译 |
 
 ### 编译选项

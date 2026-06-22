@@ -38,7 +38,7 @@ core-y += extensions/
 agent-dirs := $(patsubst %/,%,$(core-y))
 agent_builtin := $(foreach d,$(agent-dirs),$(d)/built-in.o)
 
-.PHONY: all agent host mips arm arch-obj cjson modules test clean mrproper distclean help $(agent-dirs)
+.PHONY: all agent host mips arm arch-obj cjson modules clean mrproper distclean help $(agent-dirs)
 
 all: kbuild
 kbuild: agent
@@ -78,14 +78,9 @@ arm:
 modules:
 	@echo "  MODULES  extensions/ (built-in)"
 
-test:
-	$(Q)mkdir -p test/build
-	$(MAKE) -C test test PWD=$(CURDIR)
-
 clean:
 	$(Q)rm -rf build-kbuild build-host build-mips build-arm
 	$(Q)find init kernel drivers arch ipc lib net fs include extensions -name '*.o' -delete
-	$(Q)$(MAKE) -C test clean
 
 kbuild-clean:
 	$(Q)rm -rf $(BUILD_DIR)
@@ -99,4 +94,4 @@ distclean: mrproper
 help:
 	@echo "make / make host     build x86_64 via Kbuild"
 	@echo "make mips|arm        cross-compile"
-	@echo "make test clean mrproper distclean"
+	@echo "make clean mrproper distclean"

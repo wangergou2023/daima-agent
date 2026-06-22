@@ -11,6 +11,10 @@
 #include "turn_resume.h"
 #include "turn_run.h"
 #include "state.h"
+#include "roles.h"
+#include "intent.h"
+#include "plan.h"
+#include "router.h"
 #include "runtime.h"
 #include "bus.h"
 #include "autoconf.h"
@@ -31,6 +35,72 @@ int agent_self_test(void);
 char *agent_self_test_results_json(void);
 
 #define TURN_BUF_SIZE 131072
+
+static agent_role_t active_role_for_plan(const struct plan *plan,
+					 const agent_role_t roles[3],
+					 int role_count)
+{
+	if (role_count <= 0) {
+		return AGENT_ROLE_FAST;
+	}
+	if (plan && plan->has_plan && plan->reviewed && role_count > 1) {
+		return roles[1];
+	}
+	return roles[0];
+}
+
+static void append_role_prompt(char *system_prompt,
+			       size_t system_prompt_size,
+			       agent_role_t role)
+{
+	if (!system_prompt || system_prompt_size == 0) {
+		return;
+	}
+
+	size_t off = strnlen(system_prompt, system_prompt_size - 1);
+	if (off >= system_prompt_size - 1) {
+		return;
+	}
+
+	int written = snprintf(system_prompt + off, system_prompt_size - off,
+			       "\n\n## 当前角色: %s\n%s\n",
+			       agent_role_name(role), agent_role_prompt_suffix(role));
+	if (written < 0 || (size_t)written >= system_prompt_size - off) {
+		system_prompt[system_prompt_size - 1] = '\0';
+	}
+}
+
+static void apply_mainline_turn_state(struct message *msg,
+				      struct plan *plan,
+				      agent_role_t roles[3],
+				      int *role_count,
+				      agent_role_t *active_role)
+{
+	if (!msg || !plan || !roles || !role_count || !active_role) {
+		return;
+	}
+
+	intent_gate_classify(msg->content ? msg->content : "", &msg->intent);
+	*role_count = agent_roles_for_intent(msg->intent, roles);
+	if (msg->intent == INTENT_IMPLEMENT || msg->intent == INTENT_FIX) {
+		(void)plan_review_generate(msg->intent, msg->content, "", plan);
+	}
+	*active_role = active_role_for_plan(plan, roles, *role_count);
+}
+
+static const char *resolve_mainline_model(struct message *msg, agent_role_t active_role)
+{
+	category_router_cfg_t cfg = category_router_load_and_get_cfg();
+	if (!cfg.enabled) {
+		return NULL;
+	}
+
+	const category_profile_t *profile = category_router_resolve_for_role(active_role);
+	if (!profile) {
+		profile = category_router_resolve(msg ? msg->intent : INTENT_OPEN);
+	}
+	return profile ? profile->model : NULL;
+}
 
 /* 处理 !test 自检命令，返回 true 表示已处理（调用者应直接 return） */
 static bool handle_self_test_command(struct message *msg)
@@ -102,12 +172,6 @@ static err_t common_preamble(struct message *msg)
 	msg->intent = INTENT_OPEN;
 	agent_extension_state_reset();
 
-	if (agent_hooks_trigger_intent(msg) != 0) {
-		char *ft = NULL, *rt = NULL;
-		agent_turn_finish(msg, &ft, &rt, ERR_FAIL, 0, false, false);
-		return ERR_FAIL;
-	}
-
 	if (agent_msg_is_internal_control(msg)) {
 		pr_info("Dropping internal control %s:%s", msg->channel, msg->chat_id);
 		agent_cleanup_inbound_msg(msg);
@@ -129,13 +193,24 @@ static void process_new_message(struct message *msg)
 	char *hj = platform_calloc(1, TURN_BUF_SIZE);
 	if (!sp || !hj) { kfree(sp); kfree(hj); return; }
 
+	struct plan *plan = agent_extension_state_plan();
+	agent_role_t roles[3] = {0};
+	agent_role_t active_role = AGENT_ROLE_FAST;
+	int role_count = 0;
+	apply_mainline_turn_state(msg, plan, roles, &role_count, &active_role);
+
 	cJSON *messages = NULL;
-	err_t err = agent_turn_prepare(msg, agent_extension_state_plan(),
+	err_t err = agent_turn_prepare(msg, plan,
 					sp, TURN_BUF_SIZE, hj, TURN_BUF_SIZE, &messages);
-	if (err == 0) err = agent_hooks_trigger_prepare(msg, sp, TURN_BUF_SIZE, messages);
+	if (err == 0) {
+		append_role_prompt(sp, TURN_BUF_SIZE, active_role);
+		err = agent_hooks_trigger_prepare(msg, sp, TURN_BUF_SIZE, messages);
+	}
 
 	if (err == 0) {
 		const char *tj = tool_bus_tools_json_for_channel(msg->channel);
+		const char *model_override = resolve_mainline_model(msg, active_role);
+		(void)model_override;
 		agent_run_prepared_turn(msg, sp, messages, tj, msg->chat_id, 0);
 	} else {
 		char *ft = NULL, *rt = NULL;

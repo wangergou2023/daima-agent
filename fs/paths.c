@@ -290,7 +290,8 @@ bool path_resolve_spiffs_shortcut(const char *path, char *resolved, size_t resol
         return strscpy(resolved, s_paths.spiffs_base, resolved_size) < resolved_size;
     }
     if (strncmp(path, "spiffs_data/", 12) == 0) {
-        return snprintf(resolved, resolved_size, "%s/%s", s_paths.spiffs_base, path + 12) < resolved_size;
+        int n = snprintf(resolved, resolved_size, "%s/%s", s_paths.spiffs_base, path + 12);
+        return n >= 0 && (size_t)n < resolved_size;
     }
     return false;
 }

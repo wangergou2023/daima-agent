@@ -8,7 +8,6 @@
 
 ```bash
 make               # 编译
-make test          # 测试
 ./build-kbuild/agent  # 运行
 ```
 
@@ -21,7 +20,6 @@ make test          # 测试
 | `make V=2` | 详细输出 + 重编译原因诊断 |
 | `make clean` | 清理编译产物 |
 | `make mrproper` | 清理 + 删除 `.config` |
-| `make test` | 运行测试 (48 单元) |
 | `make mips` | MIPS 交叉编译 |
 | `make arm` | ARM 交叉编译 |
 

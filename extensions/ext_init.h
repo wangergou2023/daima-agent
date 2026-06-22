@@ -5,12 +5,6 @@
 
 #include "linux/init.h"
 
-int __init intent_module_init(void);
-int __init interview_module_init(void);
-int __init plan_module_init(void);
-int __init ralph_module_init(void);
-int __init roles_module_init(void);
-int __init router_module_init(void);
 int __init sched_module_init(void);
 int __init team_module_init(void);
 

@@ -44,11 +44,9 @@ Daima Agent — 嵌入式 AI Agent，C11 + Kbuild，单二进制。Linux 内核 
 ├── arch/{host,mips,arm}/        # 平台抽象（见 arch/AGENTS.md），arm/ 仅含 Makefile 存根
 ├── extensions/                  # LKM 风格模块（见 extensions/AGENTS.md）
 ├── scripts/                     # Kbuild 引擎（6 文件：Makefile.build, Kbuild.include 等）
-├── test/                        # 48 单元测试（45 自动运行，见 test/AGENTS.md）
 ├── spiffs_data/                 # 运行时数据（config/skills/web/ca/cron.json/pets）
 ├── docs/                        # ARCHITECTURE.md
 ├── packaging/deb/               # Debian 打包脚本
-├── .github/workflows/           # CI（ARM cmake 构建，非 Kbuild）
 ├── .clang-format                # C 代码风格（25 行，替代 checkpatch.pl）
 └── Makefile                     # Kbuild 顶层
 ```
@@ -66,7 +64,7 @@ Daima Agent — 嵌入式 AI Agent，C11 + Kbuild，单二进制。Linux 内核 
 | 锁机制 | `include/linux/mutex.h` `spinlock.h` | pthread 内联宏封装 |
 | 构建系统 | `scripts/Makefile.build` + `scripts/Kbuild.include` | obj-y 递归编译 |
 | 代码风格 | `.clang-format` | 100 字符行宽，tab 缩进（`checkpatch.pl` 作为备选） |
-| 测试 | `test/` | `make test`（48 单元），`!test` 消息触发集成自检 |
+| 测试 | `kernel/self_test.c` | `!test` 消息触发集成自检 |
 | 运行时配置 | `spiffs_data/config/config.json` | LLM keys, ports, channels |
 | 运行时自检 | `kernel/self_test.c` | 发 `!test` 消息触发 10 集成测试 |
 
@@ -159,7 +157,6 @@ make                     # → build-kbuild/agent
 make V=1                 # 详细输出
 make V=2                 # 详细输出 + 重编译原因诊断
 make mips|arm            # 交叉编译
-make test                # 48 单元测试
 make clean|mrproper      # 清理
 ./run.sh                 # clean + build + run
 ./build-kbuild/agent     # 运行
@@ -172,7 +169,6 @@ perl scripts/checkpatch.pl --no-tree --strict <file.c>  # 备选风格检查
 - **cJSON FIXME：** `cJSON_GetArraySize` 可能溢出（`int`←`size_t`），已知且不可修复
 - **cJSON TODO：** `cJSON_Compare` O(n²) — 临时实现
 - **`$(TOPDIR)/` 目录：** 构建副作用，应删除
-- **CI 仅 ARM：** `.github/workflows/build-arm.yml` 用 cmake，与本地 Kbuild 路径不同
 - **已提交 .o 文件：** `.gitignore` 已忽略但物理存在于源码树中 — `make clean` 清理
 - **Ralph Loop：** 回合结束时有未完成 TODO 会强制追加警告（`extensions/module_ralph.c`）
 - **中文注释：** 项目约定使用中文文档注释（如 `loop.h`："智能体主循环接口"）

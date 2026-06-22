@@ -24,6 +24,9 @@ typedef struct {
  */
 err_t skill_tools_register(const char *skill_name, const char *skill_dir);
 
+/* 按技能名显式激活一组技能工具。name 可包含 channel 子路径，例如 channels/websocket/foo。 */
+err_t skill_tools_activate_selected(const char *const *skill_names, size_t skill_count);
+
 /* 从 tool_bus 注销指定技能的所有工具 */
 err_t skill_tools_unregister(const char *skill_name);
 

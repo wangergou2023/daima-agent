@@ -21,6 +21,8 @@ void agent_run_prepared_turn(struct message *msg,
 			     const char *cancel_chat_id,
 			     int iteration_offset);
 
+err_t agent_turn_maybe_interview(struct message *msg, char **out_final_text);
+
 /**
  * 统一执行 turn finish 钩子与收尾处理。
  * @param iteration_offset  追加到本次执行迭代次数上的偏移量

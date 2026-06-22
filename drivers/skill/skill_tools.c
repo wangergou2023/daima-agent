@@ -1,4 +1,5 @@
 #include "drivers/skill/skill_tools.h"
+#include "drivers/skill/skill_meta.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -214,6 +215,40 @@ err_t skill_tools_register(const char *skill_name, const char *skill_dir)
 
     cJSON_Delete(root);
     pr_info("Registered %d skill-scoped tools for %s", slot->bundle.tool_count, skill_name);
+    return 0;
+}
+
+err_t skill_tools_activate_selected(const char *const *skill_names, size_t skill_count)
+{
+    if (!skill_names && skill_count > 0) {
+        return ERR_INVALID_ARG;
+    }
+
+    for (size_t i = 0; i < skill_count; i++) {
+        const char *skill_name = skill_names[i];
+        if (!skill_name || !skill_name[0]) {
+            continue;
+        }
+
+        char skill_dir[512];
+        if (!skill_meta_resolve_path(skill_name, "", skill_dir, sizeof(skill_dir))) {
+            return ERR_NOT_FOUND;
+        }
+
+        size_t len = strlen(skill_dir);
+        if (len == 0) {
+            return ERR_NOT_FOUND;
+        }
+        if (skill_dir[len - 1] == '/') {
+            skill_dir[len - 1] = '\0';
+        }
+
+        err_t err = skill_tools_register(skill_name, skill_dir);
+        if (err != 0) {
+            return err;
+        }
+    }
+
     return 0;
 }
 

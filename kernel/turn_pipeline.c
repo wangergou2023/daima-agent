@@ -4,10 +4,30 @@
 
 #include "cancel.h"
 #include "hooks.h"
+#include "interview.h"
 #include "turn_finish.h"
 #include "turn_run.h"
 
 #include "linux/kernel.h"
+
+__attribute__((weak)) err_t agent_turn_maybe_interview(struct message *msg, char **out_final_text)
+{
+	if (!msg || !out_final_text) {
+		return ERR_INVALID_ARG;
+	}
+	if (msg->intent != INTENT_IMPLEMENT) {
+		return ERR_FAIL;
+	}
+
+	prometheus_state_t p_state;
+	if (prometheus_check_needs_interview(msg->content ? msg->content : "", &p_state) != 0 ||
+	    !p_state.needs_interview) {
+		return ERR_FAIL;
+	}
+
+	*out_final_text = strdup(p_state.questions);
+	return *out_final_text ? 0 : ERR_NO_MEM;
+}
 
 static err_t run_prepared_turn_once(struct message *msg,
 				    char *system_prompt,
@@ -20,18 +40,25 @@ static err_t run_prepared_turn_once(struct message *msg,
 				    bool *out_tool_budget_exhausted,
 				    bool *out_cancelled)
 {
-	err_t err = agent_hooks_trigger_replace_run(msg, system_prompt, messages, tools_json,
-						    out_final_text);
-	if (err != 0) {
-		const char *model_override = NULL;
-		err = agent_hooks_trigger_before_run(msg, &model_override, tools_json);
-		if (err == 0) {
-			uint64_t cancel_token = agent_cancel_begin_turn(cancel_chat_id);
-			err = agent_turn_run(system_prompt, messages, tools_json, msg, model_override,
-					     cancel_token, out_final_text, out_reasoning_text,
-					     out_iteration, out_tool_budget_exhausted,
-					     out_cancelled);
-		}
+	err_t err = agent_turn_maybe_interview(msg, out_final_text);
+	if (err == 0) {
+		return 0;
+	}
+
+	err = agent_hooks_trigger_replace_run(msg, system_prompt, messages, tools_json,
+					      out_final_text);
+	if (err == 0) {
+		return 0;
+	}
+
+	const char *model_override = NULL;
+	err = agent_hooks_trigger_before_run(msg, &model_override, tools_json);
+	if (err == 0) {
+		uint64_t cancel_token = agent_cancel_begin_turn(cancel_chat_id);
+		err = agent_turn_run(system_prompt, messages, tools_json, msg, model_override,
+				     cancel_token, out_final_text, out_reasoning_text,
+				     out_iteration, out_tool_budget_exhausted,
+				     out_cancelled);
 	}
 
 	return err;

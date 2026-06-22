@@ -193,14 +193,18 @@ bool skill_meta_resolve_path(const char *name,
     }
 
     if (!file_path || !file_path[0]) {
-        return snprintf(resolved, resolved_size, "%s/%s/SKILL.md", path_skills_dir(), name) < resolved_size;
+        int n = snprintf(resolved, resolved_size, "%s/%s/SKILL.md", path_skills_dir(), name);
+        return n >= 0 && (size_t)n < resolved_size;
     }
 
     if (file_path[0] == '/' || contains_dotdot(file_path)) {
         return false;
     }
 
-    return snprintf(resolved, resolved_size, "%s/%s/%s", path_skills_dir(), name, file_path) < resolved_size;
+    {
+        int n = snprintf(resolved, resolved_size, "%s/%s/%s", path_skills_dir(), name, file_path);
+        return n >= 0 && (size_t)n < resolved_size;
+    }
 }
 
 /**
