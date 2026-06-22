@@ -18,7 +18,7 @@ PRINTK_SRC = ../kernel/printk/printk.c ../lib/log_file.c
 SAFE_EDIT_SRC = ../drivers/tool/tool_safe_edit.c
 HASHLINE_SRC = ../drivers/tool/tool_hashline.c
 
-test: test_bus_model test_cancel_race test_locking test_kernel_headers test_tts_player test_work_item test_webfetch test_pet_event test_safe_edit test_hashline test_apply_patch test_terminal test_runtime_config test_llm_openai_payload test_llm_anthropic_payload test_llm_http_async test_llm_async_chat test_model_fallback test_session_history_reasoning test_paths test_rules_injection test_tool_protocol_guard test_agent_hooks test_intent_gate test_agent_roles test_agent_coordinator test_category_router test_plan_review test_prometheus_interview test_team_mode test_files_tool test_cron_tool test_skills_tool test_skill_summary test_context_skills_summary test_tool_surface test_skill_scoped_tools test_tool_invocation_context test_json_helpers test_text test_session_file_common test_compaction_recovery test_session_recovery test_todo_enforcer test_ralph_loop
+test: test_bus_model test_cancel_race test_locking test_kernel_headers test_tts_player test_work_item test_webfetch test_pet_event test_safe_edit test_hashline test_apply_patch test_terminal test_runtime_config test_llm_openai_payload test_llm_anthropic_payload test_llm_http_async test_llm_async_chat test_model_fallback test_session_history_reasoning test_paths test_rules_injection test_tool_protocol_guard test_agent_hooks test_intent_gate test_agent_roles test_agent_coordinator test_category_router test_plan_review test_prometheus_interview test_team_mode test_files_tool test_cron_tool test_skills_tool test_skill_summary test_context_skills_summary test_tool_surface test_skill_scoped_tools test_tool_invocation_context test_json_helpers test_text test_session_file_common test_compaction_recovery test_session_recovery test_todo_enforcer test_ralph_loop test_platform_memory_format
 	mkdir -p $(BUILD_DIR)
 	$(BUILD_DIR)/test_bus_model
 	$(BUILD_DIR)/test_cancel_race
@@ -65,6 +65,7 @@ test: test_bus_model test_cancel_race test_locking test_kernel_headers test_tts_
 	$(BUILD_DIR)/test_session_recovery
 	$(BUILD_DIR)/test_todo_enforcer
 	$(BUILD_DIR)/test_ralph_loop
+	$(BUILD_DIR)/test_platform_memory_format
 
 test_llm_integration: test_llm_integration.c
 	$(CC) $(CFLAGS) -o $(BUILD_DIR)/$@ $^ $(LDLIBS)
@@ -100,6 +101,9 @@ test_terminal: test_terminal.c ../drivers/tool/tool_system.c ../drivers/tool/too
 	$(CC) $(CFLAGS) -o $(BUILD_DIR)/$@ $^ $(LDLIBS)
 
 test_runtime_config: test_runtime_config.c ../kernel/runtime.c ../kernel/runtime_sections.c ../fs/paths.c ../fs/fs.c ../lib/cjson.c
+	$(CC) $(CFLAGS) -o $(BUILD_DIR)/$@ $^ $(LDLIBS)
+
+test_platform_memory_format: test_platform_memory_format.c ../drivers/platform/platform.c ../arch/host/portability.c
 	$(CC) $(CFLAGS) -o $(BUILD_DIR)/$@ $^ $(LDLIBS)
 
 test_deepseek_thinking_runtime: test_deepseek_thinking_runtime.c ../kernel/runtime.c ../kernel/runtime_sections.c ../fs/paths.c ../fs/fs.c ../lib/cjson.c

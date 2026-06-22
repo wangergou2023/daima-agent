@@ -3,6 +3,7 @@
 #include "arch/host/portability.h"
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <sys/time.h>
 #include <time.h>
 #include "linux/slab.h"
@@ -38,6 +39,20 @@ size_t platform_free_memory(void)
 size_t platform_largest_free_block(void)
 {
     return platform_free_memory();
+}
+
+bool platform_format_bytes(size_t bytes, char *buf, size_t buf_size)
+{
+    if (!buf || buf_size == 0) {
+        return false;
+    }
+
+    int n = snprintf(buf, buf_size, "%zu", bytes);
+    if (n < 0 || (size_t)n >= buf_size) {
+        buf[0] = '\0';
+        return false;
+    }
+    return true;
 }
 
 void *platform_calloc(size_t n, size_t size)

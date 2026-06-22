@@ -325,6 +325,11 @@ static size_t append_operator_guide_fallback(char *buf, size_t size, size_t offs
 
 static size_t append_dynamic_runtime_guide_fallback(char *buf, size_t size, size_t offset)
 {
+    char soul_path[512];
+    char user_path[512];
+    snprintf(soul_path, sizeof(soul_path), "%s/SOUL.md", path_config_dir());
+    snprintf(user_path, sizeof(user_path), "%s/USER.md", path_config_dir());
+
     offset = append_textf(
         buf, size, offset,
         "\n## 记忆与引导文件\n\n"
@@ -342,7 +347,8 @@ static size_t append_dynamic_runtime_guide_fallback(char *buf, size_t size, size
         path_memory_dir(),
         path_memory_dir(),
         path_config_dir(),
-        path_config_dir());
+        soul_path,
+        user_path);
 
     return append_textf(
         buf, size, offset,

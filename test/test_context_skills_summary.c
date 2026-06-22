@@ -77,6 +77,10 @@ int main(void)
     assert(context_build_system_prompt_for_channel("websocket", prompt, sizeof(prompt)) == 0);
     assert(strstr(prompt, "menu-xianren"));
     assert(strstr(prompt, "菜单仙人"));
+    assert(strstr(prompt, "Personality"));
+    assert(strstr(prompt, soul_path));
+    assert(strstr(prompt, "User Info"));
+    assert(strstr(prompt, user_path));
 
     printf("context skills summary tests passed\n");
     return 0;

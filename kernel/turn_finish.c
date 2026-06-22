@@ -171,5 +171,10 @@ void agent_turn_finish(
         dispatch_compress_context(msg->chat_id);
     }
 
-    pr_info("Free memory: %d bytes", (int)platform_free_memory());
+    char free_mem_buf[32];
+    if (platform_format_bytes(platform_free_memory(), free_mem_buf, sizeof(free_mem_buf))) {
+        pr_info("Free memory: %s bytes", free_mem_buf);
+    } else {
+        pr_info("Free memory: <unavailable> bytes");
+    }
 }
