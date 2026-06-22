@@ -84,7 +84,38 @@ char *build_request_body(const char *system_prompt,
 		size_t escaped_len = 0;
 		for (size_t i = 0; i < len; i++) {
 			unsigned char c = (unsigned char)post_data[i];
-			escaped_len += (c > 127) ? 6 : 1;  /* \uXXXX = 6 字符 */
+			if (c < 0x80) {
+				escaped_len += 1;
+				continue;
+			}
+
+			int trail = 0;
+			if ((c & 0xE0) == 0xC0) trail = 1;
+			else if ((c & 0xF0) == 0xE0) trail = 2;
+			else if ((c & 0xF8) == 0xF0) trail = 3;
+
+			unsigned int cp = c;
+			if (trail == 1) cp = c & 0x1F;
+			else if (trail == 2) cp = c & 0x0F;
+			else if (trail == 3) cp = c & 0x07;
+
+			bool valid = trail > 0 && i + (size_t)trail < len;
+			for (int t = 0; valid && t < trail; t++) {
+				unsigned char cont = (unsigned char)post_data[i + 1 + t];
+				if ((cont & 0xC0) != 0x80) {
+					valid = false;
+					break;
+				}
+				cp = (cp << 6) | (cont & 0x3F);
+			}
+
+			if (!valid) {
+				escaped_len += 1;
+				continue;
+			}
+
+			escaped_len += (cp <= 0xFFFFU) ? 6 : 12;
+			i += (size_t)trail;
 		}
 		if (escaped_len > len) {
 			char *escaped = kmalloc(escaped_len + 1, GFP_KERNEL);
@@ -92,19 +123,41 @@ char *build_request_body(const char *system_prompt,
 				size_t j = 0;
 				for (size_t i = 0; i < len; i++) {
 					unsigned char c = (unsigned char)post_data[i];
-					if (c > 127) {
-						/* 解码完整 UTF-8 序列获取 Unicode code point */
-						unsigned int cp = c;
-						int trail = 0;
-						if ((c & 0xE0) == 0xC0)      { cp = c & 0x1F; trail = 1; }
-						else if ((c & 0xF0) == 0xE0) { cp = c & 0x0F; trail = 2; }
-						else if ((c & 0xF8) == 0xF0) { cp = c & 0x07; trail = 3; }
-						for (int t = 0; t < trail && i + 1 + t < len; t++)
-							cp = (cp << 6) | ((unsigned char)post_data[i + 1 + t] & 0x3F);
-						i += trail;  /* 跳过后续字节 */
-						j += snprintf(escaped + j, 7, "\\u%04X", cp);
-					} else {
+					if (c < 0x80) {
 						escaped[j++] = c;
+						continue;
+					}
+
+					unsigned int cp = c;
+					int trail = 0;
+					if ((c & 0xE0) == 0xC0)      { cp = c & 0x1F; trail = 1; }
+					else if ((c & 0xF0) == 0xE0) { cp = c & 0x0F; trail = 2; }
+					else if ((c & 0xF8) == 0xF0) { cp = c & 0x07; trail = 3; }
+
+					bool valid = trail > 0 && i + (size_t)trail < len;
+					for (int t = 0; valid && t < trail; t++) {
+						unsigned char cont = (unsigned char)post_data[i + 1 + t];
+						if ((cont & 0xC0) != 0x80) {
+							valid = false;
+							break;
+						}
+						cp = (cp << 6) | (cont & 0x3F);
+					}
+
+					if (!valid) {
+						escaped[j++] = c;
+						continue;
+					}
+
+					i += (size_t)trail;  /* 跳过后续字节 */
+					if (cp <= 0xFFFFU) {
+						j += snprintf(escaped + j, escaped_len + 1 - j, "\\u%04X", cp);
+					} else {
+						unsigned int v = cp - 0x10000U;
+						unsigned int high = 0xD800U + (v >> 10);
+						unsigned int low = 0xDC00U + (v & 0x3FFU);
+						j += snprintf(escaped + j, escaped_len + 1 - j,
+							      "\\u%04X\\u%04X", high, low);
 					}
 				}
 				escaped[j] = '\0';

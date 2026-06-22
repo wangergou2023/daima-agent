@@ -1,5 +1,5 @@
 /* 自定义工具：从 JSON 加载零编译 tool，通过已有 driver 执行 */
-#include "drivers/tool/tool_registry.h"
+#include "drivers/tool/tool_types.h"
 #include "drivers/tool/tool_custom.h"
 #include <stdio.h>
 #include <string.h>
@@ -67,6 +67,25 @@ err_t tool_custom_execute(const char *name, const char *input,
     return td->execute(input, output, size);
 }
 
+int tool_custom_count(void)
+{
+    return s_count;
+}
+
+const struct tool_custom_meta *tool_custom_get(int index)
+{
+    static struct tool_custom_meta meta;
+
+    if (index < 0 || index >= s_count || !s_tools[index].active) {
+        return NULL;
+    }
+
+    meta.name = s_tools[index].name;
+    meta.description = s_tools[index].description;
+    meta.input_schema_json = s_tools[index].dev.input_schema_json;
+    return &meta;
+}
+
 static int load_one(cJSON *item)
 {
     if (s_count >= MAX_CUSTOM_TOOLS) return -1;
@@ -98,6 +117,7 @@ static int load_one(cJSON *item)
     if (!ct->bus_dev) return -1;
     memset(ct->bus_dev, 0, sizeof(*ct->bus_dev));
     ct->bus_dev->name = ct->dev.name;
+    ct->bus_dev->data = &ct->dev;
 
     driver_register(&ct->drv.drv, tool_bus);
     device_register(ct->bus_dev, tool_bus);

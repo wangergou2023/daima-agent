@@ -1,5 +1,5 @@
-/* 计划生成与审查：plan_review_generate() 为 IMPLEMENT/FIX 意图生成执行计划，
- * plan_review_inject_to_prompt() 将计划注入 system prompt。
+/* 执行计划模板生成与注入：这里的 "plan" 不是通用规划引擎，
+ * 而是针对 IMPLEMENT/FIX 意图生成固定四步执行模板，并注入 system prompt。
  * 计划模板包含理解目标→定位代码→最小改动→验证四步，杜绝 TODO/TBD 占位符。 */
 
 #include "plan.h"

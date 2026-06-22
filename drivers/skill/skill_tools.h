@@ -3,7 +3,8 @@
 
 #pragma once
 
-#include "drivers/tool/tool_registry.h"
+#include "drivers/tool/tool_types.h"
+#include "drivers/tool/tool_dynamic_bus.h"
 #include <stdbool.h>
 
 #define SKILL_TOOLS_MAX 8  /* 每个技能最多注册的工具数 */

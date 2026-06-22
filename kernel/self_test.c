@@ -6,7 +6,7 @@
 #include "loop.h"
 #include "linux/slab.h"
 #include "linux/kernel.h"
-#include "drivers/tool/tool_registry.h"
+#include "drivers/tool/tool_types.h"
 #include "kernel/sched/sched.h"
 #include "plan.h"
 #include "drivers/tool/tool_delegate.h"
@@ -149,10 +149,12 @@ static void test_memory_queue(void)
     struct core_task task;
     memset(&task, 0, sizeof(task));
     snprintf(task.id, sizeof(task.id), "test_mq_1");
-    strscpy(task.type, TASK_LOAD_CONTEXT, sizeof(task.type));
+    strscpy(task.type, TASK_SAVE_SESSION, sizeof(task.type));
 
     cJSON *p = cJSON_CreateObject();
-    cJSON_AddStringToObject(p, "chat_id", "test_nonexistent");
+    cJSON_AddStringToObject(p, "chat_id", "test_memory_queue");
+    cJSON_AddStringToObject(p, "role", "user");
+    cJSON_AddStringToObject(p, "content", "memory queue smoke");
     task.payload = cJSON_PrintUnformatted(p);
     cJSON_Delete(p);
 
@@ -162,13 +164,13 @@ static void test_memory_queue(void)
 
     struct core_task reply;
     memset(&reply, 0, sizeof(reply));
-    /* 不存在的会话 → 记忆核应返回 FAILED */
+    /* fire-and-forget 保存任务也会通过 reply 返回 DONE */
     int ok = (core_recv(CORE_SCHEDULER, &reply, 5000) == 0);
     if (ok) {
-        ok = (strcmp(reply.status, TASK_FAILED) == 0);
+        ok = (strcmp(reply.status, TASK_DONE) == 0);
     }
     kfree(reply.result);
-    report("memory queue + load nonexistent", ok);
+    report("memory queue + save session", ok);
 }
 
 /* 测 5: 触发真实工具调用 (通过执行核) */

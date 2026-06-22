@@ -1,4 +1,4 @@
-obj-y := tool_registry.o tool_runtime.o tool_invocation_context.o
+obj-y := tool_dynamic_bus.o tool_builtin_bus.o tool_bus_view.o tool_runtime.o tool_invocation_context.o
 obj-y += tool_files.o tool_file_read.o tool_file_list.o tool_file_search.o
 obj-y += tool_file_query.o tool_file_paths.o tool_file_ops.o
 obj-y += tool_file_mutations.o tool_file_checkpoint.o

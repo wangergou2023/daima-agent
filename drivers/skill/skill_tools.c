@@ -9,7 +9,6 @@
 #include "linux/printk.h"
 #include "linux/slab.h"
 #include "linux/kernel.h"
-#include "linux/bus.h"
 #define SKILL_TOOL_NAME_LEN 64
 #define SKILL_TOOL_DESCRIPTION_LEN 256
 #define SKILL_TOOL_SCHEMA_LEN 2048
@@ -18,10 +17,6 @@ typedef struct {
     char name[SKILL_TOOL_NAME_LEN];
     char description[SKILL_TOOL_DESCRIPTION_LEN];
     char input_schema_json[SKILL_TOOL_SCHEMA_LEN];
-    struct tool_driver drv;
-    struct tool_device dev;
-    struct device *bus_dev;      /* tool_bus 上注册的 device */
-    bool bus_registered;
 } skill_tool_storage_t;
 
 typedef struct {
@@ -97,10 +92,10 @@ static err_t activate_loaded_bundle(skill_tool_bundle_slot_t *slot)
         return 0;
     }
     for (int i = 0; i < slot->bundle.tool_count; i++) {
-        err_t err = tool_registry_register_dynamic(&slot->bundle.tools[i]);
+        err_t err = tool_dynamic_bus_register(&slot->bundle.tools[i]);
         if (err != 0) {
             for (int j = 0; j < i; j++) {
-                tool_registry_unregister_dynamic(slot->bundle.tools[j].name);
+                tool_dynamic_bus_unregister(slot->bundle.tools[j].name);
             }
             return err;
         }
@@ -162,33 +157,13 @@ static err_t init_tool_from_json(skill_tool_bundle_slot_t *slot, cJSON *item)
         .input_schema_json = storage->input_schema_json,
         .execute = skill_tool_stub_execute,
     };
-    err_t err = tool_registry_register_dynamic(&tool);
+    err_t err = tool_dynamic_bus_register(&tool);
     if (err != 0) {
         return err;
     }
 
     slot->bundle.tools[idx] = tool;
     slot->bundle.tool_count++;
-
-    /* 同时在 tool_bus 上注册 device + driver */
-    if (tool_bus && !storage->bus_registered) {
-        storage->dev.name = storage->name;
-        storage->dev.description = storage->description;
-        storage->dev.input_schema_json = storage->input_schema_json;
-        storage->drv.drv.name = storage->name;
-        storage->drv.drv.probe = NULL;
-        storage->drv.execute = skill_tool_stub_execute;
-        INIT_LIST_HEAD(&storage->drv.drv.node);
-
-        storage->bus_dev = kmalloc(sizeof(*storage->bus_dev), GFP_KERNEL);
-        if (storage->bus_dev) {
-            memset(storage->bus_dev, 0, sizeof(*storage->bus_dev));
-            storage->bus_dev->name = storage->dev.name;
-            driver_register(&storage->drv.drv, tool_bus);
-            device_register(storage->bus_dev, tool_bus);
-            storage->bus_registered = true;
-        }
-    }
 
     return 0;
 }
@@ -250,16 +225,7 @@ err_t skill_tools_unregister(const char *skill_name)
     }
 
     for (int i = 0; i < slot->bundle.tool_count; i++) {
-        tool_registry_unregister_dynamic(slot->bundle.tools[i].name);
-    }
-    /* 清理 tool_bus 上的设备 */
-    for (int i = 0; i < slot->bundle.tool_count; i++) {
-        if (slot->storage[i].bus_registered && slot->storage[i].bus_dev) {
-            device_unregister(slot->storage[i].bus_dev);
-            kfree(slot->storage[i].bus_dev);
-            slot->storage[i].bus_dev = NULL;
-            slot->storage[i].bus_registered = false;
-        }
+        tool_dynamic_bus_unregister(slot->bundle.tools[i].name);
     }
     pr_info("Unregistered skill-scoped tools for %s", slot->bundle.skill_name);
     slot->bundle.active = false;

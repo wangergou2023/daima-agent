@@ -8,6 +8,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "cjson.h"
+
 int printk(const char *fmt, ...)
 {
     (void)fmt;
@@ -94,6 +96,23 @@ int main(void)
         "}\n");
     assert(runtime_config_init() == 0);
     assert(runtime_config_get_max_output_tokens() == 4096);
+    assert(runtime_config_set_terminal_security_level("plan") == 0);
+    assert(strcmp(runtime_config_get_terminal_security_level(), "plan") == 0);
+
+    FILE *updated = fopen(cfg_path, "r");
+    assert(updated);
+    char updated_text[1024];
+    size_t updated_len = fread(updated_text, 1, sizeof(updated_text) - 1, updated);
+    fclose(updated);
+    updated_text[updated_len] = '\0';
+    cJSON *updated_root = cJSON_Parse(updated_text);
+    assert(updated_root);
+    cJSON *common = cJSON_GetObjectItemCaseSensitive(updated_root, "common");
+    assert(common && cJSON_IsObject(common));
+    const cJSON *level = cJSON_GetObjectItemCaseSensitive(common, "terminal_security_level");
+    assert(cJSON_IsString(level));
+    assert(strcmp(level->valuestring, "plan") == 0);
+    cJSON_Delete(updated_root);
 
     printf("runtime_config tests passed\n");
     return 0;

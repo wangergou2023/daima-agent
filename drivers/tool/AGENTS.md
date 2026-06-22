@@ -10,7 +10,8 @@
 
 ```
 drivers/tool/
-├── tool_registry.c/h         # 工具注册中心（driver_register + device_register）
+├── tool_dynamic_bus.c/h      # 动态工具注册到 tool_bus
+├── tool_types.h              # struct tool / tool_driver / tool_device
 ├── tool_fs.c                 # 文件操作（读写/列表/创建/删除）
 ├── tool_terminal.c           # 终端命令执行
 ├── tool_webfetch.c           # Web 抓取
@@ -26,7 +27,6 @@ drivers/tool/
 ├── tool_weather_host.c       # 天气查询（示例工具）
 ├── tool_{vector,tts,gpio}*.c # Vector 机器人/语音/GPIO
 ├── tool_session_*.c          # 会话工具
-├── tool_registry.h           # struct tool_driver 定义
 └── Makefile                  # obj-y 列表
 ```
 
@@ -34,8 +34,8 @@ drivers/tool/
 
 | Task | Location | Notes |
 |------|----------|-------|
-| 注册新工具 | `tool_registry.c:tool_registry_init()` | driver_register + device_register 配对 |
-| 工具驱动模式 | `tool_registry.h` | struct tool_driver 定义 |
+| 注册动态工具 | `tool_dynamic_bus.c` | driver_register + device_register 配对 |
+| 工具驱动模式 | `tool_types.h` | struct tool_driver 定义 |
 | 自定义工具 | `tool_custom.c` | JSON 驱动，`custom_tools.json` |
 | 文件编辑 | `tool_file_mutations.c` + `tool_safe_edit.c` | Hashline 安全编辑 |
 | Web 抓取 | `tool_webfetch.c` | libcurl HTTP |
@@ -59,7 +59,7 @@ struct tool_driver {
 
 ### 注册流程
 
-`tool_registry_init()` 中：`driver_register()` + `device_register()` 配对到 `tool_bus`，bus_probe 按名称自动绑定。
+内置工具由 `tool_builtin_bus_init()` 注册；动态工具由 `tool_dynamic_bus_register()` 配对 `driver_register()` + `device_register()` 到 `tool_bus`。
 
 ### 自定义工具
 
@@ -71,7 +71,7 @@ struct tool_driver {
 
 ### 工具执行与验证
 
-- `tool_registry_lookup(name)` 查找 → `execute(input, output, size)`
+- `tool_bus_execute(name, ...)` 查找并执行
 - 工具失败通过 `kernel/tool_exec_fail.c` 观察
 - 文件编辑工具通过 `kernel/auto_verify.c` 自动验证副作用
 
@@ -79,5 +79,5 @@ struct tool_driver {
 
 - **子 Agent 不可递归**：`tool_delegate.c` 禁止 `delegate_task()` 调用
 - **工具不可修改全局状态**：工具应为纯函数（文件编辑是特例）
-- **不可绕过总线注册**：所有工具必须通过 `tool_registry_init()` 或 `tool_custom_register()`
+- **不可绕过总线注册**：所有工具必须通过 `tool_builtin_bus_init()`、`tool_dynamic_bus_register()` 或 `tool_custom_load_default()`
 - **struct driver 必须是 tool_driver 首字段**：否则 `container_of` 会返回错误指针

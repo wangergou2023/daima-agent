@@ -2,7 +2,7 @@
 #include "linux/core_task.h"
 #include "linux/printk.h"
 #include "linux/slab.h"
-#include "drivers/tool/tool_registry.h"
+#include "drivers/tool/tool_bus_view.h"
 #include "cjson.h"
 #include "os.h"
 #include <string.h>
@@ -44,8 +44,8 @@ static void executor_task(void *arg)
                 if (!name) continue;
 
                 memset(output, 0, TOOL_OUTPUT_SIZE);
-                err_t err = tool_registry_execute(name, input ? input : "{}",
-                                                   output, TOOL_OUTPUT_SIZE);
+                err_t err = tool_bus_execute(name, input ? input : "{}",
+                                             output, TOOL_OUTPUT_SIZE);
 
                 cJSON *r = cJSON_CreateObject();
                 if (id) cJSON_AddStringToObject(r, "id", id);
@@ -59,7 +59,6 @@ static void executor_task(void *arg)
         }
 
         cJSON_Delete(root);
-        kfree(task.payload);
 
         /* 构造结果 JSON */
         cJSON *reply = cJSON_CreateObject();

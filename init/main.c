@@ -30,7 +30,9 @@
 #include "drivers/platform/platform.h"
 #include "proxy.h"
 #include "drivers/skill/skill_loader.h"
-#include "drivers/tool/tool_registry.h"
+#include "drivers/tool/tool_types.h"
+#include "drivers/tool/tool_builtin_bus.h"
+#include "drivers/tool/tool_custom.h"
 #include "drivers/voice/voice_channel.h"
 #include "drivers/voice/voice_wake.h"
 
@@ -47,7 +49,7 @@ static const char *resolve_runtime_timezone(void)
  * 程序主入口。4 阶段启动：
  *   阶段 1: bootstrap_prepare_runtime() — 路径初始化 + 目录创建 + 配置加载
  *   阶段 2: do_basic_setup() — 4 级手动 initcall 链（消息总线、IPC、存储、cron、设备总线）
- *   阶段 3: llm_proxy_init + tool_registry_init + agent_loop_init — 驱动和循环初始化
+ *   阶段 3: llm_proxy_init + tool_builtin_bus_init + tool_custom_load_default + agent_loop_init — 驱动和循环初始化
  *   阶段 4: channel_router_start + agent_loop_start + ws_server_start — 启动所有服务
  *
  * @param argc 参数个数（未使用，保留兼容性）
@@ -87,9 +89,10 @@ int main(int argc, char **argv)
     /* 阶段 2: 基础设置 — 4 级手动 initcall 链 */
     BUG_ON(do_basic_setup() != 0);
 
-    /* 阶段 3: 驱动层初始化 — LLM 代理、工具注册、Agent 循环 */
+    /* 阶段 3: 驱动层初始化 — LLM 代理、tool_bus 装配、自定义工具、Agent 循环 */
     BUG_ON(llm_proxy_init() != 0);
-    BUG_ON(tool_registry_init() != 0);
+    BUG_ON(tool_builtin_bus_init() != 0);
+    BUG_ON(tool_custom_load_default() < 0);
     BUG_ON(agent_loop_init() != 0);
 
     /* 阶段 4a: 启动通道路由（飞书/Vector/WebSocket） */

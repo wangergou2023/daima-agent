@@ -1,4 +1,4 @@
-/* 异步 turn 状态快照存储 */
+/* 工具执行异步恢复所需的 turn 状态快照 */
 #pragma once
 #include "err.h"
 #include "cjson.h"
@@ -20,10 +20,6 @@ struct turn_snapshot {
     uint64_t dispatched_at;
     uint32_t timeout_ms;
 
-    /* async load 用：保存原始消息内容 */
-    char msg_content[8192];
-    char msg_image_path[256];
-    int msg_intent;
 };
 
 /* 按 chat_id 存取快照 */

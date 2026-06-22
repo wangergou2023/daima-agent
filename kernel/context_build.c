@@ -2,8 +2,10 @@
 
 #include "context_build.h"
 #include "paths.h"
+#include "context_sections.h"
+#include "guide_paths.h"
+#include "workspace_probe.h"
 #include "autoconf.h"
-#include "drivers/memory/memory_store.h"
 #include "drivers/skill/skill_loader.h"
 
 #include <stdio.h>
@@ -12,9 +14,6 @@
 #include <string.h>
 #include <stdbool.h>
 #include <unistd.h>
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/wait.h>
 #include "linux/printk.h"
 static size_t append_textf(char *buf, size_t size, size_t offset, const char *fmt, ...);
 
@@ -75,160 +74,30 @@ static bool file_has_content(const char *path)
     return ch != EOF;
 }
 
-static bool file_exists(const char *path)
-{
-    return path && access(path, F_OK) == 0;
-}
-
-static bool file_exists_under(const char *root, const char *name)
-{
-    if (!root || !root[0] || !name || !name[0]) return false;
-    char path[1200];
-    if (snprintf(path, sizeof(path), "%s/%s", root, name) >= (int)sizeof(path)) {
-        return false;
-    }
-    return file_exists(path);
-}
-
-static bool read_process_output(char *out, size_t out_size, const char *program, char *const argv[])
-{
-    if (!out || out_size == 0 || !program || !argv) return false;
-    out[0] = '\0';
-
-    int pipefd[2];
-    if (pipe(pipefd) != 0) return false;
-
-    pid_t pid = fork();
-    if (pid < 0) {
-        close(pipefd[0]);
-        close(pipefd[1]);
-        return false;
-    }
-
-    if (pid == 0) {
-        close(pipefd[0]);
-        dup2(pipefd[1], STDOUT_FILENO);
-        dup2(pipefd[1], STDERR_FILENO);
-        close(pipefd[1]);
-        execvp(program, argv);
-        _exit(127);
-    }
-
-    close(pipefd[1]);
-    ssize_t n = read(pipefd[0], out, out_size - 1);
-    close(pipefd[0]);
-    int status = 0;
-    waitpid(pid, &status, 0);
-
-    if (n <= 0 || !WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-        out[0] = '\0';
-        return false;
-    }
-    out[n] = '\0';
-
-    size_t len = strlen(out);
-    while (len > 0 && (out[len - 1] == '\n' || out[len - 1] == '\r' || out[len - 1] == ' ')) {
-        out[--len] = '\0';
-    }
-    return out[0] != '\0';
-}
-
-static bool read_git_first_line(char *out, size_t out_size, char *const argv[])
-{
-    if (!read_process_output(out, out_size, "git", argv)) {
-        return false;
-    }
-    char *newline = strchr(out, '\n');
-    if (newline) {
-        *newline = '\0';
-    }
-    return out[0] != '\0';
-}
-
-static int run_process_quiet(const char *program, char *const argv[])
-{
-    if (!program || !argv) return -1;
-
-    pid_t pid = fork();
-    if (pid < 0) {
-        return -1;
-    }
-
-    if (pid == 0) {
-        int devnull = open("/dev/null", O_WRONLY);
-        if (devnull >= 0) {
-            dup2(devnull, STDOUT_FILENO);
-            dup2(devnull, STDERR_FILENO);
-            close(devnull);
-        }
-        execvp(program, argv);
-        _exit(127);
-    }
-
-    int status = 0;
-    if (waitpid(pid, &status, 0) < 0 || !WIFEXITED(status)) {
-        return -1;
-    }
-    return WEXITSTATUS(status);
-}
-
-static void append_stack_item(char *stack, size_t stack_size, const char *item)
-{
-    if (!stack || stack_size == 0 || !item || !item[0]) return;
-    if (stack[0]) {
-        strncat(stack, ", ", stack_size - strlen(stack) - 1);
-    }
-    strncat(stack, item, stack_size - strlen(stack) - 1);
-}
-
 static size_t append_workspace_context(char *buf, size_t size, size_t offset)
 {
-    char cwd[BUF_LARGE];
-    if (!getcwd(cwd, sizeof(cwd))) {
+    workspace_probe_result_t probe;
+
+    if (!workspace_probe_collect(&probe)) {
         return offset;
     }
 
-    char branch[128] = {0};
-    char repo_root[BUF_LARGE] = {0};
-    char commit[256] = {0};
-    char *branch_args[] = {"git", "branch", "--show-current", NULL};
-    char *root_args[] = {"git", "rev-parse", "--show-toplevel", NULL};
-    char *status_args[] = {"git", "diff-index", "--quiet", "HEAD", "--", NULL};
-    char *commit_args[] = {"git", "log", "--oneline", "-1", NULL};
-    bool has_branch = read_git_first_line(branch, sizeof(branch), branch_args);
-    bool has_repo_root = read_git_first_line(repo_root, sizeof(repo_root), root_args);
-    int status_exit = run_process_quiet("git", status_args);
-    bool has_status = status_exit == 0 || status_exit == 1;
-    bool is_dirty = status_exit == 1;
-    bool has_commit = read_git_first_line(commit, sizeof(commit), commit_args);
-    bool has_git = has_branch || has_repo_root || has_status || has_commit;
-
-    const char *project_root = has_repo_root ? repo_root : cwd;
-    char stack[256] = {0};
-    if (file_exists_under(project_root, "CMakeLists.txt")) append_stack_item(stack, sizeof(stack), "C/CMake");
-    if (file_exists_under(project_root, "package.json")) append_stack_item(stack, sizeof(stack), "Node.js");
-    if (file_exists_under(project_root, "tsconfig.json")) append_stack_item(stack, sizeof(stack), "TypeScript");
-    if (file_exists_under(project_root, "go.mod")) append_stack_item(stack, sizeof(stack), "Go");
-    if (file_exists_under(project_root, "Cargo.toml")) append_stack_item(stack, sizeof(stack), "Rust");
-    if (file_exists_under(project_root, "pyproject.toml") || file_exists_under(project_root, "requirements.txt")) append_stack_item(stack, sizeof(stack), "Python");
-    if (file_exists_under(project_root, "docker-compose.yml") || file_exists_under(project_root, "Dockerfile")) append_stack_item(stack, sizeof(stack), "Docker");
-
     offset = append_textf(buf, size, offset, "\n## 当前工作区\n\n");
-    offset = append_textf(buf, size, offset, "- cwd: `%s`\n", cwd);
-    offset = append_textf(buf, size, offset, "- agent workspace: `%s`\n", path_workspace_dir());
+    offset = append_textf(buf, size, offset, "- cwd: `%s`\n", probe.cwd);
+    offset = append_textf(buf, size, offset, "- agent workspace: `%s`\n", probe.agent_workspace);
     offset = append_textf(buf, size, offset, "- 工具默认工作目录是 agent workspace；安装依赖、生成临时脚本和未指定路径的新文件应放在 agent workspace，不要污染 cwd 或 repo。\n");
-    if (has_repo_root) {
-        offset = append_textf(buf, size, offset, "- repo root: `%s`\n", repo_root);
+    if (probe.has_repo_root) {
+        offset = append_textf(buf, size, offset, "- repo root: `%s`\n", probe.repo_root);
     }
-    if (has_git) {
+    if (probe.has_git) {
         offset = append_textf(buf, size, offset, "- git:");
-        if (has_branch) offset = append_textf(buf, size, offset, " branch `%s`", branch);
-        if (has_status) offset = append_textf(buf, size, offset, " %s", is_dirty ? "dirty" : "clean");
-        if (has_commit) offset = append_textf(buf, size, offset, " latest `%s`", commit);
+        if (probe.has_branch) offset = append_textf(buf, size, offset, " branch `%s`", probe.branch);
+        if (probe.has_status) offset = append_textf(buf, size, offset, " %s", probe.is_dirty ? "dirty" : "clean");
+        if (probe.has_commit) offset = append_textf(buf, size, offset, " latest `%s`", probe.commit);
         offset = append_textf(buf, size, offset, "\n");
     }
-    if (stack[0]) {
-        offset = append_textf(buf, size, offset, "- stack: %s\n", stack);
+    if (probe.stack[0]) {
+        offset = append_textf(buf, size, offset, "- stack: %s\n", probe.stack);
     }
     return offset;
 }
@@ -254,22 +123,6 @@ static size_t append_textf(char *buf, size_t size, size_t offset, const char *fm
         return size - 1;
     }
     return offset + written;
-}
-
-static size_t append_file(char *buf, size_t size, size_t offset, const char *path, const char *header)
-{
-    FILE *f = fopen(path, "r");
-    if (!f) return offset;
-
-    if (header && offset < size - 1) {
-        offset = append_textf(buf, size, offset, "\n## %s\n\n", header);
-    }
-
-    size_t n = fread(buf + offset, 1, size - offset - 1, f);
-    offset += n;
-    buf[offset] = '\0';
-    fclose(f);
-    return offset;
 }
 
 static size_t append_operator_guide_fallback(char *buf, size_t size, size_t offset, bool has_bootstrap)
@@ -323,55 +176,13 @@ static size_t append_operator_guide_fallback(char *buf, size_t size, size_t offs
     return offset;
 }
 
-static size_t append_dynamic_runtime_guide_fallback(char *buf, size_t size, size_t offset)
-{
-    char soul_path[512];
-    char user_path[512];
-    snprintf(soul_path, sizeof(soul_path), "%s/SOUL.md", path_config_dir());
-    snprintf(user_path, sizeof(user_path), "%s/USER.md", path_config_dir());
-
-    offset = append_textf(
-        buf, size, offset,
-        "\n## 记忆与引导文件\n\n"
-        "### 持久化记忆\n"
-        "- 长期记忆：`%s`\n"
-        "- 每日笔记：`%s/<YYYY-MM-DD>.md`\n"
-        "- 更新记忆前先用 `files action=read`，再用 `apply_patch` 做最小改动；写每日笔记前先 `get_current_time`。\n\n"
-        "### 可读取与按需更新的引导文件\n"
-        "- Bootstrap：`%s/BOOTSTRAP.md`\n"
-        "- Identity：`%s/IDENTITY.md`\n"
-        "- Personality：`%s`\n"
-        "- User Info：`%s`\n"
-        "- 更新这些文件时，先用 `files action=search/read` 看上下文，再用 `apply_patch` 做最小改动，避免直接覆盖。\n"
-        "- 若文件不存在，用 `apply_patch` 的 `*** Add File` 创建。\n",
-        path_memory_dir(),
-        path_memory_dir(),
-        path_config_dir(),
-        soul_path,
-        user_path);
-
-    return append_textf(
-        buf, size, offset,
-        "\n## 技能使用规则\n\n"
-        "- 技能文件位于 `%s` 下。\n"
-        "- 优先用 `skills action=list` 查看总览，再用 `skills action=view` 按名称读取完整说明。\n"
-        "- 你可以用 `apply_patch` 创建新技能到 `%s/<name>/SKILL.md`。\n"
-        "- 如果只是修改已有技能，先用 `files action=read`，再用 `apply_patch`。\n"
-        "- 技能文件必须包含 YAML front matter 的 `name` 和 `description`，否则无法加载。\n",
-        path_skills_dir(),
-        path_skills_dir());
-}
-
 err_t context_build_system_prompt_for_channel(const char *channel, char *buf, size_t size)
 {
     size_t off = 0;
-    char bs_path[512], id_path[512], soul_path[512], user_path[512];
-    snprintf(bs_path, sizeof(bs_path), "%s/config/BOOTSTRAP.md", path_config_dir());
-    snprintf(id_path, sizeof(id_path), "%s/config/IDENTITY.md", path_config_dir());
-    snprintf(soul_path, sizeof(soul_path), "%s/config/SOUL.md", path_config_dir());
-    snprintf(user_path, sizeof(user_path), "%s/config/USER.md", path_config_dir());
+    guide_paths_t guide_paths;
+    guide_paths_init(&guide_paths);
 
-    bool has_bootstrap = file_has_content(bs_path);
+    bool has_bootstrap = file_has_content(guide_paths.bootstrap_path);
 
     off = append_textf(
         buf, size, off,
@@ -379,29 +190,15 @@ err_t context_build_system_prompt_for_channel(const char *channel, char *buf, si
         "> 这是当前轮对话的系统说明。把它当作一份长期有效的操作手册；若与用户当前这轮的明确新指令冲突，以用户当前新指令为准。\n");
 
     if (has_bootstrap) {
-        off = append_file(buf, size, off, bs_path, "Bootstrap");
+        off = context_sections_append_file(buf, size, off, guide_paths.bootstrap_path, "Bootstrap");
     }
 
     off = append_operator_guide_fallback(buf, size, off, has_bootstrap);
-    off = append_dynamic_runtime_guide_fallback(buf, size, off);
+    off = guide_paths_append_runtime_guide(buf, size, off, &guide_paths);
     off = append_workspace_context(buf, size, off);
 
-    /* 身份与用户配置 */
-    off = append_file(buf, size, off, id_path, "身份设定");
-    off = append_file(buf, size, off, soul_path, "个性设定");
-    off = append_file(buf, size, off, user_path, "用户信息");
-
-    /* 长期记忆 */
-    char mem_buf[4096];
-    if (memory_read_long_term(mem_buf, sizeof(mem_buf)) == 0 && mem_buf[0]) {
-        off = append_textf(buf, size, off, "\n## 长期记忆\n\n%s\n", mem_buf);
-    }
-
-    /* 最近的每日笔记（最近 3 天） */
-    char recent_buf[4096];
-    if (memory_read_recent(recent_buf, sizeof(recent_buf), 3) == 0 && recent_buf[0]) {
-        off = append_textf(buf, size, off, "\n## 最近笔记\n\n%s\n", recent_buf);
-    }
+    off = context_sections_append_identity(buf, size, off, &guide_paths);
+    off = context_sections_append_memory(buf, size, off);
 
     /* 技能 */
     char skills_buf[16 * 1024];

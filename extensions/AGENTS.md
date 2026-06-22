@@ -1,10 +1,15 @@
-# extensions/ — LKM 风格可加载模块
+# extensions/ — 固定流水线阶段模块
 
-**10 文件，8 个可加载模块。** 通过 `extensions_init()` 在 `bootstrap.c` 中显式调用，扩展 Agent 核心行为。
+**10 文件，8 个固定阶段模块。** 通过 `extensions_init()` 在 `bootstrap.c` 中显式调用，扩展 Agent 核心行为。
 
 ## OVERVIEW
 
 `#if AGENT_EXTENSIONS_ENABLED` 条件编译。每个模块实现 `agent_extension_hooks_t` 钩子集（on_intent / on_prepare / before_run / replace_run / on_finish），在 Turn 流水线不同阶段介入。
+
+这里的 `extensions/` 更接近“固定顺序的阶段模块集合”，不是运行时热插拔插件系统：
+- 模块集合固定
+- 初始化顺序固定
+- 主要价值在于把阶段逻辑分文件组织，而不是提供真实动态扩展能力
 
 ## STRUCTURE
 

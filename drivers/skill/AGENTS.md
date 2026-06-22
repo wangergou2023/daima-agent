@@ -23,7 +23,7 @@ drivers/skill/
 | 摘要构建（通道感知） | `skill_loader.c:306-353` | `append_skill_summary_for_entry()` — 子目录优先（SKILL.md） |
 | 元数据解析 | `skill_meta.c:52` | `parse_yaml_value()` 提取 `name`/`description` |
 | 容器生命周期 | `skill_module.c:7` | `skill_module_load()` → `probe → load → loaded=1` |
-| 工具注册 | `skill_tools.c:91` | `activate_loaded_bundle()` → `tool_registry_register_dynamic()` |
+| 工具注册 | `skill_tools.c:91` | `activate_loaded_bundle()` → `tool_dynamic_bus_register()` |
 | 技能创建约束 | `skill_loader.c:100-150` | BUILTIN_SKILL_CREATOR：create/eval/improve/benchmark 流程 |
 
 ## CONVENTIONS

@@ -6,7 +6,10 @@
 #include <unistd.h>
 
 #include "drivers/skill/skill_tools.h"
-#include "drivers/tool/tool_registry.h"
+#include "drivers/tool/tool_builtin_bus.h"
+#include "drivers/tool/tool_bus_view.h"
+#include "drivers/tool/tool_custom.h"
+#include "linux/init.h"
 
 static void write_text(const char *path, const char *text)
 {
@@ -44,19 +47,30 @@ int main(void)
                "}"
                "]");
 
-    assert(tool_registry_init() == 0);
-    assert(!contains_tool_name(tool_registry_get_tools_json_for_channel("websocket"), "python_exec"));
+    assert(bus_init() == 0);
+    assert(tool_builtin_bus_init() == 0);
+    assert(tool_custom_load_default() >= 0);
+    assert(!contains_tool_name(tool_bus_tools_json_for_channel("websocket"), "python_exec"));
 
     assert(skill_tools_register("pptx", skill_dir) == 0);
-    assert(contains_tool_name(tool_registry_get_tools_json_for_channel("websocket"), "python_exec"));
-    assert(tool_registry_execute("python_exec", "{\"code\":\"print(1)\"}", out, sizeof(out)) == 0);
+    assert(contains_tool_name(tool_bus_tools_json_for_channel("websocket"), "python_exec"));
+    assert(tool_bus_execute("python_exec", "{\"code\":\"print(1)\"}", out, sizeof(out)) == 0);
     assert(strstr(out, "skill tool not yet implemented") != NULL);
 
     assert(skill_tools_unregister("pptx") == 0);
-    assert(!contains_tool_name(tool_registry_get_tools_json_for_channel("websocket"), "python_exec"));
+    assert(!contains_tool_name(tool_bus_tools_json_for_channel("websocket"), "python_exec"));
+    assert(tool_bus_execute("python_exec", "{\"code\":\"print(1)\"}", out, sizeof(out)) == ERR_NOT_FOUND);
+
+    assert(skill_tools_register("pptx", skill_dir) == 0);
+    assert(contains_tool_name(tool_bus_tools_json_for_channel("websocket"), "python_exec"));
+    assert(tool_bus_execute("python_exec", "{\"code\":\"print(1)\"}", out, sizeof(out)) == 0);
+    assert(strstr(out, "skill tool not yet implemented") != NULL);
+    assert(skill_tools_unregister("pptx") == 0);
+    assert(!contains_tool_name(tool_bus_tools_json_for_channel("websocket"), "python_exec"));
+    assert(tool_bus_execute("python_exec", "{\"code\":\"print(1)\"}", out, sizeof(out)) == ERR_NOT_FOUND);
 
     assert(skill_tools_register("missing-tools", base_dir) == 0);
-    assert(!contains_tool_name(tool_registry_get_tools_json_for_channel("websocket"), "python_exec"));
+    assert(!contains_tool_name(tool_bus_tools_json_for_channel("websocket"), "python_exec"));
 
     printf("skill scoped tools tests passed\n");
     return 0;

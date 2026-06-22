@@ -9,7 +9,7 @@
 
 #include "interactive.h"
 #include "drivers/tool/tool_invocation_context.h"
-#include "drivers/tool/tool_registry.h"
+#include "drivers/tool/tool_bus_view.h"
 #include "cjson.h"
 #include "linux/printk.h"
 #include "linux/slab.h"
@@ -115,7 +115,7 @@ static void maybe_retry_terminal_with_web_sudo(const llm_tool_call_t *call,
     }
 
     tool_output[0] = '\0';
-    tool_registry_execute_for_channel(msg->channel, call->name, retry_input, tool_output, tool_output_size);
+    tool_bus_execute_for_channel(msg->channel, call->name, retry_input, tool_output, tool_output_size);
     kfree(retry_input);
     cJSON_Delete(root);
 }
@@ -155,7 +155,7 @@ err_t tool_runtime_execute_call(const llm_tool_call_t *call,
     struct timespec ended = {0};
     clock_gettime(CLOCK_MONOTONIC, &started);
     tool_output[0] = '\0';
-    err_t exec_err = tool_registry_execute_for_channel(msg->channel, call->name, tool_input, tool_output, tool_output_size);
+    err_t exec_err = tool_bus_execute_for_channel(msg->channel, call->name, tool_input, tool_output, tool_output_size);
     maybe_retry_terminal_with_web_sudo(call, msg, tool_output, tool_output_size);
     clock_gettime(CLOCK_MONOTONIC, &ended);
 

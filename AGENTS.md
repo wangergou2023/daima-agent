@@ -84,7 +84,7 @@ Daima Agent — 嵌入式 AI Agent，C11 + Kbuild，单二进制。Linux 内核 
 | `struct driver` | Struct | `include/linux/driver.h` | 驱动（probe/remove） |
 | `struct device` | Struct | `include/linux/bus.h` | 设备（deps/binding） |
 | `struct core_task` | Struct | `include/linux/core_task.h` | 核间任务协议 |
-| `struct tool_driver` | Struct | `drivers/tool/tool_registry.h` | 工具驱动（嵌入式 struct driver） |
+| `struct tool_driver` | Struct | `drivers/tool/tool_types.h` | 工具驱动（嵌入式 struct driver） |
 | `struct sched_runqueue` | Struct | `kernel/sched/sched.h` | Agent 运行队列 |
 | `struct mutex` | Struct | `include/linux/mutex.h` | 内核互斥锁 |
 | `struct spinlock` | Struct | `include/linux/spinlock.h` | 内核自旋锁 |

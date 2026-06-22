@@ -3,7 +3,7 @@
 #pragma once
 
 #include "err.h"
-#include "drivers/tool/tool_registry.h"
+#include "drivers/tool/tool_types.h"
 #include <stddef.h>
 
 #define TOOL_FILES_MAX_FILE_SIZE (32 * 1024)

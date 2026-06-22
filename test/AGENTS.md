@@ -1,6 +1,6 @@
 # test/ — 测试
 
-**50 测试文件，平铺目录。** 无标准框架，纯 C + `assert.h`。`make test` 运行全部。
+**50 测试文件，平铺目录。** 无标准框架，纯 C + `assert.h`。`make test` 运行核心集，`make test-extended` 运行高维护扩展集。
 
 ## OVERVIEW
 

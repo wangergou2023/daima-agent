@@ -3,7 +3,10 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "drivers/tool/tool_registry.h"
+#include "drivers/tool/tool_builtin_bus.h"
+#include "drivers/tool/tool_bus_view.h"
+#include "drivers/tool/tool_custom.h"
+#include "linux/init.h"
 
 static int contains_tool_name(const char *json, const char *name)
 {
@@ -16,9 +19,11 @@ int main(void)
 {
     char out[512];
 
-    assert(tool_registry_init() == 0);
+    assert(bus_init() == 0);
+    assert(tool_builtin_bus_init() == 0);
+    assert(tool_custom_load_default() >= 0);
 
-    const char *json = tool_registry_get_tools_json_for_channel("websocket");
+    const char *json = tool_bus_tools_json_for_channel("websocket");
     assert(json);
 
     assert(contains_tool_name(json, "files"));
@@ -38,9 +43,11 @@ int main(void)
     assert(!contains_tool_name(json, "skills_list"));
     assert(!contains_tool_name(json, "skill_view"));
 
-    assert(tool_registry_execute("read_file", "{\"path\":\"x\"}", out, sizeof(out)) == ERR_NOT_FOUND);
-    assert(tool_registry_execute("cron_add", "{}", out, sizeof(out)) == ERR_NOT_FOUND);
-    assert(tool_registry_execute("skill_view", "{}", out, sizeof(out)) == ERR_NOT_FOUND);
+    assert(tool_bus_execute("read_file", "{\"path\":\"x\"}", out, sizeof(out)) == ERR_NOT_FOUND);
+    assert(tool_bus_execute("cron_add", "{}", out, sizeof(out)) == ERR_NOT_FOUND);
+    assert(tool_bus_execute("skill_view", "{}", out, sizeof(out)) == ERR_NOT_FOUND);
+    assert(tool_bus_execute("get_current_time", "{}", out, sizeof(out)) == 0);
+    assert(strstr(out, "CST") != NULL);
 
     printf("tool surface tests passed\n");
     return 0;

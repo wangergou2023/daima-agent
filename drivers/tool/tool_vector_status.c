@@ -10,7 +10,7 @@
 
 
 
-#include "drivers/tool/tool_registry.h"
+#include "drivers/tool/tool_types.h"
 
 
 

@@ -2,7 +2,7 @@
 
 #include "drivers/tool/tool_vector_common.h"
 
-#include "drivers/tool/tool_registry.h"
+#include "drivers/tool/tool_types.h"
 
 #include "drivers/channel/vector/vector_channel.h"
 

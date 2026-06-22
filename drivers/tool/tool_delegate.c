@@ -1,5 +1,5 @@
 /* delegate_task 工具：LLM 调用它来派发子 Agent 并行工作 */
-#include "drivers/tool/tool_registry.h"
+#include "drivers/tool/tool_bus_view.h"
 #include "linux/sched_service.h"
 #include "plan.h"
 #include "turn_common.h"
@@ -69,7 +69,7 @@ static err_t delegate_task_execute(const char *input_json,
     cJSON_AddStringToObject(um, "content", task_copy);
     cJSON_AddItemToArray(msgs, um);
 
-    const char *tj = tool_registry_get_tools_json_for_channel("websocket");
+    const char *tj = tool_bus_tools_json_for_channel("websocket");
 
     sched_start(&rq, sp, msgs, tj);
     err = sched_wait(&rq);

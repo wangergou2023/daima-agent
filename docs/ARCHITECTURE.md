@@ -61,7 +61,7 @@ bootstrap_prepare_runtime()
 
 ```
 llm_proxy_init()          加载 LLM API 配置
-tool_registry_init()      注册 34 个内置工具到 tool_bus
+tool_builtin_bus_init()   注册 34 个内置工具到 tool_bus
 agent_loop_init()         启动上下文压缩线程 + 学习审阅
 ```
 
@@ -187,15 +187,13 @@ struct skill_module {
 
 ```
 agent_loop_task() 循环:
-  ├── process_core_reply()          优先处理核间回复
-  │     ├── TASK_LOAD_CONTEXT → 恢复异步 turn
-  │     └── 工具执行回复 → 注入结果，继续 LLM 循环
+  ├── turn_resume_poll()           优先处理执行核回复
+  │     └── 工具执行回复 → 注入 tool_result，继续 LLM 循环
   └── message_bus_pop_inbound()     收到用户消息
-        └── process_new_message_async()
+        └── process_new_message()
               ├── agent_self_test()    (!test 检测)
-              ├── turn_context_save()
-              ├── core_send(LOAD_CONTEXT)
-              └── 等待 process_core_reply
+              ├── turn_prepare()       同步加载 history
+              └── agent_run_prepared_turn()
 ```
 
 ### Turn 流水线
@@ -208,7 +206,7 @@ agent_loop_task() 循环:
   ├── hooks_trigger_before_run() 模型路由选择
   ├── turn_run()                 LLM 工具调用循环 (最多 20 轮)
   │     ├── llm_chat_tools() → LLM API
-  │     ├── LLM 返回 tool_use → tool_registry_execute()
+  │     ├── LLM 返回 tool_use → tool_bus_execute_for_channel()
   │     └── LLM 返回 text → 结束
   ├── turn_finish()              Ralph Loop 检查 + 持久化
   └── channel_router             分发回复到通道
@@ -223,7 +221,7 @@ agent_loop_task() 循环:
 | 核 | ID | 职责 | 文件 |
 |----|----|------|------|
 | **Scheduler** | 0 | 主循环、意图分类、LLM 调用、调度 | `kernel/loop.c` |
-| **Memory** | 1 | 会话存储、上下文压缩、技能预加载 | `kernel/memory_core.c` |
+| **Memory** | 1 | 会话持久化、上下文压缩 | `kernel/memory_core.c` |
 | **Executor** | 2 | 工具执行 | `kernel/executor_core.c` |
 
 ### IPC 协议
@@ -231,7 +229,7 @@ agent_loop_task() 循环:
 ```c
 struct core_task {
     int id;
-    int type;           // TASK_EXECUTE_TOOLS / TASK_LOAD_CONTEXT / TASK_SAVE_SESSION / TASK_COMPRESS_CONTEXT
+    int type;           // TASK_EXECUTE_TOOLS / TASK_SAVE_SESSION / TASK_COMPRESS_CONTEXT
     int status;
     char *payload;
     char *result;
@@ -263,11 +261,11 @@ delegate_task → sched_dispatch() → runqueue
 ### 注册
 
 ```
-tool_registry_init()
+tool_builtin_bus_init()
   ├── driver_register(&tool_xxx_driver()->drv, tool_bus)
-  ├── register_tool(tool_xxx_definition())
+  ├── register_builtin_tool(tool_xxx_definition())
   │     └── device_register(dev, tool_bus)       自动 probe 绑定
-  └── build_tools_json()                          生成 LLM 工具 schema
+  └── tool_bus_tools_json() / tool_bus_tools_json_for_channel()
 ```
 
 ### 调用路径
@@ -276,10 +274,10 @@ tool_registry_init()
 LLM 返回 tool_use(call)
   → tool_runtime_execute_call(call, msg, output, size)
       ├── 输入补丁 (cron/channel 注入)
-      ├── tool_registry_execute_for_channel()
+      ├── tool_bus_execute_for_channel()
       │     ├── channel 权限检查
-      │     └── tool_registry_execute()
-      │           ├── bus_find_device(tool_bus, name)
+      │     ├── tool_custom_execute()
+      │     └── bus_find_device(tool_bus, name)
       │           ├── container_of → struct tool_driver
       │           └── driver->execute(input, output, size)
       └── 终端 sudo 密码重试

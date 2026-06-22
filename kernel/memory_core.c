@@ -1,4 +1,6 @@
-/* 记忆核：无状态会话/上下文管理循环 */
+/* 会话与上下文后台 worker：
+ * 负责 session 持久化、history 读取、压缩触发。
+ * 这里的 "memory_core" 更接近 session/context worker，不是通用记忆系统内核。 */
 #include "linux/core_task.h"
 #include "linux/printk.h"
 #include "linux/slab.h"
@@ -51,35 +53,8 @@ static void memory_task(void *arg)
             }
             cJSON_Delete(root);
 
-        } else if (strcmp(task.type, TASK_LOAD_CONTEXT) == 0) {
-            cJSON *root = cJSON_Parse(task.payload ? task.payload : "{}");
-            const char *chat_id = cJSON_GetStringValue(cJSON_GetObjectItem(root, "chat_id"));
-
-            if (chat_id) {
-                char *history = kmalloc(131072, GFP_KERNEL);
-                if (!history) {
-                    strscpy(task.status, TASK_FAILED, sizeof(task.status));
-                } else {
-                    err_t err = session_store_get_history_json(chat_id, history, 131072, -1);
-                    if (err == 0 && history[0] && strlen(history) > 10) {
-                        cJSON *reply = cJSON_CreateObject();
-                        cJSON_AddStringToObject(reply, "chat_id", chat_id);
-                        cJSON_AddStringToObject(reply, "history", history);
-                        result = cJSON_PrintUnformatted(reply);
-                        cJSON_Delete(reply);
-                        strscpy(task.status, TASK_DONE, sizeof(task.status));
-                    } else {
-                        strscpy(task.status, TASK_FAILED, sizeof(task.status));
-                    }
-                    kfree(history);
-                }
-            } else {
-                strscpy(task.status, TASK_FAILED, sizeof(task.status));
-            }
-            cJSON_Delete(root);
         }
 
-        kfree(task.payload);
         task.result = result;
         core_reply(&task);
     }
