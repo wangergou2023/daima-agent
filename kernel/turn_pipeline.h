@@ -11,6 +11,7 @@
  * @param system_prompt     已构建的 system prompt
  * @param messages          已准备好的 messages 数组
  * @param tools_json        当前通道可用工具 JSON
+ * @param model_override    主链解析出的模型覆盖（NULL 则沿用默认）
  * @param cancel_chat_id    用于生成 cancel token 的 chat_id
  * @param iteration_offset  追加到本次执行迭代次数上的偏移量
  */
@@ -18,6 +19,7 @@ void agent_run_prepared_turn(struct message *msg,
 			     char *system_prompt,
 			     cJSON *messages,
 			     const char *tools_json,
+			     const char *model_override,
 			     const char *cancel_chat_id,
 			     int iteration_offset);
 

@@ -1,51 +1,55 @@
 # Daima Agent
 
-嵌入式 AI Agent，基于 Linux 内核风格架构。**C11 + Kbuild，单二进制**。
+嵌入式 AI Agent，基于 Linux 内核风格架构。`C11 + Kbuild`，单二进制。
 
-> 架构文档：[ARCHITECTURE.md](docs/ARCHITECTURE.md)
+> 架构文档：[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ## 快速开始
 
 ```bash
-make               # 编译
-./build-kbuild/agent  # 运行
+make
+./build-kbuild/agent
 ```
 
 ## 构建命令
 
 | 命令 | 说明 |
 |------|------|
-| `make` | Kbuild 编译 → `build-kbuild/agent` |
+| `make` | Kbuild 编译，输出 `build-kbuild/agent` |
 | `make V=1` | 详细输出 |
-| `make V=2` | 详细输出 + 重编译原因诊断 |
+| `make V=2` | 详细输出 + 重编译原因 |
 | `make clean` | 清理编译产物 |
-| `make mrproper` | 清理 + 删除 `.config` |
+| `make mrproper` | 清理并删除 `.config` |
 | `make mips` | MIPS 交叉编译 |
 | `make arm` | ARM 交叉编译 |
 
-## 内核风格特性
+## 当前架构要点
 
-| 特性 | 实现 |
-|------|------|
-| 构建系统 | Kbuild 递归 + `obj-y` (零 cmake) |
-| 驱动模型 | `struct driver` + `probe()/remove()` (3 条总线) |
-| 模块系统 | `extensions/` + `ext_init.c` 显式初始化链 |
-| 初始化链 | `do_basic_setup()` 4 级手动链 |
-| 平台抽象 | `arch/{host,mips,arm}/` |
-| 代码风格 | `.clang-format` (主) + `checkpatch.pl` (备选) |
-| 多核调度 | PLANNER + EXECUTOR + REVIEWER |
-| 总线模型 | `bus_type` + `device` + `driver` + `probe()` |
+| 模块 | 当前定位 |
+|------|----------|
+| `kernel/` | 回合主链、上下文、路由、收尾 |
+| `drivers/` | tool / llm / channel / memory / skill 驱动 |
+| `ipc/` | bus、消息队列、core_task |
+| `extensions/` | 预留目录，默认主链不使用 |
+| `spiffs_data/` | 配置、skills、运行时数据 |
 
-## Agent 功能
+## 当前能力
 
-- LLM 调用 (OpenAI / Anthropic 协议)
-- 多 Agent 并行调度 (PLANNER + EXECUTOR + REVIEWER)
-- 意图分类 + 角色路由 + 计划评审
+- OpenAI / Anthropic 协议接入
+- 多 Agent 调度（Planner / Executor / Reviewer）
+- 意图分类、角色选择、计划评审
 - 飞书 / Vector / WebSocket 多通道接入
-- 工具系统 (34 个: 文件 / 终端 / Web 抓取 / cron / skill)
-- 会话存储 / 压缩 / 恢复
-- Hashline 安全编辑
-- Prometheus 访谈模式
-- Todo 强制执行 + Ralph Loop
-- 模型回退 + 分类路由
-- `!test` 自检 (10 集成测试)
+- 工具系统与动态 skill tools
+- 会话存储、恢复、上下文压缩
+- Prometheus 澄清回合
+- Todo 进度约束与 Ralph Loop 警告
+- 模型路由与回退
+- `!test` 内建自检命令
+
+## 当前实现上的几个约定
+
+- 默认主链在 `kernel/loop.c` → `kernel/turn_prepare.c` → `kernel/turn_pipeline.c` → `kernel/turn_finish.c`
+- `extensions_init()` 默认不装配主链行为
+- `skill_summary_build_for_channel()` 只构建摘要，不注册工具
+- skill 专属工具需要显式激活，turn 结束统一回收
+- `subagent` 只走 `delegate_task + kernel/sched` 主路径

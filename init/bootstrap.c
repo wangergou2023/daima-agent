@@ -8,7 +8,6 @@
 #include "bus.h"
 #include "linux/bus.h"
 #include "linux/core_task.h"
-#include "hooks.h"
 #include "../extensions/ext_init.h"
 #include "drivers/memory/memory_store.h"
 #include "drivers/memory/session_store.h"
@@ -101,7 +100,7 @@ bool bootstrap_get_primary_ipv4(char *out, size_t out_sz)
 /**
  * 核心基础设置 — 4 级 initcall 链：
  *
- *   core_initcall (1):    消息总线 + IPC + 钩子系统 — 最底层通信基础设施
+ *   core_initcall (1):    消息总线 + IPC — 最底层通信基础设施
  *   postcore_initcall (2): 内存存储 + 会话存储 — 持久化服务
  *   subsys_initcall (3):  cron 定时 + 心跳 + HTTP 代理 + 技能加载 — 子系统服务
  *   device_initcall (4):  总线初始化 + 通道注册 + LLM 注册 + 核间启动 — 设备与驱动
@@ -116,7 +115,6 @@ int do_basic_setup(void)
     pr_info("core_initcall...");
     BUG_ON(message_bus_init() != 0);
     BUG_ON(core_ipc_init() != 0);
-    agent_hooks_init();
     extensions_init();
 
     /* 第 2 级：postcore_initcall — 存储层（内存 + 会话持久化） */

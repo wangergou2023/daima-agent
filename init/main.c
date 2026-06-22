@@ -12,7 +12,6 @@
 #include "bootstrap.h"
 #include "runtime.h"
 #include "loop.h"
-#include "hooks.h"
 #include "bus.h"
 #include "linux/driver.h"
 #include "linux/bus.h"

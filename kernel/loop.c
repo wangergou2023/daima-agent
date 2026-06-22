@@ -1,7 +1,6 @@
 /* 智能体主循环：执行核回复异步恢复 + 新消息同步处理 */
 #include "loop.h"
 #include "cancel.h"
-#include "hooks.h"
 #include "turn_common.h"
 #include "context_compress.h"
 #include "learning.h"
@@ -16,6 +15,7 @@
 #include "plan.h"
 #include "router.h"
 #include "runtime.h"
+#include "team.h"
 #include "bus.h"
 #include "autoconf.h"
 #include "linux/compiler.h"
@@ -68,6 +68,25 @@ static void append_role_prompt(char *system_prompt,
 	if (written < 0 || (size_t)written >= system_prompt_size - off) {
 		system_prompt[system_prompt_size - 1] = '\0';
 	}
+}
+
+static void inject_team_guidance(char *system_prompt,
+				 size_t system_prompt_size,
+				 const struct plan *plan,
+				 const char *tools_json)
+{
+	if (!system_prompt || system_prompt_size == 0 || !plan ||
+	    !plan->has_plan || !plan->reviewed) {
+		return;
+	}
+
+	team_orchestrator_t team = {0};
+	err_t err = team_mode_orchestrate(plan, system_prompt, tools_json, &team);
+	if (err != 0 || team.completed_count <= 0) {
+		return;
+	}
+
+	(void)team_mode_inject_to_prompt(&team, system_prompt, system_prompt_size);
 }
 
 static void apply_mainline_turn_state(struct message *msg,
@@ -170,7 +189,7 @@ static bool handle_self_test_command(struct message *msg)
 static err_t common_preamble(struct message *msg)
 {
 	msg->intent = INTENT_OPEN;
-	agent_extension_state_reset();
+	agent_turn_state_reset();
 
 	if (agent_msg_is_internal_control(msg)) {
 		pr_info("Dropping internal control %s:%s", msg->channel, msg->chat_id);
@@ -193,7 +212,7 @@ static void process_new_message(struct message *msg)
 	char *hj = platform_calloc(1, TURN_BUF_SIZE);
 	if (!sp || !hj) { kfree(sp); kfree(hj); return; }
 
-	struct plan *plan = agent_extension_state_plan();
+	struct plan *plan = agent_turn_state_plan();
 	agent_role_t roles[3] = {0};
 	agent_role_t active_role = AGENT_ROLE_FAST;
 	int role_count = 0;
@@ -204,14 +223,14 @@ static void process_new_message(struct message *msg)
 					sp, TURN_BUF_SIZE, hj, TURN_BUF_SIZE, &messages);
 	if (err == 0) {
 		append_role_prompt(sp, TURN_BUF_SIZE, active_role);
-		err = agent_hooks_trigger_prepare(msg, sp, TURN_BUF_SIZE, messages);
+		const char *tj = tool_bus_tools_json_for_channel(msg->channel);
+		inject_team_guidance(sp, TURN_BUF_SIZE, plan, tj);
 	}
 
 	if (err == 0) {
 		const char *tj = tool_bus_tools_json_for_channel(msg->channel);
 		const char *model_override = resolve_mainline_model(msg, active_role);
-		(void)model_override;
-		agent_run_prepared_turn(msg, sp, messages, tj, msg->chat_id, 0);
+		agent_run_prepared_turn(msg, sp, messages, tj, model_override, msg->chat_id, 0);
 	} else {
 		char *ft = NULL, *rt = NULL;
 		agent_turn_finish(msg, &ft, &rt, err, 0, false, false);
