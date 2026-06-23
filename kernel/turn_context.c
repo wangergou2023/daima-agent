@@ -1,4 +1,4 @@
-/* turn 快照存储，简单链表实现 */
+/* turn 异步恢复快照存储，简单数组实现。 */
 #include "turn_context.h"
 #include "linux/core_task.h"
 #include "linux/printk.h"

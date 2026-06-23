@@ -12,7 +12,8 @@ Daima Agent 是一个 `C11 + Kbuild` 的单二进制 AI Agent。默认框架只�
 | Task | Location | Notes |
 |------|----------|-------|
 | 启动流程 | `init/main.c` → `init/bootstrap.c` | 4 级手动初始化链 |
-| 默认回合主链 | `kernel/loop.c` | intent / role / plan / model route |
+| 默认回合主链 | `kernel/loop.c` → `kernel/turn_entry.c` | loop 只派发，turn_entry 负责编排 |
+| 回合临时 I/O | `kernel/turn_io.c` | 当前同步回合的 prompt/history/messages |
 | turn 准备 | `kernel/turn_prepare.c` | prompt / history |
 | turn 执行 | `kernel/turn_pipeline.c` | interview → run → finalize |
 | turn 收尾 | `kernel/turn_finish.c` | 回复、持久化、Ralph、回收 |
@@ -30,10 +31,10 @@ Daima Agent 是一个 `C11 + Kbuild` 的单二进制 AI Agent。默认框架只�
 - `subsys`：cron / heartbeat / proxy / skill loader
 - `device`：三条总线、executor core、memory core
 
-`process_new_message()`：
+`agent_turn_process_new_message()`：
 
 1. 处理内部控制消息与 `!test`
-2. 重置回合状态
+2. 初始化本轮临时 I/O
 3. 意图分类
 4. 角色选择
 5. 计划生成
@@ -41,6 +42,17 @@ Daima Agent 是一个 `C11 + Kbuild` 的单二进制 AI Agent。默认框架只�
 7. role prompt + team guidance
 8. model route
 9. `agent_run_prepared_turn()`
+
+`turn_context.*`：
+
+- 只存异步恢复快照
+- 不负责当前同步回合的临时资源
+
+`agent_loop_task()`：
+
+1. `agent_turn_resume_poll()`
+2. 从 inbound bus 取消息
+3. 转交 `agent_turn_process_new_message()`
 
 `agent_run_prepared_turn()`：
 

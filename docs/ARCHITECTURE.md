@@ -112,12 +112,21 @@ daima-agent/
 
 ## 4. 回合主链
 
-### 4.1 入口：`kernel/loop.c`
+### 4.1 外层循环：`kernel/loop.c`
 
-`process_new_message()` 是默认回合入口。它按显式顺序完成：
+`loop.c` 现在只负责两件事：
+
+1. 轮询执行核异步恢复 `agent_turn_resume_poll()`
+2. 从 inbound bus 取新消息并转交单回合入口
+
+它不再承载 intent / role / plan / router / prompt 注入等业务决策。
+
+### 4.2 单回合入口：`kernel/turn_entry.c`
+
+`agent_turn_process_new_message()` 是默认回合入口。它按显式顺序完成：
 
 1. 处理内部控制消息与 `!test`
-2. `agent_turn_state_reset()`
+2. 重置本轮局部状态
 3. `intent_gate_classify()`
 4. `agent_roles_for_intent()`
 5. `plan_review_generate()`（仅 `IMPLEMENT` / `FIX`）
@@ -127,46 +136,72 @@ daima-agent/
 9. 解析 model route
 10. `agent_run_prepared_turn()`
 
-这一步的意义是：  
-主链在进入执行前，就把所有默认决策都算完，不给旁路留主导空间。
+主链在进入执行前，就在这里把默认决策全部算完。
 
-### 4.2 准备阶段：`kernel/turn_prepare.c`
+它自己只保留编排顺序，内部再拆成三块：
+
+- `turn_gate.c`：`!test` 与 internal control 前置处理
+- `turn_decision.c`：intent / role / plan / model 决策
+- `turn_prompt.c`：role prompt 与 team guidance 注入
+- `turn_io.c`：当前同步回合的 `system_prompt / history_json / messages` 临时资源
+
+### 4.3 准备阶段：`kernel/turn_prepare.c`
 
 这一层负责：
 
-- 加载会话历史
-- 构建 system prompt
-- 组织 messages
-- 注入 plan
+- 串接 prompt 构建
+- 串接 history/messages 组装
 
 它的职责是“把执行所需上下文准备完整”，而不是替执行阶段做决策。
 
-### 4.3 执行阶段：`kernel/turn_pipeline.c`
+阶段内边界固定为：
+
+- `turn_prepare.c`：prepare orchestrator
+- `turn_prompt_build.c`：system prompt 注入链
+- `turn_message_build.c`：history JSON + 当前轮 messages 组装
+
+### 4.4 执行阶段：`kernel/turn_pipeline.c`
 
 当前执行链只有三步：
 
-1. `agent_turn_maybe_interview()`
+1. `agent_turn_try_interview()`
 2. `agent_turn_run()`
 3. `agent_finalize_turn()`
 
 关键约束：
 
-- `Prometheus interview` 已前移到主链
+- `Prometheus interview` 通过 `turn_interview.c` 显式短路
 - 模型路由由主链显式下传
 - 默认执行路径不再经过 hook 或扩展替换
+- `turn_pipeline.c` 只表达 prepared turn 的执行顺序，不再定义弱符号入口
 
-### 4.4 收尾阶段：`kernel/turn_finish.c`
+### 4.5 恢复快照：`kernel/turn_context.c`
+
+`turn_context` 只服务异步恢复路径。
+
+它保存的是：
+
+- resume 所需 `messages`
+- `system_prompt` 快照
+- iteration / cancel token / pending task 信息
+
+它不是本轮同步执行的临时上下文容器。  
+当前回合的临时 I/O 由 `turn_io.c` 管理。
+
+### 4.6 收尾阶段：`kernel/turn_finish.c`
 
 这一层负责：
 
-- 最终文本分发
-- 错误回复构造
-- 会话持久化
-- Ralph Loop 警告追加
-- recovery / todo / compaction 清理
-- `skill_tools_unregister_all()`
+- 串接 reply 处理
+- 串接收尾副作用
 
 这保证了“能力可以临时激活，但生命周期必须统一回收”。
+
+阶段内边界固定为：
+
+- `turn_finish.c`：finish orchestrator
+- `turn_reply.c`：cancelled / success / error 回复路径、会话保存、出站队列、Ralph warning
+- `turn_post.c`：cleanup、tool unregister、todo 记录、recovery 清理、context compaction
 
 ---
 

@@ -16,22 +16,33 @@
 
 | Task | Location | Notes |
 |------|----------|-------|
-| 主循环 | `loop.c` | 新消息入口与主链状态装配 |
-| turn 准备 | `turn_prepare.c` | prompt / history / plan |
-| turn 执行 | `turn_pipeline.c` | interview → run → finalize |
-| turn 收尾 | `turn_finish.c` | 回复、持久化、Ralph、回收 |
+| 主循环 | `loop.c` | 事件循环与消息派发 |
+| 单回合入口 | `turn_entry.c` | 新消息前置判断与主链编排 |
+| 回合前置 | `turn_gate.c` | `!test` 与 internal control 过滤 |
+| 回合决策 | `turn_decision.c` | intent / role / plan / model |
+| prompt 注入 | `turn_prompt.c` | role prompt / team guidance |
+| 回合临时 I/O | `turn_io.c` | 当前同步回合的 prompt/history/messages |
+| turn 准备 | `turn_prepare.c` | prepare orchestrator |
+| prompt 注入链 | `turn_prompt_build.c` | rules / summary / facts / recovery / todo / runtime context / plan |
+| message 组装 | `turn_message_build.c` | history JSON + current turn messages + vision content |
+| turn 执行 | `turn_pipeline.c` | prepared turn execute → finalize |
+| interview 短路 | `turn_interview.c` | clarification/interview short-circuit |
+| turn 收尾 | `turn_finish.c` | finish orchestrator |
+| reply 处理 | `turn_reply.c` | cancelled / reply / save / queue / Ralph |
+| 收尾副作用 | `turn_post.c` | cleanup / recovery / todo / compaction / tool cleanup |
 | subagent 调度 | `sched/core.c` | `sched_dispatch()` |
 | 模型路由 | `router.c` | intent / role → model |
-| 回合状态 | `state.c` | plan / roles / active_role |
+| 异步恢复快照 | `turn_context.c` | resume 所需 snapshot store |
 
 ## DEFAULT CHAIN
 
 默认执行链：
 
 1. `loop.c`
-2. `turn_prepare.c`
-3. `turn_pipeline.c`
-4. `turn_finish.c`
+2. `turn_entry.c`
+3. `turn_prepare.c`
+4. `turn_pipeline.c`
+5. `turn_finish.c`
 
 默认构建下：
 

@@ -1,4 +1,6 @@
-/* 工具执行异步恢复所需的 turn 状态快照 */
+/* 工具执行异步恢复所需的 turn 快照仓库。
+ * 这里只保存 resume 路径需要的持久快照，不负责当前同步回合的临时 I/O。
+ */
 #pragma once
 #include "err.h"
 #include "cjson.h"
@@ -22,7 +24,7 @@ struct turn_snapshot {
 
 };
 
-/* 按 chat_id 存取快照 */
+/* 按 chat_id 存取异步恢复快照 */
 void turn_context_save(const struct turn_snapshot *snap);
 struct turn_snapshot *turn_context_load(const char *chat_id);
 void turn_context_remove(const char *chat_id);

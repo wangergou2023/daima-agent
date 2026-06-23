@@ -3,30 +3,9 @@
 #include "turn_pipeline.h"
 
 #include "cancel.h"
-#include "interview.h"
 #include "turn_finish.h"
+#include "turn_interview.h"
 #include "turn_run.h"
-
-#include "linux/kernel.h"
-
-__attribute__((weak)) err_t agent_turn_maybe_interview(struct message *msg, char **out_final_text)
-{
-	if (!msg || !out_final_text) {
-		return ERR_INVALID_ARG;
-	}
-	if (msg->intent != INTENT_IMPLEMENT) {
-		return ERR_FAIL;
-	}
-
-	prometheus_state_t p_state;
-	if (prometheus_check_needs_interview(msg->content ? msg->content : "", &p_state) != 0 ||
-	    !p_state.needs_interview) {
-		return ERR_FAIL;
-	}
-
-	*out_final_text = strdup(p_state.questions);
-	return *out_final_text ? 0 : ERR_NO_MEM;
-}
 
 static err_t run_prepared_turn_once(struct message *msg,
 				    char *system_prompt,
@@ -40,8 +19,8 @@ static err_t run_prepared_turn_once(struct message *msg,
 				    bool *out_tool_budget_exhausted,
 				    bool *out_cancelled)
 {
-	err_t err = agent_turn_maybe_interview(msg, out_final_text);
-	if (err == 0) {
+	err_t interview_err = agent_turn_try_interview(msg, out_final_text);
+	if (interview_err == 0) {
 		return 0;
 	}
 
