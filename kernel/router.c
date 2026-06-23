@@ -1,8 +1,7 @@
-/* 分类路由：意图/角色到模型的映射引擎。
+/* 分类路由：角色到模型的映射引擎。
  * 从 config.json 或 category_routing.json 加载 category→model 映射，
- * category_router_resolve() 根据 intent 选择最优模型，
  * category_router_resolve_for_role() 根据 role 选择模型。
- * 支持 profiles（模型配置模板）、intent_map（意图→profile）、role_model_map（角色→profile）。 */
+ * 支持 profiles（模型配置模板）和 role_model_map（角色→profile）。 */
 
 #include "router.h"
 
@@ -39,14 +38,10 @@ static void copy_field(char *dst, size_t dst_size, const char *src)
     strscpy(dst, src ? src : "", dst_size);
 }
 
-/** 初始化空路由配置：所有 intent 映射设为 -1（未分配），enabled=true。 */
+/** 初始化空路由配置：所有 role 映射设为 -1（未分配）。 */
 static void init_empty_cfg(category_router_cfg_t *cfg)
 {
     memset(cfg, 0, sizeof(*cfg));
-    cfg->enabled = true;
-    for (int i = 0; i < INTENT_COUNT; i++) {
-        cfg->intent_map[i] = -1;
-    }
     for (int i = 0; i < AGENT_ROLE_COUNT; i++) {
         cfg->role_model_map[i] = -1;
     }
@@ -85,20 +80,6 @@ static int find_profile_index(const category_router_cfg_t *cfg, const char *name
     return -1;
 }
 
-/** 字符串键 → intent 枚举映射。 */
-static enum intent intent_from_key(const char *key)
-{
-    if (!key) {
-        return INTENT_COUNT;
-    }
-    if (strcmp(key, "qa") == 0) return INTENT_QA;
-    if (strcmp(key, "implement") == 0) return INTENT_IMPLEMENT;
-    if (strcmp(key, "investigate") == 0) return INTENT_INVESTIGATE;
-    if (strcmp(key, "fix") == 0) return INTENT_FIX;
-    if (strcmp(key, "open") == 0) return INTENT_OPEN;
-    return INTENT_COUNT;
-}
-
 static int role_from_name(const char *name)
 {
     if (!name) return -1;
@@ -108,19 +89,6 @@ static int role_from_name(const char *name)
     return -1;
 }
 
-/** 默认意图映射：QA→quick 模型，IMPLEMENT/INVESTIGATE/FIX→deep 模型，OPEN→quick。 */
-static void set_default_intent_map(category_router_cfg_t *cfg, int deep, int quick)
-{
-    if (!cfg) {
-        return;
-    }
-    cfg->intent_map[INTENT_QA] = quick;
-    cfg->intent_map[INTENT_IMPLEMENT] = deep;
-    cfg->intent_map[INTENT_INVESTIGATE] = deep;
-    cfg->intent_map[INTENT_FIX] = deep;
-    cfg->intent_map[INTENT_OPEN] = quick;
-}
-
 /** 加载默认路由配置：用运行时配置中的 active_provider 和 ingenic_local_kimi 分别作为 deep 和 quick。 */
 static void load_default_cfg(category_router_cfg_t *cfg)
 {
@@ -128,8 +96,7 @@ static void load_default_cfg(category_router_cfg_t *cfg)
 
     const char *active_model = runtime_config_get_provider_model();
     if (!active_model || !active_model[0]) {
-        pr_warn("No active provider model configured, category routing disabled");
-        cfg->enabled = false;
+        pr_warn("No active provider model configured, category routing defaults unavailable");
         return;
     }
 
@@ -143,8 +110,6 @@ static void load_default_cfg(category_router_cfg_t *cfg)
 
     int deep = add_profile(cfg, "deep", active_model, context_limit, max_tokens);
     int quick = add_profile(cfg, "quick", quick_model, context_limit, max_tokens);
-
-    set_default_intent_map(cfg, deep, quick);
 
     cfg->role_model_map[AGENT_ROLE_FAST] = quick;
     cfg->role_model_map[AGENT_ROLE_PLANNER] = deep;
@@ -383,7 +348,7 @@ static char *read_file(const char *path)
     return buf;
 }
 
-/** 从 JSON 加载路由配置：解析 categories/profiles → intent_map → role_model_map。 */
+/** 从 JSON 加载路由配置：解析 categories/profiles → role_model_map。 */
 static bool load_json_cfg(category_router_cfg_t *cfg, const char *json_text)
 {
     cJSON *root = cJSON_Parse(json_text);
@@ -399,11 +364,6 @@ static bool load_json_cfg(category_router_cfg_t *cfg, const char *json_text)
     }
 
     init_empty_cfg(cfg);
-
-    cJSON *enabled = cJSON_GetObjectItem(root, "enabled");
-    if (cJSON_IsBool(enabled)) {
-        cfg->enabled = cJSON_IsTrue(enabled);
-    }
 
     bool loaded_categories = false;
     cJSON *categories = cJSON_GetObjectItem(root, "categories");
@@ -433,18 +393,6 @@ static bool load_json_cfg(category_router_cfg_t *cfg, const char *json_text)
 
     if (loaded_categories) {
         log_loaded_categories(cfg, json_root);
-    }
-
-    cJSON *intent_map = cJSON_GetObjectItem(root, "intent_map");
-    if (cJSON_IsObject(intent_map)) {
-        cJSON *entry = NULL;
-        cJSON_ArrayForEach(entry, intent_map) {
-            enum intent intent = intent_from_key(entry->string);
-            if (intent < 0 || intent >= INTENT_COUNT || !cJSON_IsString(entry)) {
-                continue;
-            }
-            cfg->intent_map[intent] = find_profile_index(cfg, entry->valuestring);
-        }
     }
 
     for (int i = 0; i < AGENT_ROLE_COUNT; i++) {
@@ -515,34 +463,18 @@ category_router_cfg_t category_router_load_and_get_cfg(void)
     return s_cfg;
 }
 
-/** 根据 intent 查找对应的模型 profile。先触发懒加载，再查 intent_map→profiles 索引。
- *  @return profile 指针或 NULL（路由禁用/无匹配） */
-const category_profile_t *category_router_resolve(enum intent intent)
-{
-    category_router_load_and_get_cfg();
-    if (!s_cfg.enabled || intent < 0 || intent >= INTENT_COUNT) {
-        return NULL;
-    }
-
-    int profile_index = s_cfg.intent_map[intent];
-    if (profile_index < 0 || profile_index >= s_cfg.profile_count) {
-        return NULL;
-    }
-    return &s_cfg.profiles[profile_index];
-}
-
-/** 根据角色查找对应的模型 profile。未匹配时 fallback 到 INTENT_OPEN 对应的 profile。
+/** 根据角色查找对应的模型 profile。
  *  @return profile 指针或 NULL */
 const category_profile_t *category_router_resolve_for_role(agent_role_t role)
 {
     category_router_load_and_get_cfg();
-    if (!s_cfg.enabled || role < 0 || role >= AGENT_ROLE_COUNT) {
+    if (role < 0 || role >= AGENT_ROLE_COUNT) {
         return NULL;
     }
 
     int profile_index = s_cfg.role_model_map[role];
     if (profile_index < 0 || profile_index >= s_cfg.profile_count) {
-        return category_router_resolve(INTENT_OPEN);
+        return NULL;
     }
     return &s_cfg.profiles[profile_index];
 }

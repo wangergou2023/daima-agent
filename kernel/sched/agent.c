@@ -3,12 +3,41 @@
 
 #include "sched.h"
 #include "autoconf.h"
+#include "router.h"
 #include "linux/printk.h"
 #include "drivers/llm/llm_proxy.h"
 #include "linux/slab.h"
 #include <stdio.h>
 #include <string.h>
 #include "linux/kernel.h"
+
+static agent_role_t sched_class_to_role(enum sched_class_id class_id)
+{
+    switch (class_id) {
+    case SCHED_CLASS_PLANNER:
+        return AGENT_ROLE_PLANNER;
+    case SCHED_CLASS_EXECUTOR:
+        return AGENT_ROLE_EXECUTOR;
+    case SCHED_CLASS_REVIEWER:
+        return AGENT_ROLE_REVIEWER;
+    default:
+        return AGENT_ROLE_FAST;
+    }
+}
+
+static const char *sched_agent_model_for_role(const struct sched_agent *agent)
+{
+    if (!agent) {
+        return llm_get_model_name();
+    }
+
+    const category_profile_t *profile =
+        category_router_resolve_for_role(sched_class_to_role(agent->class));
+    if (profile && profile->model[0]) {
+        return profile->model;
+    }
+    return llm_get_model_name();
+}
 
 /** 初始化 agent：清零 → 设置 pid/class/state → 拷贝 prompt 后缀和任务描述。 */
 void sched_agent_init(struct sched_agent *agent, const struct sched_class *cls,
@@ -45,8 +74,9 @@ void sched_agent_launch(struct sched_agent *agent, const char *prompt,
 
     llm_response_t resp;
     memset(&resp, 0, sizeof(resp));
+    const char *model_name = sched_agent_model_for_role(agent);
     agent->error = llm_chat_tools_with_model(safe[0] ? safe : "ok", messages, tools,
-                                              llm_get_model_name(), &resp);
+                                              model_name, &resp);
     if (agent->error == 0 && resp.text) {
         strscpy(agent->result, resp.text, sizeof(agent->result));
         agent->state = SCHED_AGENT_DONE;
@@ -54,8 +84,10 @@ void sched_agent_launch(struct sched_agent *agent, const char *prompt,
         agent->state = SCHED_AGENT_ERROR;
     }
     llm_response_free(&resp);
-    pr_info("agent %d (%s) done, err=%d", agent->pid,
-            sched_class_name(agent->class), agent->error);
+    pr_info("agent %d (%s) done, model=%s, err=%d", agent->pid,
+            sched_class_name(agent->class),
+            model_name ? model_name : "(null)",
+            agent->error);
 }
 
 /** 检查 agent 是否已完成（DONE 或 ERROR 状态）。 */

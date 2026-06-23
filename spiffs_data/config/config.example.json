@@ -16,17 +16,9 @@
         "enabled": false
     },
     "category_routing": {
-        "enabled": true,
         "categories": {
             "deep":  "your_deep_provider",
             "quick": "your_quick_provider"
-        },
-        "intent_map": {
-            "qa":           "quick",
-            "implement":    "deep",
-            "investigate":  "deep",
-            "fix":          "deep",
-            "open":         "quick"
         },
         "role_model_map": {
             "FAST":         "quick",

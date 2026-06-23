@@ -21,7 +21,7 @@
 | 回合前置 | `turn_gate.c` | `!test` 与 internal control 过滤 |
 | 回合决策 | `turn_decision.c` | intent / role / plan / model |
 | prompt 注入 | `turn_prompt.c` | role prompt / team guidance |
-| 回合临时 I/O | `turn_io.c` | 当前同步回合的 prompt/history/messages |
+| 回合临时 I/O | `turn_io.c` | 同步回合的 prompt/history/messages |
 | turn 准备 | `turn_prepare.c` | prepare orchestrator |
 | prompt 注入链 | `turn_prompt_build.c` | rules / summary / facts / recovery / todo / runtime context / plan |
 | message 组装 | `turn_message_build.c` | history JSON + current turn messages + vision content |
@@ -31,7 +31,7 @@
 | reply 处理 | `turn_reply.c` | cancelled / reply / save / queue / Ralph |
 | 收尾副作用 | `turn_post.c` | cleanup / recovery / todo / compaction / tool cleanup |
 | subagent 调度 | `sched/core.c` | `sched_dispatch()` |
-| 模型路由 | `router.c` | intent / role → model |
+| 模型路由 | `router.c` | role → model |
 | 异步恢复快照 | `turn_context.c` | resume 所需 snapshot store |
 
 ## DEFAULT CHAIN
@@ -44,7 +44,7 @@
 4. `turn_pipeline.c`
 5. `turn_finish.c`
 
-默认构建下：
+默认构建：
 
 - 不依赖仓库外层扩展目录
 - 不依赖 hook 改写主流程
@@ -57,4 +57,5 @@
 - 调度在 `sched/`
 - 入口在 `drivers/tool/tool_delegate.c`
 - 复杂任务可以并行拆分
+- 启动时按 subagent 角色走 `role_model_map` 选模
 - 不允许递归委托

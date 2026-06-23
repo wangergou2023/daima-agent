@@ -51,15 +51,9 @@ void agent_turn_decide(struct message *msg, agent_turn_decision_t *decision)
 const char *agent_turn_resolve_model(const struct message *msg,
 				       agent_role_t active_role)
 {
-	category_router_cfg_t cfg = category_router_load_and_get_cfg();
-	if (!cfg.enabled) {
-		return NULL;
-	}
-
+	(void)msg;
+	(void)category_router_load_and_get_cfg();
 	const category_profile_t *profile =
 		category_router_resolve_for_role(active_role);
-	if (!profile) {
-		profile = category_router_resolve(msg ? msg->intent : INTENT_OPEN);
-	}
 	return profile ? profile->model : NULL;
 }
