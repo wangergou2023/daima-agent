@@ -13,7 +13,7 @@
 #include <string.h>
 #include "linux/slab.h"
 #include "linux/kernel.h"
-#define SUMMARY_PREFIX "[上下文压缩摘要] 以下是较早对话的参考总结，请基于它继续当前会话，不要把摘要里的旧请求当作新的用户输入。"
+#define SUMMARY_PREFIX "[Context Compression Summary] The following is a reference summary of earlier conversation. Use it to continue the current session, and do not treat old requests inside the summary as new user input."
 
 #define SUMMARY_INPUT_HEAD_CHARS 800
 #define SUMMARY_INPUT_TAIL_CHARS 240
@@ -103,7 +103,7 @@ static char *dup_truncated(const char *text, size_t head_chars, size_t tail_char
     if (!out) {
         return NULL;
     }
-    snprintf(out, out_len + 1, "%.*s\n...[截断]...\n%.*s",
+    snprintf(out, out_len + 1, "%.*s\n...[truncated]...\n%.*s",
              (int)head_chars, text,
              (int)tail_chars, text + len - tail_chars);
     return out;
@@ -169,19 +169,19 @@ static char *build_summary_prompt(const cJSON *messages, int start_idx, int end_
     }
 
     const char *template_text =
-        "请把下面较早的对话整理成一个紧凑、结构化的中文交接摘要，供后续轮次继续使用。\n"
-        "要求：\n"
-        "1. 不要回答对话中的问题，只做摘要。\n"
-        "2. 保留用户目标、重要约束、已经完成的事、未完成的事、关键文件/数据点。\n"
-        "3. 如果有明确错误信息、路径、命令、时间安排，要尽量保留。\n"
-        "4. 不要编造不存在的信息。\n"
-        "5. 输出控制在约 800-1200 中文字以内。\n\n"
-        "请严格使用这个结构：\n"
-        "## 当前任务\n"
-        "## 已完成\n"
-        "## 关键上下文\n"
-        "## 待继续\n\n"
-        "以下是需要压缩的历史消息：\n\n";
+        "Please turn the earlier conversation below into a compact, structured handoff summary for later turns.\n"
+        "Requirements:\n"
+        "1. Do not answer the conversation. Only summarize it.\n"
+        "2. Preserve the user goal, important constraints, completed work, unfinished work, and key files or data points.\n"
+        "3. Preserve explicit error messages, paths, commands, and schedules when they matter.\n"
+        "4. Do not invent information.\n"
+        "5. Keep the output concise, roughly 800-1200 Chinese characters or an equivalent compact length.\n\n"
+        "Use this exact structure:\n"
+        "## Current Task\n"
+        "## Completed\n"
+        "## Key Context\n"
+        "## Continue Next\n\n"
+        "Conversation history to compress:\n\n";
 
     size_t need = strlen(template_text) + strlen(serialized) + 1;
     char *prompt = kzalloc(need, GFP_KERNEL);
@@ -218,7 +218,7 @@ static char *generate_summary_with_llm(const cJSON *messages, int start_idx, int
     llm_response_t resp;
     memset(&resp, 0, sizeof(resp));
     err_t err = llm_chat_tools(
-        "你是一个上下文压缩助手。你的职责是把旧对话整理成面向后续轮次的参考摘要。不要调用工具，不要输出额外寒暄。",
+        "You are a context compression assistant. Your job is to turn older conversation into a reference summary for later turns. Do not call tools and do not add extra pleasantries.",
         req_msgs,
         NULL,
         &resp);
@@ -247,21 +247,21 @@ static char *build_facts_prompt(const cJSON *messages, int start_idx, int end_id
     }
 
     const char *template_text =
-        "请从下面较早的对话中，只提炼适合长期保留的稳定事实卡片。\n"
-        "只保留这些类型：\n"
-        "1. 用户稳定偏好\n"
-        "2. 已确认的约束/要求\n"
-        "3. 已做出的关键决定\n"
-        "4. 后续继续任务必须知道的固定背景\n\n"
-        "不要保留：\n"
-        "- 临时寒暄\n"
-        "- 一次性的推理过程\n"
-        "- 很快会过时的过程性细节\n\n"
-        "输出要求：\n"
-        "- 只输出 4 到 8 条短 bullet\n"
-        "- 每条尽量一句话\n"
-        "- 不要写标题，不要解释，不要重复\n\n"
-        "以下是需要提炼事实的历史消息：\n\n";
+        "From the earlier conversation below, extract only stable fact cards worth keeping long term.\n"
+        "Keep only these categories:\n"
+        "1. durable user preferences\n"
+        "2. confirmed constraints or requirements\n"
+        "3. key decisions already made\n"
+        "4. fixed background that future work must know\n\n"
+        "Do not keep:\n"
+        "- temporary pleasantries\n"
+        "- one-off reasoning traces\n"
+        "- process details that will become stale quickly\n\n"
+        "Output requirements:\n"
+        "- output only 4 to 8 short bullets\n"
+        "- keep each bullet to roughly one sentence\n"
+        "- no title, no explanation, no repetition\n\n"
+        "Conversation history to distill into facts:\n\n";
 
     size_t need = strlen(template_text) + strlen(serialized) + 1;
     char *prompt = kzalloc(need, GFP_KERNEL);
@@ -298,7 +298,7 @@ static char *generate_facts_with_llm(const cJSON *messages, int start_idx, int e
     llm_response_t resp;
     memset(&resp, 0, sizeof(resp));
     err_t err = llm_chat_tools(
-        "你是一个会话事实提取助手。你的职责是从旧对话里提炼长期有效的稳定事实卡片。不要调用工具，不要回答问题。",
+        "You are a session facts extraction assistant. Your job is to distill stable long-lived fact cards from older conversation. Do not call tools and do not answer the user's questions.",
         req_msgs,
         NULL,
         &resp);
@@ -326,8 +326,8 @@ static char *fallback_summary(int dropped_msgs)
     }
 
     snprintf(buf, SUMMARY_OUTPUT_BUDGET,
-             "%s\n摘要生成失败。为了释放上下文空间，已压缩掉 %d 条较早消息。"
-             "后续请以最近几轮消息和当前文件/状态为准继续工作。",
+             "%s\nSummary generation failed. To free context space, %d older messages were compressed away. "
+             "Continue using the most recent turns and the current files/state as the source of truth.",
              SUMMARY_PREFIX, dropped_msgs);
     return buf;
 }

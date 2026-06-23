@@ -227,13 +227,13 @@ err_t session_recovery_inject_prompt(const char *chat_id,
     int n = snprintf(
         system_prompt + off,
         system_prompt_size - off,
-        "\n## 🔄 会话恢复\n\n"
-        "上一轮对话因为以下原因中断: %s\n"
-        "中断时间: %s\n\n"
-        "你上次正在处理:\n"
+        "\n## Session Recovery\n\n"
+        "The previous turn was interrupted for this reason: %s\n"
+        "Interruption time: %s\n\n"
+        "You were last working on:\n"
         "\"%s\"\n\n"
-        "请先回顾之前的进度，然后继续完成未完成的工作。\n"
-        "如果已经无法继续，请告知用户并说明原因。\n",
+        "Review the previous progress first, then continue the unfinished work.\n"
+        "If you cannot continue, tell the user clearly and explain why.\n",
         recovery.crash_reason[0] ? recovery.crash_reason : "unknown",
         time_buf,
         recovery.last_user_msg);

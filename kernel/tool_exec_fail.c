@@ -38,11 +38,12 @@ static const char *normalize_tool_failure_output(const char *tool_name,
                                                   const char *tool_input,
                                                   const char *tool_output)
 {
+    (void)tool_name;
     if (tool_err == ERR_NOT_FOUND) return "unknown_tool";
     if (tool_input && strcmp(tool_input, "{}") == 0) return "empty_input";
-    if (tool_output && strstr(tool_output, "缺少 'path'")) return "missing_path";
-    if (tool_output && strstr(tool_output, "缺少 'content'")) return "missing_content";
-    if (tool_output && strstr(tool_output, "只允许修改当前工作目录")) return "path_not_allowed";
+    if (tool_output && (strstr(tool_output, "缺少 'path'") || strstr(tool_output, "missing 'path'"))) return "missing_path";
+    if (tool_output && (strstr(tool_output, "缺少 'content'") || strstr(tool_output, "missing 'content'"))) return "missing_content";
+    if (tool_output && (strstr(tool_output, "只允许修改当前工作目录") || strstr(tool_output, "current workspace only"))) return "path_not_allowed";
     if (tool_output && strstr(tool_output, "dangerous_command_blocked")) return "dangerous_command_blocked";
     if (tool_output && strstr(tool_output, "Timeout")) return "timeout";
     return err_name(tool_err);
@@ -103,14 +104,14 @@ void collect_tool_failure_work_item(const struct message *msg,
 
     char title[256];
     if (tool_err == ERR_NOT_FOUND)
-        snprintf(title, sizeof(title), "模型调用未知工具 %s", tool_name);
+        snprintf(title, sizeof(title), "Model invoked unknown tool %s", tool_name);
     else if (tool_input && strcmp(tool_input, "{}") == 0)
-        snprintf(title, sizeof(title), "工具 %s 收到空参数导致调用失败", tool_name);
+        snprintf(title, sizeof(title), "Tool %s failed because it received empty input", tool_name);
     else
-        snprintf(title, sizeof(title), "工具调用失败: %s", tool_name);
+        snprintf(title, sizeof(title), "Tool invocation failed: %s", tool_name);
 
     char desc[768];
-    snprintf(desc, sizeof(desc), "工具 %s 执行失败，错误码 %s。input=%s output=%s",
+    snprintf(desc, sizeof(desc), "Tool %s failed with error %s. input=%s output=%s",
              tool_name, err_name(tool_err), input_preview, output_preview);
 
     cJSON *input = cJSON_CreateObject();
@@ -119,7 +120,7 @@ void collect_tool_failure_work_item(const struct message *msg,
     cJSON_AddStringToObject(input, "source", "log");
     cJSON_AddStringToObject(input, "title", title);
     cJSON_AddStringToObject(input, "description", desc);
-    cJSON_AddStringToObject(input, "expected", "工具调用应使用存在的工具名，并提供 schema 要求的有效参数。");
+    cJSON_AddStringToObject(input, "expected", "Tool invocations should use an existing tool name and valid parameters required by the schema.");
     cJSON_AddStringToObject(input, "actual", desc);
     cJSON_AddStringToObject(input, "status", "triaged");
     cJSON_AddStringToObject(input, "priority", priority_for_tool_failure(tool_name, tool_err, normalized));

@@ -29,11 +29,11 @@ static char *build_current_turn_content(const struct message *msg)
 
 	if (strcmp(source, MSG_SOURCE_CRON) == 0) {
 		const char *fmt =
-			"这是系统注入的定时提醒事件，不是用户刚刚发送的新消息。\n"
-			"事件来源：cron\n"
-			"处理要求：若提醒已到点，请直接自然地向用户发出提醒；"
-			"不要把这段内容当成用户回复，也不要否认之前已经成功设置的提醒。\n\n"
-			"提醒内容：%s";
+			"This is a system-injected scheduled reminder event, not a new user message.\n"
+			"Event source: cron\n"
+			"Handling requirement: if the reminder is due, send the reminder to the user naturally.\n"
+			"Do not treat this as a user reply, and do not deny an already-set reminder.\n\n"
+			"Reminder payload: %s";
 		size_t need = snprintf(NULL, 0, fmt, content) + 1;
 		char *buf = kzalloc(need, GFP_KERNEL);
 		if (!buf) {
@@ -45,10 +45,11 @@ static char *build_current_turn_content(const struct message *msg)
 
 	if (strcmp(source, MSG_SOURCE_HEARTBEAT) == 0) {
 		const char *fmt =
-			"这是系统触发的后台巡检事件，不是用户刚刚发送的新消息。\n"
-			"事件来源：heartbeat\n"
-			"请把下面内容当作系统任务说明执行；若无需用户感知，就不要假装这是用户在说话。\n\n"
-			"任务内容：%s";
+			"This is a system-triggered background inspection event, not a new user message.\n"
+			"Event source: heartbeat\n"
+			"Treat the following content as a system task description.\n"
+			"If the user does not need to notice it, do not pretend the user said it.\n\n"
+			"Task payload: %s";
 		size_t need = snprintf(NULL, 0, fmt, content) + 1;
 		char *buf = kzalloc(need, GFP_KERNEL);
 		if (!buf) {
@@ -60,8 +61,8 @@ static char *build_current_turn_content(const struct message *msg)
 
 	if (strcmp(source, MSG_SOURCE_INTERNAL) == 0) {
 		return strdup(
-			"这是内部控制事件，不是用户消息。\n"
-			"不要把它当成对话内容，也不要向用户复述任何内部载荷。");
+			"This is an internal control event, not a user message.\n"
+			"Do not treat it as conversation content and do not reveal any internal payload to the user.");
 	}
 
 	return strdup(content);
@@ -163,7 +164,7 @@ err_t agent_turn_build_messages(const struct message *msg,
 			cJSON_AddStringToObject(
 				turn_msg,
 				"content",
-				"用户发送了一张图片，但当前这次请求没有成功附带图片内容。不要臆测图片细节；请明确说明当前无法读取这张图片，并提示用户稍后重试。");
+				"The user sent an image, but this request did not attach readable image content successfully. Do not guess image details; clearly say the image could not be read and ask the user to retry later.");
 		} else {
 			cJSON_AddStringToObject(turn_msg, "content", current_content);
 		}

@@ -45,8 +45,8 @@ err_t session_store_file_write_summary(const char *chat_id, const char *summary_
 
     char content[BUF_XLARGE];
     snprintf(content, sizeof(content),
-             "## 最近一次上下文压缩摘要\n"
-             "更新时间：%s\n\n"
+             "## Latest Context Compression Summary\n"
+             "Updated At: %s\n\n"
              "%s\n",
              time_buf, summary_text);
 

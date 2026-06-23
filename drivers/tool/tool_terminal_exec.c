@@ -14,6 +14,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "context_build.h"
 #include "cjson.h"
 #include "linux/slab.h"
 
@@ -335,14 +336,17 @@ err_t terminal_execute_local_shell(const char *command,
     }
 
     if (off == 0) {
-        snprintf(out->output, output_cap, "（无输出）");
+        snprintf(out->output, output_cap, "(no output)");
     } else if (out->truncated) {
-        const char *suffix = "\n...（输出过长已截断）";
+        context_fix_truncated_utf8(out->output, strlen(out->output));
+        const char *suffix = "\n... (output truncated)";
         size_t suffix_len = strlen(suffix);
         size_t cur_len = strlen(out->output);
         if (cur_len + suffix_len < output_cap) {
             memcpy(out->output + cur_len, suffix, suffix_len + 1);
         }
+    } else {
+        context_fix_truncated_utf8(out->output, strlen(out->output));
     }
 
     return 0;

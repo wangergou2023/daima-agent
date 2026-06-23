@@ -318,13 +318,13 @@ err_t compaction_recovery_inject(const char *chat_id, char *system_prompt, size_
     int n = snprintf(
         system_prompt + off,
         system_prompt_size - off,
-        "\n## 上下文恢复\n"
-        "上次压缩时保留的关键信息:\n"
-        "- 活跃待办: %s\n"
-        "- 当前任务: %s\n"
-        "请基于以上信息继续之前的工作。\n",
+        "\n## Context Recovery\n"
+        "Key information preserved during the last compression:\n"
+        "- active todos: %s\n"
+        "- current task: %s\n"
+        "Continue the previous work based on the information above.\n",
         todos_preview,
-        recovery.current_task[0] ? recovery.current_task : "未记录");
+        recovery.current_task[0] ? recovery.current_task : "not recorded");
     if (n < 0 || (size_t)n >= system_prompt_size - off) {
         system_prompt[system_prompt_size - 1] = '\0';
     }

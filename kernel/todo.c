@@ -191,14 +191,14 @@ err_t todo_enforcer_inject_prompt(const char *chat_id, char *system_prompt, size
     int n = snprintf(
         system_prompt + off,
         system_prompt_size - off,
-        "\n## ⚠️ 任务进度警告\n\n"
-        "你已经连续 %d 轮没有完成任何待办事项了。\n"
-        "当前待办: %d个, 已完成: %d个\n\n"
-        "请在本次回复中:\n"
-        "1. 明确说明你现在正在处理哪个待办事项\n"
-        "2. 或者标记一个阻塞项并说明原因\n"
-        "3. 每完成一个步骤后立即调用 todo_update 更新状态\n\n"
-        "不要开始新任务，先把当前待办推进。\n",
+        "\n## Task Progress Warning\n\n"
+        "You have gone %d consecutive turns without completing any todo item.\n"
+        "Current todos: %d, completed: %d\n\n"
+        "In this reply:\n"
+        "1. State explicitly which todo item you are working on now\n"
+        "2. Or mark a blocker and explain why\n"
+        "3. Call todo_update immediately after completing each step\n\n"
+        "Do not start a new task before advancing the current todo.\n",
         state.stale_count,
         state.todo_count,
         state.completed_count);

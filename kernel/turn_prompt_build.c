@@ -30,16 +30,16 @@ static void append_turn_context_prompt(char *prompt, size_t size, const struct m
 	}
 
 	const char *source = agent_msg_source_or_default(msg);
-	const char *kind = agent_msg_is_synthetic_event(msg) ? "系统触发事件" : "用户新消息";
+	const char *kind = agent_msg_is_synthetic_event(msg) ? "synthetic system event" : "new user message";
 	int n = snprintf(
 		prompt + off, size - off,
-		"\n## 当前轮运行时上下文\n\n"
-		"### 当前消息\n"
-		"- 来源通道: %s\n"
-		"- 来源 chat_id: %s\n"
-		"- 消息来源类型: %s\n"
-		"- 当前消息性质: %s\n"
-		"- 若本轮使用 cron action=add 发回当前会话，请设置 channel 与 chat_id 为来源值。\n",
+		"\n## Current Turn Runtime Context\n\n"
+		"### Current Message\n"
+		"- source channel: %s\n"
+		"- source chat_id: %s\n"
+		"- source type: %s\n"
+		"- message kind: %s\n"
+		"- if this turn uses cron action=add to reply back to this session, set channel and chat_id to the source values above.\n",
 		msg->channel[0] ? msg->channel : "(unknown)",
 		msg->chat_id[0] ? msg->chat_id : "(empty)",
 		source,
@@ -81,14 +81,14 @@ static void append_session_facts_prompt(char *prompt, size_t size, const char *c
 		return;
 	}
 
-	bool has_session_reference = strstr(prompt, "\n## 会话参考\n") != NULL;
+	bool has_session_reference = strstr(prompt, "\n## Session Reference\n") != NULL;
 	int n = snprintf(
 		prompt + off, size - off,
-		"%s### 稳定事实卡片\n"
-		"以下内容是从更早轮次中提炼出的稳定偏好、约束、已确认决定。\n"
-		"把它们当作长期有效的上下文；若与用户当前这轮明确新指令冲突，以当前新指令为准。\n\n"
+		"%s### Stable Facts\n"
+		"The following items were distilled from earlier turns as durable preferences, constraints, and confirmed decisions.\n"
+		"Treat them as long-lived context; if they conflict with an explicit new instruction in this turn, follow the new instruction.\n\n"
 		"%s\n",
-		has_session_reference ? "\n" : "\n## 会话参考\n\n",
+		has_session_reference ? "\n" : "\n## Session Reference\n\n",
 		facts_buf);
 
 	if (n < 0 || (size_t)n >= (size - off)) {
@@ -112,14 +112,14 @@ static void append_session_summary_prompt(char *prompt, size_t size, const char 
 		return;
 	}
 
-	bool has_session_reference = strstr(prompt, "\n## 会话参考\n") != NULL;
+	bool has_session_reference = strstr(prompt, "\n## Session Reference\n") != NULL;
 	int n = snprintf(
 		prompt + off, size - off,
-		"%s### 最近一次上下文压缩摘要\n"
-		"以下内容是对更早对话的结构化交接总结，用来帮助延续上下文。\n"
-		"它不是新的用户输入；如果与当前这轮的明确要求冲突，以当前这轮为准。\n\n"
+		"%s### Latest Context Compression Summary\n"
+		"The following content is a structured handoff summary of earlier conversation history to help continue context.\n"
+		"It is not new user input; if it conflicts with this turn's explicit request, follow this turn.\n\n"
 		"%s\n",
-		has_session_reference ? "\n" : "\n## 会话参考\n\n",
+		has_session_reference ? "\n" : "\n## Session Reference\n\n",
 		summary_buf);
 
 	if (n < 0 || (size_t)n >= (size - off)) {
