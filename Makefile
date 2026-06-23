@@ -33,7 +33,6 @@ core-y += ipc/ lib/ net/ fs/
 core-y += drivers/llm/ drivers/channel/feishu/ drivers/channel/vector/ drivers/channel/gateway/
 core-y += drivers/tool/ drivers/memory/ drivers/skill/ drivers/voice/
 core-y += drivers/platform/ drivers/pet/
-core-y += extensions/
 
 agent-dirs := $(patsubst %/,%,$(core-y))
 agent_builtin := $(foreach d,$(agent-dirs),$(d)/built-in.o)
@@ -76,15 +75,15 @@ arm:
 
 
 modules:
-	@echo "  MODULES  extensions/ (built-in)"
+	@echo "  MODULES  none"
 
 clean:
 	$(Q)rm -rf build-kbuild build-host build-mips build-arm
-	$(Q)find init kernel drivers arch ipc lib net fs include extensions -name '*.o' -delete
+	$(Q)find init kernel drivers arch ipc lib net fs include -name '*.o' -delete
 
 kbuild-clean:
 	$(Q)rm -rf $(BUILD_DIR)
-	$(Q)find init kernel drivers arch ipc lib net fs include extensions -name '*.o' -delete
+	$(Q)find init kernel drivers arch ipc lib net fs include -name '*.o' -delete
 
 mrproper: clean
 	$(Q)rm -f .config .config.old

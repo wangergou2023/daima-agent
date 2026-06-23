@@ -5,7 +5,7 @@
 
 ## OVERVIEW
 
-Daima Agent 是一个 `C11 + Kbuild` 的单二进制 AI Agent。默认框架只认 `kernel` 主链，`extensions/` 默认空装配，`subagent` 只走 `delegate_task + kernel/sched`。
+Daima Agent 是一个 `C11 + Kbuild` 的单二进制 AI Agent。默认框架只认 `kernel` 主链，`subagent` 只走 `delegate_task + kernel/sched`。
 
 ## WHERE TO LOOK
 
@@ -20,7 +20,6 @@ Daima Agent 是一个 `C11 + Kbuild` 的单二进制 AI Agent。默认框架只�
 | subagent 工具入口 | `drivers/tool/tool_delegate.c` | `delegate_task` |
 | skill 摘要 | `drivers/skill/skill_summary.c` | 只构建摘要 |
 | skill 工具激活 | `drivers/skill/skill_tools.c` | 显式注册 / 注销 |
-| 预留扩展入口 | `extensions/ext_init.c` | 默认空装配 |
 
 ## CURRENT FLOW
 
@@ -52,7 +51,6 @@ Daima Agent 是一个 `C11 + Kbuild` 的单二进制 AI Agent。默认框架只�
 ## RULES
 
 - 默认主链只在 `kernel/`
-- `extensions/` 不允许承载默认执行逻辑
 - `subagent` 只允许走 `delegate_task + kernel/sched`
 - skill 摘要不等于 skill 工具已激活
 - `!test` 是内建自检命令，不对应 `test/` 目录

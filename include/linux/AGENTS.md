@@ -12,7 +12,7 @@ include/linux/
 ├── mutex.h spinlock.h                      # 锁（pthread mutex + pthread spinlock 内联宏封装）
 ├── core_task.h                             # 3 核 IPC（SCHEDULER=0 / MEMORY=1 / EXECUTOR=2）
 ├── sched.h sched_service.h                 # 调度器（Agent 运行队列、PLANNER/EXECUTOR/REVIEWER 三类）
-├── init.h module.h                         # 4 级手动初始化链 + module_init → device_initcall（现为空宏）
+├── init.h                                  # 4 级手动初始化链
 ├── printk.h workqueue.h                   # 日志桥接 / 心跳服务
 ```
 
@@ -27,7 +27,7 @@ include/linux/
 | 临界区保护 | mutex.h, spinlock.h | `mutex_lock/unlock`, `spin_lock/unlock` |
 | 核间通信 | core_task.h | `core_send/recv/reply`, `core_ipc_init` |
 | Agent 调度 | sched_service.h | `sched_dispatch`, `sched_start`, `sched_wait`, `sched_merge` |
-| 初始化链注册 | init.h, module.h | `device_initcall(fn)`（空宏），`module_init(fn)` → device_initcall；扩展通过 `ext_init.c` 显式调用 |
+| 初始化链注册 | init.h | `device_initcall(fn)`（空宏） |
 | 日志输出 | printk.h | `pr_info/pr_err/pr_warn/pr_debug` |
 
 ## CONVENTIONS
