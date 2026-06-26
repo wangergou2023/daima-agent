@@ -33,6 +33,9 @@ err_t ws_server_send_subagent_event(const char *chat_id,
                                     const char *subagent_type,
                                     const char *task,
                                     const char *detail);
+err_t ws_server_send_coordinator_status(const char *chat_id, const char *json_agents);
+err_t ws_server_send_coordinator_output(const char *chat_id, const char *json_agents);
+err_t ws_server_send_coordinator_done(const char *chat_id, const char *json_payload);
 
 /**
  * 发送宠物通道回复；逻辑 chat_id 为 pet_chat_id，底层仍复用对应 WebSocket 连接。

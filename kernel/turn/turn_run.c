@@ -263,6 +263,14 @@ err_t agent_turn_run(
             break;
         }
 
+        if (stats.background_delegate_started) {
+            final_text = strdup(stats.background_delegate_reply[0]
+                                    ? stats.background_delegate_reply
+                                    : "已启动后台子任务，后续进度和完成结果将通过实时事件返回。");
+            err = 0;
+            break;
+        }
+
         /* 检测不可恢复的工具协议错误（如模型幻觉出不存在的工具名） */
         if (stats.unrecoverable_tool_protocol_error) {
             pr_warn("Unrecoverable tool protocol error for chat %s: %s", msg->chat_id, stats.tool_protocol_error_reason);

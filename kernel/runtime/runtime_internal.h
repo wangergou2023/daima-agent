@@ -25,6 +25,15 @@
 typedef struct {
     char name[RUNTIME_PROVIDER_NAME_MAX];
     char model[RUNTIME_MODEL_MAX];
+    char api_key[RUNTIME_API_KEY_MAX];
+    char openai_base_url[RUNTIME_URL_MAX];
+    char api_mode[RUNTIME_STRING_SMALL_MAX];
+    char thinking_mode[RUNTIME_STRING_SMALL_MAX];
+    char reasoning_effort[RUNTIME_STRING_SMALL_MAX];
+    int context_limit_tokens;
+    int max_output_tokens;
+    int request_timeout_ms;
+    bool needs_reasoning_content;
 } runtime_provider_entry_t;
 
 /* 运行时配置全量状态结构体 */

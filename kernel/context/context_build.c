@@ -184,8 +184,12 @@ static size_t append_operator_guide_fallback(char *buf, size_t size, size_t offs
         "\n## 委托规则\n\n"
         "- `delegate_task` 是语义化子代理委托工具，优先用于 research、discovery、architecture 和 large implementation。\n"
         "- 常用形式：`delegate_task({subagent_type:\"explore|librarian|oracle|implement\", prompt:\"...\", description:\"...\"})`。\n"
+        "- 当一个步骤里有 2 个及以上彼此独立的子问题时，优先使用一次批量调用：`delegate_task({tasks:[...]})`，不要连续发多个单独的 `delegate_task`。\n"
+        "- `tasks[]` 适合并行的代码摸底、文档/配置核对、架构评审，以及互不依赖的实现子任务；批量启动后应使用返回的 `coordinator_id` 轮询整体状态。\n"
         "- 需要并行摸底时可设 `run_in_background=true`，随后用返回的 `task_id` 继续轮询同一个委托任务。\n"
-        "- `oracle` 用于架构与方案裁决；`explore` 用于代码探索；`librarian` 用于参考资料；`implement` 用于实现执行。\n");
+        "- `oracle` 用于架构与方案裁决；`explore` 用于代码探索；`librarian` 用于参考资料；`implement` 用于实现执行。\n"
+        "- `implement` 进入批量模式时，每个子任务都必须声明自己的 `target_files`；若多个实现子任务的目标文件重叠，不要把它们视为可安全并行写入。\n"
+        "- 子代理运行时，父代理不要重复做同一批搜索，也不要忽略后台任务；应等待委托结果并综合结论。\n");
 
     return offset;
 }

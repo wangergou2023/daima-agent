@@ -159,6 +159,19 @@ const char *runtime_config_get_provider_model_for_name(const char *provider_name
     return NULL;
 }
 
+const char *runtime_config_get_provider_api_key_for_name(const char *provider_name)
+{
+    if (!provider_name || !provider_name[0]) {
+        return NULL;
+    }
+    for (int i = 0; i < s_cfg.provider_count; i++) {
+        if (strcmp(s_cfg.providers[i].name, provider_name) == 0) {
+            return s_cfg.providers[i].api_key[0] ? s_cfg.providers[i].api_key : NULL;
+        }
+    }
+    return NULL;
+}
+
 int runtime_config_get_provider_count(void)
 {
     return s_cfg.provider_count;
@@ -177,9 +190,35 @@ const char *runtime_config_get_provider_openai_base_url(void)
     return s_cfg.provider_openai_base_url;
 }
 
+const char *runtime_config_get_provider_openai_base_url_for_name(const char *provider_name)
+{
+    if (!provider_name || !provider_name[0]) {
+        return NULL;
+    }
+    for (int i = 0; i < s_cfg.provider_count; i++) {
+        if (strcmp(s_cfg.providers[i].name, provider_name) == 0) {
+            return s_cfg.providers[i].openai_base_url[0] ? s_cfg.providers[i].openai_base_url : NULL;
+        }
+    }
+    return NULL;
+}
+
 const char *runtime_config_get_provider_api_mode(void)
 {
     return s_cfg.provider_api_mode;
+}
+
+const char *runtime_config_get_provider_api_mode_for_name(const char *provider_name)
+{
+    if (!provider_name || !provider_name[0]) {
+        return NULL;
+    }
+    for (int i = 0; i < s_cfg.provider_count; i++) {
+        if (strcmp(s_cfg.providers[i].name, provider_name) == 0) {
+            return s_cfg.providers[i].api_mode[0] ? s_cfg.providers[i].api_mode : NULL;
+        }
+    }
+    return NULL;
 }
 
 const char *runtime_config_get_provider_thinking_mode(void)
@@ -187,14 +226,53 @@ const char *runtime_config_get_provider_thinking_mode(void)
     return s_cfg.provider_thinking_mode;
 }
 
+const char *runtime_config_get_provider_thinking_mode_for_name(const char *provider_name)
+{
+    if (!provider_name || !provider_name[0]) {
+        return NULL;
+    }
+    for (int i = 0; i < s_cfg.provider_count; i++) {
+        if (strcmp(s_cfg.providers[i].name, provider_name) == 0) {
+            return s_cfg.providers[i].thinking_mode[0] ? s_cfg.providers[i].thinking_mode : NULL;
+        }
+    }
+    return NULL;
+}
+
 const char *runtime_config_get_provider_reasoning_effort(void)
 {
     return s_cfg.provider_reasoning_effort;
 }
 
+const char *runtime_config_get_provider_reasoning_effort_for_name(const char *provider_name)
+{
+    if (!provider_name || !provider_name[0]) {
+        return NULL;
+    }
+    for (int i = 0; i < s_cfg.provider_count; i++) {
+        if (strcmp(s_cfg.providers[i].name, provider_name) == 0) {
+            return s_cfg.providers[i].reasoning_effort[0] ? s_cfg.providers[i].reasoning_effort : NULL;
+        }
+    }
+    return NULL;
+}
+
 bool runtime_config_provider_needs_reasoning_content(void)
 {
     return s_cfg.provider_needs_reasoning_content;
+}
+
+bool runtime_config_provider_needs_reasoning_content_for_name(const char *provider_name)
+{
+    if (!provider_name || !provider_name[0]) {
+        return false;
+    }
+    for (int i = 0; i < s_cfg.provider_count; i++) {
+        if (strcmp(s_cfg.providers[i].name, provider_name) == 0) {
+            return s_cfg.providers[i].needs_reasoning_content;
+        }
+    }
+    return false;
 }
 
 /** 获取上下文限制 token 数：provider 级优先 → common 级 → 0。 */
@@ -218,6 +296,32 @@ int runtime_config_get_max_output_tokens(void)
     return LLM_MAX_TOKENS;
 }
 
+int runtime_config_get_context_limit_tokens_for_name(const char *provider_name)
+{
+    if (!provider_name || !provider_name[0]) {
+        return 0;
+    }
+    for (int i = 0; i < s_cfg.provider_count; i++) {
+        if (strcmp(s_cfg.providers[i].name, provider_name) == 0) {
+            return s_cfg.providers[i].context_limit_tokens;
+        }
+    }
+    return 0;
+}
+
+int runtime_config_get_max_output_tokens_for_name(const char *provider_name)
+{
+    if (!provider_name || !provider_name[0]) {
+        return 0;
+    }
+    for (int i = 0; i < s_cfg.provider_count; i++) {
+        if (strcmp(s_cfg.providers[i].name, provider_name) == 0) {
+            return s_cfg.providers[i].max_output_tokens;
+        }
+    }
+    return 0;
+}
+
 /** 获取请求超时：provider 级 → DEFAULT_LLM_REQUEST_TIMEOUT_MS(300s)。 */
 int runtime_config_get_request_timeout_ms(void)
 {
@@ -225,6 +329,19 @@ int runtime_config_get_request_timeout_ms(void)
         return s_cfg.provider_request_timeout_ms;
     }
     return runtime_config_default_request_timeout_ms();
+}
+
+int runtime_config_get_request_timeout_ms_for_name(const char *provider_name)
+{
+    if (!provider_name || !provider_name[0]) {
+        return 0;
+    }
+    for (int i = 0; i < s_cfg.provider_count; i++) {
+        if (strcmp(s_cfg.providers[i].name, provider_name) == 0) {
+            return s_cfg.providers[i].request_timeout_ms;
+        }
+    }
+    return 0;
 }
 
 const char *runtime_config_get_feishu_app_id(void)

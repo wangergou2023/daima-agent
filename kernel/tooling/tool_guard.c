@@ -44,6 +44,9 @@ bool agent_tool_protocol_failure_should_stop(const char *tool_name,
     }
 
     if (tool_input && strcmp(tool_input, "{}") == 0) {
+        if (tool_name && strcmp(tool_name, "delegate_task") == 0) {
+            return false;
+        }
         return true;
     }
 

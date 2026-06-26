@@ -311,7 +311,7 @@ err_t ws_server_send_tool_event(const char *chat_id, const char *text)
     cJSON_AddStringToObject(resp, "type", "tool");
     cJSON_AddStringToObject(resp, "content", text ? text : "");
     cJSON_AddStringToObject(resp, "chat_id", chat_id ? chat_id : "");
-    err_t err = ws_client_session_send_json(chat_id, resp);
+    err_t err = ws_client_session_send_json_quiet(chat_id, resp);
     cJSON_Delete(resp);
     return err;
 }
@@ -331,7 +331,53 @@ err_t ws_server_send_subagent_event(const char *chat_id,
     cJSON_AddStringToObject(resp, "subagent_type", subagent_type ? subagent_type : "");
     cJSON_AddStringToObject(resp, "task", task ? task : "");
     cJSON_AddStringToObject(resp, "detail", detail ? detail : "");
-    err_t err = ws_client_session_send_json(chat_id, resp);
+    err_t err = ws_client_session_send_json_quiet(chat_id, resp);
+    cJSON_Delete(resp);
+    return err;
+}
+
+static err_t ws_server_send_coordinator_message(const char *chat_id,
+                                                const char *type,
+                                                const char *json_agents)
+{
+    cJSON *resp = cJSON_CreateObject();
+    cJSON *agents = cJSON_Parse(json_agents ? json_agents : "[]");
+    if (!resp || !agents || !cJSON_IsArray(agents)) {
+        cJSON_Delete(resp);
+        cJSON_Delete(agents);
+        return ERR_INVALID_ARG;
+    }
+    cJSON_AddStringToObject(resp, "type", type);
+    cJSON_AddStringToObject(resp, "chat_id", chat_id ? chat_id : "");
+    cJSON_AddItemToObject(resp, "agents", agents);
+    err_t err = ws_client_session_send_json_quiet(chat_id, resp);
+    cJSON_Delete(resp);
+    return err;
+}
+
+err_t ws_server_send_coordinator_status(const char *chat_id, const char *json_agents)
+{
+    return ws_server_send_coordinator_message(chat_id, "coordinator_status", json_agents);
+}
+
+err_t ws_server_send_coordinator_output(const char *chat_id, const char *json_agents)
+{
+    return ws_server_send_coordinator_message(chat_id, "coordinator_output", json_agents);
+}
+
+err_t ws_server_send_coordinator_done(const char *chat_id, const char *json_payload)
+{
+    cJSON *resp = cJSON_CreateObject();
+    cJSON *payload = cJSON_Parse(json_payload ? json_payload : "{}");
+    if (!resp || !payload || !cJSON_IsObject(payload)) {
+        cJSON_Delete(resp);
+        cJSON_Delete(payload);
+        return ERR_INVALID_ARG;
+    }
+    cJSON_AddStringToObject(resp, "type", "coordinator_done");
+    cJSON_AddStringToObject(resp, "chat_id", chat_id ? chat_id : "");
+    cJSON_AddItemToObject(resp, "coordinator", payload);
+    err_t err = ws_client_session_send_json_quiet(chat_id, resp);
     cJSON_Delete(resp);
     return err;
 }

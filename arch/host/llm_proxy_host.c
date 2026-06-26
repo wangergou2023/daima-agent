@@ -52,16 +52,26 @@ extern const char *llm_api_url(void);
 extern bool should_use_anthropic_messages(const char *model,
                                           const char *base_url,
                                           const char *api_mode);
+extern void build_api_url_for(const char *base, bool use_anthropic_api, char *out, size_t out_size);
 extern const char *reasoning_effort_for_request(void);
 extern bool should_disable_thinking(void);
 extern bool should_use_max_tokens_field(void);
+extern bool should_use_max_tokens_field_for_base_url(const char *base_url);
 
 /* llm_proxy_request.c */
 extern char *build_request_body(const char *system_prompt,
                                 cJSON *messages,
                                 const char *tools_json,
-                                const char *model_name);
+                                const char *model_name,
+                                bool response_format_json_object);
+extern char *build_request_body_with_options(const char *system_prompt,
+                                             cJSON *messages,
+                                             const char *tools_json,
+                                             const char *model_name,
+                                             bool response_format_json_object,
+                                             const llm_request_options_t *options);
 extern struct curl_slist *build_headers(const char *url);
+extern struct curl_slist *build_headers_with_api_key(const char *url, const char *api_key);
 extern err_t parse_llm_response(const char *raw_resp,
                                 long status,
                                 bool use_anthropic_api,
@@ -90,6 +100,8 @@ struct llm_async_chat {
 	char tools_json_buf[4096];        /* 工具 JSON 副本（异步安全） */
 	char system_prompt_buf[2048];     /* system prompt 副本（异步安全） */
 	char model_name[64];              /* 模型名副本（异步安全） */
+	char request_url[BUF_MEDIUM];     /* 请求 URL 快照 */
+	char request_api_key[LLM_API_KEY_MAX_LEN];
 	char *post_data;                  /* JSON 请求体副本（异步安全） */
 	struct curl_slist *headers;       /* HTTP 头链表（异步安全） */
 	bool launched;                    /* 是否已发起 */
@@ -209,7 +221,7 @@ err_t llm_chat_tools(const char *system_prompt,
 	int max_output_tokens = runtime_config_get_max_output_tokens();
 	int request_timeout_ms = runtime_config_get_request_timeout_ms();
 
-	char *post_data = build_request_body(system_prompt, messages, tools_json, s_model);
+	char *post_data = build_request_body(system_prompt, messages, tools_json, s_model, false);
 	if (!post_data) return ERR_NO_MEM;
 
 	pr_info("Calling LLM API with tools (protocol: %s, model: %s, max_output_tokens: %d, timeout_ms: %d, body: %d bytes)", s_use_anthropic_api ? "anthropic-compatible" : "openai-compatible", s_model, max_output_tokens, request_timeout_ms, (int)strlen(post_data));
@@ -238,6 +250,125 @@ err_t llm_chat_tools(const char *system_prompt,
 	return 0;
 }
 
+err_t llm_chat_tools_with_model_and_format(const char *system_prompt,
+                                           cJSON *messages,
+                                           const char *tools_json,
+                                           const char *model_override,
+                                           bool response_format_json_object,
+                                           llm_response_t *resp)
+{
+	return llm_chat_tools_with_provider_and_format(system_prompt,
+	                                               messages,
+	                                               tools_json,
+	                                               NULL,
+	                                               model_override,
+	                                               response_format_json_object,
+	                                               resp);
+}
+
+err_t llm_chat_tools_with_provider_and_format(const char *system_prompt,
+                                              cJSON *messages,
+                                              const char *tools_json,
+                                              const char *provider_name,
+                                              const char *model_override,
+                                              bool response_format_json_object,
+                                              llm_response_t *resp)
+{
+	memset(resp, 0, sizeof(*resp));
+
+	const char *request_api_key = provider_name && provider_name[0]
+	    ? runtime_config_get_provider_api_key_for_name(provider_name)
+	    : s_api_key;
+	const char *request_base_url = provider_name && provider_name[0]
+	    ? runtime_config_get_provider_openai_base_url_for_name(provider_name)
+	    : runtime_config_get_provider_openai_base_url();
+	const char *request_api_mode = provider_name && provider_name[0]
+	    ? runtime_config_get_provider_api_mode_for_name(provider_name)
+	    : runtime_config_get_provider_api_mode();
+	const char *request_thinking_mode = provider_name && provider_name[0]
+	    ? runtime_config_get_provider_thinking_mode_for_name(provider_name)
+	    : runtime_config_get_provider_thinking_mode();
+	const char *request_reasoning_effort = provider_name && provider_name[0]
+	    ? runtime_config_get_provider_reasoning_effort_for_name(provider_name)
+	    : runtime_config_get_provider_reasoning_effort();
+	bool request_needs_reasoning_content = provider_name && provider_name[0]
+	    ? runtime_config_provider_needs_reasoning_content_for_name(provider_name)
+	    : runtime_config_provider_needs_reasoning_content();
+	int max_output_tokens = provider_name && provider_name[0]
+	    ? runtime_config_get_max_output_tokens_for_name(provider_name)
+	    : runtime_config_get_max_output_tokens();
+	int request_timeout_ms = provider_name && provider_name[0]
+	    ? runtime_config_get_request_timeout_ms_for_name(provider_name)
+	    : runtime_config_get_request_timeout_ms();
+	const char *request_model = (model_override && model_override[0])
+	    ? model_override
+	    : ((provider_name && provider_name[0])
+	           ? runtime_config_get_provider_model_for_name(provider_name)
+	           : s_model);
+
+	if (!request_api_key || !request_api_key[0]) return ERR_INVALID_STATE;
+	if (!request_model || !request_model[0]) return ERR_INVALID_STATE;
+
+	bool use_anthropic_api = should_use_anthropic_messages(request_model, request_base_url, request_api_mode);
+	char request_url[BUF_MEDIUM];
+	request_url[0] = '\0';
+	if (request_base_url && request_base_url[0]) {
+		build_api_url_for(request_base_url, use_anthropic_api, request_url, sizeof(request_url));
+	} else {
+		strscpy(request_url, llm_api_url(), sizeof(request_url));
+	}
+
+	llm_request_options_t options = {
+	    .api_key = request_api_key,
+	    .model = request_model,
+	    .base_url = request_base_url,
+	    .api_url = request_url,
+	    .api_mode = request_api_mode,
+	    .thinking_mode = request_thinking_mode,
+	    .reasoning_effort = request_reasoning_effort,
+	    .max_output_tokens = max_output_tokens,
+	    .request_timeout_ms = request_timeout_ms,
+	    .use_anthropic_api = use_anthropic_api,
+	    .add_reasoning_content = request_needs_reasoning_content,
+	    .use_max_tokens_field = should_use_max_tokens_field_for_base_url(request_base_url),
+	};
+
+	char *post_data = build_request_body_with_options(system_prompt,
+	                                                  messages,
+	                                                  tools_json,
+	                                                  request_model,
+	                                                  response_format_json_object,
+	                                                  &options);
+	if (!post_data) return ERR_NO_MEM;
+
+	pr_info("Calling LLM API with tools (protocol: %s, provider: %s, model: %s, max_output_tokens: %d, timeout_ms: %d, body: %d bytes)",
+	        use_anthropic_api ? "anthropic-compatible" : "openai-compatible",
+	        provider_name && provider_name[0] ? provider_name : runtime_config_get_active_provider_name(),
+	        request_model,
+	        max_output_tokens,
+	        request_timeout_ms,
+	        (int)strlen(post_data));
+	llm_http_log_payload("llm", "LLM tools request", post_data);
+
+	char *raw_resp = NULL;
+	int status = 0;
+	err_t err = llm_http_post_json(request_url, request_api_key, post_data, request_timeout_ms, &raw_resp, &status);
+	kfree(post_data);
+
+	if (err != 0) {
+		pr_err("HTTP request failed: %s timeout_ms=%d provider=%s", err_name(err), request_timeout_ms,
+		       provider_name && provider_name[0] ? provider_name : runtime_config_get_active_provider_name());
+		llm_http_log_payload("llm", "LLM tools partial response", raw_resp);
+		kfree(raw_resp);
+		return err;
+	}
+
+	llm_http_log_payload("llm", "LLM tools raw response", raw_resp);
+	err = parse_llm_response(raw_resp, status, use_anthropic_api, resp);
+	kfree(raw_resp);
+	return err;
+}
+
 /**
  * 带模型覆盖的工具调用。
  *
@@ -257,17 +388,12 @@ err_t llm_chat_tools_with_model(const char *system_prompt,
                                       const char *model_override,
                                       llm_response_t *resp)
 {
-	if (!model_override || !model_override[0]) {
-		return llm_chat_tools(system_prompt, messages, tools_json, resp);
-	}
-
-	/* 保存并临时切换模型，完成后恢复 */
-	char previous_model[LLM_MODEL_MAX_LEN];
-	safe_copy(previous_model, sizeof(previous_model), s_model);
-	safe_copy(s_model, sizeof(s_model), model_override);
-	err_t err = llm_chat_tools(system_prompt, messages, tools_json, resp);
-	safe_copy(s_model, sizeof(s_model), previous_model);
-	return err;
+	return llm_chat_tools_with_model_and_format(system_prompt,
+	                                            messages,
+	                                            tools_json,
+	                                            model_override,
+	                                            false,
+	                                            resp);
 }
 
 /**
@@ -312,7 +438,8 @@ llm_async_chat_t *llm_chat_tools_async(const char *system_prompt,
 	chat->post_data = build_request_body(chat->system_prompt_buf,
 	                                     chat->messages_ref,
 	                                     request_tools,
-	                                     chat->model_name);
+	                                     chat->model_name,
+	                                     false);
 	if (!chat->post_data) {
 		kfree(chat);
 		return NULL;
@@ -323,6 +450,134 @@ llm_async_chat_t *llm_chat_tools_async(const char *system_prompt,
 
 	chat->headers = build_headers(llm_api_url());
 	chat->http_req = llm_http_async_request("POST", llm_api_url(), chat->headers, chat->post_data, request_timeout_ms);
+	if (!chat->http_req) {
+		if (chat->headers) {
+			curl_slist_free_all(chat->headers);
+		}
+		kfree(chat->post_data);
+		kfree(chat);
+		return NULL;
+	}
+
+	chat->launched = true;
+	return chat;
+}
+
+llm_async_chat_t *llm_chat_tools_async_with_format(const char *system_prompt,
+                                                   cJSON *messages,
+                                                   const char *tools_json,
+                                                   const char *model_override,
+                                                   bool response_format_json_object)
+{
+	return llm_chat_tools_async_with_provider_and_format(system_prompt,
+	                                                     messages,
+	                                                     tools_json,
+	                                                     NULL,
+	                                                     model_override,
+	                                                     response_format_json_object);
+}
+
+llm_async_chat_t *llm_chat_tools_async_with_provider_and_format(const char *system_prompt,
+                                                                cJSON *messages,
+                                                                const char *tools_json,
+                                                                const char *provider_name,
+                                                                const char *model_override,
+                                                                bool response_format_json_object)
+{
+	if (!response_format_json_object) {
+		if (!provider_name || !provider_name[0]) {
+			return llm_chat_tools_async(system_prompt, messages, tools_json, model_override);
+		}
+	}
+
+	const char *request_api_key = provider_name && provider_name[0]
+	    ? runtime_config_get_provider_api_key_for_name(provider_name)
+	    : s_api_key;
+	const char *request_base_url = provider_name && provider_name[0]
+	    ? runtime_config_get_provider_openai_base_url_for_name(provider_name)
+	    : runtime_config_get_provider_openai_base_url();
+	const char *request_api_mode = provider_name && provider_name[0]
+	    ? runtime_config_get_provider_api_mode_for_name(provider_name)
+	    : runtime_config_get_provider_api_mode();
+	const char *request_thinking_mode = provider_name && provider_name[0]
+	    ? runtime_config_get_provider_thinking_mode_for_name(provider_name)
+	    : runtime_config_get_provider_thinking_mode();
+	const char *request_reasoning_effort = provider_name && provider_name[0]
+	    ? runtime_config_get_provider_reasoning_effort_for_name(provider_name)
+	    : runtime_config_get_provider_reasoning_effort();
+	bool request_needs_reasoning_content = provider_name && provider_name[0]
+	    ? runtime_config_provider_needs_reasoning_content_for_name(provider_name)
+	    : runtime_config_provider_needs_reasoning_content();
+	int max_output_tokens = provider_name && provider_name[0]
+	    ? runtime_config_get_max_output_tokens_for_name(provider_name)
+	    : runtime_config_get_max_output_tokens();
+	int request_timeout_ms = provider_name && provider_name[0]
+	    ? runtime_config_get_request_timeout_ms_for_name(provider_name)
+	    : runtime_config_get_request_timeout_ms();
+	const char *request_model = (model_override && model_override[0])
+	    ? model_override
+	    : ((provider_name && provider_name[0])
+	           ? runtime_config_get_provider_model_for_name(provider_name)
+	           : s_model);
+
+	if (!request_api_key || !request_api_key[0] || !request_model || !request_model[0]) {
+		return NULL;
+	}
+
+	llm_async_chat_t *chat = kzalloc(sizeof(*chat), GFP_KERNEL);
+	if (!chat) {
+		return NULL;
+	}
+
+	safe_copy(chat->system_prompt_buf, sizeof(chat->system_prompt_buf), system_prompt ? system_prompt : "");
+	safe_copy(chat->tools_json_buf, sizeof(chat->tools_json_buf), tools_json ? tools_json : "");
+	safe_copy(chat->model_name, sizeof(chat->model_name), request_model);
+	safe_copy(chat->request_api_key, sizeof(chat->request_api_key), request_api_key);
+	chat->messages_ref = messages;
+	chat->use_anthropic_api = should_use_anthropic_messages(request_model, request_base_url, request_api_mode);
+
+	if (request_base_url && request_base_url[0]) {
+		build_api_url_for(request_base_url, chat->use_anthropic_api, chat->request_url, sizeof(chat->request_url));
+	} else {
+		strscpy(chat->request_url, llm_api_url(), sizeof(chat->request_url));
+	}
+
+	const char *request_tools = chat->tools_json_buf[0] ? chat->tools_json_buf : NULL;
+	llm_request_options_t options = {
+	    .api_key = request_api_key,
+	    .model = request_model,
+	    .base_url = request_base_url,
+	    .api_url = chat->request_url,
+	    .api_mode = request_api_mode,
+	    .thinking_mode = request_thinking_mode,
+	    .reasoning_effort = request_reasoning_effort,
+	    .max_output_tokens = max_output_tokens,
+	    .request_timeout_ms = request_timeout_ms,
+	    .use_anthropic_api = chat->use_anthropic_api,
+	    .add_reasoning_content = request_needs_reasoning_content,
+	    .use_max_tokens_field = should_use_max_tokens_field_for_base_url(request_base_url),
+	};
+	chat->post_data = build_request_body_with_options(chat->system_prompt_buf,
+	                                                  chat->messages_ref,
+	                                                  request_tools,
+	                                                  chat->model_name,
+	                                                  response_format_json_object,
+	                                                  &options);
+	if (!chat->post_data) {
+		kfree(chat);
+		return NULL;
+	}
+
+	pr_info("Launching async LLM API call (protocol: %s, model: %s, max_output_tokens: %d, timeout_ms: %d, body: %d bytes)",
+	        chat->use_anthropic_api ? "anthropic-compatible" : "openai-compatible",
+	        chat->model_name,
+	        max_output_tokens,
+	        request_timeout_ms,
+	        (int)strlen(chat->post_data));
+	llm_http_log_payload("llm", "LLM async tools request", chat->post_data);
+
+	chat->headers = build_headers_with_api_key(chat->request_url, chat->request_api_key);
+	chat->http_req = llm_http_async_request("POST", chat->request_url, chat->headers, chat->post_data, request_timeout_ms);
 	if (!chat->http_req) {
 		if (chat->headers) {
 			curl_slist_free_all(chat->headers);

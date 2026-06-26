@@ -19,9 +19,11 @@ typedef struct {
 	bool modified_code_files;		/* 是否修改了代码文件 */
 	bool saw_explicit_verification;		/* 是否看到显式验证操作 */
 	bool unrecoverable_tool_protocol_error;	/* 是否发生不可恢复的工具协议错误 */
+	bool background_delegate_started;	/* 是否已启动后台 delegate coordinator */
 	char last_modified_path[256];		/* 最后修改的文件路径 */
 	char last_checkpoint_path[256];		/* 最后检查点路径 */
 	char tool_protocol_error_reason[256];	/* 协议错误原因描述 */
+	char background_delegate_reply[256];	/* 后台 delegate 的首响文案 */
 } turn_exec_stats_t;
 
 /* 从 LLM 响应构建 assistant 消息内容 JSON */

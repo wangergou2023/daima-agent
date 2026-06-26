@@ -10,6 +10,9 @@
 #include "drivers/tool/tool_delegate.h"
 #include "drivers/tool/tool_invocation_context.h"
 #include "drivers/llm/llm_proxy.h"
+#include "kernel/context/context_build.h"
+#include "kernel/turn/turn_exec.h"
+#include "kernel/tooling/tool_guard.h"
 #include "tool_notify.h"
 #include "paths.h"
 #include "cjson.h"
@@ -332,6 +335,243 @@ static void test_delegate_task_background_handle(void)
     report("delegate_task background returns task_id", ok);
 }
 
+static void test_delegate_task_batch_background_returns_coordinator(void)
+{
+    char output[8192];
+    memset(output, 0, sizeof(output));
+
+    const char *input =
+        "{"
+        "\"tasks\":["
+          "{"
+            "\"description\":\"explore tree\","
+            "\"prompt\":\"analyze repo structure\","
+            "\"subagent_type\":\"explore\""
+          "},"
+          "{"
+            "\"description\":\"check docs\","
+            "\"prompt\":\"inspect docs and config\","
+            "\"subagent_type\":\"librarian\""
+          "}"
+        "]"
+        "}";
+
+    const struct tool *t = tool_delegate_definition();
+    err_t err = t->execute(input, output, sizeof(output));
+    int ok = (err == 0) &&
+             strstr(output, "\"coordinator_id\":\"dc_") &&
+             strstr(output, "\"task_id\":\"dt_") &&
+             strstr(output, "\"agents\":[");
+    pr_info("  batch delegate result: err=%d output=%.240s", err, output);
+    report("delegate_task batch background returns coordinator", ok);
+}
+
+static void test_delegate_task_batch_poll_returns_agents(void)
+{
+    char start_output[8192];
+    char poll_output[8192];
+    memset(start_output, 0, sizeof(start_output));
+    memset(poll_output, 0, sizeof(poll_output));
+
+    const char *start_input =
+        "{"
+        "\"tasks\":["
+          "{"
+            "\"description\":\"oracle review\","
+            "\"prompt\":\"review architecture risks\","
+            "\"subagent_type\":\"oracle\""
+          "},"
+          "{"
+            "\"description\":\"repo scan\","
+            "\"prompt\":\"scan key modules\","
+            "\"subagent_type\":\"explore\""
+          "}"
+        "]"
+        "}";
+
+    const struct tool *t = tool_delegate_definition();
+    err_t err = t->execute(start_input, start_output, sizeof(start_output));
+    int ok = (err == 0);
+    char coordinator_id[32] = {0};
+    if (ok) {
+        const char *marker = strstr(start_output, "\"coordinator_id\":\"");
+        if (!marker) {
+            ok = 0;
+        } else {
+            marker += strlen("\"coordinator_id\":\"");
+            int i = 0;
+            while (marker[i] && marker[i] != '"' && i < (int)sizeof(coordinator_id) - 1) {
+                coordinator_id[i] = marker[i];
+                i++;
+            }
+            coordinator_id[i] = '\0';
+            ok = coordinator_id[0] != '\0';
+        }
+    }
+
+    if (ok) {
+        char poll_input[128];
+        snprintf(poll_input, sizeof(poll_input),
+                 "{\"coordinator_id\":\"%s\"}", coordinator_id);
+        err = t->execute(poll_input, poll_output, sizeof(poll_output));
+        ok = (err == 0) &&
+             strstr(poll_output, "\"coordinator_id\":\"") &&
+             strstr(poll_output, "\"agents\":[") &&
+             strstr(poll_output, "\"status\":\"");
+        pr_info("  batch delegate poll: err=%d output=%.240s", err, poll_output);
+    }
+
+    report("delegate_task batch poll returns agents", ok);
+}
+
+static void test_context_prompt_mentions_batch_delegate(void)
+{
+    char buf[32768];
+    memset(buf, 0, sizeof(buf));
+    err_t err = context_build_system_prompt(buf, sizeof(buf));
+    int ok = (err == 0) &&
+             strstr(buf, "delegate_task({tasks:[...]})") &&
+             strstr(buf, "coordinator_id") &&
+             strstr(buf, "不要连续发多个单独的 `delegate_task`");
+    report("system prompt mentions batch delegate coordinator flow", ok);
+}
+
+static void test_turn_exec_merges_sibling_delegate_calls(void)
+{
+    llm_response_t resp;
+    memset(&resp, 0, sizeof(resp));
+    resp.tool_use = true;
+    resp.call_count = 3;
+
+    strscpy(resp.calls[0].id, "call_a", sizeof(resp.calls[0].id));
+    strscpy(resp.calls[0].name, "delegate_task", sizeof(resp.calls[0].name));
+    resp.calls[0].input = strdup(
+        "{"
+        "\"subagent_type\":\"explore\","
+        "\"description\":\"repo scan\","
+        "\"prompt\":\"scan repo structure\","
+        "\"run_in_background\":true"
+        "}");
+
+    strscpy(resp.calls[1].id, "call_b", sizeof(resp.calls[1].id));
+    strscpy(resp.calls[1].name, "delegate_task", sizeof(resp.calls[1].name));
+    resp.calls[1].input = strdup(
+        "{"
+        "\"subagent_type\":\"librarian\","
+        "\"description\":\"docs scan\","
+        "\"prompt\":\"scan docs and config\","
+        "\"run_in_background\":true"
+        "}");
+
+    strscpy(resp.calls[2].id, "call_c", sizeof(resp.calls[2].id));
+    strscpy(resp.calls[2].name, "delegate_task", sizeof(resp.calls[2].name));
+    resp.calls[2].input = strdup(
+        "{"
+        "\"subagent_type\":\"oracle\","
+        "\"description\":\"risk review\","
+        "\"prompt\":\"review architecture risks\","
+        "\"run_in_background\":true"
+        "}");
+
+    struct message msg;
+    memset(&msg, 0, sizeof(msg));
+    strscpy(msg.channel, "websocket", sizeof(msg.channel));
+    strscpy(msg.chat_id, "self_test_delegate_merge", sizeof(msg.chat_id));
+    strscpy(msg.source, "internal", sizeof(msg.source));
+    msg.content = strdup("merge sibling delegate calls");
+
+    char tool_output[8192];
+    turn_exec_stats_t stats;
+    memset(&stats, 0, sizeof(stats));
+    cJSON *content = agent_turn_build_tool_results(&resp, &msg, tool_output, sizeof(tool_output), &stats);
+
+    int ok = 0;
+    if (content && cJSON_IsArray(content) && cJSON_GetArraySize(content) == 3) {
+        cJSON *first = cJSON_GetArrayItem(content, 0);
+        cJSON *second = cJSON_GetArrayItem(content, 1);
+        cJSON *third = cJSON_GetArrayItem(content, 2);
+        const char *first_text = first ? cJSON_GetStringValue(cJSON_GetObjectItem(first, "content")) : NULL;
+        const char *second_text = second ? cJSON_GetStringValue(cJSON_GetObjectItem(second, "content")) : NULL;
+        const char *third_text = third ? cJSON_GetStringValue(cJSON_GetObjectItem(third, "content")) : NULL;
+        ok = first_text && strstr(first_text, "\"coordinator_id\":\"dc_") &&
+             second_text && strstr(second_text, "\"status\":\"merged_into_batch\"") &&
+             third_text && strstr(third_text, "\"status\":\"merged_into_batch\"");
+    }
+
+    cJSON_Delete(content);
+    free(resp.calls[0].input);
+    free(resp.calls[1].input);
+    free(resp.calls[2].input);
+    free(msg.content);
+    report("turn_exec merges sibling delegate calls into batch", ok);
+}
+
+static void test_turn_exec_marks_background_delegate_started(void)
+{
+    llm_response_t resp;
+    memset(&resp, 0, sizeof(resp));
+    resp.tool_use = true;
+    resp.call_count = 2;
+
+    strscpy(resp.calls[0].id, "call_a", sizeof(resp.calls[0].id));
+    strscpy(resp.calls[0].name, "delegate_task", sizeof(resp.calls[0].name));
+    resp.calls[0].input = strdup(
+        "{"
+        "\"subagent_type\":\"explore\","
+        "\"description\":\"repo scan\","
+        "\"prompt\":\"scan repo structure\","
+        "\"run_in_background\":true"
+        "}");
+
+    strscpy(resp.calls[1].id, "call_b", sizeof(resp.calls[1].id));
+    strscpy(resp.calls[1].name, "delegate_task", sizeof(resp.calls[1].name));
+    resp.calls[1].input = strdup(
+        "{"
+        "\"subagent_type\":\"oracle\","
+        "\"description\":\"risk review\","
+        "\"prompt\":\"review architecture risks\","
+        "\"run_in_background\":true"
+        "}");
+
+    struct message msg;
+    memset(&msg, 0, sizeof(msg));
+    strscpy(msg.channel, "websocket", sizeof(msg.channel));
+    strscpy(msg.chat_id, "self_test_delegate_bg", sizeof(msg.chat_id));
+    strscpy(msg.source, "internal", sizeof(msg.source));
+    msg.content = strdup("delegate background short-circuit");
+
+    char tool_output[8192];
+    turn_exec_stats_t stats;
+    memset(&stats, 0, sizeof(stats));
+    cJSON *content = agent_turn_build_tool_results(&resp, &msg, tool_output, sizeof(tool_output), &stats);
+
+    int ok = content &&
+             stats.background_delegate_started &&
+             strstr(stats.background_delegate_reply, "coordinator_id=dc_");
+
+    cJSON_Delete(content);
+    free(resp.calls[0].input);
+    free(resp.calls[1].input);
+    free(msg.content);
+    report("turn_exec marks background delegate started", ok);
+}
+
+static void test_delegate_empty_input_is_recoverable(void)
+{
+    int ok = !agent_tool_protocol_failure_should_stop("delegate_task", "{}", "delegate_task: missing required field 'subagent_type'", ERR_INVALID_ARG);
+    report("delegate empty input is recoverable", ok);
+}
+
+static void test_delegate_schema_avoids_anyof(void)
+{
+    const struct tool *t = tool_delegate_definition();
+    int ok = t && t->input_schema_json &&
+             !strstr(t->input_schema_json, "\"anyOf\"") &&
+             strstr(t->input_schema_json, "\"subagent_type\"") &&
+             strstr(t->input_schema_json, "\"tasks\"");
+    report("delegate schema avoids anyOf", ok);
+}
+
 /* 测 11: broad discovery 的 files.list 应被中间层改写为 delegate_task(explore) */
 static void test_discovery_files_rewritten_to_delegate(void)
 {
@@ -458,7 +698,29 @@ static void test_subagent_tool_activity_does_not_require_ws_client(void)
     report("subagent websocket tool activity is skipped", err == 0);
 }
 
-/* 测 15: bounded broad discovery prompt 应携带早停标记，供 runtime 预算识别 */
+/* 测 15: 普通 websocket chat 断开后，工具活动通知应 best-effort 静默处理 */
+static void test_websocket_tool_activity_disconnect_is_best_effort(void)
+{
+    struct message msg;
+    memset(&msg, 0, sizeof(msg));
+    strscpy(msg.channel, "websocket", sizeof(msg.channel));
+    strscpy(msg.chat_id, "web_disconnect_selftest", sizeof(msg.chat_id));
+
+    tool_activity_event_t event = {
+        .tool_name = "files",
+        .tool_input = "{\"action\":\"list\",\"path\":\"/tmp/project/src\"}",
+        .target = "src",
+        .detail = "",
+        .default_text = "files · src · 0.0s",
+        .ok = true,
+        .elapsed_ms = 0,
+    };
+
+    err_t err = channel_runtime_send_tool_activity(&msg, &event);
+    report("websocket disconnect tool activity is best effort", err == 0);
+}
+
+/* 测 16: bounded broad discovery prompt 应携带早停标记，供 runtime 预算识别 */
 static void test_discovery_prompt_marked_as_bounded(void)
 {
     llm_tool_call_t call;
@@ -492,7 +754,7 @@ static void test_discovery_prompt_marked_as_bounded(void)
     report("bounded discovery prompt carries early-stop marker", ok);
 }
 
-/* 测 16: 直接 delegate_task(explore) 的目录结构分析请求也应命中受限预算 */
+/* 测 17: 直接 delegate_task(explore) 的目录结构分析请求也应命中受限预算 */
 static void test_delegate_explore_overview_budget_heuristic(void)
 {
     const struct tool *t = tool_delegate_definition();
@@ -515,6 +777,127 @@ static void test_delegate_dsml_output_filter(void)
     int ok = tool_delegate_text_has_dsml_markup("<｜｜DSML｜｜tool_calls><｜｜DSML｜｜invoke name=\"files\">") &&
              !tool_delegate_text_has_dsml_markup("这是正常的结构分析总结，包含关键目录和入口文件。");
     report("delegate DSML output detector", ok);
+}
+
+static void test_delegate_safe_output_returns_protocol_failure_summary(void)
+{
+    const char *safe = tool_delegate_safe_output_text(
+        "<｜｜DSML｜｜tool_calls>\n<｜｜DSML｜｜invoke name=\"files\">",
+        "这是正常的仓库分析总结，入口在 kernel/turn，调度核心在 tool_delegate。",
+        false,
+        false);
+    int ok = safe &&
+             strstr(safe, "delegate_task: subagent returned tool markup/transcript instead of protocol JSON") &&
+             !strstr(safe, "<｜｜DSML｜｜");
+    report("delegate safe output returns protocol failure summary", ok);
+}
+
+static void test_delegate_safe_output_rejects_transcript_markup(void)
+{
+    const char *safe = tool_delegate_safe_output_text(
+        "我先检查关键目录。\n\n<bash>\nfind /tmp/project -maxdepth 2\n</bash>\n\nFILE: /tmp/project/main.c",
+        "最终结论：入口在 main.c，调度核心在 kernel/turn。",
+        false,
+        false);
+    int ok = safe &&
+             strstr(safe, "delegate_task: subagent returned tool markup/transcript instead of protocol JSON") &&
+             !strstr(safe, "<bash>") &&
+             !strstr(safe, "FILE:");
+    report("delegate safe output rejects transcript markup", ok);
+}
+
+static void test_delegate_safe_output_includes_excerpt_for_non_json_text(void)
+{
+    const char *safe = tool_delegate_safe_output_text(
+        "这里有一段不是 JSON 的纯文本总结，但是最终协议没有遵守。",
+        "",
+        false,
+        false);
+    int ok = safe &&
+             strstr(safe, "delegate_task: subagent returned non-JSON result after finalizer failed") &&
+             strstr(safe, "Excerpt:") &&
+             strstr(safe, "这里有一段不是 JSON 的纯文本总结");
+    report("delegate safe output includes excerpt for non-json text", ok);
+}
+
+static void test_delegate_result_json_parser_accepts_valid_json(void)
+{
+    char summary[1024];
+    int ok = tool_delegate_parse_result_json_summary(
+        "{\"status\":\"done\",\"summary\":\"kernel/loop.c drives the main loop.\",\"evidence\":[\"kernel/loop.c: agent loop\"],\"risks\":[\"No retry isolation\"],\"next_files\":[\"kernel/tooling/delegate_task_store.c\"]}",
+        summary,
+        sizeof(summary));
+    ok = ok &&
+         strstr(summary, "kernel/loop.c drives the main loop.") &&
+         strstr(summary, "Evidence:") &&
+         strstr(summary, "Next files:");
+    report("delegate result json parser accepts valid json", ok);
+}
+
+static void test_delegate_result_json_renderer_accepts_blocked_json(void)
+{
+    char summary[1024];
+    int ok = tool_delegate_parse_result_json_rendered(
+        "{\"status\":\"blocked\",\"summary\":\"Subagent stopped before producing findings.\",\"evidence\":[\"Returned only next-step narration\"],\"risks\":[\"Caller may trust incomplete output\"],\"next_files\":[]}",
+        summary,
+        sizeof(summary));
+    ok = ok &&
+         strstr(summary, "delegate_task: subagent protocol failure") &&
+         strstr(summary, "Subagent stopped before producing findings.");
+    report("delegate result json renderer accepts blocked json", ok);
+}
+
+static void test_delegate_prepare_single_file_prompt_injects_context(void)
+{
+    char prompt[512];
+    char prepared[READ_FILE_MAX_CHARS + 4096];
+    bool disable_tools = false;
+    snprintf(prompt, sizeof(prompt),
+             "只允许读取 /home/wangergou/code/github/daima-agent/kernel/loop.c 这一个文件。分析它的职责并直接给结论。");
+    int ok = tool_delegate_prepare_subagent_prompt(
+        "explore",
+        "分析 kernel/loop.c",
+        prompt,
+        prepared,
+        sizeof(prepared),
+        &disable_tools);
+    ok = ok &&
+         disable_tools &&
+         strstr(prepared, "Provided file content:") &&
+         strstr(prepared, "FILE: /home/wangergou/code/github/daima-agent/kernel/loop.c");
+    report("delegate single-file prompt injects file context", ok);
+}
+
+static void test_delegate_prepare_single_file_prompt_truncates_context(void)
+{
+    char prompt[512];
+    char prepared[READ_FILE_MAX_CHARS + 4096];
+    bool disable_tools = false;
+    snprintf(prompt, sizeof(prompt),
+             "只允许读取 /home/wangergou/code/github/daima-agent/drivers/tool/tool_delegate.c 这一个文件。分析它的职责并直接给结论。");
+    int ok = tool_delegate_prepare_subagent_prompt(
+        "explore",
+        "分析 tool_delegate.c",
+        prompt,
+        prepared,
+        sizeof(prepared),
+        &disable_tools);
+    ok = ok &&
+         disable_tools &&
+         strstr(prepared, "Provided file content:") &&
+         strstr(prepared, "...[truncated by delegate_task]");
+    report("delegate single-file prompt truncates injected context", ok);
+}
+
+static void test_delegate_task_id_parse_without_subagent_type(void)
+{
+    const struct tool *t = tool_delegate_definition();
+    char output[256];
+    err_t err = t->execute("{\"task_id\":\"dt_resume_only\"}", output, sizeof(output));
+    int ok = (err == ERR_NOT_FOUND) &&
+             strstr(output, "task_id not found") &&
+             !strstr(output, "missing required field 'subagent_type'");
+    report("delegate task_id parse does not require subagent_type", ok);
 }
 
 /* 测 11: AI 自检日志 — 读自己的 log 文件判断健康状态 */
@@ -592,14 +975,30 @@ int agent_self_test(void)
     test_delegate_task_legacy_rejected();
     test_delegate_task_sync_implement();
     test_delegate_task_background_handle();
+    test_delegate_task_batch_background_returns_coordinator();
+    test_delegate_task_batch_poll_returns_agents();
+    test_context_prompt_mentions_batch_delegate();
+    test_turn_exec_merges_sibling_delegate_calls();
+    test_turn_exec_marks_background_delegate_started();
+    test_delegate_empty_input_is_recoverable();
+    test_delegate_schema_avoids_anyof();
     test_log_self_check();
     test_discovery_files_rewritten_to_delegate();
     test_discovery_files_rewritten_without_investigate_intent();
     test_subagent_discovery_not_rewritten_recursively();
     test_subagent_tool_activity_does_not_require_ws_client();
+    test_websocket_tool_activity_disconnect_is_best_effort();
     test_discovery_prompt_marked_as_bounded();
     test_delegate_explore_overview_budget_heuristic();
     test_delegate_dsml_output_filter();
+    test_delegate_safe_output_returns_protocol_failure_summary();
+    test_delegate_safe_output_rejects_transcript_markup();
+    test_delegate_safe_output_includes_excerpt_for_non_json_text();
+    test_delegate_result_json_parser_accepts_valid_json();
+    test_delegate_result_json_renderer_accepts_blocked_json();
+    test_delegate_prepare_single_file_prompt_injects_context();
+    test_delegate_prepare_single_file_prompt_truncates_context();
+    test_delegate_task_id_parse_without_subagent_type();
 
     pr_info("----------------------------------------");
     pr_info("  Results: %d/%d passed", tests_pass, tests_run);

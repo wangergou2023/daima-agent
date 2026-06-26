@@ -121,6 +121,23 @@ static void collect_provider_entries(runtime_config_state_t *cfg, const cJSON *p
         runtime_provider_entry_t *out = &cfg->providers[cfg->provider_count];
         strscpy(out->name, entry->string, sizeof(out->name));
         runtime_config_json_copy_string(entry, "model", out->model, sizeof(out->model));
+        runtime_config_json_copy_string(entry, "api_key", out->api_key, sizeof(out->api_key));
+        runtime_config_json_copy_string(entry, "openai_base_url", out->openai_base_url, sizeof(out->openai_base_url));
+        runtime_config_json_copy_string(entry, "api_mode", out->api_mode, sizeof(out->api_mode));
+        runtime_config_json_copy_string(entry, "thinking_mode", out->thinking_mode, sizeof(out->thinking_mode));
+        runtime_config_json_copy_string(entry, "reasoning_effort", out->reasoning_effort, sizeof(out->reasoning_effort));
+        if (!runtime_config_json_read_int(entry, "context_limit_tokens", &out->context_limit_tokens)) {
+            out->context_limit_tokens = 0;
+        }
+        if (!runtime_config_json_read_int(entry, "max_output_tokens", &out->max_output_tokens)) {
+            out->max_output_tokens = 0;
+        }
+        if (!runtime_config_json_read_int(entry, "request_timeout_ms", &out->request_timeout_ms)) {
+            out->request_timeout_ms = 0;
+        }
+        if (!runtime_config_json_read_bool(entry, "needs_reasoning_content", &out->needs_reasoning_content)) {
+            out->needs_reasoning_content = false;
+        }
         cfg->provider_count++;
     }
 }

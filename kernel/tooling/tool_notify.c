@@ -184,7 +184,12 @@ err_t channel_runtime_send_tool_activity(const struct message *msg,
         if (websocket_chat_is_delegate_subagent(msg)) {
             return 0;
         }
-        return ws_server_send_tool_event(msg->chat_id, event->default_text);
+        err_t err = ws_server_send_tool_event(msg->chat_id, event->default_text);
+        if (err == ERR_NOT_FOUND) {
+            /* Web 端断开后，进度事件按 best-effort 发送；不要把缺席客户端当成工具故障。 */
+            return 0;
+        }
+        return err;
     }
     if (strcmp(msg->channel, CHAN_FEISHU) == 0) {
         if (!tool_activity_should_send_feishu(event)) {

@@ -260,7 +260,7 @@ static bool url_tail_is_version_root(const char *url)
  * 检测 base URL 是否为 DeepSeek 官方 API 地址。
  * DeepSeek 平台有特殊行为：仅支持 max_tokens 字段，且可能需要 Unicode 转义。
  */
-static bool base_url_is_deepseek_official(const char *url)
+bool base_url_is_deepseek_official(const char *url)
 {
 	return url && strstr(url, "api.deepseek.com") != NULL;
 }
@@ -310,33 +310,33 @@ bool should_use_anthropic_messages(const char *model,
  *
  * 结果存储在全局 s_openai_api_url 中。
  */
-void build_openai_api_url(void)
+void build_api_url_for(const char *base, bool use_anthropic_api, char *out, size_t out_size)
 {
-	s_openai_api_url[0] = '\0';
-	if (!s_openai_base_url[0]) {
+	if (!out || out_size == 0) {
 		return;
 	}
-
-	const char *base = s_openai_base_url;
+	out[0] = '\0';
+	if (!base || !base[0]) {
+		return;
+	}
 	/* 已包含完整路径：直接使用 */
 	if (strstr(base, "/chat/completions")) {
-		safe_copy(s_openai_api_url, sizeof(s_openai_api_url), base);
+		strscpy(out, base, out_size);
 		return;
 	}
 
 	/* Anthropic Messages API 端点 */
-	if (s_use_anthropic_api) {
+	if (use_anthropic_api) {
 		if (strstr(base, "/v1/messages")) {
-			safe_copy(s_openai_api_url, sizeof(s_openai_api_url), base);
+			strscpy(out, base, out_size);
 		} else if (strstr(base, "api.deepseek.com")) {
 			/* DeepSeek 的 Anthropic 兼容端点路径特殊 */
 			const char *suffix = strstr(base, "/anthropic") ? "v1/messages" : "anthropic/v1/messages";
-			snprintf(s_openai_api_url, sizeof(s_openai_api_url),
-			         str_ends_with(base, "/") ? "%s%s" : "%s/%s", base, suffix);
+			snprintf(out, out_size, str_ends_with(base, "/") ? "%s%s" : "%s/%s", base, suffix);
 		} else if (str_ends_with(base, "/")) {
-			snprintf(s_openai_api_url, sizeof(s_openai_api_url), "%sv1/messages", base);
+			snprintf(out, out_size, "%sv1/messages", base);
 		} else {
-			snprintf(s_openai_api_url, sizeof(s_openai_api_url), "%s/v1/messages", base);
+			snprintf(out, out_size, "%s/v1/messages", base);
 		}
 		return;
 	}
@@ -344,9 +344,9 @@ void build_openai_api_url(void)
 	/* OpenAI Chat Completions 端点 */
 	if (base_url_is_deepseek_official(base)) {
 		if (str_ends_with(base, "/")) {
-			snprintf(s_openai_api_url, sizeof(s_openai_api_url), "%schat/completions", base);
+			snprintf(out, out_size, "%schat/completions", base);
 		} else {
-			snprintf(s_openai_api_url, sizeof(s_openai_api_url), "%s/chat/completions", base);
+			snprintf(out, out_size, "%s/chat/completions", base);
 		}
 		return;
 	}
@@ -354,19 +354,24 @@ void build_openai_api_url(void)
 	/* 已含 /v1/ 或 /v1 结尾：直接追加 chat/completions */
 	if (strstr(base, "/v1/") || str_ends_with(base, "/v1") || url_tail_is_version_root(base)) {
 		if (str_ends_with(base, "/")) {
-			snprintf(s_openai_api_url, sizeof(s_openai_api_url), "%schat/completions", base);
+			snprintf(out, out_size, "%schat/completions", base);
 		} else {
-			snprintf(s_openai_api_url, sizeof(s_openai_api_url), "%s/chat/completions", base);
+			snprintf(out, out_size, "%s/chat/completions", base);
 		}
 		return;
 	}
 
 	/* 默认：补全 /v1/chat/completions 路径 */
 	if (str_ends_with(base, "/")) {
-		snprintf(s_openai_api_url, sizeof(s_openai_api_url), "%sv1/chat/completions", base);
+		snprintf(out, out_size, "%sv1/chat/completions", base);
 	} else {
-		snprintf(s_openai_api_url, sizeof(s_openai_api_url), "%s/v1/chat/completions", base);
+		snprintf(out, out_size, "%s/v1/chat/completions", base);
 	}
+}
+
+void build_openai_api_url(void)
+{
+	build_api_url_for(s_openai_base_url, s_use_anthropic_api, s_openai_api_url, sizeof(s_openai_api_url));
 }
 
 /**
@@ -376,18 +381,22 @@ void build_openai_api_url(void)
  * - "omit" / "auto" → false（不禁用）
  * - 其他 → false
  */
-bool should_disable_thinking(void)
+bool should_disable_thinking_for_mode(const char *thinking_mode)
 {
-	const char *mode = runtime_config_get_provider_thinking_mode();
-	if (mode && mode[0]) {
-		if (strcasecmp(mode, "off") == 0 || strcasecmp(mode, "disabled") == 0) {
+	if (thinking_mode && thinking_mode[0]) {
+		if (strcasecmp(thinking_mode, "off") == 0 || strcasecmp(thinking_mode, "disabled") == 0) {
 			return true;
 		}
-		if (strcasecmp(mode, "omit") == 0 || strcasecmp(mode, "auto") == 0) {
+		if (strcasecmp(thinking_mode, "omit") == 0 || strcasecmp(thinking_mode, "auto") == 0) {
 			return false;
 		}
 	}
 	return false;
+}
+
+bool should_disable_thinking(void)
+{
+	return should_disable_thinking_for_mode(runtime_config_get_provider_thinking_mode());
 }
 
 /**
@@ -400,29 +409,34 @@ bool should_disable_thinking(void)
  *
  * @return 推理强度字符串；禁用时返回 NULL
  */
-const char *reasoning_effort_for_request(void)
+const char *reasoning_effort_for_request_with_values(const char *thinking_mode,
+                                                     const char *reasoning_effort)
 {
-	const char *mode = runtime_config_get_provider_thinking_mode();
-	const char *effort = runtime_config_get_provider_reasoning_effort();
 	/* thinking 被禁用时不返回推理强度 */
-	if (mode && mode[0] &&
-	    (strcasecmp(mode, "off") == 0 || strcasecmp(mode, "disabled") == 0 ||
-	     strcasecmp(mode, "omit") == 0)) {
+	if (thinking_mode && thinking_mode[0] &&
+	    (strcasecmp(thinking_mode, "off") == 0 || strcasecmp(thinking_mode, "disabled") == 0 ||
+	     strcasecmp(thinking_mode, "omit") == 0)) {
 		return NULL;
 	}
-	if (effort && effort[0]) {
-		return effort;
+	if (reasoning_effort && reasoning_effort[0]) {
+		return reasoning_effort;
 	}
-	if (mode && mode[0]) {
-		if (strcasecmp(mode, "low") == 0 || strcasecmp(mode, "medium") == 0 || strcasecmp(mode, "high") == 0) {
-			return mode;
+	if (thinking_mode && thinking_mode[0]) {
+		if (strcasecmp(thinking_mode, "low") == 0 || strcasecmp(thinking_mode, "medium") == 0 || strcasecmp(thinking_mode, "high") == 0) {
+			return thinking_mode;
 		}
 		/* on/enabled/auto → 默认中等推理强度 */
-		if (strcasecmp(mode, "on") == 0 || strcasecmp(mode, "enabled") == 0 || strcasecmp(mode, "auto") == 0) {
+		if (strcasecmp(thinking_mode, "on") == 0 || strcasecmp(thinking_mode, "enabled") == 0 || strcasecmp(thinking_mode, "auto") == 0) {
 			return "medium";
 		}
 	}
 	return NULL;
+}
+
+const char *reasoning_effort_for_request(void)
+{
+	return reasoning_effort_for_request_with_values(runtime_config_get_provider_thinking_mode(),
+	                                                runtime_config_get_provider_reasoning_effort());
 }
 
 /**
@@ -438,9 +452,14 @@ bool should_add_reasoning_content(void)
  * 是否使用 "max_tokens" 而非 "max_completion_tokens"。
  * DeepSeek 平台不支持 max_completion_tokens，需回退到 max_tokens。
  */
+bool should_use_max_tokens_field_for_base_url(const char *base_url)
+{
+	return base_url_is_deepseek_official(base_url);
+}
+
 bool should_use_max_tokens_field(void)
 {
-	return base_url_is_deepseek_official(s_openai_base_url);
+	return should_use_max_tokens_field_for_base_url(s_openai_base_url);
 }
 
 /**

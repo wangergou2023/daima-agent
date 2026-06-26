@@ -27,10 +27,10 @@ extern bool s_use_anthropic_api;
 extern void log_llm_response_diagnostics(const char *protocol,
                                          const char *raw_resp,
                                          cJSON *root);
-extern bool should_disable_thinking(void);
-extern const char *reasoning_effort_for_request(void);
-extern bool should_add_reasoning_content(void);
-extern bool should_use_max_tokens_field(void);
+extern bool should_disable_thinking_for_mode(const char *thinking_mode);
+extern const char *reasoning_effort_for_request_with_values(const char *thinking_mode,
+                                                            const char *reasoning_effort);
+extern bool should_use_max_tokens_field_for_base_url(const char *base_url);
 
 /**
  * 构建完整的 JSON 请求体。
@@ -44,32 +44,45 @@ extern bool should_use_max_tokens_field(void);
  * @param model_name     模型名称
  * @return               堆分配的 JSON 字符串（调用者负责 kfree）；失败返回 NULL
  */
-char *build_request_body(const char *system_prompt,
-                         cJSON *messages,
-                         const char *tools_json,
-                         const char *model_name)
+char *build_request_body_with_options(const char *system_prompt,
+                                      cJSON *messages,
+                                      const char *tools_json,
+                                      const char *model_name,
+                                      bool response_format_json_object,
+                                      const llm_request_options_t *options)
 {
-	int max_output_tokens = runtime_config_get_max_output_tokens();
-	const char *request_model = (model_name && model_name[0]) ? model_name : s_model;
-	cJSON *body = s_use_anthropic_api
+	int max_output_tokens = (options && options->max_output_tokens > 0)
+		? options->max_output_tokens
+		: runtime_config_get_max_output_tokens();
+	const char *request_model = (model_name && model_name[0])
+		? model_name
+		: ((options && options->model && options->model[0]) ? options->model : s_model);
+	const char *thinking_mode = (options && options->thinking_mode) ? options->thinking_mode : runtime_config_get_provider_thinking_mode();
+	const char *reasoning_effort = (options && options->reasoning_effort) ? options->reasoning_effort : runtime_config_get_provider_reasoning_effort();
+	bool use_anthropic_api = options ? options->use_anthropic_api : s_use_anthropic_api;
+	bool add_reasoning_content = options ? options->add_reasoning_content : runtime_config_provider_needs_reasoning_content();
+	bool use_max_tokens_field = options ? options->use_max_tokens_field : should_use_max_tokens_field_for_base_url(runtime_config_get_provider_openai_base_url());
+	cJSON *body = use_anthropic_api
 		? llm_anthropic_build_tools_body(
 			system_prompt,
 			messages,
 			tools_json,
 			request_model,
 			max_output_tokens,
-			should_disable_thinking(),
-			reasoning_effort_for_request())
+			should_disable_thinking_for_mode(thinking_mode),
+			reasoning_effort_for_request_with_values(thinking_mode, reasoning_effort),
+			response_format_json_object)
 		: llm_openai_build_tools_body(
 			system_prompt,
 			messages,
 			tools_json,
 			request_model,
 			max_output_tokens,
-			should_use_max_tokens_field(),
-			should_disable_thinking(),
-			reasoning_effort_for_request(),
-			should_add_reasoning_content());
+			use_max_tokens_field,
+			should_disable_thinking_for_mode(thinking_mode),
+			reasoning_effort_for_request_with_values(thinking_mode, reasoning_effort),
+			add_reasoning_content,
+			response_format_json_object);
 	if (!body) {
 		return NULL;
 	}
@@ -79,7 +92,7 @@ char *build_request_body(const char *system_prompt,
 
 	/* DeepSeek Anthropic API 兼容处理：将非 ASCII 字符转义为 \uXXXX。
 	 * 部分 DeepSeek 端点对包含中文等非 ASCII 字符的 JSON 返回 400 错误。 */
-	if (post_data && s_use_anthropic_api) {
+	if (post_data && use_anthropic_api) {
 		size_t len = strlen(post_data);
 		size_t escaped_len = 0;
 		for (size_t i = 0; i < len; i++) {
@@ -169,6 +182,20 @@ char *build_request_body(const char *system_prompt,
 	return post_data;
 }
 
+char *build_request_body(const char *system_prompt,
+                         cJSON *messages,
+                         const char *tools_json,
+                         const char *model_name,
+                         bool response_format_json_object)
+{
+    return build_request_body_with_options(system_prompt,
+                                           messages,
+                                           tools_json,
+                                           model_name,
+                                           response_format_json_object,
+                                           NULL);
+}
+
 /**
  * 构建 HTTP 请求头链表。
  *
@@ -179,25 +206,30 @@ char *build_request_body(const char *system_prompt,
  * @param url  请求 URL（用于判断认证头格式）
  * @return     堆分配的 curl_slist 链表；调用者负责通过 curl_slist_free_all 释放
  */
-struct curl_slist *build_headers(const char *url)
+struct curl_slist *build_headers_with_api_key(const char *url, const char *api_key)
 {
 	struct curl_slist *headers = NULL;
 	headers = curl_slist_append(headers, "Content-Type: application/json");
 
 	/* Anthropic 协议认证头：x-api-key（非 Authorization: Bearer） */
-	if (s_api_key[0] && url && strstr(url, "/anthropic/")) {
+	if (api_key && api_key[0] && url && strstr(url, "/anthropic/")) {
 		char key_header[LLM_AUTH_HEADER_MAX];
-		snprintf(key_header, sizeof(key_header), "x-api-key: %s", s_api_key);
+		snprintf(key_header, sizeof(key_header), "x-api-key: %s", api_key);
 		headers = curl_slist_append(headers, key_header);
 		headers = curl_slist_append(headers, "anthropic-version: 2023-06-01");
-	} else if (s_api_key[0]) {
+	} else if (api_key && api_key[0]) {
 		/* OpenAI 兼容协议认证头：Authorization: Bearer */
 		char auth[LLM_AUTH_HEADER_MAX];
-		snprintf(auth, sizeof(auth), "Authorization: Bearer %s", s_api_key);
+		snprintf(auth, sizeof(auth), "Authorization: Bearer %s", api_key);
 		headers = curl_slist_append(headers, auth);
 	}
 
 	return headers;
+}
+
+struct curl_slist *build_headers(const char *url)
+{
+    return build_headers_with_api_key(url, s_api_key);
 }
 
 /**

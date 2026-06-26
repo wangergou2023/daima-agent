@@ -90,9 +90,11 @@ daima-agent/
 ├── ipc/             message bus、IPC、core_task
 ├── fs/ net/ lib/    基础设施
 ├── arch/host/       Host 平台实现
+├── scripts/         Kbuild 辅助脚本与开发调试脚本
 ├── spiffs_data/     配置模板、技能、Web 资源、证书
 ├── docs/            文档
-└── install.sh       安装脚本
+├── install.sh       安装脚本
+└── run.sh           本地启动入口
 ```
 
 核心阅读入口如下：
@@ -521,7 +523,8 @@ spiffs_data/
    - `./install.sh`
 
 3. 运行
-   - `agent`
+   - `agent` 或仓库内 `./run.sh`
+   - 后台启动可用 `./run.sh --background`
 
 ### 10.4 启动前检查项
 

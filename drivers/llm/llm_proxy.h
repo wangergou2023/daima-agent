@@ -60,6 +60,21 @@ typedef struct {
     bool tool_use;                               /* stop_reason == "tool_use" */
 } llm_response_t;
 
+typedef struct {
+    const char *api_key;
+    const char *model;
+    const char *base_url;
+    const char *api_url;
+    const char *api_mode;
+    const char *thinking_mode;
+    const char *reasoning_effort;
+    int max_output_tokens;
+    int request_timeout_ms;
+    bool use_anthropic_api;
+    bool add_reasoning_content;
+    bool use_max_tokens_field;
+} llm_request_options_t;
+
 /**
  * 释放 llm_response_t 内部的堆内存
  */
@@ -138,6 +153,21 @@ err_t llm_chat_tools_with_model(const char *system_prompt,
                                       const char *model_override,
                                       llm_response_t *resp);
 
+err_t llm_chat_tools_with_model_and_format(const char *system_prompt,
+                                           cJSON *messages,
+                                           const char *tools_json,
+                                           const char *model_override,
+                                           bool response_format_json_object,
+                                           llm_response_t *resp);
+
+err_t llm_chat_tools_with_provider_and_format(const char *system_prompt,
+                                              cJSON *messages,
+                                              const char *tools_json,
+                                              const char *provider_name,
+                                              const char *model_override,
+                                              bool response_format_json_object,
+                                              llm_response_t *resp);
+
 /* ── 异步 LLM 调用（非阻塞） ──────────────────────────────── */
 
 typedef struct llm_async_chat llm_async_chat_t;
@@ -148,6 +178,21 @@ llm_async_chat_t *llm_chat_tools_async(
     cJSON *messages,
     const char *tools_json,
     const char *model_override);
+
+llm_async_chat_t *llm_chat_tools_async_with_format(
+    const char *system_prompt,
+    cJSON *messages,
+    const char *tools_json,
+    const char *model_override,
+    bool response_format_json_object);
+
+llm_async_chat_t *llm_chat_tools_async_with_provider_and_format(
+    const char *system_prompt,
+    cJSON *messages,
+    const char *tools_json,
+    const char *provider_name,
+    const char *model_override,
+    bool response_format_json_object);
 
 // 检查 LLM 调用是否完成（非阻塞，0开销）
 bool llm_chat_async_is_done(llm_async_chat_t *chat);

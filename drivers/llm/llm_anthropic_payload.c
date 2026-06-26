@@ -219,7 +219,8 @@ cJSON *llm_anthropic_build_tools_body(const char *system_prompt,
                                       const char *model,
                                       int max_tokens,
                                       bool disable_thinking,
-                                      const char *reasoning_effort)
+                                      const char *reasoning_effort,
+                                      bool response_format_json_object)
 {
 	cJSON *body = cJSON_CreateObject();
 	if (!body) {
@@ -263,6 +264,13 @@ cJSON *llm_anthropic_build_tools_body(const char *system_prompt,
 				cJSON_AddStringToObject(choice, "type", "auto");
 				cJSON_AddItemToObject(body, "tool_choice", choice);
 			}
+		}
+	}
+	if (response_format_json_object) {
+		cJSON *response_format = cJSON_CreateObject();
+		if (response_format) {
+			cJSON_AddStringToObject(response_format, "type", "json_object");
+			cJSON_AddItemToObject(body, "response_format", response_format);
 		}
 	}
 	return body;

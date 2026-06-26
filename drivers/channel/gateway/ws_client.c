@@ -413,7 +413,7 @@ static const char *resolve_client_chat_id(ws_client_t *client, cJSON *root, int 
     return chat_id;
 }
 
-err_t ws_client_session_send_json(const char *chat_id, cJSON *obj)
+static err_t ws_client_session_send_json_with_mode(const char *chat_id, cJSON *obj, bool quiet_not_found)
 {
     if (!chat_id || !obj) {
         return ERR_INVALID_ARG;
@@ -424,7 +424,9 @@ err_t ws_client_session_send_json(const char *chat_id, cJSON *obj)
     client = find_client_by_chat_id(chat_id);
     if (!client) {
         pthread_mutex_unlock(&s_clients_mutex);
-        pr_warn("No WS client with chat_id=%s", chat_id);
+        if (!quiet_not_found) {
+            pr_warn("No WS client with chat_id=%s", chat_id);
+        }
         return ERR_NOT_FOUND;
     }
     int fd = client->fd;
@@ -442,6 +444,16 @@ err_t ws_client_session_send_json(const char *chat_id, cJSON *obj)
         return ERR_FAIL;
     }
     return 0;
+}
+
+err_t ws_client_session_send_json(const char *chat_id, cJSON *obj)
+{
+    return ws_client_session_send_json_with_mode(chat_id, obj, false);
+}
+
+err_t ws_client_session_send_json_quiet(const char *chat_id, cJSON *obj)
+{
+    return ws_client_session_send_json_with_mode(chat_id, obj, true);
 }
 
 bool ws_client_session_add(int fd)

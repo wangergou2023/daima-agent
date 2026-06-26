@@ -1108,6 +1108,27 @@ function formatSubagentEvent(data) {
   return detail ? `subagent · ${title} · ${detail}` : `subagent · ${title}`;
 }
 
+function summarizeCoordinatorCompletion(payload) {
+  const coordinator = payload?.coordinator || payload || {};
+  const agents = Array.isArray(coordinator.agents) ? coordinator.agents : [];
+  const status = String(coordinator.status || '').trim() || 'done';
+  const header = `后台任务 ${status === 'failed' ? '已结束（存在失败）' : '已完成'}：${coordinator.coordinator_id || 'unknown'}`;
+  if (!agents.length) return header;
+
+  const lines = [header, ''];
+  for (const agent of agents) {
+    const title = String(agent.description || agent.subagent_type || 'subagent').trim();
+    const agentStatus = String(agent.status || '').trim() || 'unknown';
+    lines.push(`- ${title} [${agentStatus}]`);
+    const output = String(agent.output || '').trim();
+    if (output) {
+      const compact = output.replace(/\s+/g, ' ').slice(0, 240);
+      lines.push(`  ${compact}${output.length > 240 ? '...' : ''}`);
+    }
+  }
+  return lines.join('\n');
+}
+
 function addMessage(role, text) {
   if (!text) return;
   if (role === 'tool') {
@@ -1216,6 +1237,19 @@ function connect() {
       }
       if (data.type === 'coordinator_output') {
         handleCoordinatorOutput(data.agents);
+        return;
+      }
+      if (data.type === 'coordinator_done') {
+        const payload = data.coordinator || {};
+        if (Array.isArray(payload.agents)) {
+          updateCoordinatorStatus(payload.agents);
+          handleCoordinatorOutput(payload.agents);
+        }
+        pendingAssistantResponse = false;
+        stopRequested = false;
+        appendNode(makeMessageNode('assistant', summarizeCoordinatorCompletion(payload)));
+        closeCoordinatorPanel();
+        syncSendState();
         return;
       }
       if (data.type === 'session_sync') {
@@ -1652,7 +1686,7 @@ function renderCoordinatorAgent(agent, maxElapsed) {
 }
 
 function handleCoordinatorOutput(agents) {
-  if (!Array.isArray(agents)) return;
+  if (!coordinatorAgents || !Array.isArray(agents)) return;
   let changed = false;
   for (const agent of agents) {
     if (agent.name && agent.output_text) {

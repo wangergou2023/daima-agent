@@ -40,7 +40,8 @@ cJSON *llm_anthropic_build_tools_body(const char *system_prompt,
                                       const char *model,
                                       int max_tokens,
                                       bool disable_thinking,
-                                      const char *reasoning_effort);
+                                      const char *reasoning_effort,
+                                      bool response_format_json_object);
 
 #ifdef ENABLE_VISION
 /**

@@ -378,7 +378,8 @@ cJSON *llm_openai_build_tools_body(const char *system_prompt,
                                    bool use_max_tokens_field,
                                    bool disable_thinking,
                                    const char *reasoning_effort,
-                                   bool add_reasoning_content)
+                                   bool add_reasoning_content,
+                                   bool response_format_json_object)
 {
 	cJSON *body = cJSON_CreateObject();
 	if (!body) {
@@ -413,6 +414,13 @@ cJSON *llm_openai_build_tools_body(const char *system_prompt,
 		if (tools) {
 			cJSON_AddItemToObject(body, "tools", tools);
 			cJSON_AddStringToObject(body, "tool_choice", "auto");
+		}
+	}
+	if (response_format_json_object) {
+		cJSON *response_format = cJSON_CreateObject();
+		if (response_format) {
+			cJSON_AddStringToObject(response_format, "type", "json_object");
+			cJSON_AddItemToObject(body, "response_format", response_format);
 		}
 	}
 
