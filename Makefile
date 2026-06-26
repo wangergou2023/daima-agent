@@ -10,6 +10,11 @@ export AGENT_DIR := $(AGENT_ROOT)
 BUILD_DIR := build-kbuild
 export BUILD_DIR
 AGENT_BIN := $(BUILD_DIR)/agent
+AGENT_CFLAGS += -iquote $(TOPDIR)/kernel/turn
+AGENT_CFLAGS += -iquote $(TOPDIR)/kernel/channel
+AGENT_CFLAGS += -iquote $(TOPDIR)/kernel/runtime
+AGENT_CFLAGS += -iquote $(TOPDIR)/kernel/context
+AGENT_CFLAGS += -iquote $(TOPDIR)/kernel/tooling
 
 ARCH ?= host
 export ARCH
@@ -28,7 +33,8 @@ endif
 
 # 核心目录列表 (Kbuild 风格 obj-y 清单)
 core-y := init/
-core-y += kernel/ kernel/sched/ kernel/time/ kernel/printk/
+core-y += kernel/ kernel/turn/ kernel/time/ kernel/printk/
+core-y += kernel/channel/ kernel/runtime/ kernel/context/ kernel/tooling/
 core-y += ipc/ lib/ net/ fs/
 core-y += drivers/llm/ drivers/channel/feishu/ drivers/channel/vector/ drivers/channel/gateway/
 core-y += drivers/tool/ drivers/memory/ drivers/skill/ drivers/voice/

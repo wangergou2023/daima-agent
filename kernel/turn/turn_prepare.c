@@ -7,7 +7,6 @@
 
 err_t agent_turn_prepare(
 	const struct message *msg,
-	const struct plan *plan,
 	char *system_prompt,
 	size_t system_prompt_size,
 	char *history_json,
@@ -19,7 +18,7 @@ err_t agent_turn_prepare(
 		return ERR_INVALID_ARG;
 	}
 
-	err_t err = agent_turn_build_prompt(msg, plan, system_prompt, system_prompt_size);
+	err_t err = agent_turn_build_prompt(msg, system_prompt, system_prompt_size);
 	if (err != 0) {
 		return err;
 	}

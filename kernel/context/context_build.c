@@ -141,12 +141,18 @@ static size_t append_operator_guide_fallback(char *buf, size_t size, size_t offs
         "\n## 工作方式\n\n"
         "1. 优先理解用户真实目标，不做机械追问。\n"
         "2. 需要行动时使用工具；需要修改已有文件时，先看上下文再改。\n"
-        "3. 分析代码时，先缩小范围：优先用 `files` 的 `action=search`（`output_mode=files_only/count`、`file_glob`、`path`）找候选文件，再用 `files action=read` 分页深读，不要一上来把很多文件整份读完。\n"
-        "4. 新建、修改、删除文本文件时，默认顺序是：先用 `files action=search/read` 看清上下文，再用 `apply_patch`。\n"
-        "5. `terminal` 适合安装工具、构建、运行命令、看 git 或进程；不适合替代 `files` / `apply_patch` 做文件查看或文本修改。\n"
-        "6. 调用 `terminal` 时，安装软件、更新索引、构建大项目要主动设置更长 `timeout`；看到结构化结果后，要基于 `exit_code`、`timed_out`、`output` 判断是否真的成功。\n"
-        "7. 遇到 bug、功能缺失、体验问题时，先加载 `Work Item 收集` 技能，用 `work_item` 工具记录而非直接修复。\n"
-        "8. 当使用 `cron action=add` 发送到 WebSocket 或飞书时，务必设置 `channel='websocket'` 或 `channel='feishu'` 并提供有效 `chat_id`。\n");
+        "3. broad codebase discovery、影响面分析、模式摸底时，不要先自己大范围搜索；优先调用 `delegate_task` 并使用 `subagent_type='explore'`。\n"
+        "4. 文档、规范、参考资料、配置说明查询时，优先调用 `delegate_task` 并使用 `subagent_type='librarian'`。\n"
+        "5. 架构判断、方案取舍、风险裁决时，必须调用 `delegate_task` 并使用 `subagent_type='oracle'`，不要直接给出拍脑袋结论。\n"
+        "6. 具体实现或改代码需要交给子代理时，调用 `delegate_task` 并使用 `subagent_type='implement'`。\n"
+        "7. 一旦你已经把 discovery 委托给子代理，就不要在同一轮里重复做相同搜索；等待结果并综合结论。\n"
+        "8. 只有在委托结果已经缩小范围后，才自己用 `files` 深读少量关键文件做确认。\n"
+        "9. 分析代码时，先缩小范围：优先用 `files` 的 `action=search`（`output_mode=files_only/count`、`file_glob`、`path`）找候选文件，再用 `files action=read` 分页深读，不要一上来把很多文件整份读完。\n"
+        "10. 新建、修改、删除文本文件时，默认顺序是：先用 `files action=search/read` 看清上下文，再用 `apply_patch`。\n"
+        "11. `terminal` 适合安装工具、构建、运行命令、看 git 或进程；不适合替代 `files` / `apply_patch` 做文件查看或文本修改。\n"
+        "12. 调用 `terminal` 时，安装软件、更新索引、构建大项目要主动设置更长 `timeout`；看到结构化结果后，要基于 `exit_code`、`timed_out`、`output` 判断是否真的成功。\n"
+        "13. 遇到 bug、功能缺失、体验问题时，先加载 `Work Item 收集` 技能，用 `work_item` 工具记录而非直接修复。\n"
+        "14. 当使用 `cron action=add` 发送到 WebSocket 或飞书时，务必设置 `channel='websocket'` 或 `channel='feishu'` 并提供有效 `chat_id`。\n");
 
     offset = append_textf(
         buf, size, offset,
@@ -172,6 +178,14 @@ static size_t append_operator_guide_fallback(char *buf, size_t size, size_t offs
         "- `session_search`：搜索历史会话、压缩摘要和事实卡片。\n"
         "- `terminal`：执行本地 shell 命令，返回包含 `output`、`exit_code`、`timed_out`、`workdir` 的 JSON。\n"
         "- `cron`：管理定时任务；`action=add/list/remove`。\n");
+
+    offset = append_textf(
+        buf, size, offset,
+        "\n## 委托规则\n\n"
+        "- `delegate_task` 是语义化子代理委托工具，优先用于 research、discovery、architecture 和 large implementation。\n"
+        "- 常用形式：`delegate_task({subagent_type:\"explore|librarian|oracle|implement\", prompt:\"...\", description:\"...\"})`。\n"
+        "- 需要并行摸底时可设 `run_in_background=true`，随后用返回的 `task_id` 继续轮询同一个委托任务。\n"
+        "- `oracle` 用于架构与方案裁决；`explore` 用于代码探索；`librarian` 用于参考资料；`implement` 用于实现执行。\n");
 
     return offset;
 }

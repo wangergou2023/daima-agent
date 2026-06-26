@@ -36,9 +36,10 @@ daima-agent/
 
 默认框架的核心约束：
 
-- 只有一条默认 turn 主链：`kernel/loop.c -> kernel/turn_entry.c -> kernel/turn_prepare.c -> kernel/turn_pipeline.c -> kernel/turn_finish.c`
+- 只有一条默认 turn 主链：`kernel/loop.c -> kernel/turn/turn_entry.c -> kernel/turn/turn_prepare.c -> kernel/turn/turn_pipeline.c -> kernel/turn/turn_finish.c`
 - `drivers/` 是能力层，不反向定义主流程
 - `subagent` 是主链可调用能力，不是第二条隐式主链
+- `delegate_task` 是语义委托层，不等于单一的 `kernel/sched` 包装
 - skill 摘要与 skill tool 生命周期分离
 
 ---
@@ -70,7 +71,7 @@ daima-agent/
 - LLM 执行与工具循环
 - turn 收尾
 - async resume
-- subagent 调度
+- subagent 委托与 implement 调度
 
 如果你要理解“消息进来以后系统到底怎么跑”，先读 `kernel/`。
 
@@ -213,8 +214,8 @@ WebSocket 场景下，关键文件是：
 
 Agent 决策发生在：
 
-- `kernel/turn_entry.c`
-- `kernel/turn_decision.c`
+- `kernel/turn/turn_entry.c`
+- `kernel/turn/turn_decision.c`
 
 关键链路如下：
 
@@ -279,7 +280,7 @@ Agent 决策发生在：
 
 关键调用在：
 
-- `kernel/turn_entry.c`
+- `kernel/turn/turn_entry.c`
 
 顺序是：
 
@@ -310,7 +311,7 @@ Agent 决策发生在：
 
 文件：
 
-- `kernel/turn_pipeline.c`
+- `kernel/turn/turn_pipeline.c`
 
 显式顺序是：
 
@@ -322,7 +323,7 @@ Agent 决策发生在：
 
 文件：
 
-- `kernel/turn_interview.c`
+- `kernel/turn/turn_interview.c`
 
 它负责在正式执行前判断：
 
@@ -338,7 +339,7 @@ Agent 决策发生在：
 
 文件：
 
-- `kernel/turn_run.c`
+- `kernel/turn/turn_run.c`
 
 这是执行阶段的核心循环：
 
@@ -363,7 +364,7 @@ Agent 决策发生在：
 
 文件：
 
-- `kernel/turn_exec.c`
+- `kernel/turn/turn_exec.c`
 - `drivers/tool/tool_runtime.c`
 - `drivers/tool/tool_terminal_exec.c`
 
@@ -390,16 +391,24 @@ Agent 决策发生在：
 相关文件：
 
 - `drivers/tool/tool_delegate.c`
+- `kernel/tooling/delegate_task_store.c`
 - `kernel/sched/core.c`
 - `kernel/sched/sched.h`
 
 真实语义是：
 
 - 主链先把 `delegate_task` 暴露在工具集合中
-- 模型如果判断任务复杂，才会调用它
-- 调用后进入 `PLANNER / EXECUTOR / REVIEWER` 协作
+- 模型如果判断任务复杂，才会显式调用它
+- `delegate_task` 暴露四种语义子代理：`explore / librarian / oracle / implement`
+- `explore` 用于代码探索、影响面分析、模式摸底
+- `librarian` 用于文档、规范、参考资料、配置说明查询
+- `oracle` 用于架构判断、方案取舍、风险裁决
+- `implement` 用于具体实现执行
+- 其中只有 `implement` 会进入 `PLANNER / EXECUTOR / REVIEWER` 协作
+- `explore / librarian / oracle` 直接以对应 system prompt 调用 LLM，不进入 `kernel/sched`
 - 每个 subagent 启动时会先按自己的角色从 `role_model_map` 选模型
 - 若角色没有命中路由，再回退到当前全局模型
+- 若设置 `run_in_background=true`，工具会返回 `task_id`，后续可轮询后台委托状态
 - 协作结果再回到当前 turn 的工具结果链中
 
 所以按代码实际，`subagent` 是“执行阶段中的可选协作分支”，不是默认主链的固定阶段。
@@ -414,10 +423,10 @@ Agent 决策发生在：
 收尾分成两段：
 
 1. reply 处理
-   - `kernel/turn_reply.c`
+   - `kernel/turn/turn_reply.c`
 
 2. post actions
-   - `kernel/turn_post.c`
+   - `kernel/turn/turn_post.c`
 
 reply 处理负责：
 
@@ -442,7 +451,7 @@ post actions 负责：
 
 关键函数在：
 
-- `kernel/turn_persist.c`
+- `kernel/turn/turn_persist.c`
 
 具体是：
 
@@ -451,7 +460,7 @@ post actions 负责：
 
 之后由：
 
-- `kernel/channel_router.c`
+- `kernel/channel/channel_router.c`
 
 启动的 `dispatch_outbound_task()` 持续消费 outbound bus：
 
@@ -461,7 +470,7 @@ post actions 负责：
 
 真正按 channel 类型分发的地方在：
 
-- `kernel/channel_runtime.c`
+- `kernel/channel/channel_runtime.c`
 
 例如 WebSocket 最终会走回：
 
@@ -506,12 +515,13 @@ post actions 负责：
 - 更精确的代码表达是：
   - `用户输入 -> 前置过滤与决策 -> 准备 -> interview/执行 -> 收尾 -> outbound 回传`
   - `subagent` 是执行阶段的可选能力分支
+  - `delegate_task` 是语义委托入口，`implement` 只是其中一种分支
 
 ### 4.2 单回合入口
 
 文件：
 
-- `kernel/turn_entry.c`
+- `kernel/turn/turn_entry.c`
 
 入口函数：
 
@@ -536,7 +546,7 @@ post actions 负责：
 
 文件：
 
-- `kernel/turn_io.c`
+- `kernel/turn/turn_io.c`
 
 负责同步回合使用的：
 
@@ -550,9 +560,9 @@ post actions 负责：
 
 文件：
 
-- `kernel/turn_prepare.c`
-- `kernel/turn_prompt_build.c`
-- `kernel/turn_message_build.c`
+- `kernel/turn/turn_prepare.c`
+- `kernel/turn/turn_prompt_build.c`
+- `kernel/turn/turn_message_build.c`
 
 边界固定如下：
 
@@ -575,10 +585,10 @@ post actions 负责：
 
 文件：
 
-- `kernel/turn_pipeline.c`
-- `kernel/turn_interview.c`
-- `kernel/turn_run.c`
-- `kernel/turn_exec.c`
+- `kernel/turn/turn_pipeline.c`
+- `kernel/turn/turn_interview.c`
+- `kernel/turn/turn_run.c`
+- `kernel/turn/turn_exec.c`
 
 边界固定如下：
 
@@ -604,10 +614,10 @@ post actions 负责：
 
 文件：
 
-- `kernel/turn_finish.c`
-- `kernel/turn_reply.c`
-- `kernel/turn_post.c`
-- `kernel/turn_persist.c`
+- `kernel/turn/turn_finish.c`
+- `kernel/turn/turn_reply.c`
+- `kernel/turn/turn_post.c`
+- `kernel/turn/turn_persist.c`
 
 边界固定如下：
 
@@ -637,8 +647,8 @@ post actions 负责：
 
 文件：
 
-- `kernel/turn_context.c`
-- `kernel/turn_resume.c`
+- `kernel/turn/turn_context.c`
+- `kernel/turn/turn_resume.c`
 
 这部分只服务 async resume。
 
@@ -660,13 +670,13 @@ post actions 负责：
 
 | 文件 | 作用 |
 |------|------|
-| `kernel/turn_gate.c` | `!test` / internal control 前置过滤 |
-| `kernel/turn_decision.c` | intent / role / plan / model 决策 |
-| `kernel/turn_prompt.c` | role prompt / team guidance 注入 |
+| `kernel/turn/turn_gate.c` | `!test` / internal control 前置过滤 |
+| `kernel/turn/turn_decision.c` | intent / role / plan / model 决策 |
+| `kernel/turn/turn_prompt.c` | role prompt / team guidance 注入 |
 | `kernel/router.c` | role / intent 到模型的路由 |
-| `kernel/todo.c` | todo enforcer |
-| `kernel/recovery.c` | session crash recovery |
-| `kernel/compaction.c` | compaction recovery snapshot / inject |
+| `kernel/context/todo.c` | todo enforcer |
+| `kernel/context/recovery.c` | session crash recovery |
+| `kernel/context/compaction.c` | compaction recovery snapshot / inject |
 | `kernel/ralph.c` | Ralph continuation logic |
 
 ---
@@ -699,7 +709,7 @@ post actions 负责：
 
 如果你在排查工具调用行为，优先看：
 
-- `kernel/turn_exec.c`
+- `kernel/turn/turn_exec.c`
 - `drivers/tool/tool_runtime.c`
 - `drivers/tool/tool_terminal_exec.c`
 
@@ -709,7 +719,7 @@ post actions 负责：
 
 - `kernel/executor_core.c`
 - `kernel/memory_core.c`
-- `kernel/turn_dispatch.c`
+- `kernel/turn/turn_dispatch.c`
 
 它们负责把部分动作从主循环解耦出去。
 
@@ -810,8 +820,10 @@ post actions 负责：
 
 - `subagent` 是主链能力，不是替代执行链
 - 入口只认 `delegate_task`
-- 调度只走 `kernel/sched`
-- 默认是 `PLANNER / EXECUTOR / REVIEWER`
+- `implement` 调度走 `kernel/sched`
+- `implement` 默认是 `PLANNER / EXECUTOR / REVIEWER`
+- `explore / librarian / oracle` 直接走语义化 LLM 委托
+- 支持 `run_in_background=true` 启动后台委托，并通过 `task_id` 轮询
 - 不允许递归委托
 
 ---
@@ -824,25 +836,25 @@ post actions 负责：
 
 1. `init/main.c`
 2. `kernel/loop.c`
-3. `kernel/turn_entry.c`
-4. `kernel/turn_prepare.c`
-5. `kernel/turn_pipeline.c`
-6. `kernel/turn_finish.c`
+3. `kernel/turn/turn_entry.c`
+4. `kernel/turn/turn_prepare.c`
+5. `kernel/turn/turn_pipeline.c`
+6. `kernel/turn/turn_finish.c`
 
 ### 11.2 想改 prompt / message 组织
 
 先看：
 
-- `kernel/turn_prompt_build.c`
-- `kernel/turn_message_build.c`
-- `kernel/turn_prompt.c`
+- `kernel/turn/turn_prompt_build.c`
+- `kernel/turn/turn_message_build.c`
+- `kernel/turn/turn_prompt.c`
 
 ### 11.3 想改工具调用行为
 
 先看：
 
-- `kernel/turn_run.c`
-- `kernel/turn_exec.c`
+- `kernel/turn/turn_run.c`
+- `kernel/turn/turn_exec.c`
 - `drivers/tool/tool_runtime.c`
 - `drivers/tool/tool_terminal_exec.c`
 
@@ -850,19 +862,19 @@ post actions 负责：
 
 先看：
 
-- `kernel/context_ops.c`
+- `kernel/context/context_ops.c`
 - `drivers/memory/session_store_file_summary.c`
 - `drivers/memory/session_store_file_facts.c`
-- `kernel/compaction.c`
+- `kernel/context/compaction.c`
 
 ### 11.5 想改恢复 / 收尾行为
 
 先看：
 
-- `kernel/recovery.c`
-- `kernel/turn_reply.c`
-- `kernel/turn_post.c`
-- `kernel/turn_persist.c`
+- `kernel/context/recovery.c`
+- `kernel/turn/turn_reply.c`
+- `kernel/turn/turn_post.c`
+- `kernel/turn/turn_persist.c`
 
 ---
 
@@ -877,7 +889,9 @@ post actions 负责：
 - `turn_context` 只存 async resume snapshot
 - 同步回合临时资源只由 `turn_io` 管理
 - skill summary 不等于 skill tools activated
-- `subagent` 只允许走 `delegate_task + kernel/sched`
+- `subagent` 统一只允许走 `delegate_task`
+- `implement` 通过 `delegate_task + kernel/sched`
+- `explore / librarian / oracle` 通过 `delegate_task + direct LLM`
 
 维护这份文档时，优先同步以下内容：
 

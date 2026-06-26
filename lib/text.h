@@ -13,3 +13,6 @@ bool str_ends_with(const char *s, const char *suffix);
 
 /** 截断字符串，超长时追加 "..."。 */
 void text_shorten(const char *src, char *dst, size_t dst_size, size_t max_len);
+
+/** 原地清洗字符串中的非法 UTF-8 / Unicode 码点，保证可安全序列化为 JSON。 */
+void text_sanitize_utf8_json(char *s);

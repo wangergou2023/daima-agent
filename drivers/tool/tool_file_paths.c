@@ -159,13 +159,7 @@ bool tool_files_resolve_list_dir_path(const char *path, char *resolved, size_t r
     if (!path || !path[0]) {
         return resolve_workspace_path(".", resolved, resolved_size, false);
     }
-    if (path_resolve_spiffs_shortcut(path, resolved, resolved_size)) {
-        return true;
-    }
-    if (validate_spiffs_path(path)) {
-        return strscpy(resolved, path, resolved_size) < resolved_size;
-    }
-    return resolve_workspace_path(path, resolved, resolved_size, false);
+    return tool_files_resolve_read_path(path, resolved, resolved_size);
 }
 
 void tool_files_ensure_parent_dirs(const char *path)

@@ -14,6 +14,8 @@
 #include "linux/printk.h"
 #include "linux/slab.h"
 
+static __thread const struct message *s_tool_runtime_current_message = NULL;
+
 /* 记录工具执行前的输入日志，将换行/回车/制表符替换为空格方便阅读。 */
 static void log_tool_runtime_input(const char *phase,
                                    const char *tool_name,
@@ -120,6 +122,11 @@ static void maybe_retry_terminal_with_web_sudo(const llm_tool_call_t *call,
     cJSON_Delete(root);
 }
 
+const struct message *tool_runtime_current_message(void)
+{
+    return s_tool_runtime_current_message;
+}
+
 /**
  * 执行一次 LLM 工具调用。
  * 流程：参数校验 → 上下文补丁 → 注册表执行 → sudo 重试 → 耗时统计 → 日志输出。
@@ -142,26 +149,34 @@ err_t tool_runtime_execute_call(const llm_tool_call_t *call,
 
     memset(out_result, 0, sizeof(*out_result));
     const char *tool_input = call->input ? call->input : "{}";
+    const char *effective_tool_name = call->name;
     log_tool_runtime_input("execute original input",
                            call->name,
                            call->input ? call->input : "<null>");
     char *patched_input = tool_invocation_context_patch_input(call, msg);
+    const char *patched_tool_name = tool_invocation_context_patch_tool_name(call, msg);
+    if (patched_tool_name && patched_tool_name[0]) {
+        effective_tool_name = patched_tool_name;
+        pr_info("execute patched tool tool=%s original=%s", effective_tool_name, call->name);
+    }
     if (patched_input) {
         tool_input = patched_input;
-        log_tool_runtime_input("execute patched input", call->name, tool_input);
+        log_tool_runtime_input("execute patched input", effective_tool_name, tool_input);
     }
 
     struct timespec started = {0};
     struct timespec ended = {0};
     clock_gettime(CLOCK_MONOTONIC, &started);
     tool_output[0] = '\0';
-    err_t exec_err = tool_bus_execute_for_channel(msg->channel, call->name, tool_input, tool_output, tool_output_size);
+    s_tool_runtime_current_message = msg;
+    err_t exec_err = tool_bus_execute_for_channel(msg->channel, effective_tool_name, tool_input, tool_output, tool_output_size);
     maybe_retry_terminal_with_web_sudo(call, msg, tool_output, tool_output_size);
+    s_tool_runtime_current_message = NULL;
     clock_gettime(CLOCK_MONOTONIC, &ended);
 
     out_result->elapsed_ms = (ended.tv_sec - started.tv_sec) * 1000L
                            + (ended.tv_nsec - started.tv_nsec) / 1000000L;
     out_result->effective_input = patched_input;
-    log_tool_runtime_result(call->name, tool_input, tool_output, exec_err, out_result->elapsed_ms);
+    log_tool_runtime_result(effective_tool_name, tool_input, tool_output, exec_err, out_result->elapsed_ms);
     return exec_err;
 }

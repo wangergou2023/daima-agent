@@ -81,7 +81,7 @@ bool agent_turn_resume_poll(void)
     const char *tools_json = tool_bus_tools_json_for_channel(snap->channel);
     err_t err = agent_turn_run(
         snap->system_prompt, snap->messages, tools_json, &resume_msg,
-        NULL, snap->cancel_token,
+        NULL, 0, snap->cancel_token,
         &final_text, &reasoning_text, &iteration, &tool_budget_exhausted, &cancelled);
 
     agent_finalize_turn(&resume_msg, &final_text, &reasoning_text, err, iteration,

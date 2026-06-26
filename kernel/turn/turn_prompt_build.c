@@ -128,7 +128,6 @@ static void append_session_summary_prompt(char *prompt, size_t size, const char 
 }
 
 err_t agent_turn_build_prompt(const struct message *msg,
-			      const struct plan *plan,
 			      char *system_prompt,
 			      size_t system_prompt_size)
 {
@@ -173,9 +172,6 @@ err_t agent_turn_build_prompt(const struct message *msg,
 				system_prompt[system_prompt_size - 1] = '\0';
 			}
 		}
-	}
-	if (plan && plan->has_plan) {
-		(void)plan_review_inject_to_prompt(plan, system_prompt, system_prompt_size);
 	}
 	context_fix_truncated_utf8(system_prompt, strnlen(system_prompt, system_prompt_size));
 

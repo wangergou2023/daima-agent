@@ -26,6 +26,7 @@ static err_t run_prepared_turn_once(struct message *msg,
 
 	uint64_t cancel_token = agent_cancel_begin_turn(cancel_chat_id);
 	return agent_turn_run(system_prompt, messages, tools_json, msg, model_override,
+			      0,
 			      cancel_token, out_final_text, out_reasoning_text,
 			      out_iteration, out_tool_budget_exhausted,
 			      out_cancelled);

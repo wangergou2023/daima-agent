@@ -152,6 +152,8 @@ cJSON *agent_turn_build_tool_results(const llm_response_t *resp,
             pr_warn("Tool %s failed: %s input=%s output=%s", call->name, err_name(tool_err), ip, op);
         }
 
+        text_sanitize_utf8_json(tool_output);
+
         cJSON *block = cJSON_CreateObject();
         cJSON_AddStringToObject(block, "type", "tool_result");
         cJSON_AddStringToObject(block, "tool_use_id", call->id);

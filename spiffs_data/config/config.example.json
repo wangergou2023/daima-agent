@@ -22,9 +22,8 @@
         },
         "role_model_map": {
             "FAST":         "quick",
-            "PLANNER":      "deep",
-            "EXECUTOR":     "deep",
-            "REVIEWER":     "deep"
+            "ORACLE":       "deep",
+            "IMPLEMENT":    "deep"
         }
     },
     "active_provider": "your_provider_name",

@@ -72,7 +72,7 @@ struct tool_driver {
 ### 工具执行与验证
 
 - `tool_bus_execute(name, ...)` 查找并执行
-- 工具失败通过 `kernel/tool_exec_fail.c` 观察
+- 工具失败通过 `kernel/tooling/tool_exec_fail.c` 观察
 - 文件编辑工具通过 `kernel/auto_verify.c` 自动验证副作用
 
 ## ANTI-PATTERNS

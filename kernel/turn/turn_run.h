@@ -34,6 +34,7 @@ err_t agent_turn_run(
 	const char *tools_json,
 	const struct message *msg,
 	const char *model_override,
+	int max_tool_iterations,
 	uint64_t cancel_token,
 	char **out_final_text,
 	char **out_reasoning_text,

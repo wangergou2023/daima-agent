@@ -28,6 +28,11 @@ err_t ws_server_send_with_reasoning(const char *chat_id, const char *text, const
  * 发送轻量工具活动消息，用于 Web 对话流中的过程提示。
  */
 err_t ws_server_send_tool_event(const char *chat_id, const char *text);
+err_t ws_server_send_subagent_event(const char *chat_id,
+                                    const char *event_type,
+                                    const char *subagent_type,
+                                    const char *task,
+                                    const char *detail);
 
 /**
  * 发送宠物通道回复；逻辑 chat_id 为 pet_chat_id，底层仍复用对应 WebSocket 连接。

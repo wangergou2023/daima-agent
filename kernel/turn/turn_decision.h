@@ -5,11 +5,9 @@
 #include <stddef.h>
 
 #include "bus.h"
-#include "plan.h"
 #include "roles.h"
 
 typedef struct {
-	struct plan plan;
 	agent_role_t active_role;
 } agent_turn_decision_t;
 

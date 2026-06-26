@@ -13,6 +13,115 @@
 #include "cjson.h"
 #include "linux/printk.h"
 
+static bool message_requests_broad_discovery(const struct message *msg)
+{
+    if (!msg || !msg->content) {
+        return false;
+    }
+
+    static const char *keywords[] = {
+        "分析", "看看", "目录", "结构", "模块", "代码库", "仓库", "摸底",
+        "analyze", "analysis", "explore", "survey", "repo", "repository", "codebase", "structure"
+    };
+    for (size_t i = 0; i < sizeof(keywords) / sizeof(keywords[0]); i++) {
+        if (strstr(msg->content, keywords[i])) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool message_is_delegate_subagent(const struct message *msg)
+{
+    if (!msg) {
+        return false;
+    }
+
+    return strncmp(msg->chat_id, "delegate_sync_", 14) == 0;
+}
+
+static bool files_call_looks_broad_discovery(const llm_tool_call_t *call,
+                                             cJSON *root,
+                                             const struct message *msg)
+{
+    if (!call || !root || !msg) {
+        return false;
+    }
+    if (message_is_delegate_subagent(msg)) {
+        return false;
+    }
+    if (strcmp(call->name, "files") != 0) {
+        return false;
+    }
+
+    const char *action = cJSON_GetStringValue(cJSON_GetObjectItem(root, "action"));
+    if (!action) {
+        return false;
+    }
+    if (strcmp(action, "list") == 0) {
+        return message_requests_broad_discovery(msg);
+    }
+    if (strcmp(action, "search") != 0) {
+        return false;
+    }
+
+    const char *target = cJSON_GetStringValue(cJSON_GetObjectItem(root, "target"));
+    const char *output_mode = cJSON_GetStringValue(cJSON_GetObjectItem(root, "output_mode"));
+    cJSON *limit = cJSON_GetObjectItem(root, "limit");
+    int limit_value = cJSON_IsNumber(limit) ? limit->valueint : 0;
+
+    if (!target || strcmp(target, "files") == 0) {
+        return true;
+    }
+    if (output_mode && (strcmp(output_mode, "files_only") == 0 || strcmp(output_mode, "count") == 0)) {
+        return true;
+    }
+    if (limit_value == 0 || limit_value > 20) {
+        return message_requests_broad_discovery(msg);
+    }
+    return false;
+}
+
+static char *build_delegate_explore_request(cJSON *root, const struct message *msg)
+{
+    const char *action = cJSON_GetStringValue(cJSON_GetObjectItem(root, "action"));
+    const char *path = cJSON_GetStringValue(cJSON_GetObjectItem(root, "path"));
+    const char *pattern = cJSON_GetStringValue(cJSON_GetObjectItem(root, "pattern"));
+    const char *target = cJSON_GetStringValue(cJSON_GetObjectItem(root, "target"));
+    const char *file_glob = cJSON_GetStringValue(cJSON_GetObjectItem(root, "file_glob"));
+    const char *output_mode = cJSON_GetStringValue(cJSON_GetObjectItem(root, "output_mode"));
+
+    char prompt[2048];
+    snprintf(prompt, sizeof(prompt),
+             "Investigate this codebase area and return a concise discovery summary with concrete evidence. "
+             "This is a bounded exploration request: map top-level structure first, then inspect only the smallest set of representative files needed to explain key modules. "
+             "Stop once you can answer repo structure, important modules, entrypoints, and likely next files to read. "
+             "Do not exhaustively enumerate every subdirectory or sweep the entire repository. "
+             "Prefer 1 top-level listing, then at most a few targeted listings/reads for representative modules. "
+             "If the user asked about directory structure or code organization, optimize for fast coverage and early stop, not completeness-by-exhaustion. "
+             "Original user request: %s\n"
+             "Requested files tool call: action=%s path=%s pattern=%s target=%s file_glob=%s output_mode=%s",
+             msg && msg->content ? msg->content : "",
+             action ? action : "",
+             path ? path : "",
+             pattern ? pattern : "",
+             target ? target : "",
+             file_glob ? file_glob : "",
+             output_mode ? output_mode : "");
+
+    cJSON *delegate = cJSON_CreateObject();
+    if (!delegate) {
+        return NULL;
+    }
+    cJSON_AddStringToObject(delegate, "description", "broad discovery");
+    cJSON_AddStringToObject(delegate, "subagent_type", "explore");
+    cJSON_AddStringToObject(delegate, "prompt", prompt);
+
+    char *json = cJSON_PrintUnformatted(delegate);
+    cJSON_Delete(delegate);
+    return json;
+}
+
 /* 安全设置 JSON 对象的字符串字段（先删后加）。 */
 static void json_set_string(cJSON *obj, const char *key, const char *value)
 {
@@ -93,6 +202,18 @@ char *tool_invocation_context_patch_input(const llm_tool_call_t *call, const str
     if (!call || !msg) {
         return NULL;
     }
+    if (strcmp(call->name, "files") == 0) {
+        cJSON *root = cJSON_Parse(call->input ? call->input : "{}");
+        bool should_delegate = files_call_looks_broad_discovery(call, root, msg);
+        char *patched = should_delegate ? build_delegate_explore_request(root, msg) : NULL;
+        if (patched) {
+            pr_info("Patched broad discovery files call to delegate_task(explore) for chat=%s", msg->chat_id);
+        }
+        cJSON_Delete(root);
+        if (patched) {
+            return patched;
+        }
+    }
     if (strcmp(call->name, "cron") == 0) {
         cJSON *root = cJSON_Parse(call->input ? call->input : "{}");
         const char *action = root ? cJSON_GetStringValue(cJSON_GetObjectItem(root, "action")) : NULL;
@@ -104,4 +225,19 @@ char *tool_invocation_context_patch_input(const llm_tool_call_t *call, const str
         return patch_cron_action_add_target(call, msg);
     }
     return NULL;
+}
+
+const char *tool_invocation_context_patch_tool_name(const llm_tool_call_t *call, const struct message *msg)
+{
+    if (!call || !msg) {
+        return NULL;
+    }
+    if (strcmp(call->name, "files") != 0) {
+        return NULL;
+    }
+
+    cJSON *root = cJSON_Parse(call->input ? call->input : "{}");
+    bool should_delegate = files_call_looks_broad_discovery(call, root, msg);
+    cJSON_Delete(root);
+    return should_delegate ? "delegate_task" : NULL;
 }

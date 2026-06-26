@@ -1,0 +1,10 @@
+obj-y := turn_common.o turn_prepare.o turn_prompt_build.o turn_message_build.o
+obj-y += turn_run.o turn_exec.o turn_finish.o turn_reply.o turn_post.o turn_persist.o
+obj-y += turn_pipeline.o turn_interview.o
+obj-y += turn_resume.o
+obj-y += turn_entry.o
+obj-y += turn_decision.o turn_gate.o
+obj-y += turn_prompt.o
+obj-y += turn_io.o
+obj-y += turn_dispatch.o
+obj-y += turn_context.o

@@ -94,7 +94,7 @@ copy_if_missing "./spiffs_data/config/USER.md" "$CONFIG_DIR/USER.md"
 copy_if_missing "./spiffs_data/config/AGENTS.md" "$CONFIG_DIR/AGENTS.md"
 
 ensure_path_snippet "$BASHRC"
-
+make clean
 echo ""
 echo "Agent installed successfully."
 echo "Home: $AGENT_HOME"

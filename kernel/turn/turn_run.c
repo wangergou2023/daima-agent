@@ -22,6 +22,58 @@
 #include "linux/slab.h"
 #define TOOL_OUTPUT_SIZE  (8 * 1024)
 
+static bool reasoning_has_dsml_tool_markup(const char *text)
+{
+    return text &&
+           (strstr(text, "<｜｜DSML｜｜tool_calls>") ||
+            strstr(text, "<｜｜DSML｜｜invoke ") ||
+            strstr(text, "<｜｜DSML｜｜parameter "));
+}
+
+static void strip_dsml_tool_markup_inplace(char *text)
+{
+    if (!reasoning_has_dsml_tool_markup(text)) {
+        return;
+    }
+
+    char *tool_calls = strstr(text, "<｜｜DSML｜｜tool_calls>");
+    if (!tool_calls) {
+        tool_calls = strstr(text, "<｜｜DSML｜｜invoke ");
+    }
+    if (!tool_calls) {
+        tool_calls = strstr(text, "<｜｜DSML｜｜parameter ");
+    }
+    if (!tool_calls) {
+        return;
+    }
+
+    while (tool_calls > text && (tool_calls[-1] == '\n' || tool_calls[-1] == '\r')) {
+        tool_calls--;
+    }
+    *tool_calls = '\0';
+
+    size_t len = strlen(text);
+    while (len > 0 && (text[len - 1] == '\n' || text[len - 1] == '\r' || text[len - 1] == ' ' || text[len - 1] == '\t')) {
+        text[--len] = '\0';
+    }
+}
+
+static void sanitize_dsml_reply_text(char **io_text)
+{
+    if (!io_text || !*io_text) {
+        return;
+    }
+    if (!reasoning_has_dsml_tool_markup(*io_text)) {
+        return;
+    }
+
+    strip_dsml_tool_markup_inplace(*io_text);
+    if (!(*io_text)[0]) {
+        kfree(*io_text);
+        *io_text = NULL;
+    }
+}
+
 /** 检查取消令牌并标记取消状态。返回 true 表示已被取消。
  *  @param stage  描述当前阶段的字符串，用于日志 */
 static bool mark_cancelled_if_needed(const struct message *msg,
@@ -103,6 +155,7 @@ err_t agent_turn_run(
     const char *tools_json,
     const struct message *msg,
     const char *model_override,
+    int max_tool_iterations,
     uint64_t cancel_token,
     char **out_final_text,
     char **out_reasoning_text,
@@ -120,6 +173,10 @@ err_t agent_turn_run(
     *out_tool_budget_exhausted = false;
     *out_cancelled = false;
 
+    if (max_tool_iterations <= 0) {
+        max_tool_iterations = AGENT_MAX_TOOL_ITER;
+    }
+
     char *tool_output = platform_calloc(1, TOOL_OUTPUT_SIZE);
     if (unlikely(!tool_output)) {
         return ERR_NO_MEM;
@@ -132,7 +189,7 @@ err_t agent_turn_run(
     turn_exec_stats_t stats;
     memset(&stats, 0, sizeof(stats));
 
-    while (iteration < AGENT_MAX_TOOL_ITER) {
+    while (iteration < max_tool_iterations) {
         /* 每次 LLM 调用前检查取消 */
         if (mark_cancelled_if_needed(msg, cancel_token, out_cancelled, "before LLM call")) {
             break;
@@ -169,9 +226,14 @@ err_t agent_turn_run(
         if (!resp.tool_use) {
             if (resp.text && resp.text_len > 0) {
                 final_text = strdup(resp.text);
+                sanitize_dsml_reply_text(&final_text);
             }
             if (resp.reasoning_content && resp.reasoning_content_len > 0) {
                 final_reasoning_text = strdup(resp.reasoning_content);
+                sanitize_dsml_reply_text(&final_reasoning_text);
+            }
+            if (!final_text && final_reasoning_text) {
+                final_text = strdup(final_reasoning_text);
             }
             llm_response_free(&resp);
             err = 0;
@@ -214,7 +276,7 @@ err_t agent_turn_run(
     }
 
     /* 主循环结束后，若工具预算耗尽且无输出，强制生成最终回复 */
-    if (!*out_cancelled && !final_text && iteration >= AGENT_MAX_TOOL_ITER) {
+    if (!*out_cancelled && !final_text && iteration >= max_tool_iterations) {
         *out_tool_budget_exhausted = true;
         pr_warn("Tool iteration budget exhausted for chat %s, forcing final response", msg->chat_id);
         final_text = agent_turn_generate_forced_final_response(

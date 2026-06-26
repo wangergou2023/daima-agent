@@ -64,17 +64,15 @@ const INTENT_CONFIG = Object.freeze({
 });
 
 const ROLE_LABELS = Object.freeze({
-  planner: 'PLANNER',
-  executor: 'EXECUTOR',
-  reviewer: 'REVIEWER',
   fast: 'FAST',
+  oracle: 'ORACLE',
+  implement: 'IMPLEMENT',
 });
 
 const ROLE_EMOJI = Object.freeze({
-  planner: '🤖',
-  executor: '🛠️',
-  reviewer: '✅',
   fast: '⚡',
+  oracle: '🧭',
+  implement: '🛠️',
 });
 
 const RECONNECT_SESSION_KEY = 'agent_last_session';
@@ -1096,6 +1094,20 @@ function addToolMessage(text) {
   syncScrollButton();
 }
 
+function formatSubagentEvent(data) {
+  const type = String(data?.subagent_type || '').trim() || 'subagent';
+  const task = String(data?.task || '').trim();
+  const detail = String(data?.detail || '').trim();
+  const title = task ? `${type} · ${task}` : type;
+  if (data.type === 'subagent_start') {
+    return detail ? `subagent start · ${title} · ${detail}` : `subagent start · ${title}`;
+  }
+  if (data.type === 'subagent_done') {
+    return detail ? `subagent done · ${title} · ${detail}` : `subagent done · ${title}`;
+  }
+  return detail ? `subagent · ${title} · ${detail}` : `subagent · ${title}`;
+}
+
 function addMessage(role, text) {
   if (!text) return;
   if (role === 'tool') {
@@ -1266,6 +1278,14 @@ function connect() {
           petController.handleToolMessage();
         }
         addMessage('tool', data.content);
+        pendingReasoningCard = null;
+        return;
+      }
+      if (data.type === 'subagent_start' || data.type === 'subagent_done' || data.type === 'subagent_progress') {
+        if (petController) {
+          petController.handleToolMessage();
+        }
+        addMessage('tool', formatSubagentEvent(data));
         pendingReasoningCard = null;
         return;
       }
@@ -1539,9 +1559,8 @@ function formatElapsed(ms) {
 
 function resolveAgentRole(name) {
   const lower = String(name || '').toLowerCase();
-  if (lower.includes('planner')) return 'planner';
-  if (lower.includes('executor')) return 'executor';
-  if (lower.includes('reviewer')) return 'reviewer';
+  if (lower.includes('oracle')) return 'oracle';
+  if (lower.includes('implement')) return 'implement';
   if (lower.includes('fast')) return 'fast';
   return '';
 }

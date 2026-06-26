@@ -112,9 +112,8 @@ static void load_default_cfg(category_router_cfg_t *cfg)
     int quick = add_profile(cfg, "quick", quick_model, context_limit, max_tokens);
 
     cfg->role_model_map[AGENT_ROLE_FAST] = quick;
-    cfg->role_model_map[AGENT_ROLE_PLANNER] = deep;
-    cfg->role_model_map[AGENT_ROLE_EXECUTOR] = deep;
-    cfg->role_model_map[AGENT_ROLE_REVIEWER] = deep;
+    cfg->role_model_map[AGENT_ROLE_ORACLE] = deep;
+    cfg->role_model_map[AGENT_ROLE_IMPLEMENT] = deep;
 
     pr_info("Category routing defaults: deep=%s quick=%s", active_model, quick_model);
 }

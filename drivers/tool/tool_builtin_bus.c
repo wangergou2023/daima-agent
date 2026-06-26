@@ -88,6 +88,7 @@ err_t tool_builtin_bus_init(void)
     register_builtin_driver(tool_robot_drive_off_charger_driver());
     register_builtin_driver(tool_robot_play_animation_driver());
     register_builtin_driver(tool_robot_get_battery_driver());
+    register_builtin_driver(tool_delegate_driver());
 
     tool_weather_init();
 

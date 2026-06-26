@@ -12,6 +12,14 @@
 #include "drivers/channel/gateway/ws_server.h"
 #define FEISHU_TOOL_ACTIVITY_SLOW_MS 1500
 
+static bool websocket_chat_is_delegate_subagent(const struct message *msg)
+{
+    if (!msg) {
+        return false;
+    }
+    return strncmp(msg->chat_id, "delegate_sync_", 14) == 0;
+}
+
 /** 工具名 → emoji 图标映射。 */
 static const char *tool_display_icon(const char *tool_name)
 {
@@ -173,6 +181,9 @@ err_t channel_runtime_send_tool_activity(const struct message *msg,
     }
 
     if (strcmp(msg->channel, CHAN_WEBSOCKET) == 0) {
+        if (websocket_chat_is_delegate_subagent(msg)) {
+            return 0;
+        }
         return ws_server_send_tool_event(msg->chat_id, event->default_text);
     }
     if (strcmp(msg->channel, CHAN_FEISHU) == 0) {

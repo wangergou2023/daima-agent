@@ -49,7 +49,7 @@ void agent_turn_process_new_message(struct message *msg)
 	agent_turn_decision_reset(&decision);
 	agent_turn_decide(msg, &decision);
 
-	err_t err = agent_turn_prepare(msg, &decision.plan,
+	err_t err = agent_turn_prepare(msg,
 				       io.system_prompt, AGENT_TURN_IO_BUF_SIZE,
 				       io.history_json, AGENT_TURN_IO_BUF_SIZE,
 				       &io.messages);
@@ -57,10 +57,6 @@ void agent_turn_process_new_message(struct message *msg)
 		agent_turn_append_role_prompt(io.system_prompt,
 					      AGENT_TURN_IO_BUF_SIZE,
 					      decision.active_role);
-		const char *tools_json = tool_bus_tools_json_for_channel(msg->channel);
-		agent_turn_inject_team_guidance(io.system_prompt,
-						 AGENT_TURN_IO_BUF_SIZE,
-						 &decision.plan, tools_json);
 	}
 
 	if (err == 0) {

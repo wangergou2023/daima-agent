@@ -316,6 +316,26 @@ err_t ws_server_send_tool_event(const char *chat_id, const char *text)
     return err;
 }
 
+err_t ws_server_send_subagent_event(const char *chat_id,
+                                    const char *event_type,
+                                    const char *subagent_type,
+                                    const char *task,
+                                    const char *detail)
+{
+    cJSON *resp = cJSON_CreateObject();
+    if (!resp) {
+        return ERR_NO_MEM;
+    }
+    cJSON_AddStringToObject(resp, "type", event_type ? event_type : "subagent_progress");
+    cJSON_AddStringToObject(resp, "chat_id", chat_id ? chat_id : "");
+    cJSON_AddStringToObject(resp, "subagent_type", subagent_type ? subagent_type : "");
+    cJSON_AddStringToObject(resp, "task", task ? task : "");
+    cJSON_AddStringToObject(resp, "detail", detail ? detail : "");
+    err_t err = ws_client_session_send_json(chat_id, resp);
+    cJSON_Delete(resp);
+    return err;
+}
+
 /* 向宠物会话发送响应（type=PET_WS_TYPE_RESPONSE，通过 pet_chat_id 路由到对应 WS 客户端）。 */
 err_t ws_server_send_pet_response(const char *pet_chat_id, const char *text)
 {

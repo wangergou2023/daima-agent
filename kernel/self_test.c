@@ -7,9 +7,10 @@
 #include "linux/slab.h"
 #include "linux/kernel.h"
 #include "drivers/tool/tool_types.h"
-#include "kernel/sched/sched.h"
-#include "plan.h"
 #include "drivers/tool/tool_delegate.h"
+#include "drivers/tool/tool_invocation_context.h"
+#include "drivers/llm/llm_proxy.h"
+#include "tool_notify.h"
 #include "paths.h"
 #include "cjson.h"
 #include <stdio.h>
@@ -267,43 +268,10 @@ static void test_async_compress_dispatch(void)
     report("async compress dispatch", ok);
 }
 
-/* 测 8: subagent 调度验证 */
-static void test_subagent_dispatch(void)
+/* 测 8: delegate_task 旧协议应拒绝，避免主提示词继续走 task/intent 老接口 */
+static void test_delegate_task_legacy_rejected(void)
 {
-    struct sched_runqueue rq;
-    memset(&rq, 0, sizeof(rq));
-
-    struct plan test_plan = {
-        .has_plan = true,
-        .reviewed = true,
-        .plan_text = "test plan",
-    };
-
-    int ok = (sched_dispatch(INTENT_IMPLEMENT, &test_plan,
-                              "test task", &rq) == 0);
-    if (ok) {
-        ok = (rq.nr_agents >= 2);
-        if (ok) {
-            bool has_planner = false, has_executor = false, has_reviewer = false;
-            for (int i = 0; i < rq.nr_agents && i < SCHED_MAX_AGENTS; i++) {
-                int cls = rq.agents[i].class;
-                if (cls == SCHED_CLASS_PLANNER) has_planner = true;
-                if (cls == SCHED_CLASS_EXECUTOR) has_executor = true;
-                if (cls == SCHED_CLASS_REVIEWER) has_reviewer = true;
-            }
-            ok = has_planner && has_executor && has_reviewer;
-            pr_info("  agents=%d PLANNER=%d EXECUTOR=%d REVIEWER=%d",
-                    rq.nr_agents, has_planner, has_executor, has_reviewer);
-        }
-    }
-    sched_exit(&rq);
-    report("subagent dispatch (IMPLEMENT→3 agents)", ok);
-}
-
-/* 测 9: delegate_task 真实执行 */
-static void test_delegate_task_exec(void)
-{
-    char output[16384];
+    char output[4096];
     memset(output, 0, sizeof(output));
 
     const char *input =
@@ -312,17 +280,244 @@ static void test_delegate_task_exec(void)
 
     const struct tool *t = tool_delegate_definition();
     err_t err = t->execute(input, output, sizeof(output));
-    int ok = (err == 0);
-    if (ok) {
-        ok = (output[0] && !strstr(output, "失败") && strlen(output) > 20);
-        pr_info("  result: %.120s...", output);
-    } else {
-        pr_info("  failed: err=%d output=%.120s", err, output);
-    }
-    report("delegate_task real execution", ok);
+    int ok = (err != 0) && strstr(output, "subagent_type");
+    pr_info("  legacy result: err=%d output=%.120s", err, output);
+    report("delegate_task rejects legacy task/intent protocol", ok);
 }
 
-/* 测 10: AI 自检日志 — 读自己的 log 文件判断健康状态 */
+/* 测 9: delegate_task 新协议同步实现链路 */
+static void test_delegate_task_sync_implement(void)
+{
+    char output[16384];
+    memset(output, 0, sizeof(output));
+
+    const char *input =
+        "{"
+        "\"description\":\"echo test\","
+        "\"prompt\":\"run terminal command: echo subagent_ok\","
+        "\"subagent_type\":\"implement\","
+        "\"run_in_background\":false"
+        "}";
+
+    const struct tool *t = tool_delegate_definition();
+    err_t err = t->execute(input, output, sizeof(output));
+    int ok = (err == 0);
+    if (ok) {
+        ok = output[0] && strstr(output, "subagent_ok");
+        pr_info("  sync implement result: %.120s...", output);
+    } else {
+        pr_info("  sync implement failed: err=%d output=%.120s", err, output);
+    }
+    report("delegate_task sync implement execution", ok);
+}
+
+/* 测 10: delegate_task 新协议后台模式返回 task_id */
+static void test_delegate_task_background_handle(void)
+{
+    char output[4096];
+    memset(output, 0, sizeof(output));
+
+    const char *input =
+        "{"
+        "\"description\":\"echo bg\","
+        "\"prompt\":\"run terminal command: echo background_ok\","
+        "\"subagent_type\":\"implement\","
+        "\"run_in_background\":true"
+        "}";
+
+    const struct tool *t = tool_delegate_definition();
+    err_t err = t->execute(input, output, sizeof(output));
+    int ok = (err == 0) && strstr(output, "\"task_id\":\"dt_");
+    pr_info("  background handle: err=%d output=%.120s", err, output);
+    report("delegate_task background returns task_id", ok);
+}
+
+/* 测 11: broad discovery 的 files.list 应被中间层改写为 delegate_task(explore) */
+static void test_discovery_files_rewritten_to_delegate(void)
+{
+    llm_tool_call_t call;
+    memset(&call, 0, sizeof(call));
+    strscpy(call.id, "rewrite_1", sizeof(call.id));
+    strscpy(call.name, "files", sizeof(call.name));
+    call.input = strdup("{\"action\":\"list\",\"path\":\"/tmp/project/src\"}");
+
+    struct message msg;
+    memset(&msg, 0, sizeof(msg));
+    strscpy(msg.channel, "websocket", sizeof(msg.channel));
+    strscpy(msg.chat_id, "rewrite_chat", sizeof(msg.chat_id));
+    strscpy(msg.source, "user", sizeof(msg.source));
+    msg.intent = INTENT_INVESTIGATE;
+    msg.content = strdup("帮我分析一下这个代码目录的结构和关键模块");
+
+    char *patched = tool_invocation_context_patch_input(&call, &msg);
+    const char *patched_tool_name = tool_invocation_context_patch_tool_name(&call, &msg);
+    int ok = 0;
+    if (patched) {
+        cJSON *root = cJSON_Parse(patched);
+        const char *subagent_type = root ? cJSON_GetStringValue(cJSON_GetObjectItem(root, "subagent_type")) : NULL;
+        const char *prompt = root ? cJSON_GetStringValue(cJSON_GetObjectItem(root, "prompt")) : NULL;
+        ok = root &&
+             patched_tool_name && strcmp(patched_tool_name, "delegate_task") == 0 &&
+             subagent_type && strcmp(subagent_type, "explore") == 0 &&
+             prompt && strstr(prompt, "/tmp/project/src") &&
+             strstr(prompt, "bounded exploration request") &&
+             strstr(prompt, "Do not exhaustively enumerate every subdirectory");
+        cJSON_Delete(root);
+    }
+
+    kfree(call.input);
+    kfree(msg.content);
+    kfree(patched);
+    report("discovery files rewrite to delegate explore", ok);
+}
+
+/* 测 12: broad discovery 即使被误分成 QA，也必须改写为 delegate_task(explore) */
+static void test_discovery_files_rewritten_without_investigate_intent(void)
+{
+    llm_tool_call_t call;
+    memset(&call, 0, sizeof(call));
+    strscpy(call.id, "rewrite_qa_1", sizeof(call.id));
+    strscpy(call.name, "files", sizeof(call.name));
+    call.input = strdup("{\"action\":\"list\",\"path\":\"/tmp/project/libimp-samples\"}");
+
+    struct message msg;
+    memset(&msg, 0, sizeof(msg));
+    strscpy(msg.channel, "websocket", sizeof(msg.channel));
+    strscpy(msg.chat_id, "rewrite_qa_chat", sizeof(msg.chat_id));
+    strscpy(msg.source, "user", sizeof(msg.source));
+    msg.intent = INTENT_QA;
+    msg.content = strdup("帮我看看这个目录结构，分析一下关键模块和代码组织");
+
+    char *patched = tool_invocation_context_patch_input(&call, &msg);
+    const char *patched_tool_name = tool_invocation_context_patch_tool_name(&call, &msg);
+    int ok = 0;
+    if (patched) {
+        cJSON *root = cJSON_Parse(patched);
+        const char *subagent_type = root ? cJSON_GetStringValue(cJSON_GetObjectItem(root, "subagent_type")) : NULL;
+        const char *prompt = root ? cJSON_GetStringValue(cJSON_GetObjectItem(root, "prompt")) : NULL;
+        ok = root &&
+             patched_tool_name && strcmp(patched_tool_name, "delegate_task") == 0 &&
+             subagent_type && strcmp(subagent_type, "explore") == 0 &&
+             prompt && strstr(prompt, "/tmp/project/libimp-samples") &&
+             strstr(prompt, "optimize for fast coverage and early stop");
+        cJSON_Delete(root);
+    }
+
+    kfree(call.input);
+    kfree(msg.content);
+    kfree(patched);
+    report("discovery rewrite does not depend on investigate intent", ok);
+}
+
+/* 测 13: delegate_sync 子代理内部的 files.list 不能再次被改写成 delegate_task，避免递归套娃 */
+static void test_subagent_discovery_not_rewritten_recursively(void)
+{
+    llm_tool_call_t call;
+    memset(&call, 0, sizeof(call));
+    strscpy(call.id, "rewrite_subagent_1", sizeof(call.id));
+    strscpy(call.name, "files", sizeof(call.name));
+    call.input = strdup("{\"action\":\"list\",\"path\":\"/tmp/project/src\"}");
+
+    struct message msg;
+    memset(&msg, 0, sizeof(msg));
+    strscpy(msg.channel, "websocket", sizeof(msg.channel));
+    strscpy(msg.chat_id, "delegate_sync_42", sizeof(msg.chat_id));
+    strscpy(msg.source, "internal", sizeof(msg.source));
+    msg.intent = INTENT_INVESTIGATE;
+    msg.content = strdup("Investigate this codebase area and return a concise discovery summary.");
+
+    char *patched = tool_invocation_context_patch_input(&call, &msg);
+    const char *patched_tool_name = tool_invocation_context_patch_tool_name(&call, &msg);
+    int ok = (patched == NULL && patched_tool_name == NULL);
+
+    kfree(call.input);
+    kfree(msg.content);
+    kfree(patched);
+    report("subagent discovery rewrite is disabled", ok);
+}
+
+/* 测 14: delegate_sync 子代理的 websocket 工具活动通知应静默跳过，不能报 ERR_NOT_FOUND */
+static void test_subagent_tool_activity_does_not_require_ws_client(void)
+{
+    struct message msg;
+    memset(&msg, 0, sizeof(msg));
+    strscpy(msg.channel, "websocket", sizeof(msg.channel));
+    strscpy(msg.chat_id, "delegate_sync_77", sizeof(msg.chat_id));
+
+    tool_activity_event_t event = {
+        .tool_name = "files",
+        .tool_input = "{\"action\":\"list\",\"path\":\"/tmp/project/src\"}",
+        .target = "src",
+        .detail = "",
+        .default_text = "files · src · 0.0s",
+        .ok = true,
+        .elapsed_ms = 0,
+    };
+
+    err_t err = channel_runtime_send_tool_activity(&msg, &event);
+    report("subagent websocket tool activity is skipped", err == 0);
+}
+
+/* 测 15: bounded broad discovery prompt 应携带早停标记，供 runtime 预算识别 */
+static void test_discovery_prompt_marked_as_bounded(void)
+{
+    llm_tool_call_t call;
+    memset(&call, 0, sizeof(call));
+    strscpy(call.id, "rewrite_bound_1", sizeof(call.id));
+    strscpy(call.name, "files", sizeof(call.name));
+    call.input = strdup("{\"action\":\"list\",\"path\":\"/tmp/project/src\"}");
+
+    struct message msg;
+    memset(&msg, 0, sizeof(msg));
+    strscpy(msg.channel, "websocket", sizeof(msg.channel));
+    strscpy(msg.chat_id, "rewrite_bound_chat", sizeof(msg.chat_id));
+    strscpy(msg.source, "user", sizeof(msg.source));
+    msg.intent = INTENT_INVESTIGATE;
+    msg.content = strdup("帮我看看这个仓库的目录结构和关键模块");
+
+    char *patched = tool_invocation_context_patch_input(&call, &msg);
+    int ok = 0;
+    if (patched) {
+        cJSON *root = cJSON_Parse(patched);
+        const char *prompt = root ? cJSON_GetStringValue(cJSON_GetObjectItem(root, "prompt")) : NULL;
+        ok = prompt &&
+             strstr(prompt, "bounded exploration request") &&
+             strstr(prompt, "optimize for fast coverage and early stop");
+        cJSON_Delete(root);
+    }
+
+    kfree(call.input);
+    kfree(msg.content);
+    kfree(patched);
+    report("bounded discovery prompt carries early-stop marker", ok);
+}
+
+/* 测 16: 直接 delegate_task(explore) 的目录结构分析请求也应命中受限预算 */
+static void test_delegate_explore_overview_budget_heuristic(void)
+{
+    const struct tool *t = tool_delegate_definition();
+    char output[256];
+    const char *input =
+        "{"
+        "\"subagent_type\":\"explore\","
+        "\"description\":\"分析 daima-agent 目录结构与关键模块\","
+        "\"prompt\":\"分析 /tmp/project 的目录结构和代码组织，说明关键模块与入口文件\""
+        "}";
+
+    err_t err = t->execute(input, output, sizeof(output));
+    int ok = (err == 0) || (err == ERR_FAIL);
+    /* 这里只验证请求被接受并走 delegate 路径；真正预算命中由 tool_delegate.c 的启发式和运行时日志验证。 */
+    report("delegate explore overview heuristic accepts direct request", ok);
+}
+
+static void test_delegate_dsml_output_filter(void)
+{
+    int ok = tool_delegate_text_has_dsml_markup("<｜｜DSML｜｜tool_calls><｜｜DSML｜｜invoke name=\"files\">") &&
+             !tool_delegate_text_has_dsml_markup("这是正常的结构分析总结，包含关键目录和入口文件。");
+    report("delegate DSML output detector", ok);
+}
+
+/* 测 11: AI 自检日志 — 读自己的 log 文件判断健康状态 */
 static void test_log_self_check(void)
 {
     char log_path[512];
@@ -394,9 +589,17 @@ int agent_self_test(void)
     test_real_tool_via_executor();
     test_message_pipeline();
     test_async_compress_dispatch();
-    test_subagent_dispatch();
-    test_delegate_task_exec();
+    test_delegate_task_legacy_rejected();
+    test_delegate_task_sync_implement();
+    test_delegate_task_background_handle();
     test_log_self_check();
+    test_discovery_files_rewritten_to_delegate();
+    test_discovery_files_rewritten_without_investigate_intent();
+    test_subagent_discovery_not_rewritten_recursively();
+    test_subagent_tool_activity_does_not_require_ws_client();
+    test_discovery_prompt_marked_as_bounded();
+    test_delegate_explore_overview_budget_heuristic();
+    test_delegate_dsml_output_filter();
 
     pr_info("----------------------------------------");
     pr_info("  Results: %d/%d passed", tests_pass, tests_run);

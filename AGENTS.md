@@ -5,20 +5,20 @@
 
 ## OVERVIEW
 
-Daima Agent 是一个 `C11 + Kbuild` 的单二进制 AI Agent。默认框架只认 `kernel` 主链，`subagent` 只走 `delegate_task + kernel/sched`。
+Daima Agent 是一个 `C11 + Kbuild` 的单二进制 AI Agent。默认框架只认 `kernel` 主链；`subagent` 的统一入口是 `delegate_task`，暴露 `explore / librarian / oracle / implement` 四类语义子代理，全部直接复用主 turn tool loop。
 
 ## WHERE TO LOOK
 
 | Task | Location | Notes |
 |------|----------|-------|
 | 启动流程 | `init/main.c` → `init/bootstrap.c` | 4 级手动初始化链 |
-| 默认回合主链 | `kernel/loop.c` → `kernel/turn_entry.c` | loop 只派发，turn_entry 负责编排 |
-| 回合临时 I/O | `kernel/turn_io.c` | 当前同步回合的 prompt/history/messages |
-| turn 准备 | `kernel/turn_prepare.c` | prompt / history |
-| turn 执行 | `kernel/turn_pipeline.c` | interview → run → finalize |
-| turn 收尾 | `kernel/turn_finish.c` | 回复、持久化、Ralph、回收 |
-| subagent 调度 | `kernel/sched/core.c` | `PLANNER / EXECUTOR / REVIEWER` |
-| subagent 工具入口 | `drivers/tool/tool_delegate.c` | `delegate_task` |
+| 默认回合主链 | `kernel/loop.c` → `kernel/turn/turn_entry.c` | loop 只派发，turn_entry 负责编排 |
+| 回合临时 I/O | `kernel/turn/turn_io.c` | 当前同步回合的 prompt/history/messages |
+| turn 准备 | `kernel/turn/turn_prepare.c` | prompt / history |
+| turn 执行 | `kernel/turn/turn_pipeline.c` | interview → run → finalize |
+| turn 收尾 | `kernel/turn/turn_finish.c` | 回复、持久化、Ralph、回收 |
+| subagent 语义委托入口 | `drivers/tool/tool_delegate.c` | `delegate_task`，暴露 `explore / librarian / oracle / implement` |
+| subagent 后台状态 | `kernel/tooling/delegate_task_store.c` | `task_id` 轮询 |
 | skill 摘要 | `drivers/skill/skill_summary.c` | 只构建摘要 |
 | skill 工具激活 | `drivers/skill/skill_tools.c` | 显式注册 / 注销 |
 
@@ -37,11 +37,10 @@ Daima Agent 是一个 `C11 + Kbuild` 的单二进制 AI Agent。默认框架只�
 2. 初始化本轮临时 I/O
 3. 意图分类
 4. 角色选择
-5. 计划生成
-6. `agent_turn_prepare()`
-7. role prompt + team guidance
-8. model route
-9. `agent_run_prepared_turn()`
+5. `agent_turn_prepare()`
+6. role prompt
+7. model route
+8. `agent_run_prepared_turn()`
 
 `turn_context.*`：
 
@@ -63,6 +62,8 @@ Daima Agent 是一个 `C11 + Kbuild` 的单二进制 AI Agent。默认框架只�
 ## RULES
 
 - 默认主链只在 `kernel/`
-- `subagent` 只允许走 `delegate_task + kernel/sched`
+- `subagent` 统一只从 `delegate_task` 进入
+- `delegate_task` 是唯一 subagent 入口
+- `explore / librarian / oracle / implement` 都不再走额外调度器
 - skill 摘要不等于 skill 工具已激活
 - `!test` 是内建自检命令，不对应 `test/` 目录
