@@ -222,6 +222,12 @@ function clearPendingReasoningCard() {
 }
 
 function appendHistoryMessage(message) {
+  if (message?.seq !== undefined) {
+    const nextSeq = Number(message.seq) || 0;
+    if (nextSeq > lastMessageSeq) {
+      setLastMessageSeq(nextSeq);
+    }
+  }
   appendNode(makeMessageNode(message.role, message.content || '', message.reasoning || ''));
 }
 
@@ -285,15 +291,20 @@ function extractLastSeqFromHistory(history) {
   return maxSeq;
 }
 
-async function reconcileCurrentSessionHistory(targetChatId = chatId) {
+async function reconcileCurrentSessionHistory(targetChatId = chatId, options = {}) {
   const requestedChatId = String(targetChatId || '').trim();
   if (!requestedChatId) return false;
+  const minMessageCount = Number(options?.minMessageCount) || 0;
+  const minLastSeq = Number(options?.minLastSeq) || 0;
   try {
     const resp = await fetch(`/api/session_history?chat_id=${encodeURIComponent(requestedChatId)}`, { cache: 'no-store' });
     if (!resp.ok || requestedChatId !== chatId) return false;
     const data = await resp.json();
     const history = Array.isArray(data?.messages) ? data.messages : [];
+    const historyLastSeq = extractLastSeqFromHistory(history);
     if (requestedChatId !== chatId) return false;
+    if (history.length < minMessageCount) return false;
+    if (historyLastSeq < minLastSeq || historyLastSeq < lastMessageSeq) return false;
     renderHistoryMessages(history);
     selectedSessionId = requestedChatId;
     renderSessions();
@@ -304,12 +315,31 @@ async function reconcileCurrentSessionHistory(targetChatId = chatId) {
   }
 }
 
-function scheduleCurrentSessionHistoryReconcile(targetChatId = chatId, delayMs = 160) {
+function scheduleCurrentSessionHistoryReconcile(targetChatId = chatId, options = {}) {
   const requestedChatId = String(targetChatId || '').trim();
   if (!requestedChatId) return;
+  const attempt = Number(options?.attempt) || 0;
+  const maxAttempts = Math.max(0, Number(options?.maxAttempts) || 6);
+  const delayMs = Number(options?.delayMs) || 160;
+  const minMessageCount = Number(options?.minMessageCount) || messages.childElementCount;
+  const minLastSeq = Number(options?.minLastSeq) || lastMessageSeq;
   setTimeout(() => {
     if (requestedChatId !== chatId) return;
-    reconcileCurrentSessionHistory(requestedChatId);
+    reconcileCurrentSessionHistory(requestedChatId, {
+      minMessageCount,
+      minLastSeq,
+    }).then((ok) => {
+      if (ok || requestedChatId !== chatId || attempt >= maxAttempts) {
+        return;
+      }
+      scheduleCurrentSessionHistoryReconcile(requestedChatId, {
+        attempt: attempt + 1,
+        maxAttempts,
+        minMessageCount,
+        minLastSeq,
+        delayMs: Math.min(delayMs * 2, 1200),
+      });
+    });
   }, delayMs);
 }
 

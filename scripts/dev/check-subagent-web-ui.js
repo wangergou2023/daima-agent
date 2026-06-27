@@ -68,6 +68,7 @@ function createFetchStub() {
   const requests = [];
   const requestOptions = [];
   let sessionHistoryData = { messages: [] };
+  let sessionHistoryQueue = [];
   let snapshotData = {
     chat_id: 'web_test',
     interactive: {
@@ -330,7 +331,12 @@ function createFetchStub() {
         return { model: 'deepseek-v4-pro', used_tokens: 0, context_limit_tokens: 1048576 };
       }
       if (text.includes('/api/sessions')) return { sessions: [] };
-      if (text.includes('/api/session_history')) return sessionHistoryData;
+      if (text.includes('/api/session_history')) {
+        if (sessionHistoryQueue.length) {
+          sessionHistoryData = sessionHistoryQueue.shift() || { messages: [] };
+        }
+        return sessionHistoryData;
+      }
       if (text.includes('/api/subagent_state_delta_chat')) {
         return {
           chat_id: 'web_test',
@@ -740,6 +746,13 @@ function createFetchStub() {
   };
   fetchStub.setSessionHistoryData = (next) => {
     sessionHistoryData = next || { messages: [] };
+    sessionHistoryQueue = [];
+  };
+  fetchStub.setSessionHistorySequence = (items) => {
+    sessionHistoryQueue = Array.isArray(items) ? items.slice() : [];
+    if (sessionHistoryQueue.length) {
+      sessionHistoryData = sessionHistoryQueue[sessionHistoryQueue.length - 1] || { messages: [] };
+    }
   };
   fetchStub.requests = requests;
   fetchStub.requestOptions = requestOptions;
@@ -1033,17 +1046,37 @@ async function main() {
   expect(dom.window.document.getElementById('status')?.textContent?.includes('已连接'),
     'expected websocket open to move connection badge to connected');
 
-  fetchStub.setSessionHistoryData({
+  emit({
+    type: 'session_sync',
+    chat_id: currentChatId,
+    last_seq: 1,
     messages: [
       { seq: 1, role: 'user', content: '帮我分析目录结构' },
-      { seq: 2, role: 'assistant', content: '已启动后台子任务，coordinator_id=dc_ui。' },
     ],
   });
+
+  fetchStub.setSessionHistorySequence([
+    {
+      messages: [
+        { seq: 1, role: 'user', content: '帮我分析目录结构' },
+      ],
+    },
+    {
+      messages: [
+        { seq: 1, role: 'user', content: '帮我分析目录结构' },
+        { seq: 2, role: 'assistant', content: '已启动后台子任务，coordinator_id=dc_ui。' },
+      ],
+    },
+  ]);
   emit({ type: 'response', chat_id: currentChatId, content: '已启动后台子任务，coordinator_id=dc_ui。' });
-  await new Promise((resolve) => setTimeout(resolve, 220));
+  await new Promise((resolve) => setTimeout(resolve, 520));
   expect(
     fetchStub.requests.some((url) => String(url).includes(`/api/session_history?chat_id=${currentChatId}`)),
     'expected assistant response to trigger current session history reconcile',
+  );
+  expect(
+    fetchStub.requests.filter((url) => String(url).includes(`/api/session_history?chat_id=${currentChatId}`)).length >= 2,
+    'expected reconcile retry when early session history response is stale',
   );
   expect(
     dom.window.document.getElementById('messages')?.textContent?.includes('已启动后台子任务，coordinator_id=dc_ui。'),
