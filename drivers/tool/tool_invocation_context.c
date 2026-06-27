@@ -10,15 +10,18 @@
 #include <string.h>
 
 #include "drivers/channel/feishu/feishu_targets.h"
+#include "drivers/tool/tool_delegate_path_resolve.h"
+#include "drivers/tool/tool_delegate_repo_batch.h"
 #include "delegate/delegate_turn_directive.h"
 #include "cjson.h"
+#include "linux/kernel.h"
 #include "linux/printk.h"
 
 static char *build_forced_delegate_preflight_batch(const struct message *msg);
 
 static char *load_delegate_turn_directive_json(const struct message *msg)
 {
-    char buf[4096];
+    char buf[16384];
 
     if (!msg || !msg->chat_id[0]) {
         return NULL;
@@ -330,54 +333,22 @@ static char *build_delegate_explore_request_from_terminal(cJSON *root, const str
 
 static char *build_forced_delegate_preflight_batch(const struct message *msg)
 {
-    cJSON *root = cJSON_CreateObject();
-    cJSON *tasks = cJSON_CreateArray();
-    cJSON *task = NULL;
-    char *json = NULL;
+    delegate_request_t req;
+    char repo_root[512];
 
-    if (!root || !tasks) {
-        cJSON_Delete(root);
-        cJSON_Delete(tasks);
+    if (!msg || !msg->content) {
         return NULL;
     }
-
-    task = cJSON_CreateObject();
-    cJSON_AddStringToObject(task, "description", "分析 kernel/turn");
-    cJSON_AddStringToObject(task, "subagent_type", "explore");
-    cJSON_AddStringToObject(task, "target_path", "/home/wangergou/code/github/daima-agent/kernel/turn");
-    cJSON_AddStringToObject(task, "prompt",
-                            "分析 /home/wangergou/code/github/daima-agent/kernel/turn 的目录结构和关键模块。只做代表性覆盖，说明主回合执行链、关键文件和下一步值得继续看的文件。");
-    cJSON_AddItemToArray(tasks, task);
-
-    task = cJSON_CreateObject();
-    cJSON_AddStringToObject(task, "description", "分析 drivers/tool");
-    cJSON_AddStringToObject(task, "subagent_type", "explore");
-    cJSON_AddStringToObject(task, "target_path", "/home/wangergou/code/github/daima-agent/drivers/tool");
-    cJSON_AddStringToObject(task, "prompt",
-                            "分析 /home/wangergou/code/github/daima-agent/drivers/tool 的目录结构和关键模块。只做代表性覆盖，说明工具协议、delegate_task、runtime 封装和后续建议阅读文件。");
-    cJSON_AddItemToArray(tasks, task);
-
-    task = cJSON_CreateObject();
-    cJSON_AddStringToObject(task, "description", "验证 sudo 权限链路");
-    cJSON_AddStringToObject(task, "subagent_type", "explore");
-    cJSON_AddStringToObject(task, "target_path", "/home/wangergou/code/github/daima-agent");
-    cJSON_AddStringToObject(task, "prompt",
-                            "验证 sudo 权限链路，并基于真实工具结果解释为什么会请求 sudo、如果用户取消会如何阻塞。不要假装执行，必须基于 preflight_tool 的真实输出总结。");
-    cJSON *preflight = cJSON_CreateObject();
-    cJSON *input = cJSON_CreateObject();
-    cJSON_AddStringToObject(preflight, "tool_name", "terminal");
-    cJSON_AddStringToObject(input, "command", "sudo ls /root");
-    cJSON_AddStringToObject(input, "workdir", "/home/wangergou/code/github/daima-agent");
-    cJSON_AddItemToObject(preflight, "input", input);
-    cJSON_AddBoolToObject(preflight, "continue_on_error", false);
-    cJSON_AddItemToObject(task, "preflight_tool", preflight);
-    cJSON_AddItemToArray(tasks, task);
-
-    cJSON_AddItemToObject(root, "tasks", tasks);
-    json = cJSON_PrintUnformatted(root);
-    cJSON_Delete(root);
+    memset(&req, 0, sizeof(req));
+    if (!tool_delegate_extract_single_absolute_repo_path(msg->content, repo_root, sizeof(repo_root)) ||
+        !repo_root[0]) {
+        return NULL;
+    }
+    strscpy(req.target_path, repo_root, sizeof(req.target_path));
+    strscpy(req.description, "repo overview", sizeof(req.description));
+    strscpy(req.prompt, msg->content, sizeof(req.prompt));
     pr_info("Patched delegate_task to forced batch+preflight for chat=%s", msg ? msg->chat_id : "");
-    return json;
+    return tool_delegate_build_repo_root_overview_batch_json(&req, true);
 }
 
 static bool delegate_task_input_is_single_explore(cJSON *root)
@@ -528,7 +499,7 @@ char *tool_invocation_context_patch_input(const llm_tool_call_t *call, const str
     if (strcmp(call->name, "delegate_task") == 0) {
         cJSON *root = cJSON_Parse(call->input ? call->input : "{}");
         bool has_stored_directive = false;
-        char directive_buf[4096];
+        char directive_buf[16384];
         const char *subagent_type = root ? cJSON_GetStringValue(cJSON_GetObjectItem(root, "subagent_type")) : NULL;
         cJSON *tasks = root ? cJSON_GetObjectItem(root, "tasks") : NULL;
         bool should_force_batch = false;

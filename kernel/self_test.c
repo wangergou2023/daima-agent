@@ -4518,15 +4518,99 @@ static void test_delegate_session_state_json_unifies_parent_history_and_subagent
     const char *body = strstr(response, "\r\n\r\n");
     body = body ? body + 4 : response;
     if (ok) {
-        ok = strstr(body, "\"chat_id\":\"chat_session_state\"") &&
-             strstr(body, "\"history\":[") &&
-             strstr(body, "\"content\":\"先统一 session restore 协议。\"") &&
-             strstr(body, "\"reasoning\":\"session-state reasoning\"") &&
-             strstr(body, "\"subagent\":{") &&
-             strstr(body, "\"coordinator_id\":\"dc_session_state\"") &&
-             strstr(body, "\"session_id\":\"delegate_sync_session_state\"") &&
-             strstr(body, "\"content\":\"child session 应成为 restore 真相源。\"") &&
-             strstr(body, "\"ui\":{");
+        cJSON *json = cJSON_Parse(body);
+        cJSON *chat_id = json ? cJSON_GetObjectItemCaseSensitive(json, "chat_id") : NULL;
+        cJSON *history = json ? cJSON_GetObjectItemCaseSensitive(json, "history") : NULL;
+        cJSON *first = history && cJSON_IsArray(history) ? cJSON_GetArrayItem(history, 0) : NULL;
+        cJSON *second = history && cJSON_IsArray(history) ? cJSON_GetArrayItem(history, 1) : NULL;
+        cJSON *history_window = json ? cJSON_GetObjectItemCaseSensitive(json, "history_window") : NULL;
+        cJSON *history_cursor = json ? cJSON_GetObjectItemCaseSensitive(json, "history_cursor") : NULL;
+        cJSON *subagent = json ? cJSON_GetObjectItemCaseSensitive(json, "subagent") : NULL;
+        cJSON *coordinators = subagent ? cJSON_GetObjectItemCaseSensitive(subagent, "coordinators") : NULL;
+        cJSON *coordinator = coordinators && cJSON_IsArray(coordinators) ? cJSON_GetArrayItem(coordinators, 0) : NULL;
+        cJSON *agents = coordinator ? cJSON_GetObjectItemCaseSensitive(coordinator, "agents") : NULL;
+        cJSON *agent = agents && cJSON_IsArray(agents) ? cJSON_GetArrayItem(agents, 0) : NULL;
+        cJSON *ui = json ? cJSON_GetObjectItemCaseSensitive(json, "ui") : NULL;
+        cJSON *assistant_content = second ? cJSON_GetObjectItemCaseSensitive(second, "content") : NULL;
+        cJSON *assistant_reasoning = second ? cJSON_GetObjectItemCaseSensitive(second, "reasoning") : NULL;
+        cJSON *window_count = history_window ? cJSON_GetObjectItemCaseSensitive(history_window, "count") : NULL;
+        cJSON *window_total = history_window ? cJSON_GetObjectItemCaseSensitive(history_window, "total") : NULL;
+        cJSON *window_truncated = history_window ? cJSON_GetObjectItemCaseSensitive(history_window, "truncated") : NULL;
+        cJSON *window_first_seq = history_window ? cJSON_GetObjectItemCaseSensitive(history_window, "first_seq") : NULL;
+        cJSON *window_last_seq = history_window ? cJSON_GetObjectItemCaseSensitive(history_window, "last_seq") : NULL;
+        cJSON *window_high_water_seq = history_window ? cJSON_GetObjectItemCaseSensitive(history_window, "high_water_seq") : NULL;
+        cJSON *window_next_seq = history_window ? cJSON_GetObjectItemCaseSensitive(history_window, "next_seq") : NULL;
+        cJSON *window_has_more = history_window ? cJSON_GetObjectItemCaseSensitive(history_window, "has_more") : NULL;
+        cJSON *cursor_after_seq = history_cursor ? cJSON_GetObjectItemCaseSensitive(history_cursor, "after_seq") : NULL;
+        cJSON *cursor_visible_seq = history_cursor ? cJSON_GetObjectItemCaseSensitive(history_cursor, "visible_seq") : NULL;
+        cJSON *cursor_first_visible_seq = history_cursor ? cJSON_GetObjectItemCaseSensitive(history_cursor, "first_visible_seq") : NULL;
+        cJSON *cursor_next_seq = history_cursor ? cJSON_GetObjectItemCaseSensitive(history_cursor, "next_seq") : NULL;
+        cJSON *cursor_high_water_seq = history_cursor ? cJSON_GetObjectItemCaseSensitive(history_cursor, "high_water_seq") : NULL;
+        cJSON *cursor_has_more = history_cursor ? cJSON_GetObjectItemCaseSensitive(history_cursor, "has_more") : NULL;
+        cJSON *cursor_replay_reset = history_cursor ? cJSON_GetObjectItemCaseSensitive(history_cursor, "replay_reset") : NULL;
+        cJSON *coordinator_id = coordinator ? cJSON_GetObjectItemCaseSensitive(coordinator, "coordinator_id") : NULL;
+        cJSON *session_id = agent ? cJSON_GetObjectItemCaseSensitive(agent, "session_id") : NULL;
+        cJSON *agent_summary = agent ? cJSON_GetObjectItemCaseSensitive(agent, "summary") : NULL;
+        cJSON *agent_child_session = agent ? cJSON_GetObjectItemCaseSensitive(agent, "child_session") : NULL;
+        cJSON *agent_child_history = agent_child_session ? cJSON_GetObjectItemCaseSensitive(agent_child_session, "history") : NULL;
+
+        ok = json &&
+             cJSON_IsString(chat_id) &&
+             strcmp(chat_id->valuestring, "chat_session_state") == 0 &&
+             history && cJSON_IsArray(history) &&
+             cJSON_GetArraySize(history) == 2 &&
+             first && second &&
+             cJSON_IsString(assistant_content) &&
+             strcmp(assistant_content->valuestring, "先统一 session restore 协议。") == 0 &&
+             cJSON_IsString(assistant_reasoning) &&
+             strcmp(assistant_reasoning->valuestring, "session-state reasoning") == 0 &&
+             history_window && cJSON_IsObject(history_window) &&
+             history_cursor && cJSON_IsObject(history_cursor) &&
+             cJSON_IsNumber(window_count) && (long long)window_count->valuedouble == 2 &&
+             cJSON_IsNumber(window_total) && (long long)window_total->valuedouble == 2 &&
+             cJSON_IsBool(window_truncated) && cJSON_IsFalse(window_truncated) &&
+             cJSON_IsNumber(window_first_seq) && (long long)window_first_seq->valuedouble == 1 &&
+             cJSON_IsNumber(window_last_seq) && (long long)window_last_seq->valuedouble == 2 &&
+             cJSON_IsNumber(window_high_water_seq) && (long long)window_high_water_seq->valuedouble == 2 &&
+             cJSON_IsNumber(window_next_seq) && (long long)window_next_seq->valuedouble == 3 &&
+             cJSON_IsBool(window_has_more) && cJSON_IsFalse(window_has_more) &&
+             cJSON_IsNumber(cursor_after_seq) && (long long)cursor_after_seq->valuedouble == 0 &&
+             cJSON_IsNumber(cursor_visible_seq) && (long long)cursor_visible_seq->valuedouble == 2 &&
+             cJSON_IsNumber(cursor_first_visible_seq) && (long long)cursor_first_visible_seq->valuedouble == 1 &&
+             cJSON_IsNumber(cursor_next_seq) && (long long)cursor_next_seq->valuedouble == 3 &&
+             cJSON_IsNumber(cursor_high_water_seq) && (long long)cursor_high_water_seq->valuedouble == 2 &&
+             cJSON_IsBool(cursor_has_more) && cJSON_IsFalse(cursor_has_more) &&
+             cJSON_IsBool(cursor_replay_reset) && cJSON_IsFalse(cursor_replay_reset) &&
+             subagent && cJSON_IsObject(subagent) &&
+             coordinator && cJSON_IsObject(coordinator) &&
+             cJSON_IsString(coordinator_id) &&
+             strcmp(coordinator_id->valuestring, "dc_session_state") == 0 &&
+             agent && cJSON_IsObject(agent) &&
+             cJSON_IsString(session_id) &&
+             strcmp(session_id->valuestring, "delegate_sync_session_state") == 0 &&
+             cJSON_IsString(agent_summary) &&
+             strstr(agent_summary->valuestring, "child session 应成为 restore 真相源。") != NULL &&
+             agent_child_session && cJSON_IsObject(agent_child_session) &&
+             agent_child_history && cJSON_IsArray(agent_child_history) &&
+             cJSON_GetArraySize(agent_child_history) == 2 &&
+             ui && cJSON_IsObject(ui);
+        if (!ok) {
+            char *coord_json = coordinator ? cJSON_PrintUnformatted(coordinator) : NULL;
+            char *agent_json = agent ? cJSON_PrintUnformatted(agent) : NULL;
+            pr_info("  session_state_json parsed diag: history_size=%d window_count=%lld window_total=%lld window_truncated=%d window_has_more=%d cursor_has_more=%d cursor_replay_reset=%d coord=%s agent=%s",
+                    history && cJSON_IsArray(history) ? cJSON_GetArraySize(history) : -1,
+                    cJSON_IsNumber(window_count) ? (long long)window_count->valuedouble : -1LL,
+                    cJSON_IsNumber(window_total) ? (long long)window_total->valuedouble : -1LL,
+                    cJSON_IsBool(window_truncated) ? cJSON_IsTrue(window_truncated) : -1,
+                    cJSON_IsBool(window_has_more) ? cJSON_IsTrue(window_has_more) : -1,
+                    cJSON_IsBool(cursor_has_more) ? cJSON_IsTrue(cursor_has_more) : -1,
+                    cJSON_IsBool(cursor_replay_reset) ? cJSON_IsTrue(cursor_replay_reset) : -1,
+                    coord_json ? coord_json : "<null>",
+                    agent_json ? agent_json : "<null>");
+            kfree(coord_json);
+            kfree(agent_json);
+        }
+        cJSON_Delete(json);
     }
     if (!ok) {
         pr_info("  session_state_json diag: %s", body && body[0] ? body : response);
@@ -6676,6 +6760,108 @@ static void test_delegate_task_repo_root_target_path_explore_expands_to_batch(vo
     report("delegate task repo-root target_path explore expands to coordinator batch", ok);
 }
 
+static void test_delegate_task_oh_my_openagent_explicit_scopes_expand_to_batch(void)
+{
+    char output[8192];
+    memset(output, 0, sizeof(output));
+
+    const char *input =
+        "{"
+        "\"subagent_type\":\"explore\","
+        "\"description\":\"分析 oh-my-openagent 仓库结构和关键模块\","
+        "\"prompt\":\"请分析 /home/wangergou/code/github/oh-my-openagent 的目录结构和关键模块。"
+        "重点同时安排多个 subagent，分别分析 "
+        "/home/wangergou/code/github/oh-my-openagent/packages、"
+        "/home/wangergou/code/github/oh-my-openagent/docs、"
+        "/home/wangergou/code/github/oh-my-openagent/assets，"
+        "最后汇总它们的职责边界。\""
+        "}";
+
+    const struct tool *t = tool_delegate_definition();
+    err_t err = t->execute(input, output, sizeof(output));
+    cJSON *root = cJSON_Parse(output);
+    cJSON *agents = root ? cJSON_GetObjectItem(root, "agents") : NULL;
+    int agent_count = agents && cJSON_IsArray(agents) ? cJSON_GetArraySize(agents) : 0;
+    int has_packages = 0;
+    int has_docs = 0;
+    int has_assets = 0;
+
+    for (int i = 0; agents && i < agent_count; i++) {
+        cJSON *agent = cJSON_GetArrayItem(agents, i);
+        const char *desc = agent ? cJSON_GetStringValue(cJSON_GetObjectItem(agent, "description")) : NULL;
+        if (!desc) {
+            continue;
+        }
+        if (strstr(desc, "packages")) has_packages = 1;
+        if (strstr(desc, "docs")) has_docs = 1;
+        if (strstr(desc, "assets")) has_assets = 1;
+    }
+
+    int ok = (err == 0) &&
+             root &&
+             strstr(output, "\"coordinator_id\":\"dc_") &&
+             agent_count == 3 &&
+             has_packages &&
+             has_docs &&
+             has_assets;
+    if (!ok) {
+        pr_info("  oh_my_openagent_batch output: %s", output);
+    }
+    cJSON_Delete(root);
+    report("delegate task oh-my-openagent explicit scopes expand to coordinator batch", ok);
+}
+
+static void test_delegate_task_opencode_explicit_scopes_expand_to_batch(void)
+{
+    char output[8192];
+    memset(output, 0, sizeof(output));
+
+    const char *input =
+        "{"
+        "\"subagent_type\":\"explore\","
+        "\"description\":\"分析 opencode monorepo 结构和关键模块\","
+        "\"prompt\":\"请分析 /home/wangergou/code/github/opencode 的目录结构和关键模块。"
+        "重点同时安排多个 subagent，分别分析 "
+        "/home/wangergou/code/github/opencode/packages/app、"
+        "/home/wangergou/code/github/opencode/packages/cli、"
+        "/home/wangergou/code/github/opencode/packages/session-ui，"
+        "最后汇总 session-first 相关职责边界。\""
+        "}";
+
+    const struct tool *t = tool_delegate_definition();
+    err_t err = t->execute(input, output, sizeof(output));
+    cJSON *root = cJSON_Parse(output);
+    cJSON *agents = root ? cJSON_GetObjectItem(root, "agents") : NULL;
+    int agent_count = agents && cJSON_IsArray(agents) ? cJSON_GetArraySize(agents) : 0;
+    int has_app = 0;
+    int has_cli = 0;
+    int has_session_ui = 0;
+
+    for (int i = 0; agents && i < agent_count; i++) {
+        cJSON *agent = cJSON_GetArrayItem(agents, i);
+        const char *desc = agent ? cJSON_GetStringValue(cJSON_GetObjectItem(agent, "description")) : NULL;
+        if (!desc) {
+            continue;
+        }
+        if (strstr(desc, "app")) has_app = 1;
+        if (strstr(desc, "cli")) has_cli = 1;
+        if (strstr(desc, "session-ui")) has_session_ui = 1;
+    }
+
+    int ok = (err == 0) &&
+             root &&
+             strstr(output, "\"coordinator_id\":\"dc_") &&
+             agent_count == 3 &&
+             has_app &&
+             has_cli &&
+             has_session_ui;
+    if (!ok) {
+        pr_info("  opencode_batch output: %s", output);
+    }
+    cJSON_Delete(root);
+    report("delegate task opencode explicit scopes expand to coordinator batch", ok);
+}
+
 static void test_delegate_dsml_output_filter(void)
 {
     int ok = tool_delegate_text_has_dsml_markup("<｜｜DSML｜｜tool_calls><｜｜DSML｜｜invoke name=\"files\">") &&
@@ -8316,6 +8502,8 @@ int agent_self_test(void)
     test_delegate_task_single_repo_root_explore_expands_to_batch();
     test_delegate_task_runtime_style_repo_root_explore_expands_to_batch();
     test_delegate_task_logged_runtime_repo_root_explore_expands_to_batch();
+    test_delegate_task_oh_my_openagent_explicit_scopes_expand_to_batch();
+    test_delegate_task_opencode_explicit_scopes_expand_to_batch();
     test_delegate_request_accepts_preflight_tool();
     test_delegate_batch_accepts_child_preflight_tool();
     test_delegate_task_repo_root_target_path_explore_expands_to_batch();

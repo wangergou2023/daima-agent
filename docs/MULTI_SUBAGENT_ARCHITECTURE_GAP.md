@@ -17,6 +17,25 @@
   - `local overview` / `dependency merge` 这类 shortcut 只能作为受控优化，不能继续污染最终 child result 的语义层
   - live websocket 事件允许保留 raw structured `output` 作为 canonical protocol data，但 UI 展示必须统一消费渲染后的可视语义层，不能再把 raw JSON 当展示文本
 
+补充进展（2026-06-28，本轮继续收敛）：
+
+- 运行时已经去掉 `daima-agent` 专属的多 subagent 批量模板：
+  - `kernel/turn/turn_interview.c`
+  - `drivers/tool/tool_invocation_context.c`
+  - `drivers/tool/tool_delegate_repo_batch.c`
+- 当前批量委托策略改为：
+  - 优先保留用户 prompt 中**显式点名**的绝对子目录
+  - 若用户没有明确点名，再回退到 repo-root 自动探测代表性目录
+  - `files` / `terminal` / interview directive 三条入口统一走同一 repo-batch planner
+- 这一步的意义不是“少几个硬编码”，而是让多 subagent 编排首次真正具备**跨仓库泛化能力**
+  - 之前 `daima-agent` 看起来“更会编排”，本质是运行时模板把当前仓库当作样板写死
+  - 修复后，任意仓库只要能解析 repo-root / scope path，就能进入同一批量编排路径
+- `session_state` / `delegate_state_json` 也继续向 `child_session` 真相源收敛：
+  - agent summary 现在优先用 task output
+  - 当 task output 缺失时，会回退读取 child session history 中最近的 assistant 可视内容
+  - 这修掉了“coordinator 有 child session，但 session_state agent summary 为空”的投影断层
+  - 也让 HTTP restore 更接近 `opencode` 的 session-first 读取语义
+
 代码基线以当前仓库为准：
 
 - `kernel/tooling/delegate/delegate_task_store.c`

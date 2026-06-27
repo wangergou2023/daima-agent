@@ -356,6 +356,102 @@ static err_t file_get_history_json(const char *chat_id, char *buf, size_t size, 
     return 0;
 }
 
+static err_t file_get_history_window_meta(const char *chat_id,
+                                          int max_msgs,
+                                          session_history_window_meta_t *meta)
+{
+    char path[BUF_SMALL];
+    int configured_max = runtime_config_get_session_max_msgs();
+    int effective_max = max_msgs;
+    FILE *f = NULL;
+    int total = 0;
+    int count = 0;
+    int write_idx = 0;
+    cJSON *messages[SESSION_MAX_MSGS];
+    char line[16384];
+    err_t path_err;
+
+    if (!meta) {
+        return ERR_INVALID_ARG;
+    }
+
+    memset(meta, 0, sizeof(*meta));
+    meta->next_seq = 1;
+
+    if (effective_max <= 0 || effective_max > configured_max) {
+        effective_max = configured_max;
+    }
+    if (effective_max > SESSION_MAX_MSGS) {
+        effective_max = SESSION_MAX_MSGS;
+    }
+    if (effective_max < 1) {
+        effective_max = 1;
+    }
+    meta->limit = effective_max;
+
+    path_err = session_store_file_artifact_path(chat_id, SESSION_ARTIFACT_HISTORY, path, sizeof(path));
+    if (path_err != 0) {
+        return path_err;
+    }
+
+    f = fopen(path, "r");
+    if (!f) {
+        return 0;
+    }
+    flock(fileno(f), LOCK_SH);
+
+    while (fgets(line, sizeof(line), f)) {
+        size_t len = strlen(line);
+        cJSON *obj = NULL;
+
+        if (len > 0 && line[len - 1] == '\n') line[len - 1] = '\0';
+        if (line[0] == '\0') continue;
+
+        obj = cJSON_Parse(line);
+        if (!obj) continue;
+        if (is_compaction_summary_content(cJSON_GetObjectItem(obj, "content"))) {
+            cJSON_Delete(obj);
+            continue;
+        }
+
+        total++;
+        if (count >= effective_max) {
+            cJSON_Delete(messages[write_idx]);
+        }
+        messages[write_idx] = obj;
+        write_idx = (write_idx + 1) % effective_max;
+        if (count < effective_max) {
+            count++;
+        }
+    }
+    fclose(f);
+
+    meta->count = count;
+    meta->total = total;
+    meta->truncated = total > count;
+    meta->has_more = meta->truncated;
+
+    if (count > 0) {
+        int start = (count < effective_max) ? 0 : write_idx;
+        int first_idx = start;
+        int last_idx = (start + count - 1) % effective_max;
+        meta->first_seq = session_history_resolve_seq(messages[first_idx], start + 1);
+        meta->last_seq = session_history_resolve_seq(messages[last_idx], start + count);
+        meta->high_water_seq = meta->last_seq;
+        meta->next_seq = meta->high_water_seq > 0 ? meta->high_water_seq + 1 : 1;
+    }
+
+    {
+        int cleanup_start = (count < effective_max) ? 0 : write_idx;
+        for (int i = 0; i < count; i++) {
+            int idx = (cleanup_start + i) % effective_max;
+            cJSON_Delete(messages[idx]);
+        }
+    }
+
+    return 0;
+}
+
 static err_t file_rewrite_from_array(const char *chat_id, const cJSON *messages)
 {
     if (!chat_id || !messages || !cJSON_IsArray(messages)) {
@@ -597,6 +693,7 @@ static const session_store_ops_t s_file_backend = {
     .init = file_init,
     .append_ex = file_append_ex,
     .get_history_json = file_get_history_json,
+    .get_history_window_meta = file_get_history_window_meta,
     .rewrite_from_array = file_rewrite_from_array,
     .read_facts = session_store_file_read_facts,
     .merge_facts = session_store_file_merge_facts,

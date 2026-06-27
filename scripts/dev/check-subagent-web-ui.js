@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 const fs = require('fs');
+const path = require('path');
 const vm = require('vm');
 let JSDOM;
 try {
@@ -10,7 +11,9 @@ try {
   process.exit(1);
 }
 
-const ROOT = '/home/wangergou/code/github/daima-agent';
+const ROOT = path.resolve(__dirname, '..', '..');
+const KERNEL_SCOPE_PATH = path.join(ROOT, 'kernel');
+const TOOL_SCOPE_PATH = path.join(ROOT, 'drivers', 'tool');
 const HTML_PATH = `${ROOT}/spiffs_data/web/index.html`;
 const SUBAGENT_STATE_CORE_JS_PATH = `${ROOT}/spiffs_data/web/subagent-state-core.js`;
 const SUBAGENT_STATE_SELECTORS_JS_PATH = `${ROOT}/spiffs_data/web/subagent-state-selectors.js`;
@@ -144,7 +147,7 @@ function createFetchStub() {
             task_key: 'bootstrap-kernel',
             status: 'done',
             model: 'deepseek-v4-pro',
-            scope_path: '/home/wangergou/code/github/daima-agent/kernel',
+            scope_path: KERNEL_SCOPE_PATH,
             scope_kind: 'subsystem',
             analysis_focus: 'execution_kernel',
             elapsed_ms: 2300,
@@ -263,7 +266,7 @@ function createFetchStub() {
             depends_on: 'bootstrap-kernel',
             status: 'done',
             model: 'deepseek-v4-pro',
-            scope_path: '/home/wangergou/code/github/daima-agent/drivers/tool',
+            scope_path: TOOL_SCOPE_PATH,
             scope_kind: 'subsystem',
             analysis_focus: 'tool_runtime',
             elapsed_ms: 1800,
@@ -368,6 +371,30 @@ function createFetchStub() {
           sessionHistoryData = sessionHistoryQueue.shift() || { messages: [] };
         }
         return sessionHistoryData;
+      }
+      if (text.includes('/api/session_state?chat_id=web_test')) {
+        return {
+          chat_id: 'web_test',
+          history: Array.isArray(sessionHistoryData?.messages) ? sessionHistoryData.messages : [],
+          subagent: snapshotData,
+          ui: {},
+        };
+      }
+      if (text.includes('/api/session_state?chat_id=web_question')) {
+        return {
+          chat_id: 'web_question',
+          history: Array.isArray(sessionHistoryData?.messages) ? sessionHistoryData.messages : [],
+          subagent: snapshotData,
+          ui: {},
+        };
+      }
+      if (text.includes('/api/session_state?chat_id=web_empty')) {
+        return {
+          chat_id: 'web_empty',
+          history: [],
+          subagent: { chat_id: 'web_empty', coordinators: [] },
+          ui: {},
+        };
       }
       if (text.includes('/api/subagent_state_delta_chat')) {
         return {
@@ -921,6 +948,57 @@ function bootstrapApp(dom) {
   return { fetchStub };
 }
 
+function bootstrapAppWithOverrides(dom, overrides = {}) {
+  const { window } = dom;
+  const fetchStub = overrides.fetchStub || createFetchStub();
+  window.fetch = fetchStub;
+  window.WebSocket = overrides.WebSocket || MockWebSocket;
+  window.requestAnimationFrame = (cb) => setTimeout(cb, 0);
+  window.cancelAnimationFrame = clearTimeout;
+  window.AgentPet = { createPetController: createPetStub };
+
+  const context = dom.getInternalVMContext();
+  context.fetch = fetchStub;
+  context.WebSocket = overrides.WebSocket || MockWebSocket;
+  context.console = console;
+  context.setTimeout = setTimeout;
+  context.clearTimeout = clearTimeout;
+  context.setInterval = setInterval;
+  context.clearInterval = clearInterval;
+
+  const scriptPaths = [
+    SUBAGENT_STATE_CORE_JS_PATH,
+    SUBAGENT_STATE_SELECTORS_JS_PATH,
+    SUBAGENT_STATE_REDUCER_JS_PATH,
+    SUBAGENT_STATE_JS_PATH,
+    SUBAGENT_RUNTIME_JS_PATH,
+    SESSION_RESTORE_JS_PATH,
+    SUBAGENT_APP_BRIDGE_JS_PATH,
+    SUBAGENT_PANEL_CONTROLLER_JS_PATH,
+    SUBAGENT_DETAIL_VIEW_JS_PATH,
+    SUBAGENT_EVENT_ADAPTER_JS_PATH,
+    SUBAGENT_INTERACTIVE_CONTROLLER_JS_PATH,
+    SUBAGENT_COORDINATOR_VIEW_JS_PATH,
+    SUBAGENT_COORDINATOR_CONTROLLER_JS_PATH,
+    SUBAGENT_UI_ORCHESTRATOR_JS_PATH,
+    SUBAGENT_TRANSPORT_JS_PATH,
+    SUBAGENT_CHAT_TRANSPORT_JS_PATH,
+    SUBAGENT_BOOTSTRAP_JS_PATH,
+    APP_JS_PATH,
+  ];
+  for (const path of scriptPaths) {
+    const source = fs.readFileSync(path, 'utf8');
+    vm.runInContext(source, context);
+  }
+  return { fetchStub };
+}
+
+function cleanupAppTimers(dom) {
+  try {
+    dom.window.eval('ensureSubagentTransport()?.clearRuntimeTimers?.()');
+  } catch (_) {}
+}
+
 function emit(data) {
   if (!MockWebSocket.instance || !MockWebSocket.instance.onmessage) {
     fail('websocket was not initialized');
@@ -1135,12 +1213,18 @@ async function main() {
   emit({ type: 'response', chat_id: currentChatId, content: '已启动后台子任务，coordinator_id=dc_ui。' });
   await new Promise((resolve) => setTimeout(resolve, 520));
   expect(
-    fetchStub.requests.some((url) => String(url).includes(`/api/session_history?chat_id=${currentChatId}`)),
-    'expected assistant response to trigger current session history reconcile',
+    fetchStub.requests.some((url) =>
+      String(url).includes(`/api/session_state?chat_id=${currentChatId}`) ||
+      String(url).includes(`/api/session_history?chat_id=${currentChatId}`)
+    ),
+    'expected assistant response to trigger current session restore reconcile',
   );
   expect(
-    fetchStub.requests.filter((url) => String(url).includes(`/api/session_history?chat_id=${currentChatId}`)).length >= 2,
-    'expected reconcile retry when early session history response is stale',
+    fetchStub.requests.filter((url) =>
+      String(url).includes(`/api/session_state?chat_id=${currentChatId}`) ||
+      String(url).includes(`/api/session_history?chat_id=${currentChatId}`)
+    ).length >= 2,
+    'expected reconcile retry when early session restore response is stale',
   );
   expect(
     dom.window.document.getElementById('messages')?.textContent?.includes('已启动后台子任务，coordinator_id=dc_ui。'),
@@ -1156,7 +1240,7 @@ async function main() {
     status: 'running',
     task: '探索 kernel',
     detail: 'local_overview',
-    scope_path: '/home/wangergou/code/github/daima-agent/kernel',
+    scope_path: KERNEL_SCOPE_PATH,
     scope_kind: 'subsystem',
     analysis_focus: 'execution_kernel',
     blocker_scope: 'task',
@@ -1172,7 +1256,7 @@ async function main() {
     task: '探索 kernel',
     detail: 'Waiting for sudo approval',
     output: 'kernel summary from event',
-    scope_path: '/home/wangergou/code/github/daima-agent/kernel',
+    scope_path: KERNEL_SCOPE_PATH,
     scope_kind: 'subsystem',
     analysis_focus: 'execution_kernel',
     blocker_kind: 'permission',
@@ -1190,7 +1274,7 @@ async function main() {
     task: '探索 drivers',
     detail: 'local_overview',
     output: 'drivers summary from event',
-    scope_path: '/home/wangergou/code/github/daima-agent/drivers/tool',
+    scope_path: TOOL_SCOPE_PATH,
     scope_kind: 'subsystem',
     analysis_focus: 'tool_runtime',
     blocker_scope: 'task',
@@ -1225,7 +1309,7 @@ async function main() {
           description: '探索 kernel',
           status: 'blocked',
           model: 'deepseek-v4-pro',
-          scope_path: '/home/wangergou/code/github/daima-agent/kernel',
+          scope_path: KERNEL_SCOPE_PATH,
           scope_kind: 'subsystem',
           analysis_focus: 'execution_kernel',
           elapsed_ms: 1234,
@@ -1284,7 +1368,7 @@ async function main() {
           description: '探索 drivers',
           status: 'queued',
           model: 'deepseek-v4-pro',
-          scope_path: '/home/wangergou/code/github/daima-agent/drivers/tool',
+          scope_path: TOOL_SCOPE_PATH,
           scope_kind: 'subsystem',
           analysis_focus: 'tool_runtime',
           elapsed_ms: 456,
@@ -1364,7 +1448,7 @@ async function main() {
   );
   expect(agents.some((node) => node.textContent.includes('execution kernel')), 'expected coordinator card to render analysis focus');
   expect(agents.some((node) => node.textContent.includes('after: map-kernel')), 'expected coordinator card to render dependency hint');
-  expect(detailPanel.textContent.includes('/home/wangergou/code/github/daima-agent/kernel'), 'expected detail panel to render scope path');
+  expect(detailPanel.textContent.includes(KERNEL_SCOPE_PATH), 'expected detail panel to render scope path');
   expect(
     detailPanel.textContent.includes('Need sudo approval from child session snapshot'),
     'expected detail panel to prefer child session frames for blocked subagent timeline',
@@ -1448,7 +1532,7 @@ async function main() {
         description: '探索 drivers',
         status: 'running',
         model: 'deepseek-v4-pro',
-        scope_path: '/home/wangergou/code/github/daima-agent/drivers/tool',
+        scope_path: TOOL_SCOPE_PATH,
         scope_kind: 'subsystem',
         analysis_focus: 'tool_runtime',
         output: 'drivers streaming summary',
@@ -1576,7 +1660,7 @@ async function main() {
         description: '探索 drivers',
         status: 'running',
         model: 'deepseek-v4-pro',
-        scope_path: '/home/wangergou/code/github/daima-agent/drivers/tool',
+        scope_path: TOOL_SCOPE_PATH,
         scope_kind: 'subsystem',
         analysis_focus: 'tool_runtime',
         child_session: {
@@ -1634,7 +1718,7 @@ async function main() {
     task: '探索 kernel',
     detail: 'sudo granted',
     output: 'kernel summary after unblock',
-    scope_path: '/home/wangergou/code/github/daima-agent/kernel',
+    scope_path: KERNEL_SCOPE_PATH,
     scope_kind: 'subsystem',
     analysis_focus: 'execution_kernel',
     blocker_scope: 'task',
@@ -1650,7 +1734,7 @@ async function main() {
     task: '探索 kernel',
     detail: 'model=deepseek-v4-pro · elapsed_ms=2200',
     output: 'kernel final summary',
-    scope_path: '/home/wangergou/code/github/daima-agent/kernel',
+    scope_path: KERNEL_SCOPE_PATH,
     scope_kind: 'subsystem',
     analysis_focus: 'execution_kernel',
     blocker_scope: 'task',
@@ -1731,7 +1815,7 @@ async function main() {
           description: '探索 kernel',
           status: 'done',
           model: 'deepseek-v4-pro',
-          scope_path: '/home/wangergou/code/github/daima-agent/kernel',
+          scope_path: KERNEL_SCOPE_PATH,
           scope_kind: 'subsystem',
           analysis_focus: 'execution_kernel',
           elapsed_ms: 2200,
@@ -1839,7 +1923,7 @@ async function main() {
           description: '探索 kernel',
           status: 'running',
           model: 'deepseek-v4-pro',
-          scope_path: '/home/wangergou/code/github/daima-agent/kernel',
+          scope_path: KERNEL_SCOPE_PATH,
           scope_kind: 'subsystem',
           analysis_focus: 'execution_kernel',
           elapsed_ms: 1235,
@@ -1920,7 +2004,7 @@ async function main() {
         description: '探索 kernel',
         status: 'running',
         model: 'deepseek-v4-pro',
-        scope_path: '/home/wangergou/code/github/daima-agent/kernel',
+        scope_path: KERNEL_SCOPE_PATH,
         scope_kind: 'subsystem',
         analysis_focus: 'execution_kernel',
         output: '',
@@ -2026,7 +2110,7 @@ async function main() {
           description: '探索 kernel',
           status: 'done',
           model: 'deepseek-v4-pro',
-          scope_path: '/home/wangergou/code/github/daima-agent/kernel',
+          scope_path: KERNEL_SCOPE_PATH,
           scope_kind: 'subsystem',
           analysis_focus: 'execution_kernel',
           elapsed_ms: 2200,
@@ -2041,7 +2125,7 @@ async function main() {
           description: '探索 drivers',
           status: 'error',
           model: 'deepseek-v4-pro',
-          scope_path: '/home/wangergou/code/github/daima-agent/drivers/tool',
+          scope_path: TOOL_SCOPE_PATH,
           scope_kind: 'subsystem',
           analysis_focus: 'tool_runtime',
           elapsed_ms: 456,
@@ -2207,7 +2291,7 @@ async function main() {
     'expected HTTP subagent bootstrap to restore password input mode',
   );
   expect(
-    document.getElementById('subagentDetailPanel')?.textContent?.includes('/home/wangergou/code/github/daima-agent/kernel'),
+    document.getElementById('subagentDetailPanel')?.textContent?.includes(KERNEL_SCOPE_PATH),
     'expected HTTP subagent bootstrap to restore scope path',
   );
   const bootstrapToolTab = [...document.querySelectorAll('.subagent-detail-tab')]
@@ -2283,6 +2367,52 @@ async function main() {
     'expected unified restoreSessionState result to flow through session restore wrapper',
   );
 
+  let unifiedHistoryFetches = 0;
+  let legacyHistoryFetchesForWrapper = 0;
+  const sessionFirstHistoryRestore = sessionRestoreFactory({
+    async fetchImpl(url) {
+      const text = String(url || '');
+      if (text.includes('/api/session_state?chat_id=web_history_first')) {
+        unifiedHistoryFetches += 1;
+        return {
+          ok: true,
+          status: 200,
+          async json() {
+            return {
+              chat_id: 'web_history_first',
+              history: [{ id: 'hist-only-1', seq: 1, role: 'assistant', content: 'history via session_state' }],
+              subagent: { chat_id: 'web_history_first', coordinators: [] },
+              ui: {},
+            };
+          },
+        };
+      }
+      if (text.includes('/api/session_history?chat_id=web_history_first')) {
+        legacyHistoryFetchesForWrapper += 1;
+        throw new Error('legacy session_history should not run when session_state succeeds');
+      }
+      return {
+        ok: false,
+        status: 404,
+        async json() {
+          return {};
+        },
+      };
+    },
+    renderHistoryMessages() {},
+    replaceSubagentStateSnapshot() {},
+    isCurrentChatId() {
+      return true;
+    },
+  });
+  const sessionFirstHistory = await sessionFirstHistoryRestore.fetchSessionHistoryMessages('web_history_first');
+  expect(unifiedHistoryFetches === 1, 'expected fetchSessionHistoryMessages to prefer /api/session_state history');
+  expect(legacyHistoryFetchesForWrapper === 0, 'expected fetchSessionHistoryMessages to avoid legacy /api/session_history when unified session_state exists');
+  expect(
+    Array.isArray(sessionFirstHistory) && sessionFirstHistory[0]?.content === 'history via session_state',
+    'expected fetchSessionHistoryMessages to return history extracted from session_state',
+  );
+
   const transportFactory = dom.window.AgentSubagentTransport?.createSubagentTransport;
   expect(typeof transportFactory === 'function', 'expected subagent transport factory to be exposed');
   const sessionStateFetches = [];
@@ -2334,7 +2464,14 @@ async function main() {
     applySessionPayload() {},
     applyCoordinatorPayload() {},
     getRuntimeState() {
-      return createEmptyState();
+      return {
+        coordinators: new Map(),
+        details: new Map(),
+        liveCursor: {
+          visibleRevision: 0,
+          afterVisibleRevision: 0,
+        },
+      };
     },
   });
   const unifiedTransportRestore = await unifiedSessionTransport.restoreSessionState('web_session_first', {
@@ -2355,6 +2492,32 @@ async function main() {
       unifiedTransportRestore?.restoredSubagent === true,
     'expected unified transport restore result to expose session_state history and subagent restore flags',
   );
+
+  const domSessionFirst = buildDom();
+  const { fetchStub: sessionFirstFetchStub } = bootstrapApp(domSessionFirst);
+  const baselineSessionStateFetches = sessionFirstFetchStub.requests.filter((url) =>
+    String(url).includes('/api/session_state?chat_id=web_test')
+  ).length;
+  const baselineLegacySnapshotFetches = sessionFirstFetchStub.requests.filter((url) =>
+    String(url).includes('/api/subagent_state?chat_id=web_test')
+  ).length;
+  await domSessionFirst.window.eval('loadSubagentStateSnapshot("web_test")');
+  await new Promise((resolve) => setTimeout(resolve, 80));
+  const nextSessionStateFetches = sessionFirstFetchStub.requests.filter((url) =>
+    String(url).includes('/api/session_state?chat_id=web_test')
+  ).length;
+  const nextLegacySnapshotFetches = sessionFirstFetchStub.requests.filter((url) =>
+    String(url).includes('/api/subagent_state?chat_id=web_test')
+  ).length;
+  expect(
+    nextSessionStateFetches > baselineSessionStateFetches,
+    'expected app-level loadSubagentStateSnapshot to prefer unified /api/session_state',
+  );
+  expect(
+    nextLegacySnapshotFetches === baselineLegacySnapshotFetches,
+    'expected app-level loadSubagentStateSnapshot to avoid legacy /api/subagent_state when unified restore exists',
+  );
+  cleanupAppTimers(domSessionFirst);
 
   fetchStub.setSnapshotData({
     chat_id: 'web_question',
@@ -2420,27 +2583,9 @@ async function main() {
 
   const brokenStorageDom = buildDomWithBrokenStorage();
   const brokenStorageFetchStub = createFetchStub();
-  installGlobals(brokenStorageDom, brokenStorageFetchStub.fetch, brokenStorageFetchStub.requests);
-  loadScript(brokenStorageDom, SUBAGENT_STATE_CORE_JS_PATH);
-  loadScript(brokenStorageDom, SUBAGENT_STATE_SELECTORS_JS_PATH);
-  loadScript(brokenStorageDom, SUBAGENT_STATE_REDUCER_JS_PATH);
-  loadScript(brokenStorageDom, SUBAGENT_STATE_JS_PATH);
-  loadScript(brokenStorageDom, SUBAGENT_RUNTIME_JS_PATH);
-  loadScript(brokenStorageDom, SESSION_RESTORE_JS_PATH);
-  loadScript(brokenStorageDom, SUBAGENT_APP_BRIDGE_JS_PATH);
-  loadScript(brokenStorageDom, SUBAGENT_PANEL_CONTROLLER_JS_PATH);
-  loadScript(brokenStorageDom, SUBAGENT_DETAIL_VIEW_JS_PATH);
-  loadScript(brokenStorageDom, SUBAGENT_EVENT_ADAPTER_JS_PATH);
-  loadScript(brokenStorageDom, SUBAGENT_INTERACTIVE_CONTROLLER_JS_PATH);
-  loadScript(brokenStorageDom, SUBAGENT_COORDINATOR_VIEW_JS_PATH);
-  loadScript(brokenStorageDom, SUBAGENT_COORDINATOR_CONTROLLER_JS_PATH);
-  loadScript(brokenStorageDom, SUBAGENT_UI_ORCHESTRATOR_JS_PATH);
-  loadScript(brokenStorageDom, SUBAGENT_TRANSPORT_JS_PATH);
-  loadScript(brokenStorageDom, SUBAGENT_CHAT_TRANSPORT_JS_PATH);
-  loadScript(brokenStorageDom, SUBAGENT_BOOTSTRAP_JS_PATH);
   let brokenStorageAppError = null;
   try {
-    loadScript(brokenStorageDom, APP_JS_PATH);
+    bootstrapAppWithOverrides(brokenStorageDom, { fetchStub: brokenStorageFetchStub });
   } catch (error) {
     brokenStorageAppError = error;
   }
@@ -2451,6 +2596,8 @@ async function main() {
       brokenStorageFetchStub.requests.some((url) => String(url).includes('/api/ui_config')),
     'expected app bootstrap to continue initialization when localStorage access is blocked',
   );
+  cleanupAppTimers(dom);
+  cleanupAppTimers(brokenStorageDom);
 }
 
 main().catch((error) => {

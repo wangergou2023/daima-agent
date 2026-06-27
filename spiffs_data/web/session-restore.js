@@ -6,6 +6,16 @@
       const requestedChatId = String(targetChatId || '').trim();
       if (!requestedChatId) return null;
       try {
+        const unifiedResp = await api.fetchImpl?.(
+          `/api/session_state?chat_id=${encodeURIComponent(requestedChatId)}`,
+          { cache: 'no-store' }
+        );
+        if (unifiedResp?.ok) {
+          const unifiedData = await unifiedResp.json();
+          return Array.isArray(unifiedData?.history) ? unifiedData.history : [];
+        }
+      } catch (_) {}
+      try {
         const resp = await api.fetchImpl?.(
           `/api/session_history?chat_id=${encodeURIComponent(requestedChatId)}`,
           { cache: 'no-store' }

@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "cjson.h"
+#include "drivers/memory/session_store.h"
 #include "delegate_session_json.h"
 #include "drivers/tool/tool_delegate_result_json.h"
 #include "kernel/turn/turn_context.h"
@@ -63,6 +64,7 @@ static void append_agent_summary_json(cJSON *item,
     char preview[256];
     char rendered[512];
     delegate_task_record_t task_snapshot;
+    bool summary_added = false;
 
     if (!item || !agent) {
         return;
@@ -100,9 +102,45 @@ static void append_agent_summary_json(cJSON *item,
         }
         if (preview[0]) {
             cJSON_AddStringToObject(item, "summary", preview);
+            summary_added = true;
         }
         if (include_full_output) {
             cJSON_AddStringToObject(item, "output", task_snapshot.output);
+        }
+    }
+    if (!summary_added && agent->session_id[0]) {
+        char history_json[4096];
+        if (session_store_get_history_json(agent->session_id,
+                                           history_json,
+                                           sizeof(history_json),
+                                           8) == 0 &&
+            history_json[0]) {
+            cJSON *history = cJSON_Parse(history_json);
+            if (history && cJSON_IsArray(history)) {
+                int size = cJSON_GetArraySize(history);
+                for (int idx = size - 1; idx >= 0; idx--) {
+                    cJSON *entry = cJSON_GetArrayItem(history, idx);
+                    cJSON *role = entry ? cJSON_GetObjectItemCaseSensitive(entry, "role") : NULL;
+                    cJSON *content = entry ? cJSON_GetObjectItemCaseSensitive(entry, "content") : NULL;
+                    if (!cJSON_IsString(role) || strcmp(role->valuestring, "assistant") != 0 ||
+                        !cJSON_IsString(content) || !content->valuestring[0]) {
+                        continue;
+                    }
+                    if (tool_delegate_parse_result_json_rendered(content->valuestring,
+                                                                 rendered,
+                                                                 sizeof(rendered))) {
+                        text_shorten(rendered, preview, sizeof(preview), 180);
+                    } else {
+                        text_shorten(content->valuestring, preview, sizeof(preview), 180);
+                    }
+                    if (preview[0]) {
+                        cJSON_AddStringToObject(item, "summary", preview);
+                        summary_added = true;
+                    }
+                    break;
+                }
+            }
+            cJSON_Delete(history);
         }
     }
     if (agent->target_files[0]) {

@@ -26,6 +26,18 @@ typedef struct {
     char summary_path[256];
 } session_record_t;
 
+typedef struct {
+    int limit;
+    int count;
+    int total;
+    bool truncated;
+    bool has_more;
+    unsigned long first_seq;
+    unsigned long last_seq;
+    unsigned long high_water_seq;
+    unsigned long next_seq;
+} session_history_window_meta_t;
+
 typedef struct session_store_ops {
     err_t (*init)(void);
     err_t (*append_ex)(const char *chat_id,
@@ -33,6 +45,9 @@ typedef struct session_store_ops {
                             const char *content,
                             const char *source);
     err_t (*get_history_json)(const char *chat_id, char *buf, size_t size, int max_msgs);
+    err_t (*get_history_window_meta)(const char *chat_id,
+                                     int max_msgs,
+                                     session_history_window_meta_t *meta);
     err_t (*rewrite_from_array)(const char *chat_id, const cJSON *messages);
     err_t (*read_facts)(const char *chat_id, char *buf, size_t size);
     err_t (*merge_facts)(const char *chat_id, const char *facts_text);
@@ -54,6 +69,9 @@ err_t session_store_append_ex(const char *chat_id,
                                    const char *content,
                                    const char *source);
 err_t session_store_get_history_json(const char *chat_id, char *buf, size_t size, int max_msgs);
+err_t session_store_get_history_window_meta(const char *chat_id,
+                                            int max_msgs,
+                                            session_history_window_meta_t *meta);
 err_t session_store_rewrite_from_array(const char *chat_id, const cJSON *messages);
 err_t session_store_read_facts(const char *chat_id, char *buf, size_t size);
 err_t session_store_merge_facts(const char *chat_id, const char *facts_text);

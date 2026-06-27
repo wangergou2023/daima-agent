@@ -6,7 +6,7 @@
 #include "linux/kernel.h"
 
 #define MAX_DIRECTIVES 16
-#define DIRECTIVE_JSON_MAX 4096
+#define DIRECTIVE_JSON_MAX 16384
 
 struct delegate_turn_directive_entry {
     char chat_id[64];

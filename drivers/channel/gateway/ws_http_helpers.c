@@ -600,7 +600,7 @@ static char *build_sessions_json(void)
 }
 
 /* 构建 /api/session_history 响应：提取 assistant 消息的纯文本内容（去掉 JSON 包装）。 */
-static char *build_session_history_json(const char *chat_id)
+static cJSON *build_session_history_messages_array(const char *chat_id)
 {
     if (!chat_id || !chat_id[0]) {
         return NULL;
@@ -648,6 +648,16 @@ static char *build_session_history_json(const char *chat_id)
         cJSON_Delete(parsed);
     }
 
+    return messages;
+}
+
+static char *build_session_history_json(const char *chat_id)
+{
+    cJSON *messages = build_session_history_messages_array(chat_id);
+    if (!messages) {
+        return NULL;
+    }
+
     cJSON *root = cJSON_CreateObject();
     if (!root) {
         cJSON_Delete(messages);
@@ -663,21 +673,26 @@ static char *build_session_history_json(const char *chat_id)
 
 static char *build_session_state_json(const char *chat_id)
 {
-    char *history_json = NULL;
     char *subagent_json = NULL;
-    cJSON *history_root = NULL;
     cJSON *subagent_root = NULL;
     cJSON *root = NULL;
     cJSON *messages = NULL;
+    cJSON *history_window = NULL;
+    cJSON *history_cursor = NULL;
     char *json = NULL;
+    session_history_window_meta_t history_meta;
 
     if (!chat_id || !chat_id[0]) {
         return NULL;
     }
 
-    history_json = build_session_history_json(chat_id);
-    if (history_json) {
-        history_root = cJSON_Parse(history_json);
+    messages = build_session_history_messages_array(chat_id);
+    memset(&history_meta, 0, sizeof(history_meta));
+    history_meta.limit = AGENT_MAX_HISTORY;
+    history_meta.next_seq = 1;
+    if (session_store_get_history_window_meta(chat_id, AGENT_MAX_HISTORY, &history_meta) != 0) {
+        history_meta.count = messages ? cJSON_GetArraySize(messages) : 0;
+        history_meta.total = history_meta.count;
     }
     subagent_json = delegate_parent_subagent_state_json_build(chat_id);
     if (subagent_json) {
@@ -690,9 +705,6 @@ static char *build_session_state_json(const char *chat_id)
     }
     cJSON_AddStringToObject(root, "chat_id", chat_id);
 
-    if (history_root) {
-        messages = cJSON_DetachItemFromObjectCaseSensitive(history_root, "messages");
-    }
     if (!messages) {
         messages = cJSON_CreateArray();
     }
@@ -701,6 +713,36 @@ static char *build_session_state_json(const char *chat_id)
     }
     cJSON_AddItemToObject(root, "history", messages);
     messages = NULL;
+
+    history_window = cJSON_CreateObject();
+    if (!history_window) {
+        goto done;
+    }
+    cJSON_AddNumberToObject(history_window, "limit", history_meta.limit);
+    cJSON_AddNumberToObject(history_window, "count", history_meta.count);
+    cJSON_AddNumberToObject(history_window, "total", history_meta.total);
+    cJSON_AddBoolToObject(history_window, "truncated", history_meta.truncated);
+    cJSON_AddNumberToObject(history_window, "first_seq", history_meta.first_seq);
+    cJSON_AddNumberToObject(history_window, "last_seq", history_meta.last_seq);
+    cJSON_AddNumberToObject(history_window, "high_water_seq", history_meta.high_water_seq);
+    cJSON_AddNumberToObject(history_window, "next_seq", history_meta.next_seq);
+    cJSON_AddBoolToObject(history_window, "has_more", history_meta.has_more);
+    cJSON_AddItemToObject(root, "history_window", history_window);
+    history_window = NULL;
+
+    history_cursor = cJSON_CreateObject();
+    if (!history_cursor) {
+        goto done;
+    }
+    cJSON_AddNumberToObject(history_cursor, "after_seq", 0);
+    cJSON_AddNumberToObject(history_cursor, "visible_seq", history_meta.last_seq);
+    cJSON_AddNumberToObject(history_cursor, "first_visible_seq", history_meta.first_seq);
+    cJSON_AddNumberToObject(history_cursor, "next_seq", history_meta.next_seq);
+    cJSON_AddNumberToObject(history_cursor, "high_water_seq", history_meta.high_water_seq);
+    cJSON_AddBoolToObject(history_cursor, "has_more", history_meta.has_more);
+    cJSON_AddBoolToObject(history_cursor, "replay_reset", history_meta.truncated);
+    cJSON_AddItemToObject(root, "history_cursor", history_cursor);
+    history_cursor = NULL;
 
     if (subagent_root) {
         cJSON_AddItemToObject(root, "subagent", subagent_root);
@@ -724,11 +766,11 @@ static char *build_session_state_json(const char *chat_id)
     json = cJSON_PrintUnformatted(root);
 
 done:
-    kfree(history_json);
     kfree(subagent_json);
-    cJSON_Delete(history_root);
     cJSON_Delete(subagent_root);
     cJSON_Delete(messages);
+    cJSON_Delete(history_window);
+    cJSON_Delete(history_cursor);
     cJSON_Delete(root);
     return json;
 }

@@ -53,6 +53,16 @@ err_t session_store_get_history_json(const char *chat_id, char *buf, size_t size
     return s_ops->get_history_json ? s_ops->get_history_json(chat_id, buf, size, max_msgs) : ERR_INVALID_ARG;
 }
 
+err_t session_store_get_history_window_meta(const char *chat_id,
+                                            int max_msgs,
+                                            session_history_window_meta_t *meta)
+{
+    err_t err = ensure_store_ready();
+    if (err != 0) return err;
+    return s_ops->get_history_window_meta ? s_ops->get_history_window_meta(chat_id, max_msgs, meta)
+                                          : ERR_INVALID_ARG;
+}
+
 err_t session_store_rewrite_from_array(const char *chat_id, const cJSON *messages)
 {
     err_t err = ensure_store_ready();

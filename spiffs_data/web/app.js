@@ -171,10 +171,38 @@ const {
 } = window.AgentSubagentBootstrap || {};
 
 const RECONNECT_SESSION_KEY = 'agent_last_session';
+let storageWarningLogged = false;
+let lastConnectionErrorText = '';
 
-const storedTheme = localStorage.getItem(THEME_KEY) || 'warm';
+function readStorage(key, fallback = '') {
+  try {
+    const value = window.localStorage.getItem(key);
+    return value == null ? fallback : value;
+  } catch (error) {
+    if (!storageWarningLogged) {
+      storageWarningLogged = true;
+      console.warn('localStorage unavailable, falling back to in-memory UI state', error);
+    }
+    return fallback;
+  }
+}
+
+function writeStorage(key, value) {
+  try {
+    window.localStorage.setItem(key, value);
+    return true;
+  } catch (error) {
+    if (!storageWarningLogged) {
+      storageWarningLogged = true;
+      console.warn('localStorage unavailable, falling back to in-memory UI state', error);
+    }
+    return false;
+  }
+}
+
+const storedTheme = readStorage(THEME_KEY, 'warm') || 'warm';
 let chatId = createChatId();
-localStorage.setItem(CHAT_ID_KEY, chatId);
+writeStorage(CHAT_ID_KEY, chatId);
 
 let ws;
 let baseStats = { model: 'unknown', used_tokens: 0, context_limit_tokens: 0 };
@@ -560,7 +588,7 @@ function createChatId() {
 function setActiveChatId(nextChatId) {
   if (!nextChatId || nextChatId === chatId) return;
   chatId = nextChatId;
-  localStorage.setItem(CHAT_ID_KEY, chatId);
+  writeStorage(CHAT_ID_KEY, chatId);
   if (petController) {
     attachPetController();
   }
@@ -806,7 +834,7 @@ function normalizePetPackages(config) {
 }
 
 function resolveInitialPetPackageId(config) {
-  const storedPackageId = localStorage.getItem(PET_PACKAGE_KEY);
+  const storedPackageId = readStorage(PET_PACKAGE_KEY, '');
   if (storedPackageId && availablePetPackages.some((item) => item.package_id === storedPackageId)) {
     return storedPackageId;
   }
@@ -928,7 +956,7 @@ function selectPetPackage(packageId) {
     return;
   }
   activePetPackageId = packageId;
-  localStorage.setItem(PET_PACKAGE_KEY, packageId);
+  writeStorage(PET_PACKAGE_KEY, packageId);
   renderPetChooser(activePetPackageId);
   attachPetController();
 }
@@ -937,7 +965,7 @@ function applyTheme(theme) {
   const next = theme || 'warm';
   document.body.dataset.theme = next;
   if (themeSelect) themeSelect.value = next;
-  localStorage.setItem(THEME_KEY, next);
+  writeStorage(THEME_KEY, next);
 }
 
 function normalizeTerminalSecurityLevel(level) {
@@ -1861,12 +1889,15 @@ function setStatus(online) {
       : (String(online || '').trim() || 'connecting');
   connectionState = nextState;
   isConnected = nextState === 'connected';
-  statusEl.textContent =
-    nextState === 'connected'
-      ? '已连接'
-      : nextState === 'disconnected'
-        ? '未连接'
-        : '连接中';
+  if (nextState === 'connected') {
+    statusEl.textContent = '已连接';
+  } else if (nextState === 'disconnected') {
+    statusEl.textContent = lastConnectionErrorText
+      ? `未连接 · ${lastConnectionErrorText}`
+      : '未连接';
+  } else {
+    statusEl.textContent = '连接中';
+  }
   dot.classList.toggle('on', nextState === 'connected');
   dot.classList.toggle('connecting', nextState === 'connecting');
   syncSendState();
@@ -1876,10 +1907,12 @@ function ensureSocketConnection() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   const transport = ensureSubagentTransport();
   const lifecycle = transport?.lifecycle || {};
+  const socketUrl = `${proto}://${location.host}/ws?chat_id=${encodeURIComponent(chatId)}`;
+  lastConnectionErrorText = '';
   setStatus('connecting');
   ws = transport?.connectSocket
-    ? transport.connectSocket(`${proto}://${location.host}`, lifecycle)
-    : new WebSocket(`${proto}://${location.host}`);
+    ? transport.connectSocket(socketUrl, lifecycle)
+    : new WebSocket(socketUrl);
   if (transport?.connectSocket) {
     return;
   }
@@ -2103,14 +2136,21 @@ async function loadSubagentStateSnapshot(targetChatId = chatId) {
   const requestedChatId = String(targetChatId || '').trim();
   subagentStateLoadToken += 1;
   const transport = ensureSubagentTransport();
+  const transportOptions = {
+    interactiveUiConfig,
+    emptySnapshot: { coordinators: [] },
+    isCurrentChatId(value) {
+      return value === chatId;
+    },
+  };
+  if (transport?.loadUnifiedSessionState) {
+    const unified = await transport.loadUnifiedSessionState(requestedChatId, transportOptions);
+    if (unified?.status === 'ok' || unified?.status === 'stale' || unified?.status === 'empty') {
+      return unified;
+    }
+  }
   if (transport?.loadSnapshot) {
-    return transport.loadSnapshot(requestedChatId, {
-      interactiveUiConfig,
-      emptySnapshot: { coordinators: [] },
-      isCurrentChatId(value) {
-        return value === chatId;
-      },
-    });
+    return transport.loadSnapshot(requestedChatId, transportOptions);
   }
   const token = subagentStateLoadToken;
   if (!requestedChatId) {
@@ -2207,7 +2247,7 @@ function toggleCoordinatorPanel() {
 
 function saveReconnectSession() {
   try {
-    localStorage.setItem(RECONNECT_SESSION_KEY, JSON.stringify({
+    writeStorage(RECONNECT_SESSION_KEY, JSON.stringify({
       chat_id: chatId,
       last_seq: lastMessageSeq,
       timestamp: Date.now(),
@@ -2287,7 +2327,7 @@ async function initApp() {
   syncSendState();
 
   try {
-    const savedStr = localStorage.getItem(RECONNECT_SESSION_KEY);
+    const savedStr = readStorage(RECONNECT_SESSION_KEY, '');
     if (savedStr) {
       const saved = JSON.parse(savedStr);
       if (saved && saved.chat_id && saved.has_messages) {
@@ -2311,6 +2351,15 @@ async function initApp() {
   await loadSessions();
   ensureSocketConnection();
 }
+
+window.addEventListener('error', (event) => {
+  const message = String(event?.message || '').trim();
+  if (!message) return;
+  lastConnectionErrorText = message;
+  if (connectionState !== 'connected') {
+    setStatus(false);
+  }
+});
 
 function renderSelfTestReport(data) {
   const pct = data.passed * 100 / data.total;
