@@ -502,6 +502,8 @@ spiffs_data/
 4. 拷贝证书、Web 资源、技能资源、pet 资源
 5. 安装配置模板与配置文件
 6. 确保 `~/.bashrc` 中存在 PATH 片段
+7. 停掉旧的开发/安装实例，启动 `~/.agent-data/bin/agent`
+8. 对 `http://127.0.0.1:<web_port>/health` 做健康检查
 
 ### 10.2 安装后关键文件
 
@@ -524,8 +526,15 @@ spiffs_data/
    - `./install.sh`
 
 3. 运行
-   - `agent` 或仓库内 `./run.sh`
-   - 后台启动可用 `./run.sh --background`
+   - 安装版：`agent`
+   - 开发版：仓库内 `./run.sh`
+   - 开发版后台启动：`./run.sh --background`
+
+注意：
+
+- `agent` 启动的是 `~/.agent-data/bin/agent`
+- `./run.sh` 启动的是仓库内 `build-kbuild/agent`
+- 两者默认共用 `web_port`，不要同时运行，否则浏览器看到的页面和实际连接的后端可能不是同一个实例
 
 ### 10.4 启动前检查项
 

@@ -17,11 +17,23 @@ PID_FILE="$RUN_DIR/agent.pid"
 LOG_FILE="${TMPDIR:-/tmp}/daima-agent-runtime.log"
 BASHRC="$HOME/.bashrc"
 
+ensure_parent_dir() {
+    local target="$1"
+    mkdir -p "$(dirname "$target")"
+}
+
+install_data_file() {
+    local src="$1"
+    local dst="$2"
+    ensure_parent_dir "$dst"
+    install -m644 "$src" "$dst"
+}
+
 copy_if_missing() {
     local src="$1"
     local dst="$2"
     if [ ! -e "$dst" ]; then
-        install -Dm644 "$src" "$dst"
+        install_data_file "$src" "$dst"
     fi
 }
 
@@ -80,6 +92,14 @@ stop_existing_agent() {
     sleep 1
 }
 
+launch_installed_agent() {
+    if command -v setsid >/dev/null 2>&1; then
+        nohup setsid "$TARGET_BIN" >"$LOG_FILE" 2>&1 < /dev/null &
+    else
+        nohup "$TARGET_BIN" >"$LOG_FILE" 2>&1 < /dev/null &
+    fi
+}
+
 wait_for_agent_ready() {
     local port="$1"
     local deadline=$((SECONDS + 20))
@@ -104,7 +124,7 @@ mkdir -p "$AGENT_HOME/spiffs_data/memory" "$AGENT_HOME/spiffs_data/sessions" "$A
 
 rm -f "$TARGET_BIN"
 install -m755 "./build-kbuild/agent" "$TARGET_BIN"
-install -m644 "./spiffs_data/ca/cacert.pem" "$CA_DIR/cacert.pem"
+install_data_file "./spiffs_data/ca/cacert.pem" "$CA_DIR/cacert.pem"
 
 cp -a "./spiffs_data/web/." "$WEB_DIR/"
 cp -a "./spiffs_data/skills/." "$SKILLS_DIR/"
@@ -117,12 +137,12 @@ for pet_dir in ./spiffs_data/*.codex-pet; do
     cp -a "$pet_dir" "$AGENT_HOME/spiffs_data/"
 done
 
-install -m644 "./spiffs_data/config/config.example.json" "$CONFIG_DIR/config.example.json"
+install_data_file "./spiffs_data/config/config.example.json" "$CONFIG_DIR/config.example.json"
 if [ ! -e "$CONFIG_DIR/config.json" ]; then
     if [ -f "./spiffs_data/config/config.json" ]; then
-        install -Dm644 "./spiffs_data/config/config.json" "$CONFIG_DIR/config.json"
+        install_data_file "./spiffs_data/config/config.json" "$CONFIG_DIR/config.json"
     else
-        install -Dm644 "./spiffs_data/config/config.example.json" "$CONFIG_DIR/config.json"
+        install_data_file "./spiffs_data/config/config.example.json" "$CONFIG_DIR/config.json"
     fi
 elif ! grep -q '"vector"' "$CONFIG_DIR/config.json"; then
     python3 - "$CONFIG_DIR/config.json" <<'PY'
@@ -150,7 +170,7 @@ WEB_PORT="$(resolve_web_port "$CONFIG_DIR/config.json")"
 
 echo "=== Restarting installed agent on port $WEB_PORT ==="
 stop_existing_agent
-nohup setsid "$TARGET_BIN" >"$LOG_FILE" 2>&1 < /dev/null &
+launch_installed_agent
 NEW_PID="$!"
 echo "$NEW_PID" > "$PID_FILE"
 

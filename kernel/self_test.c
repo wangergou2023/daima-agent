@@ -42,7 +42,9 @@
 #include "drivers/tool/tool_runtime.h"
 #include "tool_notify.h"
 #include "paths.h"
+#include "arch/host/portability.h"
 #include "cjson.h"
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -218,6 +220,26 @@ static void test_memory_queue(void)
         kfree(reply.result);
     }
     report("memory queue save_session is fire-and-forget", ok);
+}
+
+static void test_host_portability_runtime(void)
+{
+    char exe_dir[PATH_MAX];
+    memset(exe_dir, 0, sizeof(exe_dir));
+
+    int exe_ok = host_get_executable_dir(exe_dir, sizeof(exe_dir)) &&
+                 exe_dir[0] == '/';
+    if (!exe_ok) {
+        pr_warn("  failed to resolve executable dir");
+    }
+
+    size_t free_mem = host_platform_free_memory();
+    int mem_ok = (free_mem > 0);
+    if (!mem_ok) {
+        pr_warn("  failed to query platform free memory");
+    }
+
+    report("host portability resolves executable dir and free memory", exe_ok && mem_ok);
 }
 
 /* 测 5: 触发真实工具调用 (通过执行核) */
@@ -8016,6 +8038,7 @@ int agent_self_test(void)
     test_message_bus();
     test_tool_bus_bindings();
     test_memory_queue();
+    test_host_portability_runtime();
     test_real_tool_via_executor();
     test_message_pipeline();
     test_async_compress_dispatch();

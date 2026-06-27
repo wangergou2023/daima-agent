@@ -24,6 +24,14 @@ for arg in "$@"; do
   esac
 done
 
+launch_dev_agent() {
+  if command -v setsid >/dev/null 2>&1; then
+    nohup setsid "$ROOT_DIR/build-kbuild/agent" "${AGENT_ARGS[@]}" >"$LOG_FILE" 2>&1 < /dev/null &
+  else
+    nohup "$ROOT_DIR/build-kbuild/agent" "${AGENT_ARGS[@]}" >"$LOG_FILE" 2>&1 < /dev/null &
+  fi
+}
+
 cd "$ROOT_DIR"
 
 if [[ -f "$PID_FILE" ]]; then
@@ -46,7 +54,7 @@ if [[ "$FOREGROUND" -eq 1 ]]; then
   exec ./build-kbuild/agent "${AGENT_ARGS[@]}" 2>&1 | tee "$LOG_FILE"
 fi
 
-nohup setsid "$ROOT_DIR/build-kbuild/agent" "${AGENT_ARGS[@]}" >"$LOG_FILE" 2>&1 < /dev/null &
+launch_dev_agent
 new_pid="$!"
 echo "$new_pid" > "$PID_FILE"
 

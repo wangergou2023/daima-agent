@@ -212,6 +212,29 @@
 
 如果以 `oh-my-openagent + opencode` 为上限，`daima-agent` 最终应该收敛为下面这套结构。
 
+### 4.0 运行时边界先决条件
+
+在继续推进多 subagent 最终态之前，运行时边界必须保持清晰：
+
+- 开发实例：
+  - `./run.sh`
+  - 实际启动 `build-kbuild/agent`
+- 安装实例：
+  - `./install.sh`
+  - 安装到 `~/.agent-data/bin/agent`
+  - 当前安装脚本也会主动重启安装版并做 `/health` 检查
+
+这不是运维细节，而是架构前提：
+
+- 如果开发实例和安装实例同时占用同一个 `web_port`
+- Web 页面的静态资源、websocket 连接、HTTP snapshot、runtime log 可能会指向不同进程
+- 这样会直接污染对 multi-subagent 协议、replay 语义、session restore 的判断
+
+所以后续所有多 subagent 验证都应该先明确：
+
+- 当前验证的是开发实例
+- 还是安装实例
+
 ### 4.1 Coordinator 只负责编排
 
 `coordinator` 最终只保留这些职责：

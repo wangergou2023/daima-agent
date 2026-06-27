@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "arch/host/portability.h"
 #include "linux/kernel.h"
 
 #ifndef PATH_MAX
@@ -99,32 +100,6 @@ static bool dir_has_spiffs_data(const char *dir)
 }
 
 /**
- * 通过 /proc/self/exe 获取可执行文件所在目录。
- * @param out      输出缓冲区
- * @param out_size 缓冲区大小
- * @return 成功返回 true
- */
-static bool get_executable_dir(char *out, size_t out_size)
-{
-    if (!out || out_size == 0) return false;
-
-    char exe_path[PATH_MAX];
-    ssize_t n = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
-    if (n <= 0 || n >= (ssize_t)sizeof(exe_path)) {
-        return false;
-    }
-    exe_path[n] = '\0';
-
-    char *slash = strrchr(exe_path, '/');
-    if (!slash) {
-        return false;
-    }
-    *slash = '\0';
-    safe_copy(out, out_size, exe_path);
-    return true;
-}
-
-/**
  * 原地获取目录名（删除最后一个 '/' 之后的部分）。
  * @param path 路径字符串（原地修改）
  */
@@ -173,7 +148,7 @@ static void detect_home_dir(char *out, size_t out_size)
 
     /* 3-4. 可执行文件目录（含 spiffs_data 检查） */
     char exe_dir[PATH_MAX];
-    if (get_executable_dir(exe_dir, sizeof(exe_dir))) {
+    if (host_get_executable_dir(exe_dir, sizeof(exe_dir))) {
         if (dir_has_spiffs_data(exe_dir)) {
             safe_copy(out, out_size, exe_dir);
             return;
