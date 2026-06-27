@@ -1511,6 +1511,10 @@ static void test_delegate_child_session_json_exposes_window_metadata(void)
         };
         cJSON *child = delegate_child_session_json_build_from_task(&snapshot, &options);
         cJSON *window = child ? cJSON_GetObjectItemCaseSensitive(child, "window") : NULL;
+        cJSON *cursor = child ? cJSON_GetObjectItemCaseSensitive(child, "cursor") : NULL;
+        cJSON *history_cursor = cursor ? cJSON_GetObjectItemCaseSensitive(cursor, "history") : NULL;
+        cJSON *frame_cursor = cursor ? cJSON_GetObjectItemCaseSensitive(cursor, "frames") : NULL;
+        cJSON *commit_cursor = cursor ? cJSON_GetObjectItemCaseSensitive(cursor, "commits") : NULL;
         cJSON *history_limit = window ? cJSON_GetObjectItemCaseSensitive(window, "history_limit") : NULL;
         cJSON *history_count = window ? cJSON_GetObjectItemCaseSensitive(window, "history_count") : NULL;
         cJSON *history_total = window ? cJSON_GetObjectItemCaseSensitive(window, "history_total") : NULL;
@@ -1529,9 +1533,23 @@ static void test_delegate_child_session_json_exposes_window_metadata(void)
         cJSON *commit_truncated = window ? cJSON_GetObjectItemCaseSensitive(window, "commit_truncated") : NULL;
         cJSON *commit_first_seq = window ? cJSON_GetObjectItemCaseSensitive(window, "commit_first_seq") : NULL;
         cJSON *commit_last_seq = window ? cJSON_GetObjectItemCaseSensitive(window, "commit_last_seq") : NULL;
+        cJSON *history_cursor_after_seq = history_cursor ? cJSON_GetObjectItemCaseSensitive(history_cursor, "after_seq") : NULL;
+        cJSON *history_cursor_visible_seq = history_cursor ? cJSON_GetObjectItemCaseSensitive(history_cursor, "visible_seq") : NULL;
+        cJSON *frame_cursor_after_seq = frame_cursor ? cJSON_GetObjectItemCaseSensitive(frame_cursor, "after_seq") : NULL;
+        cJSON *frame_cursor_visible_seq = frame_cursor ? cJSON_GetObjectItemCaseSensitive(frame_cursor, "visible_seq") : NULL;
+        cJSON *commit_cursor_after_seq = commit_cursor ? cJSON_GetObjectItemCaseSensitive(commit_cursor, "after_seq") : NULL;
+        cJSON *commit_cursor_visible_seq = commit_cursor ? cJSON_GetObjectItemCaseSensitive(commit_cursor, "visible_seq") : NULL;
 
         ok = child &&
              window &&
+             cursor &&
+             cJSON_IsObject(cursor) &&
+             history_cursor &&
+             cJSON_IsObject(history_cursor) &&
+             frame_cursor &&
+             cJSON_IsObject(frame_cursor) &&
+             commit_cursor &&
+             cJSON_IsObject(commit_cursor) &&
              cJSON_IsObject(window) &&
              cJSON_IsNumber(history_limit) &&
              history_limit->valuedouble == 8 &&
@@ -1568,10 +1586,22 @@ static void test_delegate_child_session_json_exposes_window_metadata(void)
              cJSON_IsNumber(commit_first_seq) &&
              commit_first_seq->valuedouble == 1 &&
              cJSON_IsNumber(commit_last_seq) &&
-             commit_last_seq->valuedouble == 14;
+             commit_last_seq->valuedouble == 14 &&
+             cJSON_IsNumber(history_cursor_after_seq) &&
+             history_cursor_after_seq->valuedouble == 0 &&
+             cJSON_IsNumber(history_cursor_visible_seq) &&
+             history_cursor_visible_seq->valuedouble == 100 &&
+             cJSON_IsNumber(frame_cursor_after_seq) &&
+             frame_cursor_after_seq->valuedouble == 0 &&
+             cJSON_IsNumber(frame_cursor_visible_seq) &&
+             frame_cursor_visible_seq->valuedouble == 14 &&
+             cJSON_IsNumber(commit_cursor_after_seq) &&
+             commit_cursor_after_seq->valuedouble == 0 &&
+             cJSON_IsNumber(commit_cursor_visible_seq) &&
+             commit_cursor_visible_seq->valuedouble == 14;
 
         if (!ok) {
-            pr_info("  child_window diag: history_limit=%f history_count=%f history_total=%f history_truncated=%d history_first_seq=%f history_last_seq=%f frame_limit=%f frame_count=%f frame_total=%f frame_truncated=%d frame_first_seq=%f frame_last_seq=%f commit_limit=%f commit_count=%f commit_total=%f commit_truncated=%d commit_first_seq=%f commit_last_seq=%f",
+            pr_info("  child_window diag: history_limit=%f history_count=%f history_total=%f history_truncated=%d history_first_seq=%f history_last_seq=%f frame_limit=%f frame_count=%f frame_total=%f frame_truncated=%d frame_first_seq=%f frame_last_seq=%f commit_limit=%f commit_count=%f commit_total=%f commit_truncated=%d commit_first_seq=%f commit_last_seq=%f hist_cursor_after=%f hist_cursor_visible=%f frame_cursor_after=%f frame_cursor_visible=%f commit_cursor_after=%f commit_cursor_visible=%f",
                     cJSON_IsNumber(history_limit) ? history_limit->valuedouble : -1.0,
                     cJSON_IsNumber(history_count) ? history_count->valuedouble : -1.0,
                     cJSON_IsNumber(history_total) ? history_total->valuedouble : -1.0,
@@ -1589,7 +1619,13 @@ static void test_delegate_child_session_json_exposes_window_metadata(void)
                     cJSON_IsNumber(commit_total) ? commit_total->valuedouble : -1.0,
                     cJSON_IsBool(commit_truncated) ? cJSON_IsTrue(commit_truncated) : -1,
                     cJSON_IsNumber(commit_first_seq) ? commit_first_seq->valuedouble : -1.0,
-                    cJSON_IsNumber(commit_last_seq) ? commit_last_seq->valuedouble : -1.0);
+                    cJSON_IsNumber(commit_last_seq) ? commit_last_seq->valuedouble : -1.0,
+                    cJSON_IsNumber(history_cursor_after_seq) ? history_cursor_after_seq->valuedouble : -1.0,
+                    cJSON_IsNumber(history_cursor_visible_seq) ? history_cursor_visible_seq->valuedouble : -1.0,
+                    cJSON_IsNumber(frame_cursor_after_seq) ? frame_cursor_after_seq->valuedouble : -1.0,
+                    cJSON_IsNumber(frame_cursor_visible_seq) ? frame_cursor_visible_seq->valuedouble : -1.0,
+                    cJSON_IsNumber(commit_cursor_after_seq) ? commit_cursor_after_seq->valuedouble : -1.0,
+                    cJSON_IsNumber(commit_cursor_visible_seq) ? commit_cursor_visible_seq->valuedouble : -1.0);
         }
         cJSON_Delete(child);
     }

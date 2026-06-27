@@ -604,6 +604,35 @@
         }
       : null;
 
+    const cursorMeta = child.cursor && typeof child.cursor === 'object'
+      ? {
+          history: child.cursor.history && typeof child.cursor.history === 'object'
+            ? {
+                after_seq: Number(child.cursor.history.after_seq) || 0,
+                visible_seq: Number(child.cursor.history.visible_seq) || 0,
+                first_visible_seq: Number(child.cursor.history.first_visible_seq) || 0,
+                replay_reset: child.cursor.history.replay_reset === true,
+              }
+            : null,
+          frames: child.cursor.frames && typeof child.cursor.frames === 'object'
+            ? {
+                after_seq: Number(child.cursor.frames.after_seq) || 0,
+                visible_seq: Number(child.cursor.frames.visible_seq) || 0,
+                first_visible_seq: Number(child.cursor.frames.first_visible_seq) || 0,
+                replay_reset: child.cursor.frames.replay_reset === true,
+              }
+            : null,
+          commits: child.cursor.commits && typeof child.cursor.commits === 'object'
+            ? {
+                after_seq: Number(child.cursor.commits.after_seq) || 0,
+                visible_seq: Number(child.cursor.commits.visible_seq) || 0,
+                first_visible_seq: Number(child.cursor.commits.first_visible_seq) || 0,
+                replay_reset: child.cursor.commits.replay_reset === true,
+              }
+            : null,
+        }
+      : null;
+
     const windowMeta = child.window && typeof child.window === 'object'
       ? {
           history_limit: Number(child.window.history_limit) || 0,
@@ -652,6 +681,7 @@
       history,
       frames,
       commits,
+      cursor: cursorMeta,
       window: windowMeta,
       pending_queue: pendingQueue,
       pending_request: pendingRequest && pendingRequest.request_type && pendingRequest.prompt ? pendingRequest : null,

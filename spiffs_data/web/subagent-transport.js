@@ -100,12 +100,16 @@
         if (!taskId) {
           continue;
         }
+        const cursorMeta = detail?.cursor && typeof detail.cursor === 'object' ? detail.cursor : {};
         const windowMeta = detail?.window && typeof detail.window === 'object' ? detail.window : {};
+        const historyCursor = cursorMeta.history && typeof cursorMeta.history === 'object' ? cursorMeta.history : {};
+        const frameCursor = cursorMeta.frames && typeof cursorMeta.frames === 'object' ? cursorMeta.frames : {};
+        const commitCursor = cursorMeta.commits && typeof cursorMeta.commits === 'object' ? cursorMeta.commits : {};
         targets.push({
           taskId,
-          historyAfterSeq: Number(windowMeta.history_last_seq) || 0,
-          frameAfterSeq: Number(windowMeta.frame_last_seq) || 0,
-          commitAfterSeq: Number(windowMeta.commit_last_seq) || 0,
+          historyAfterSeq: Number(historyCursor.visible_seq) || Number(windowMeta.history_last_seq) || 0,
+          frameAfterSeq: Number(frameCursor.visible_seq) || Number(windowMeta.frame_last_seq) || 0,
+          commitAfterSeq: Number(commitCursor.visible_seq) || Number(windowMeta.commit_last_seq) || 0,
         });
       }
       return targets;

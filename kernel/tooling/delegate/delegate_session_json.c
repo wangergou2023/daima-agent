@@ -483,6 +483,10 @@ cJSON *delegate_child_session_json_build_from_task(const delegate_task_record_t 
     cJSON *permissions = NULL;
     cJSON *questions = NULL;
     cJSON *window = NULL;
+    cJSON *cursor = NULL;
+    cJSON *history_cursor = NULL;
+    cJSON *frame_cursor = NULL;
+    cJSON *commit_cursor = NULL;
     delegate_child_session_history_snapshot_t history_snapshot = {0};
     int history_limit = DELEGATE_CHILD_SESSION_HISTORY_LIMIT_DEFAULT;
 
@@ -502,11 +506,16 @@ cJSON *delegate_child_session_json_build_from_task(const delegate_task_record_t 
     permissions = cJSON_CreateArray();
     questions = cJSON_CreateArray();
     window = cJSON_CreateObject();
+    cursor = cJSON_CreateObject();
+    history_cursor = cJSON_CreateObject();
+    frame_cursor = cJSON_CreateObject();
+    commit_cursor = cJSON_CreateObject();
     history_snapshot = build_child_session_history_snapshot(task_snapshot->session_id,
                                                             history_limit,
                                                             options ? options->history_after_seq : 0);
     if (!child || !commits || !frames || !pending_queue || !permissions || !questions ||
-        !window || !history_snapshot.array) {
+        !window || !cursor || !history_cursor || !frame_cursor || !commit_cursor ||
+        !history_snapshot.array) {
         cJSON_Delete(child);
         cJSON_Delete(commits);
         cJSON_Delete(frames);
@@ -514,6 +523,10 @@ cJSON *delegate_child_session_json_build_from_task(const delegate_task_record_t 
         cJSON_Delete(permissions);
         cJSON_Delete(questions);
         cJSON_Delete(window);
+        cJSON_Delete(cursor);
+        cJSON_Delete(history_cursor);
+        cJSON_Delete(frame_cursor);
+        cJSON_Delete(commit_cursor);
         cJSON_Delete(history_snapshot.array);
         return NULL;
     }
@@ -679,6 +692,34 @@ cJSON *delegate_child_session_json_build_from_task(const delegate_task_record_t 
                                                       (unsigned long)json_array_first_seq(commits),
                                                       session->commit_seq_next));
     cJSON_AddItemToObject(child, "window", window);
+
+    cJSON_AddNumberToObject(history_cursor, "after_seq", options ? (double)options->history_after_seq : 0.0);
+    cJSON_AddNumberToObject(history_cursor, "visible_seq", history_snapshot.last_seq);
+    cJSON_AddNumberToObject(history_cursor, "first_visible_seq", history_snapshot.first_seq);
+    cJSON_AddBoolToObject(history_cursor, "replay_reset", history_snapshot.replay_reset);
+    cJSON_AddItemToObject(cursor, "history", history_cursor);
+
+    cJSON_AddNumberToObject(frame_cursor, "after_seq", options ? (double)options->frame_after_seq : 0.0);
+    cJSON_AddNumberToObject(frame_cursor, "visible_seq", json_array_last_seq(frames));
+    cJSON_AddNumberToObject(frame_cursor, "first_visible_seq", json_array_first_seq(frames));
+    cJSON_AddBoolToObject(frame_cursor,
+                          "replay_reset",
+                          seq_window_replay_reset(options ? options->frame_after_seq : 0,
+                                                  (unsigned long)json_array_first_seq(frames),
+                                                  session->frame_seq_next));
+    cJSON_AddItemToObject(cursor, "frames", frame_cursor);
+
+    cJSON_AddNumberToObject(commit_cursor, "after_seq", options ? (double)options->commit_after_seq : 0.0);
+    cJSON_AddNumberToObject(commit_cursor, "visible_seq", json_array_last_seq(commits));
+    cJSON_AddNumberToObject(commit_cursor, "first_visible_seq", json_array_first_seq(commits));
+    cJSON_AddBoolToObject(commit_cursor,
+                          "replay_reset",
+                          seq_window_replay_reset(options ? options->commit_after_seq : 0,
+                                                  (unsigned long)json_array_first_seq(commits),
+                                                  session->commit_seq_next));
+    cJSON_AddItemToObject(cursor, "commits", commit_cursor);
+
+    cJSON_AddItemToObject(child, "cursor", cursor);
 
     return child;
 }

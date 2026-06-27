@@ -11,7 +11,10 @@ CONFIG_DIR="$AGENT_HOME/spiffs_data/config"
 WEB_DIR="$AGENT_HOME/spiffs_data/web"
 SKILLS_DIR="$AGENT_HOME/spiffs_data/skills"
 CA_DIR="$AGENT_HOME/spiffs_data/ca"
+RUN_DIR="$AGENT_HOME/run"
 TARGET_BIN="$BIN_DIR/agent"
+PID_FILE="$RUN_DIR/agent.pid"
+LOG_FILE="${TMPDIR:-/tmp}/daima-agent-runtime.log"
 BASHRC="$HOME/.bashrc"
 
 copy_if_missing() {
@@ -43,12 +46,60 @@ fi
 EOF
 }
 
+resolve_web_port() {
+    local config_path="$1"
+    python3 - "$config_path" <<'PY'
+import json
+import sys
+
+path = sys.argv[1]
+default = 1234
+try:
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    value = int(data.get("common", {}).get("web_port", default))
+    print(value if 1 <= value <= 65535 else default)
+except Exception:
+    print(default)
+PY
+}
+
+stop_existing_agent() {
+    local pid=""
+    if [ -f "$PID_FILE" ]; then
+        pid="$(cat "$PID_FILE" 2>/dev/null || true)"
+        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+            kill "$pid" 2>/dev/null || true
+            sleep 1
+        fi
+        rm -f "$PID_FILE"
+    fi
+
+    pkill -f "$SCRIPT_DIR/build-kbuild/agent" 2>/dev/null || true
+    pkill -f "$TARGET_BIN" 2>/dev/null || true
+    sleep 1
+}
+
+wait_for_agent_ready() {
+    local port="$1"
+    local deadline=$((SECONDS + 20))
+    local health_url="http://127.0.0.1:${port}/health"
+
+    while [ "$SECONDS" -lt "$deadline" ]; do
+        if curl -fsS --max-time 2 "$health_url" >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 0.2
+    done
+    return 1
+}
+
 echo "=== Building agent binary ==="
 make clean
 make
 
 echo "=== Installing to $AGENT_HOME ==="
-mkdir -p "$BIN_DIR" "$CONFIG_DIR" "$WEB_DIR" "$SKILLS_DIR" "$CA_DIR"
+mkdir -p "$BIN_DIR" "$CONFIG_DIR" "$WEB_DIR" "$SKILLS_DIR" "$CA_DIR" "$RUN_DIR"
 mkdir -p "$AGENT_HOME/spiffs_data/memory" "$AGENT_HOME/spiffs_data/sessions" "$AGENT_HOME/spiffs_data/cache"
 
 rm -f "$TARGET_BIN"
@@ -94,11 +145,30 @@ copy_if_missing "./spiffs_data/config/USER.md" "$CONFIG_DIR/USER.md"
 copy_if_missing "./spiffs_data/config/AGENTS.md" "$CONFIG_DIR/AGENTS.md"
 
 ensure_path_snippet "$BASHRC"
+
+WEB_PORT="$(resolve_web_port "$CONFIG_DIR/config.json")"
+
+echo "=== Restarting installed agent on port $WEB_PORT ==="
+stop_existing_agent
+nohup setsid "$TARGET_BIN" >"$LOG_FILE" 2>&1 < /dev/null &
+NEW_PID="$!"
+echo "$NEW_PID" > "$PID_FILE"
+
+if ! wait_for_agent_ready "$WEB_PORT"; then
+    echo "Agent install succeeded, but runtime health check failed: http://127.0.0.1:${WEB_PORT}/health" >&2
+    if [ -f "$LOG_FILE" ]; then
+        tail -n 120 "$LOG_FILE" >&2 || true
+    fi
+    exit 1
+fi
+
 make clean
 echo ""
 echo "Agent installed successfully."
 echo "Home: $AGENT_HOME"
 echo "Binary: $TARGET_BIN"
+echo "PID: $NEW_PID"
+echo "Web UI: http://127.0.0.1:${WEB_PORT}"
 echo ""
 echo "If this is your first install, edit:"
 echo "  $CONFIG_DIR/config.json"

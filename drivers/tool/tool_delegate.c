@@ -1,6 +1,7 @@
 /* delegate_task 工具：语义化子代理委托层。 */
 #include "drivers/tool/tool_delegate.h"
 #include "drivers/tool/tool_delegate_route.h"
+#include "kernel/tooling/delegate/delegate_task_store.h"
 #include "linux/kernel.h"
 
 static int s_delegate_seq = 0;
