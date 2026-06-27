@@ -37,6 +37,7 @@ const agentRoleTag = document.getElementById('agentRoleTag');
 const coordinatorPanel = document.getElementById('coordinatorPanel');
 const coordinatorAgents = document.getElementById('coordinatorAgents');
 const coordinatorClose = document.getElementById('coordinatorClose');
+const coordinatorToggleBtn = document.getElementById('coordinatorToggleBtn');
 const subagentDetailPanel = document.getElementById('subagentDetailPanel');
 const subagentDetailTitle = document.getElementById('subagentDetailTitle');
 const subagentDetailMeta = document.getElementById('subagentDetailMeta');
@@ -148,6 +149,9 @@ const {
   createSubagentRuntime,
 } = window.AgentSubagentRuntime || {};
 const {
+  createSessionRestore,
+} = window.AgentSessionRestore || {};
+const {
   createSubagentAppBridge,
 } = window.AgentSubagentAppBridge || {};
 const {
@@ -202,6 +206,7 @@ let subagentStateLoadToken = 0;
 let subagentEventAdapter = null;
 let interactiveController = null;
 let subagentRuntime = null;
+let sessionRestore = null;
 let subagentUiOrchestrator = null;
 let subagentTransport = null;
 let subagentChatTransport = null;
@@ -291,28 +296,99 @@ function extractLastSeqFromHistory(history) {
   return maxSeq;
 }
 
+function ensureSessionRestore() {
+  if (sessionRestore || !createSessionRestore) {
+    return sessionRestore;
+  }
+  sessionRestore = createSessionRestore({
+    fetchImpl: fetch.bind(window),
+    async restoreSessionState(targetChatId, options = {}) {
+      const requestedChatId = String(targetChatId || '').trim();
+      const opts = options && typeof options === 'object' ? options : {};
+      const transport = ensureSubagentTransport();
+      if (!requestedChatId) {
+        if (opts.restoreSubagent !== false) {
+          replaceSubagentStateSnapshot({ coordinators: [] });
+        }
+        return {
+          chatId: requestedChatId,
+          status: 'empty',
+          history: [],
+          restoredHistory: false,
+          restoredSubagent: opts.restoreSubagent !== false,
+          stale: false,
+        };
+      }
+
+      if (transport?.restoreSessionState) {
+        return transport.restoreSessionState(requestedChatId, {
+          ...opts,
+          interactiveUiConfig,
+          emptySnapshot: { coordinators: [] },
+          fetchSessionHistory: fetchSessionHistoryMessages,
+          isCurrentChatId(value) {
+            return String(value || '').trim() === chatId;
+          },
+        });
+      }
+
+      const history = await fetchSessionHistoryMessages(requestedChatId);
+      return {
+        chatId: requestedChatId,
+        status: Array.isArray(history) ? 'ok' : 'partial',
+        history: Array.isArray(history) ? history : [],
+        restoredHistory: Array.isArray(history),
+        restoredSubagent: false,
+        stale: String(chatId || '').trim() !== requestedChatId,
+      };
+    },
+    loadSubagentStateSnapshot,
+    renderHistoryMessages,
+    replaceSubagentStateSnapshot,
+    renderSessions,
+    saveReconnectSession,
+    refreshContextStats,
+    showReconnectToast,
+    setSelectedSessionId(nextChatId) {
+      selectedSessionId = nextChatId;
+    },
+    isCurrentChatId(candidate) {
+      return String(candidate || '').trim() === chatId;
+    },
+  });
+  return sessionRestore;
+}
+
+async function fetchSessionHistoryMessages(targetChatId) {
+  return ensureSessionRestore()?.fetchSessionHistoryMessages?.(targetChatId) || null;
+}
+
+async function restoreSessionViewState(targetChatId = chatId, options = {}) {
+  return ensureSessionRestore()?.restoreSessionViewState?.(targetChatId, options) || {
+    history: [],
+    restoredHistory: false,
+    restoredSubagent: false,
+    stale: false,
+  };
+}
+
 async function reconcileCurrentSessionHistory(targetChatId = chatId, options = {}) {
   const requestedChatId = String(targetChatId || '').trim();
   if (!requestedChatId) return false;
   const minMessageCount = Number(options?.minMessageCount) || 0;
   const minLastSeq = Number(options?.minLastSeq) || 0;
-  try {
-    const resp = await fetch(`/api/session_history?chat_id=${encodeURIComponent(requestedChatId)}`, { cache: 'no-store' });
-    if (!resp.ok || requestedChatId !== chatId) return false;
-    const data = await resp.json();
-    const history = Array.isArray(data?.messages) ? data.messages : [];
-    const historyLastSeq = extractLastSeqFromHistory(history);
-    if (requestedChatId !== chatId) return false;
-    if (history.length < minMessageCount) return false;
-    if (historyLastSeq < minLastSeq || historyLastSeq < lastMessageSeq) return false;
-    renderHistoryMessages(history);
-    selectedSessionId = requestedChatId;
-    renderSessions();
-    saveReconnectSession();
-    return true;
-  } catch (_) {
+  const history = await fetchSessionHistoryMessages(requestedChatId);
+  if (!Array.isArray(history) || requestedChatId !== chatId) {
     return false;
   }
+  const historyLastSeq = extractLastSeqFromHistory(history);
+  if (history.length < minMessageCount) return false;
+  if (historyLastSeq < minLastSeq || historyLastSeq < lastMessageSeq) return false;
+  renderHistoryMessages(history);
+  selectedSessionId = requestedChatId;
+  renderSessions();
+  saveReconnectSession();
+  return true;
 }
 
 function scheduleCurrentSessionHistoryReconcile(targetChatId = chatId, options = {}) {
@@ -637,19 +713,15 @@ async function switchSession(nextChatId) {
   lastMessageSeq = 0;
   saveReconnectSession();
   renderSessions();
-  try {
-    const resp = await fetch(`/api/session_history?chat_id=${encodeURIComponent(chatId)}`, { cache: 'no-store' });
-    if (resp.ok) {
-      const data = await resp.json();
-      renderHistoryMessages(Array.isArray(data?.messages) ? data.messages : []);
-    } else {
-      renderHistoryMessages([]);
-    }
-  } catch (_) {
-    renderHistoryMessages([]);
-  }
-  await loadSubagentStateSnapshot(chatId);
-  refreshContextStats();
+  await restoreSessionViewState(chatId, {
+    requireCurrentChat: true,
+    applyHistory: true,
+    renderEmptyHistory: true,
+    renderSessions: true,
+    saveReconnect: true,
+    refreshContextStats: true,
+    restoreSubagent: true,
+  });
 }
 
 async function deleteSession(targetChatId) {
@@ -1960,6 +2032,10 @@ if (coordinatorClose) {
   coordinatorClose.addEventListener('click', () => closeCoordinatorPanel());
 }
 
+if (coordinatorToggleBtn) {
+  coordinatorToggleBtn.addEventListener('click', () => toggleCoordinatorPanel());
+}
+
 if (reconnectToastAction) {
   reconnectToastAction.addEventListener('click', () => handleReconnect());
 }
@@ -2028,36 +2104,37 @@ async function loadSubagentStateSnapshot(targetChatId = chatId) {
   subagentStateLoadToken += 1;
   const transport = ensureSubagentTransport();
   if (transport?.loadSnapshot) {
-    await transport.loadSnapshot(requestedChatId, {
+    return transport.loadSnapshot(requestedChatId, {
       interactiveUiConfig,
       emptySnapshot: { coordinators: [] },
       isCurrentChatId(value) {
         return value === chatId;
       },
     });
-    return;
   }
   const token = subagentStateLoadToken;
   if (!requestedChatId) {
     replaceSubagentStateSnapshot({ coordinators: [] });
-    return;
+    return { chatId: requestedChatId, status: 'empty' };
   }
 
   try {
     const resp = await fetch(`/api/subagent_state?chat_id=${encodeURIComponent(requestedChatId)}`, { cache: 'no-store' });
-    if (token !== subagentStateLoadToken || requestedChatId !== chatId) return;
+    if (token !== subagentStateLoadToken || requestedChatId !== chatId) return { chatId: requestedChatId, status: 'stale' };
     if (resp.status === 404) {
       replaceSubagentStateSnapshot({ coordinators: [] });
-      return;
+      return { chatId: requestedChatId, status: 'empty' };
     }
     if (!resp.ok) {
-      return;
+      return { chatId: requestedChatId, status: 'error' };
     }
     const data = await resp.json();
-    if (token !== subagentStateLoadToken || requestedChatId !== chatId) return;
+    if (token !== subagentStateLoadToken || requestedChatId !== chatId) return { chatId: requestedChatId, status: 'stale' };
     replaceSubagentStateSnapshot(data);
+    return { chatId: requestedChatId, status: 'ok', data };
   } catch (_) {
-    if (token !== subagentStateLoadToken || requestedChatId !== chatId) return;
+    if (token !== subagentStateLoadToken || requestedChatId !== chatId) return { chatId: requestedChatId, status: 'stale' };
+    return { chatId: requestedChatId, status: 'error' };
   }
 }
 
@@ -2120,6 +2197,14 @@ function closeCoordinatorPanel() {
   ensureSubagentPanelController()?.closeCoordinatorPanel?.();
 }
 
+function openCoordinatorPanel() {
+  ensureSubagentPanelController()?.openCoordinatorPanel?.();
+}
+
+function toggleCoordinatorPanel() {
+  ensureSubagentPanelController()?.toggleCoordinatorPanel?.();
+}
+
 function saveReconnectSession() {
   try {
     localStorage.setItem(RECONNECT_SESSION_KEY, JSON.stringify({
@@ -2175,20 +2260,15 @@ function hideReconnectToast() {
 async function handleReconnect() {
   hideReconnectToast();
   lastMessageSeq = 0;
-  try {
-    const resp = await fetch(`/api/session_history?chat_id=${encodeURIComponent(chatId)}`, { cache: 'no-store' });
-    if (resp.ok) {
-      const data = await resp.json();
-      const history = Array.isArray(data?.messages) ? data.messages : [];
-      if (history.length > 0) {
-        renderHistoryMessages(history);
-        selectedSessionId = chatId;
-        renderSessions();
-      }
-    }
-  } catch (_) {}
-  saveReconnectSession();
-  refreshContextStats();
+  await restoreSessionViewState(chatId, {
+    requireCurrentChat: true,
+    applyHistory: true,
+    renderEmptyHistory: false,
+    renderSessions: true,
+    saveReconnect: true,
+    refreshContextStats: true,
+    restoreSubagent: true,
+  });
 }
 
 async function initApp() {
@@ -2214,15 +2294,16 @@ async function initApp() {
         setActiveChatId(saved.chat_id);
         selectedSessionId = saved.chat_id;
         lastMessageSeq = Number(saved.last_seq) || 0;
-        const resp = await fetch(`/api/session_history?chat_id=${encodeURIComponent(chatId)}`, { cache: 'no-store' });
-        if (resp.ok) {
-          const data = await resp.json();
-          const history = Array.isArray(data?.messages) ? data.messages : [];
-          if (history.length > 0) {
-            renderHistoryMessages(history);
-            showReconnectToast(chatId, history.length);
-          }
-        }
+        await restoreSessionViewState(chatId, {
+          requireCurrentChat: true,
+          applyHistory: true,
+          renderEmptyHistory: false,
+          renderSessions: false,
+          saveReconnect: false,
+          refreshContextStats: false,
+          restoreSubagent: true,
+          showReconnectToast: true,
+        });
       }
     }
   } catch (_) {}

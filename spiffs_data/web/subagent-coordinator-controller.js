@@ -28,6 +28,13 @@
       return state();
     }
 
+    function open() {
+      dismissed = false;
+      visible = true;
+      syncDockState?.(state());
+      return state();
+    }
+
     function hide() {
       visible = false;
       syncDockState?.(state());
@@ -39,13 +46,22 @@
       return hide();
     }
 
+    function toggle() {
+      if (visible) {
+        return close();
+      }
+      return open();
+    }
+
     return {
       state,
       reset,
       markActive,
       render,
+      open,
       hide,
       close,
+      toggle,
     };
   }
 

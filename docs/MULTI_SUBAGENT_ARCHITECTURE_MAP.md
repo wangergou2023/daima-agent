@@ -73,6 +73,14 @@
 - 保存 `visible_revision`
 - 保存 child runtime 对应的 `child_session`
 - 维护 `history / frames / commits / pending_queue`
+- 维护 `cursor(history|frames|commits)`：
+  - `after_seq`
+  - `visible_seq`
+  - `first_visible_seq`
+  - `next_seq`
+  - `high_water_seq`
+  - `has_more`
+  - `replay_reset`
 - 为 HTTP / WS 提供统一 JSON projection
 
 对标结论：
@@ -108,6 +116,7 @@
 
 - 已经明显向 `oh-my-openagent background wake` 靠拢
 - `visible_revision` 已经开始承担 replay handoff cursor 的角色
+- `child_session.cursor` 已开始承担子会话级 replay handoff cursor 的角色
 - 但现在还是“事件类型 + snapshot delta”的混合体，不是 `opencode sessions.events(after)` 那种统一 durable stream
 
 ### 2.4 Web Reducer + Session Projection

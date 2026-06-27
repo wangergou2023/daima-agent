@@ -17,6 +17,7 @@ const SUBAGENT_STATE_SELECTORS_JS_PATH = `${ROOT}/spiffs_data/web/subagent-state
 const SUBAGENT_STATE_REDUCER_JS_PATH = `${ROOT}/spiffs_data/web/subagent-state-reducer.js`;
 const SUBAGENT_STATE_JS_PATH = `${ROOT}/spiffs_data/web/subagent-state.js`;
 const SUBAGENT_RUNTIME_JS_PATH = `${ROOT}/spiffs_data/web/subagent-runtime.js`;
+const SESSION_RESTORE_JS_PATH = `${ROOT}/spiffs_data/web/session-restore.js`;
 const SUBAGENT_APP_BRIDGE_JS_PATH = `${ROOT}/spiffs_data/web/subagent-app-bridge.js`;
 const SUBAGENT_PANEL_CONTROLLER_JS_PATH = `${ROOT}/spiffs_data/web/subagent-panel-controller.js`;
 const SUBAGENT_DETAIL_VIEW_JS_PATH = `${ROOT}/spiffs_data/web/subagent-detail-view.js`;
@@ -61,6 +62,27 @@ function buildDom() {
   const { HTMLElement } = window;
   if (!HTMLElement.prototype.scrollTo) HTMLElement.prototype.scrollTo = function() {};
   if (!HTMLElement.prototype.scrollIntoView) HTMLElement.prototype.scrollIntoView = function() {};
+  return dom;
+}
+
+function buildDomWithBrokenStorage() {
+  const dom = buildDom();
+  const throwingStorage = {
+    getItem() {
+      throw new dom.window.DOMException('Blocked by browser privacy settings', 'SecurityError');
+    },
+    setItem() {
+      throw new dom.window.DOMException('Blocked by browser privacy settings', 'SecurityError');
+    },
+    removeItem() {
+      throw new dom.window.DOMException('Blocked by browser privacy settings', 'SecurityError');
+    },
+  };
+  Object.defineProperty(dom.window, 'localStorage', {
+    configurable: true,
+    enumerable: true,
+    value: throwingStorage,
+  });
   return dom;
 }
 
@@ -225,9 +247,9 @@ function createFetchStub() {
                 commit_last_seq: 3,
               },
               cursor: {
-                history: { after_seq: 0, visible_seq: 20, first_visible_seq: 1, replay_reset: false },
-                frames: { after_seq: 0, visible_seq: 3, first_visible_seq: 1, replay_reset: false },
-                commits: { after_seq: 0, visible_seq: 3, first_visible_seq: 1, replay_reset: false },
+                history: { after_seq: 0, visible_seq: 20, first_visible_seq: 1, next_seq: 21, high_water_seq: 20, has_more: false, replay_reset: false },
+                frames: { after_seq: 0, visible_seq: 3, first_visible_seq: 1, next_seq: 4, high_water_seq: 3, has_more: false, replay_reset: false },
+                commits: { after_seq: 0, visible_seq: 3, first_visible_seq: 1, next_seq: 4, high_water_seq: 3, has_more: false, replay_reset: false },
               },
             },
           },
@@ -312,9 +334,9 @@ function createFetchStub() {
                 commit_last_seq: 2,
               },
               cursor: {
-                history: { after_seq: 0, visible_seq: 18, first_visible_seq: 1, replay_reset: false },
-                frames: { after_seq: 0, visible_seq: 2, first_visible_seq: 1, replay_reset: false },
-                commits: { after_seq: 0, visible_seq: 2, first_visible_seq: 1, replay_reset: false },
+                history: { after_seq: 0, visible_seq: 18, first_visible_seq: 1, next_seq: 19, high_water_seq: 18, has_more: false, replay_reset: false },
+                frames: { after_seq: 0, visible_seq: 2, first_visible_seq: 1, next_seq: 3, high_water_seq: 2, has_more: false, replay_reset: false },
+                commits: { after_seq: 0, visible_seq: 2, first_visible_seq: 1, next_seq: 3, high_water_seq: 2, has_more: false, replay_reset: false },
               },
             },
           },
@@ -870,6 +892,8 @@ function bootstrapApp(dom) {
   vm.runInContext(subagentStateJs, context);
   const subagentRuntimeJs = fs.readFileSync(SUBAGENT_RUNTIME_JS_PATH, 'utf8');
   vm.runInContext(subagentRuntimeJs, context);
+  const sessionRestoreJs = fs.readFileSync(SESSION_RESTORE_JS_PATH, 'utf8');
+  vm.runInContext(sessionRestoreJs, context);
   const subagentAppBridgeJs = fs.readFileSync(SUBAGENT_APP_BRIDGE_JS_PATH, 'utf8');
   vm.runInContext(subagentAppBridgeJs, context);
   const subagentPanelControllerJs = fs.readFileSync(SUBAGENT_PANEL_CONTROLLER_JS_PATH, 'utf8');
@@ -1315,15 +1339,25 @@ async function main() {
   const agents = [...document.querySelectorAll('.coordinator-agent')];
   const detailPanel = document.getElementById('subagentDetailPanel');
   const title = document.getElementById('subagentDetailTitle');
+  const coordinatorToggleBtn = document.getElementById('coordinatorToggleBtn');
+  const coordinatorPanel = document.getElementById('coordinatorPanel');
   const kernelTab = tabs.find((node) => (node.textContent || '').includes('探索 kernel'));
 
   expect(tabs.length === 2, `expected 2 subagent tabs, got ${tabs.length}`);
   expect(detailPanel && detailPanel.hidden === false, 'expected subagent detail panel to be visible');
   expect(detailPanel && detailPanel.parentElement?.id !== 'coordinatorPanel', 'expected subagent detail panel to live outside coordinator panel DOM');
+  expect(!!coordinatorToggleBtn, 'expected coordinator toggle button to exist for explicit orchestration view');
+  expect(coordinatorPanel?.hidden === true, 'expected coordinator panel to stay hidden by default in session-first mode');
   expect(title && title.textContent.includes('探索 kernel'), 'expected selected detail title to reference kernel subagent');
   expect(kernelTab && kernelTab.className.includes('blocked'), 'expected blocked tab styling for kernel subagent');
   expect(kernelTab && kernelTab.className.includes('active'), 'expected kernel tab to be active');
   expect(blockers.some((node) => node.textContent.includes('Waiting for sudo approval')), 'expected permission blocker to render');
+  coordinatorToggleBtn.click();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(
+    coordinatorPanel?.hidden === false,
+    'expected coordinator panel to open only after explicit orchestration toggle',
+  );
   expect(
     agents.some((node) => node.className.includes('selected')),
     `expected coordinator card selection to sync with detail tab; selectedKey=${dom.window.AgentSubagentState?.effectiveSelectedSubagentKey?.(dom.window.agentDebugSubagentUiState || {}) || ''}; coordinatorCount=${dom.window.agentDebugSubagentUiState?.coordinators?.size || 0}; detailCount=${dom.window.agentDebugSubagentUiState?.details?.size || 0}; orderedCoordinatorCount=${dom.window.AgentSubagentState?.orderedCoordinatorStates?.(dom.window.agentDebugSubagentUiState || {})?.length || 0}; cards=${[...document.querySelectorAll('.coordinator-card')].length}; classes=${agents.map((node) => node.className).join(' | ')}; panel=${document.getElementById('coordinatorPanel')?.textContent || ''}`,
@@ -1736,8 +1770,8 @@ async function main() {
     },
   });
   expect(
-    document.getElementById('coordinatorPanel')?.hidden === false,
-    'expected coordinator panel to reopen when fresh coordinator update arrives',
+    document.getElementById('coordinatorPanel')?.hidden === true,
+    'expected fresh coordinator update to preserve explicit-close state in session-first mode',
   );
   expect(
     document.querySelectorAll('.subagent-queue-row').length === 0,
@@ -1762,6 +1796,18 @@ async function main() {
   expect(
     (dom.window.agentDebugSubagentUiState?.liveCursor?.visibleRevision || 0) === 123,
     'expected live websocket subagent event to advance runtime visible cursor',
+  );
+  coordinatorToggleBtn.click();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(
+    document.getElementById('coordinatorPanel')?.hidden === false,
+    'expected explicit orchestration toggle to reopen coordinator panel after it was closed',
+  );
+  coordinatorToggleBtn.click();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(
+    document.getElementById('coordinatorPanel')?.hidden === true,
+    'expected orchestration panel to close again before bootstrap restore assertions',
   );
   emit({
     type: 'coordinator_status',
@@ -2043,8 +2089,14 @@ async function main() {
 
   await dom.window.eval('switchSession("web_test")');
   expect(
+    document.getElementById('coordinatorPanel')?.hidden === true,
+    'expected HTTP subagent bootstrap to keep coordinator panel hidden until explicitly requested',
+  );
+  coordinatorToggleBtn.click();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(
     [...document.querySelectorAll('.coordinator-card')].some((node) => (node.textContent || '').includes('dc_bootstrap')),
-    'expected HTTP subagent bootstrap to render coordinator card after snapshot load',
+    'expected HTTP subagent bootstrap to render coordinator card after explicit open',
   );
   expect(
     document.getElementById('subagentDetailPanel')?.textContent?.includes('kernel bootstrap final summary'),
@@ -2177,6 +2229,133 @@ async function main() {
     'expected replay_reset delta to replace old tool commit/timeline content instead of merging stale snapshot rows',
   );
 
+  const sessionRestoreFactory = dom.window.AgentSessionRestore?.createSessionRestore;
+  expect(typeof sessionRestoreFactory === 'function', 'expected session restore factory to be exposed');
+  let unifiedRestoreCalls = 0;
+  let legacySubagentCalls = 0;
+  let legacyHistoryCalls = 0;
+  let renderedUnifiedHistory = null;
+  const unifiedRestore = sessionRestoreFactory({
+    async restoreSessionState(targetChatId, options) {
+      unifiedRestoreCalls += 1;
+      return {
+        chatId: targetChatId,
+        status: 'ok',
+        history: [{ id: 'hist-unified', seq: 1, role: 'assistant', content: `unified:${targetChatId}` }],
+        restoredHistory: true,
+        restoredSubagent: true,
+        stale: false,
+        options,
+      };
+    },
+    async fetchImpl() {
+      legacyHistoryCalls += 1;
+      throw new Error('legacy history fetch should not run when unified restore exists');
+    },
+    async loadSubagentStateSnapshot() {
+      legacySubagentCalls += 1;
+    },
+    renderHistoryMessages(history) {
+      renderedUnifiedHistory = history;
+    },
+    replaceSubagentStateSnapshot() {},
+    isCurrentChatId() {
+      return true;
+    },
+  });
+  const unifiedRestoreResult = await unifiedRestore.restoreSessionViewState('web_unified', {
+    renderEmptyHistory: true,
+    restoreSubagent: true,
+  });
+  expect(unifiedRestoreCalls === 1, 'expected session restore to delegate to unified restoreSessionState when available');
+  expect(legacyHistoryCalls === 0, 'expected session restore to skip legacy history fetch when unified restoreSessionState exists');
+  expect(legacySubagentCalls === 0, 'expected session restore to skip legacy subagent restore when unified restoreSessionState exists');
+  expect(
+    Array.isArray(renderedUnifiedHistory) &&
+      renderedUnifiedHistory.length === 1 &&
+      renderedUnifiedHistory[0]?.content === 'unified:web_unified',
+    'expected unified restoreSessionState history to drive rendered history',
+  );
+  expect(
+    unifiedRestoreResult?.restoredHistory === true &&
+      unifiedRestoreResult?.restoredSubagent === true &&
+      unifiedRestoreResult?.stale === false,
+    'expected unified restoreSessionState result to flow through session restore wrapper',
+  );
+
+  const transportFactory = dom.window.AgentSubagentTransport?.createSubagentTransport;
+  expect(typeof transportFactory === 'function', 'expected subagent transport factory to be exposed');
+  const sessionStateFetches = [];
+  let fallbackHistoryFetches = 0;
+  let fallbackSnapshotApplied = 0;
+  const unifiedSessionTransport = transportFactory({
+    async fetchImpl(url) {
+      const text = String(url || '');
+      if (text.includes('/api/session_state?chat_id=web_session_first')) {
+        sessionStateFetches.push(text);
+        return {
+          ok: true,
+          status: 200,
+          async json() {
+            return {
+              chat_id: 'web_session_first',
+              history: [
+                { id: 'sess-1', seq: 1, role: 'assistant', content: 'session-first history', reasoning: 'session-first reasoning' },
+              ],
+              subagent: {
+                chat_id: 'web_session_first',
+                coordinators: [
+                  {
+                    coordinator_id: 'dc_session_first',
+                    status: 'running',
+                    agents: [],
+                  },
+                ],
+              },
+              ui: {},
+            };
+          },
+        };
+      }
+      if (text.includes('/api/session_history')) {
+        fallbackHistoryFetches += 1;
+      }
+      fail(`unexpected fetch during unified session transport restore: ${text}`);
+    },
+    fetchSessionHistory() {
+      fallbackHistoryFetches += 1;
+      return Promise.resolve([]);
+    },
+    applySnapshot(snapshot) {
+      if (snapshot?.coordinators) {
+        fallbackSnapshotApplied += 1;
+      }
+    },
+    applySessionPayload() {},
+    applyCoordinatorPayload() {},
+    getRuntimeState() {
+      return createEmptyState();
+    },
+  });
+  const unifiedTransportRestore = await unifiedSessionTransport.restoreSessionState('web_session_first', {
+    restoreSubagent: true,
+    fetchHistory: true,
+    isCurrentChatId() {
+      return true;
+    },
+    emptySnapshot: { coordinators: [] },
+  });
+  expect(sessionStateFetches.length === 1, 'expected unified transport restore to fetch /api/session_state once');
+  expect(fallbackHistoryFetches === 0, 'expected unified transport restore to skip legacy session_history fetch');
+  expect(fallbackSnapshotApplied === 1, 'expected unified transport restore to hydrate subagent snapshot from unified session_state response');
+  expect(
+    Array.isArray(unifiedTransportRestore?.history) &&
+      unifiedTransportRestore.history[0]?.content === 'session-first history' &&
+      unifiedTransportRestore?.restoredHistory === true &&
+      unifiedTransportRestore?.restoredSubagent === true,
+    'expected unified transport restore result to expose session_state history and subagent restore flags',
+  );
+
   fetchStub.setSnapshotData({
     chat_id: 'web_question',
     interactive: {
@@ -2238,6 +2417,40 @@ async function main() {
   );
 
   console.log('ui-check ok: multi-subagent tabs/detail/timeline/blocker rendered as expected');
+
+  const brokenStorageDom = buildDomWithBrokenStorage();
+  const brokenStorageFetchStub = createFetchStub();
+  installGlobals(brokenStorageDom, brokenStorageFetchStub.fetch, brokenStorageFetchStub.requests);
+  loadScript(brokenStorageDom, SUBAGENT_STATE_CORE_JS_PATH);
+  loadScript(brokenStorageDom, SUBAGENT_STATE_SELECTORS_JS_PATH);
+  loadScript(brokenStorageDom, SUBAGENT_STATE_REDUCER_JS_PATH);
+  loadScript(brokenStorageDom, SUBAGENT_STATE_JS_PATH);
+  loadScript(brokenStorageDom, SUBAGENT_RUNTIME_JS_PATH);
+  loadScript(brokenStorageDom, SESSION_RESTORE_JS_PATH);
+  loadScript(brokenStorageDom, SUBAGENT_APP_BRIDGE_JS_PATH);
+  loadScript(brokenStorageDom, SUBAGENT_PANEL_CONTROLLER_JS_PATH);
+  loadScript(brokenStorageDom, SUBAGENT_DETAIL_VIEW_JS_PATH);
+  loadScript(brokenStorageDom, SUBAGENT_EVENT_ADAPTER_JS_PATH);
+  loadScript(brokenStorageDom, SUBAGENT_INTERACTIVE_CONTROLLER_JS_PATH);
+  loadScript(brokenStorageDom, SUBAGENT_COORDINATOR_VIEW_JS_PATH);
+  loadScript(brokenStorageDom, SUBAGENT_COORDINATOR_CONTROLLER_JS_PATH);
+  loadScript(brokenStorageDom, SUBAGENT_UI_ORCHESTRATOR_JS_PATH);
+  loadScript(brokenStorageDom, SUBAGENT_TRANSPORT_JS_PATH);
+  loadScript(brokenStorageDom, SUBAGENT_CHAT_TRANSPORT_JS_PATH);
+  loadScript(brokenStorageDom, SUBAGENT_BOOTSTRAP_JS_PATH);
+  let brokenStorageAppError = null;
+  try {
+    loadScript(brokenStorageDom, APP_JS_PATH);
+  } catch (error) {
+    brokenStorageAppError = error;
+  }
+  expect(!brokenStorageAppError, `expected app bootstrap to tolerate unavailable localStorage, got: ${brokenStorageAppError ? brokenStorageAppError.message : 'unknown error'}`);
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(
+    brokenStorageDom.window.document.getElementById('status')?.textContent !== '连接中' ||
+      brokenStorageFetchStub.requests.some((url) => String(url).includes('/api/ui_config')),
+    'expected app bootstrap to continue initialization when localStorage access is blocked',
+  );
 }
 
 main().catch((error) => {

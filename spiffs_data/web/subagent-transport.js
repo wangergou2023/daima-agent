@@ -397,6 +397,142 @@
       }
     }
 
+    async function loadUnifiedSessionState(targetChatId, options) {
+      const chatId = String(targetChatId || '').trim();
+      const token = ++snapshotToken;
+      const emptySnapshot = options?.emptySnapshot || { coordinators: [] };
+      if (!chatId) {
+        api.applySnapshot?.(emptySnapshot, { chatId: '', interactiveUiConfig: options?.interactiveUiConfig });
+        return { token, chatId: '', status: 'empty', history: [] };
+      }
+
+      try {
+        const resp = await api.fetchImpl?.(
+          `/api/session_state?chat_id=${encodeURIComponent(chatId)}`,
+          { cache: 'no-store' }
+        );
+        if (token !== snapshotToken || (typeof options?.isCurrentChatId === 'function' && !options.isCurrentChatId(chatId))) {
+          return { token, chatId, status: 'stale', history: [] };
+        }
+        if (resp?.status === 404) {
+          return { token, chatId, status: 'unavailable', history: [] };
+        }
+        if (!resp?.ok) {
+          return { token, chatId, status: 'error', history: [] };
+        }
+        const data = await resp.json();
+        if (token !== snapshotToken || (typeof options?.isCurrentChatId === 'function' && !options.isCurrentChatId(chatId))) {
+          return { token, chatId, status: 'stale', history: [] };
+        }
+
+        const history = Array.isArray(data?.history) ? data.history : [];
+        const snapshot = data?.subagent && typeof data.subagent === 'object'
+          ? data.subagent
+          : { chat_id: chatId, coordinators: [] };
+
+        api.applySnapshot?.(snapshot, { chatId, interactiveUiConfig: options?.interactiveUiConfig });
+        const runtimeState = typeof api.getRuntimeState === 'function' ? api.getRuntimeState() : null;
+        const afterVisibleRevision = collectCoordinatorRevision(runtimeState);
+        const deltaTargets = collectDeltaTargets(runtimeState);
+        if (deltaTargets.length) {
+          if (token !== snapshotToken || (typeof options?.isCurrentChatId === 'function' && !options.isCurrentChatId(chatId))) {
+            return { token, chatId, status: 'stale', history };
+          }
+          const chatDeltaResult = await loadChatDelta(chatId, afterVisibleRevision, deltaTargets, { reason: 'session_state_recovery_chat' });
+          if (chatDeltaResult?.status !== 'ok') {
+            const batchResult = await loadTaskDeltas(chatId, deltaTargets, { reason: 'session_state_recovery_batch' });
+            if (batchResult?.status !== 'ok') {
+              for (const target of deltaTargets) {
+                if (token !== snapshotToken || (typeof options?.isCurrentChatId === 'function' && !options.isCurrentChatId(chatId))) {
+                  return { token, chatId, status: 'stale', history };
+                }
+                await loadTaskDelta(target.taskId, target, { reason: 'session_state_recovery_fallback' });
+              }
+            }
+          }
+        }
+        return { token, chatId, status: 'ok', history, data };
+      } catch (_) {
+        if (token !== snapshotToken || (typeof options?.isCurrentChatId === 'function' && !options.isCurrentChatId(chatId))) {
+          return { token, chatId, status: 'stale', history: [] };
+        }
+        return { token, chatId, status: 'error', history: [] };
+      }
+    }
+
+    async function restoreSessionState(targetChatId, options) {
+      const nextChatId = String(targetChatId || '').trim();
+      const opts = options && typeof options === 'object' ? options : {};
+      const shouldRestoreSubagent = opts.restoreSubagent !== false;
+      const shouldFetchHistory = opts.fetchHistory !== false;
+
+      if (!nextChatId) {
+        if (shouldRestoreSubagent) {
+          api.applySnapshot?.(opts.emptySnapshot || { coordinators: [] }, {
+            chatId: '',
+            interactiveUiConfig: opts.interactiveUiConfig,
+          });
+        }
+        return {
+          chatId: nextChatId,
+          status: 'empty',
+          history: [],
+          restoredHistory: false,
+          restoredSubagent: shouldRestoreSubagent,
+          stale: false,
+          subagentStatus: 'empty',
+        };
+      }
+
+      let history = null;
+      let subagentResult = { chatId: nextChatId, status: shouldRestoreSubagent ? 'skipped' : 'skipped' };
+
+      if (shouldRestoreSubagent) {
+        const unifiedResult = await loadUnifiedSessionState(nextChatId, opts);
+        if (unifiedResult?.status === 'ok') {
+          history = unifiedResult.history;
+          subagentResult = unifiedResult;
+        } else if (unifiedResult?.status === 'stale') {
+          history = unifiedResult.history;
+          subagentResult = unifiedResult;
+        } else {
+          const historyPromise = shouldFetchHistory && typeof api.fetchSessionHistory === 'function'
+            ? api.fetchSessionHistory(nextChatId)
+            : Promise.resolve(null);
+          const snapshotResult = await loadSnapshot(nextChatId, opts);
+          history = await historyPromise;
+          subagentResult = snapshotResult;
+        }
+      } else if (shouldFetchHistory && typeof api.fetchSessionHistory === 'function') {
+        history = await api.fetchSessionHistory(nextChatId);
+      }
+
+      const stale = subagentResult?.status === 'stale' ||
+        (typeof opts.isCurrentChatId === 'function' && !opts.isCurrentChatId(nextChatId));
+
+      if (stale) {
+        return {
+          chatId: nextChatId,
+          status: 'stale',
+          history: Array.isArray(history) ? history : [],
+          restoredHistory: false,
+          restoredSubagent: false,
+          stale: true,
+          subagentStatus: subagentResult?.status || 'stale',
+        };
+      }
+
+      return {
+        chatId: nextChatId,
+        status: subagentResult?.status || (Array.isArray(history) ? 'ok' : 'partial'),
+        history: Array.isArray(history) ? history : [],
+        restoredHistory: Array.isArray(history),
+        restoredSubagent: shouldRestoreSubagent,
+        stale: false,
+        subagentStatus: subagentResult?.status || 'skipped',
+      };
+    }
+
     function bindSocket(socket, handlers) {
       if (!socket || typeof socket !== 'object') {
         return socket;
@@ -495,6 +631,8 @@
       loadTaskDelta,
       loadTaskDeltas,
       loadSnapshot,
+      loadUnifiedSessionState,
+      restoreSessionState,
       bindSocket,
       connectSocket,
       clearRuntimeTimers,

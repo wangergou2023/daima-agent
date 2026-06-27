@@ -449,6 +449,37 @@ static bool seq_window_replay_reset(unsigned long after_seq,
     return first_seq > after_seq + 1UL;
 }
 
+static unsigned long seq_window_high_water(unsigned long seq_next)
+{
+    return seq_next > 0 ? (seq_next - 1UL) : 0UL;
+}
+
+static unsigned long seq_window_next_visible(unsigned long last_visible_seq,
+                                             unsigned long seq_next)
+{
+    unsigned long high_water = seq_window_high_water(seq_next);
+    if (last_visible_seq > 0) {
+        return last_visible_seq + 1UL;
+    }
+    if (high_water > 0) {
+        return high_water + 1UL;
+    }
+    return 1UL;
+}
+
+static bool seq_window_has_more(unsigned long last_visible_seq,
+                                unsigned long seq_next)
+{
+    unsigned long high_water = seq_window_high_water(seq_next);
+    if (high_water == 0) {
+        return false;
+    }
+    if (last_visible_seq == 0) {
+        return true;
+    }
+    return last_visible_seq < high_water;
+}
+
 static void filter_frame_array_after_seq(cJSON *array, unsigned long after_seq)
 {
     int idx = 0;
@@ -696,12 +727,34 @@ cJSON *delegate_child_session_json_build_from_task(const delegate_task_record_t 
     cJSON_AddNumberToObject(history_cursor, "after_seq", options ? (double)options->history_after_seq : 0.0);
     cJSON_AddNumberToObject(history_cursor, "visible_seq", history_snapshot.last_seq);
     cJSON_AddNumberToObject(history_cursor, "first_visible_seq", history_snapshot.first_seq);
+    cJSON_AddNumberToObject(history_cursor,
+                            "next_seq",
+                            (double)seq_window_next_visible((unsigned long)history_snapshot.last_seq,
+                                                            (unsigned long)(history_snapshot.total + 1)));
+    cJSON_AddNumberToObject(history_cursor,
+                            "high_water_seq",
+                            (double)history_snapshot.total);
+    cJSON_AddBoolToObject(history_cursor,
+                          "has_more",
+                          seq_window_has_more((unsigned long)history_snapshot.last_seq,
+                                              (unsigned long)(history_snapshot.total + 1)));
     cJSON_AddBoolToObject(history_cursor, "replay_reset", history_snapshot.replay_reset);
     cJSON_AddItemToObject(cursor, "history", history_cursor);
 
     cJSON_AddNumberToObject(frame_cursor, "after_seq", options ? (double)options->frame_after_seq : 0.0);
     cJSON_AddNumberToObject(frame_cursor, "visible_seq", json_array_last_seq(frames));
     cJSON_AddNumberToObject(frame_cursor, "first_visible_seq", json_array_first_seq(frames));
+    cJSON_AddNumberToObject(frame_cursor,
+                            "next_seq",
+                            (double)seq_window_next_visible((unsigned long)json_array_last_seq(frames),
+                                                            session->frame_seq_next));
+    cJSON_AddNumberToObject(frame_cursor,
+                            "high_water_seq",
+                            (double)seq_window_high_water(session->frame_seq_next));
+    cJSON_AddBoolToObject(frame_cursor,
+                          "has_more",
+                          seq_window_has_more((unsigned long)json_array_last_seq(frames),
+                                              session->frame_seq_next));
     cJSON_AddBoolToObject(frame_cursor,
                           "replay_reset",
                           seq_window_replay_reset(options ? options->frame_after_seq : 0,
@@ -712,6 +765,17 @@ cJSON *delegate_child_session_json_build_from_task(const delegate_task_record_t 
     cJSON_AddNumberToObject(commit_cursor, "after_seq", options ? (double)options->commit_after_seq : 0.0);
     cJSON_AddNumberToObject(commit_cursor, "visible_seq", json_array_last_seq(commits));
     cJSON_AddNumberToObject(commit_cursor, "first_visible_seq", json_array_first_seq(commits));
+    cJSON_AddNumberToObject(commit_cursor,
+                            "next_seq",
+                            (double)seq_window_next_visible((unsigned long)json_array_last_seq(commits),
+                                                            session->commit_seq_next));
+    cJSON_AddNumberToObject(commit_cursor,
+                            "high_water_seq",
+                            (double)seq_window_high_water(session->commit_seq_next));
+    cJSON_AddBoolToObject(commit_cursor,
+                          "has_more",
+                          seq_window_has_more((unsigned long)json_array_last_seq(commits),
+                                              session->commit_seq_next));
     cJSON_AddBoolToObject(commit_cursor,
                           "replay_reset",
                           seq_window_replay_reset(options ? options->commit_after_seq : 0,

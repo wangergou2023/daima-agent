@@ -611,6 +611,9 @@
                 after_seq: Number(child.cursor.history.after_seq) || 0,
                 visible_seq: Number(child.cursor.history.visible_seq) || 0,
                 first_visible_seq: Number(child.cursor.history.first_visible_seq) || 0,
+                next_seq: Number(child.cursor.history.next_seq) || 0,
+                high_water_seq: Number(child.cursor.history.high_water_seq) || 0,
+                has_more: child.cursor.history.has_more === true,
                 replay_reset: child.cursor.history.replay_reset === true,
               }
             : null,
@@ -619,6 +622,9 @@
                 after_seq: Number(child.cursor.frames.after_seq) || 0,
                 visible_seq: Number(child.cursor.frames.visible_seq) || 0,
                 first_visible_seq: Number(child.cursor.frames.first_visible_seq) || 0,
+                next_seq: Number(child.cursor.frames.next_seq) || 0,
+                high_water_seq: Number(child.cursor.frames.high_water_seq) || 0,
+                has_more: child.cursor.frames.has_more === true,
                 replay_reset: child.cursor.frames.replay_reset === true,
               }
             : null,
@@ -627,6 +633,9 @@
                 after_seq: Number(child.cursor.commits.after_seq) || 0,
                 visible_seq: Number(child.cursor.commits.visible_seq) || 0,
                 first_visible_seq: Number(child.cursor.commits.first_visible_seq) || 0,
+                next_seq: Number(child.cursor.commits.next_seq) || 0,
+                high_water_seq: Number(child.cursor.commits.high_water_seq) || 0,
+                has_more: child.cursor.commits.has_more === true,
                 replay_reset: child.cursor.commits.replay_reset === true,
               }
             : null,

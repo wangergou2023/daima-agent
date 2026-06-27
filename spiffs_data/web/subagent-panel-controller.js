@@ -123,6 +123,24 @@
       }
     }
 
+    function openCoordinatorPanel() {
+      const controller = api.ensureCoordinatorPanelController?.();
+      if (!controller) {
+        return;
+      }
+      controller.open?.();
+      renderCoordinatorPanel();
+    }
+
+    function toggleCoordinatorPanel() {
+      const controller = api.ensureCoordinatorPanelController?.();
+      if (!controller) {
+        return;
+      }
+      controller.toggle?.();
+      renderCoordinatorPanel();
+    }
+
     function replaceSnapshot(snapshot, helpers) {
       const hydrateInput = api.ensureSubagentUiOrchestrator?.()?.applySnapshot?.(snapshot, helpers);
       if (hydrateInput) {
@@ -152,10 +170,12 @@
       closeCoordinatorPanel,
       dismissInteractiveRequest,
       hideCoordinatorPanel,
+      openCoordinatorPanel,
       renderCoordinatorPanel,
       renderDetailPanel,
       replaceSnapshot,
       syncDockState,
+      toggleCoordinatorPanel,
     };
   }
 

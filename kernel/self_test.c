@@ -26,6 +26,7 @@
 #include "drivers/llm/model_fallback.h"
 #include "drivers/memory/session_store.h"
 #include "drivers/channel/gateway/ws_client.h"
+#include "drivers/channel/gateway/ws_http_helpers.h"
 #include "kernel/channel/channel_runtime.h"
 #include "kernel/context/context_build.h"
 #include "kernel/turn/turn_entry.h"
@@ -47,6 +48,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -1557,10 +1559,19 @@ static void test_delegate_child_session_json_exposes_window_metadata(void)
         cJSON *commit_last_seq = window ? cJSON_GetObjectItemCaseSensitive(window, "commit_last_seq") : NULL;
         cJSON *history_cursor_after_seq = history_cursor ? cJSON_GetObjectItemCaseSensitive(history_cursor, "after_seq") : NULL;
         cJSON *history_cursor_visible_seq = history_cursor ? cJSON_GetObjectItemCaseSensitive(history_cursor, "visible_seq") : NULL;
+        cJSON *history_cursor_next_seq = history_cursor ? cJSON_GetObjectItemCaseSensitive(history_cursor, "next_seq") : NULL;
+        cJSON *history_cursor_high_water_seq = history_cursor ? cJSON_GetObjectItemCaseSensitive(history_cursor, "high_water_seq") : NULL;
+        cJSON *history_cursor_has_more = history_cursor ? cJSON_GetObjectItemCaseSensitive(history_cursor, "has_more") : NULL;
         cJSON *frame_cursor_after_seq = frame_cursor ? cJSON_GetObjectItemCaseSensitive(frame_cursor, "after_seq") : NULL;
         cJSON *frame_cursor_visible_seq = frame_cursor ? cJSON_GetObjectItemCaseSensitive(frame_cursor, "visible_seq") : NULL;
+        cJSON *frame_cursor_next_seq = frame_cursor ? cJSON_GetObjectItemCaseSensitive(frame_cursor, "next_seq") : NULL;
+        cJSON *frame_cursor_high_water_seq = frame_cursor ? cJSON_GetObjectItemCaseSensitive(frame_cursor, "high_water_seq") : NULL;
+        cJSON *frame_cursor_has_more = frame_cursor ? cJSON_GetObjectItemCaseSensitive(frame_cursor, "has_more") : NULL;
         cJSON *commit_cursor_after_seq = commit_cursor ? cJSON_GetObjectItemCaseSensitive(commit_cursor, "after_seq") : NULL;
         cJSON *commit_cursor_visible_seq = commit_cursor ? cJSON_GetObjectItemCaseSensitive(commit_cursor, "visible_seq") : NULL;
+        cJSON *commit_cursor_next_seq = commit_cursor ? cJSON_GetObjectItemCaseSensitive(commit_cursor, "next_seq") : NULL;
+        cJSON *commit_cursor_high_water_seq = commit_cursor ? cJSON_GetObjectItemCaseSensitive(commit_cursor, "high_water_seq") : NULL;
+        cJSON *commit_cursor_has_more = commit_cursor ? cJSON_GetObjectItemCaseSensitive(commit_cursor, "has_more") : NULL;
 
         ok = child &&
              window &&
@@ -1613,17 +1624,36 @@ static void test_delegate_child_session_json_exposes_window_metadata(void)
              history_cursor_after_seq->valuedouble == 0 &&
              cJSON_IsNumber(history_cursor_visible_seq) &&
              history_cursor_visible_seq->valuedouble == 100 &&
+             cJSON_IsNumber(history_cursor_next_seq) &&
+             history_cursor_next_seq->valuedouble == 101 &&
+             cJSON_IsNumber(history_cursor_high_water_seq) &&
+             history_cursor_high_water_seq->valuedouble == 100 &&
+             cJSON_IsBool(history_cursor_has_more) &&
+             cJSON_IsFalse(history_cursor_has_more) &&
              cJSON_IsNumber(frame_cursor_after_seq) &&
              frame_cursor_after_seq->valuedouble == 0 &&
              cJSON_IsNumber(frame_cursor_visible_seq) &&
              frame_cursor_visible_seq->valuedouble == 14 &&
+             cJSON_IsNumber(frame_cursor_next_seq) &&
+             frame_cursor_next_seq->valuedouble == 15 &&
+             cJSON_IsNumber(frame_cursor_high_water_seq) &&
+             frame_cursor_high_water_seq->valuedouble == 14 &&
+             cJSON_IsBool(frame_cursor_has_more) &&
+             cJSON_IsFalse(frame_cursor_has_more) &&
              cJSON_IsNumber(commit_cursor_after_seq) &&
              commit_cursor_after_seq->valuedouble == 0 &&
              cJSON_IsNumber(commit_cursor_visible_seq) &&
-             commit_cursor_visible_seq->valuedouble == 14;
+             commit_cursor_visible_seq->valuedouble == 14 &&
+             cJSON_IsNumber(commit_cursor_next_seq) &&
+             commit_cursor_next_seq->valuedouble == 15 &&
+             cJSON_IsNumber(commit_cursor_high_water_seq) &&
+             commit_cursor_high_water_seq->valuedouble == 14 &&
+             cJSON_IsBool(commit_cursor_has_more) &&
+             cJSON_IsFalse(commit_cursor_has_more);
 
         if (!ok) {
-            pr_info("  child_window diag: history_limit=%f history_count=%f history_total=%f history_truncated=%d history_first_seq=%f history_last_seq=%f frame_limit=%f frame_count=%f frame_total=%f frame_truncated=%d frame_first_seq=%f frame_last_seq=%f commit_limit=%f commit_count=%f commit_total=%f commit_truncated=%d commit_first_seq=%f commit_last_seq=%f hist_cursor_after=%f hist_cursor_visible=%f frame_cursor_after=%f frame_cursor_visible=%f commit_cursor_after=%f commit_cursor_visible=%f",
+            char *cursor_json = cursor ? cJSON_PrintUnformatted(cursor) : NULL;
+            pr_info("  child_window diag: history_limit=%f history_count=%f history_total=%f history_truncated=%d history_first_seq=%f history_last_seq=%f frame_limit=%f frame_count=%f frame_total=%f frame_truncated=%d frame_first_seq=%f frame_last_seq=%f commit_limit=%f commit_count=%f commit_total=%f commit_truncated=%d commit_first_seq=%f commit_last_seq=%f hist_cursor_after=%f hist_cursor_visible=%f hist_cursor_next=%f hist_cursor_high=%f hist_cursor_more=%d frame_cursor_after=%f frame_cursor_visible=%f frame_cursor_next=%f frame_cursor_high=%f frame_cursor_more=%d commit_cursor_after=%f commit_cursor_visible=%f commit_cursor_next=%f commit_cursor_high=%f commit_cursor_more=%d",
                     cJSON_IsNumber(history_limit) ? history_limit->valuedouble : -1.0,
                     cJSON_IsNumber(history_count) ? history_count->valuedouble : -1.0,
                     cJSON_IsNumber(history_total) ? history_total->valuedouble : -1.0,
@@ -1644,10 +1674,21 @@ static void test_delegate_child_session_json_exposes_window_metadata(void)
                     cJSON_IsNumber(commit_last_seq) ? commit_last_seq->valuedouble : -1.0,
                     cJSON_IsNumber(history_cursor_after_seq) ? history_cursor_after_seq->valuedouble : -1.0,
                     cJSON_IsNumber(history_cursor_visible_seq) ? history_cursor_visible_seq->valuedouble : -1.0,
+                    cJSON_IsNumber(history_cursor_next_seq) ? history_cursor_next_seq->valuedouble : -1.0,
+                    cJSON_IsNumber(history_cursor_high_water_seq) ? history_cursor_high_water_seq->valuedouble : -1.0,
+                    cJSON_IsBool(history_cursor_has_more) ? cJSON_IsTrue(history_cursor_has_more) : -1,
                     cJSON_IsNumber(frame_cursor_after_seq) ? frame_cursor_after_seq->valuedouble : -1.0,
                     cJSON_IsNumber(frame_cursor_visible_seq) ? frame_cursor_visible_seq->valuedouble : -1.0,
+                    cJSON_IsNumber(frame_cursor_next_seq) ? frame_cursor_next_seq->valuedouble : -1.0,
+                    cJSON_IsNumber(frame_cursor_high_water_seq) ? frame_cursor_high_water_seq->valuedouble : -1.0,
+                    cJSON_IsBool(frame_cursor_has_more) ? cJSON_IsTrue(frame_cursor_has_more) : -1,
                     cJSON_IsNumber(commit_cursor_after_seq) ? commit_cursor_after_seq->valuedouble : -1.0,
-                    cJSON_IsNumber(commit_cursor_visible_seq) ? commit_cursor_visible_seq->valuedouble : -1.0);
+                    cJSON_IsNumber(commit_cursor_visible_seq) ? commit_cursor_visible_seq->valuedouble : -1.0,
+                    cJSON_IsNumber(commit_cursor_next_seq) ? commit_cursor_next_seq->valuedouble : -1.0,
+                    cJSON_IsNumber(commit_cursor_high_water_seq) ? commit_cursor_high_water_seq->valuedouble : -1.0,
+                    cJSON_IsBool(commit_cursor_has_more) ? cJSON_IsTrue(commit_cursor_has_more) : -1);
+            pr_info("  child_window cursor json: %s", cursor_json ? cursor_json : "<null>");
+            free(cursor_json);
         }
         cJSON_Delete(child);
     }
@@ -2115,6 +2156,19 @@ static void test_delegate_child_session_json_filters_incremental_after_seq(void)
         cJSON *frame_after_seq = window ? cJSON_GetObjectItemCaseSensitive(window, "frame_after_seq") : NULL;
         cJSON *commit_after_seq = window ? cJSON_GetObjectItemCaseSensitive(window, "commit_after_seq") : NULL;
         cJSON *replay_reset = window ? cJSON_GetObjectItemCaseSensitive(window, "replay_reset") : NULL;
+        cJSON *cursor = child ? cJSON_GetObjectItemCaseSensitive(child, "cursor") : NULL;
+        cJSON *history_cursor = cursor ? cJSON_GetObjectItemCaseSensitive(cursor, "history") : NULL;
+        cJSON *frame_cursor = cursor ? cJSON_GetObjectItemCaseSensitive(cursor, "frames") : NULL;
+        cJSON *commit_cursor = cursor ? cJSON_GetObjectItemCaseSensitive(cursor, "commits") : NULL;
+        cJSON *history_next_seq = history_cursor ? cJSON_GetObjectItemCaseSensitive(history_cursor, "next_seq") : NULL;
+        cJSON *history_high_water_seq = history_cursor ? cJSON_GetObjectItemCaseSensitive(history_cursor, "high_water_seq") : NULL;
+        cJSON *history_has_more = history_cursor ? cJSON_GetObjectItemCaseSensitive(history_cursor, "has_more") : NULL;
+        cJSON *frame_next_seq = frame_cursor ? cJSON_GetObjectItemCaseSensitive(frame_cursor, "next_seq") : NULL;
+        cJSON *frame_high_water_seq = frame_cursor ? cJSON_GetObjectItemCaseSensitive(frame_cursor, "high_water_seq") : NULL;
+        cJSON *frame_has_more = frame_cursor ? cJSON_GetObjectItemCaseSensitive(frame_cursor, "has_more") : NULL;
+        cJSON *commit_next_seq = commit_cursor ? cJSON_GetObjectItemCaseSensitive(commit_cursor, "next_seq") : NULL;
+        cJSON *commit_high_water_seq = commit_cursor ? cJSON_GetObjectItemCaseSensitive(commit_cursor, "high_water_seq") : NULL;
+        cJSON *commit_has_more = commit_cursor ? cJSON_GetObjectItemCaseSensitive(commit_cursor, "has_more") : NULL;
 
         ok = child &&
              history && cJSON_IsArray(history) && cJSON_GetArraySize(history) == 2 &&
@@ -2126,10 +2180,20 @@ static void test_delegate_child_session_json_filters_incremental_after_seq(void)
              cJSON_IsNumber(history_after_seq) && (long long)history_after_seq->valuedouble == 4 &&
              cJSON_IsNumber(frame_after_seq) && (long long)frame_after_seq->valuedouble == 2 &&
              cJSON_IsNumber(commit_after_seq) && (long long)commit_after_seq->valuedouble == 2 &&
+             cJSON_IsNumber(history_next_seq) && (long long)history_next_seq->valuedouble == 7 &&
+             cJSON_IsNumber(history_high_water_seq) && (long long)history_high_water_seq->valuedouble == 6 &&
+             cJSON_IsBool(history_has_more) && cJSON_IsFalse(history_has_more) &&
+             cJSON_IsNumber(frame_next_seq) && (long long)frame_next_seq->valuedouble == 7 &&
+             cJSON_IsNumber(frame_high_water_seq) && (long long)frame_high_water_seq->valuedouble == 6 &&
+             cJSON_IsBool(frame_has_more) && cJSON_IsFalse(frame_has_more) &&
+             cJSON_IsNumber(commit_next_seq) && (long long)commit_next_seq->valuedouble == 7 &&
+             cJSON_IsNumber(commit_high_water_seq) && (long long)commit_high_water_seq->valuedouble == 6 &&
+             cJSON_IsBool(commit_has_more) && cJSON_IsFalse(commit_has_more) &&
              cJSON_IsBool(replay_reset) && cJSON_IsFalse(replay_reset);
 
         if (!ok) {
-            pr_info("  child_delta diag: history_size=%d frame_size=%d commit_size=%d history_first_seq=%lld frame_first_seq=%lld commit_first_seq=%lld history_after=%lld frame_after=%lld commit_after=%lld replay_reset=%d",
+            char *cursor_json = cursor ? cJSON_PrintUnformatted(cursor) : NULL;
+            pr_info("  child_delta diag: history_size=%d frame_size=%d commit_size=%d history_first_seq=%lld frame_first_seq=%lld commit_first_seq=%lld history_after=%lld frame_after=%lld commit_after=%lld history_next=%lld history_high=%lld history_more=%d frame_next=%lld frame_high=%lld frame_more=%d commit_next=%lld commit_high=%lld commit_more=%d replay_reset=%d",
                     history && cJSON_IsArray(history) ? cJSON_GetArraySize(history) : -1,
                     frames && cJSON_IsArray(frames) ? cJSON_GetArraySize(frames) : -1,
                     commits && cJSON_IsArray(commits) ? cJSON_GetArraySize(commits) : -1,
@@ -2139,7 +2203,18 @@ static void test_delegate_child_session_json_filters_incremental_after_seq(void)
                     cJSON_IsNumber(history_after_seq) ? (long long)history_after_seq->valuedouble : -1LL,
                     cJSON_IsNumber(frame_after_seq) ? (long long)frame_after_seq->valuedouble : -1LL,
                     cJSON_IsNumber(commit_after_seq) ? (long long)commit_after_seq->valuedouble : -1LL,
+                    cJSON_IsNumber(history_next_seq) ? (long long)history_next_seq->valuedouble : -1LL,
+                    cJSON_IsNumber(history_high_water_seq) ? (long long)history_high_water_seq->valuedouble : -1LL,
+                    cJSON_IsBool(history_has_more) ? cJSON_IsTrue(history_has_more) : -1,
+                    cJSON_IsNumber(frame_next_seq) ? (long long)frame_next_seq->valuedouble : -1LL,
+                    cJSON_IsNumber(frame_high_water_seq) ? (long long)frame_high_water_seq->valuedouble : -1LL,
+                    cJSON_IsBool(frame_has_more) ? cJSON_IsTrue(frame_has_more) : -1,
+                    cJSON_IsNumber(commit_next_seq) ? (long long)commit_next_seq->valuedouble : -1LL,
+                    cJSON_IsNumber(commit_high_water_seq) ? (long long)commit_high_water_seq->valuedouble : -1LL,
+                    cJSON_IsBool(commit_has_more) ? cJSON_IsTrue(commit_has_more) : -1,
                     cJSON_IsBool(replay_reset) ? cJSON_IsTrue(replay_reset) : -1);
+            pr_info("  child_delta cursor json: %s", cursor_json ? cursor_json : "<null>");
+            free(cursor_json);
         }
         cJSON_Delete(child);
     }
@@ -4362,6 +4437,105 @@ static void test_delegate_parent_subagent_state_json_uses_shared_projection(void
     free(json);
     turn_context_remove("chat_projection");
     report("delegate parent subagent state json uses shared projection", ok);
+}
+
+static void test_delegate_session_state_json_unifies_parent_history_and_subagents(void)
+{
+    delegate_task_store_reset_for_test();
+    turn_context_remove("chat_session_state");
+    session_store_clear("chat_session_state");
+    session_store_clear("delegate_sync_session_state");
+
+    struct turn_snapshot snap;
+    memset(&snap, 0, sizeof(snap));
+    strscpy(snap.chat_id, "chat_session_state", sizeof(snap.chat_id));
+    strscpy(snap.channel, CHAN_WEBSOCKET, sizeof(snap.channel));
+    strscpy(snap.source, MSG_SOURCE_USER, sizeof(snap.source));
+    turn_context_save(&snap);
+
+    int ok = session_store_append("chat_session_state", "user", "请分析 session-first 架构") == 0;
+    if (ok) {
+        ok = session_store_append("chat_session_state",
+                                  "assistant",
+                                  "{\"text\":\"先统一 session restore 协议。\",\"reasoning\":\"session-state reasoning\"}") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_start_coordinator("dc_session_state",
+                                                   "chat_session_state",
+                                                   "team_run_session_state",
+                                                   "Team Session State",
+                                                   "parallel") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_start("dt_session_state",
+                                       "dc_session_state",
+                                       "delegate_sync_session_state",
+                                       "explore",
+                                       "session_state_task",
+                                       "分析 session state",
+                                       "prompt",
+                                       "deepseek-v4-pro",
+                                       "kernel/tooling/delegate",
+                                       "subsystem",
+                                       "projection",
+                                       NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_attach_task("dc_session_state", "dt_session_state") == 0;
+    }
+    if (ok) {
+        ok = session_store_append("delegate_sync_session_state", "user", "查看 child session 投影") == 0;
+    }
+    if (ok) {
+        ok = session_store_append("delegate_sync_session_state",
+                                  "assistant",
+                                  "{\"text\":\"child session 应成为 restore 真相源。\",\"reasoning\":\"child reasoning\"}") == 0;
+    }
+
+    char request[256];
+    snprintf(request,
+             sizeof(request),
+             "GET /api/session_state?chat_id=chat_session_state HTTP/1.1\r\nHost: localhost\r\n\r\n");
+    int fds[2] = {-1, -1};
+    char response[32768];
+    ssize_t n = -1;
+    if (ok) {
+        ok = socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == 0;
+    }
+    if (ok) {
+        ok = ws_http_handle_request(fds[0], request, "<html></html>") == 0;
+    }
+    if (ok) {
+        n = recv(fds[1], response, sizeof(response) - 1, 0);
+        ok = n > 0;
+    }
+    if (n > 0) {
+        response[n] = '\0';
+    } else {
+        response[0] = '\0';
+    }
+
+    const char *body = strstr(response, "\r\n\r\n");
+    body = body ? body + 4 : response;
+    if (ok) {
+        ok = strstr(body, "\"chat_id\":\"chat_session_state\"") &&
+             strstr(body, "\"history\":[") &&
+             strstr(body, "\"content\":\"先统一 session restore 协议。\"") &&
+             strstr(body, "\"reasoning\":\"session-state reasoning\"") &&
+             strstr(body, "\"subagent\":{") &&
+             strstr(body, "\"coordinator_id\":\"dc_session_state\"") &&
+             strstr(body, "\"session_id\":\"delegate_sync_session_state\"") &&
+             strstr(body, "\"content\":\"child session 应成为 restore 真相源。\"") &&
+             strstr(body, "\"ui\":{");
+    }
+    if (!ok) {
+        pr_info("  session_state_json diag: %s", body && body[0] ? body : response);
+    }
+
+    if (fds[0] >= 0) close(fds[0]);
+    if (fds[1] >= 0) close(fds[1]);
+    turn_context_remove("chat_session_state");
+    report("delegate session state json unifies parent history and subagents", ok);
 }
 
 static void test_delegate_subagent_session_delta_json_uses_incremental_projection(void)
@@ -8089,6 +8263,7 @@ int agent_self_test(void)
     test_delegate_parent_wake_does_not_repeat_same_visible_revision();
     test_delegate_parent_wake_ignores_unchanged_coordinators();
     test_delegate_parent_subagent_state_json_uses_shared_projection();
+    test_delegate_session_state_json_unifies_parent_history_and_subagents();
     test_delegate_subagent_session_delta_json_uses_incremental_projection();
     test_delegate_subagent_session_deltas_json_batches_incremental_projection();
     test_delegate_parent_subagent_state_delta_json_batches_visible_revision_and_sessions();

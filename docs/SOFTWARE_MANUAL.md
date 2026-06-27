@@ -97,6 +97,17 @@ daima-agent/
 └── run.sh           本地启动入口
 ```
 
+Host 运行环境说明：
+
+- 开发与安装脚本同时面向 Linux / macOS
+- `arch/host/` 负责主机平台差异收敛
+- 当前已去除启动链上的 Linux-only 依赖：
+  - `run.sh` / `install.sh` 不再要求 `setsid`
+  - 安装复制逻辑不再依赖 GNU `install -D`
+  - 可执行文件目录解析不再依赖 `/proc/self/exe`
+  - 空闲内存查询不再强依赖 `/proc/meminfo`
+- 本轮自动化验证是在 Linux 环境完成；macOS 兼容属于代码路径已补齐，仍建议在目标机器上执行一次安装和启动验收
+
 核心阅读入口如下：
 
 | 内容 | 文件 |

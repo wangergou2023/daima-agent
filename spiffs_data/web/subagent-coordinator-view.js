@@ -275,18 +275,17 @@
       agentsEl.appendChild(renderCoordinatorCard(state, renderCoordinatorAgent, coordinatorSummaryText));
     }
 
-    if (coordinatorDismissed) {
-      return { coordinatorVisible };
+    if (!coordinatorVisible || coordinatorDismissed) {
+      panelEl.hidden = true;
+      panelEl.setAttribute('aria-hidden', 'true');
+      panelEl.classList.remove('removing');
+      return { coordinatorVisible: false };
     }
 
-    let nextVisible = coordinatorVisible;
-    if (!nextVisible) {
-      panelEl.hidden = false;
-      panelEl.removeAttribute('aria-hidden');
-      panelEl.classList.remove('removing');
-      nextVisible = true;
-    }
-    return { coordinatorVisible: nextVisible };
+    panelEl.hidden = false;
+    panelEl.removeAttribute('aria-hidden');
+    panelEl.classList.remove('removing');
+    return { coordinatorVisible: true };
   }
 
   function hideCoordinatorPanel(ctx) {

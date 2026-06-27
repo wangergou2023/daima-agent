@@ -209,6 +209,23 @@ static void http_send_static_file_or_fallback(
     http_send_response(fd, "200 OK", content_type, fallback_body ? fallback_body : "");
 }
 
+static bool is_safe_web_asset_name(const char *name)
+{
+    if (!name || !name[0]) {
+        return false;
+    }
+    if (strstr(name, "..") != NULL || strchr(name, '/') != NULL || strchr(name, '\\') != NULL) {
+        return false;
+    }
+
+    for (const unsigned char *p = (const unsigned char *)name; *p; ++p) {
+        if (!(isalnum(*p) || *p == '.' || *p == '-' || *p == '_')) {
+            return false;
+        }
+    }
+    return true;
+}
+
 /* 根据文件扩展名返回 MIME Content-Type。 */
 static const char *content_type_for_path(const char *path)
 {
@@ -332,6 +349,38 @@ static const char *http_request_body(const char *req)
         return NULL;
     }
     return marker + 4;
+}
+
+static bool json_body_get_string_field(const char *body,
+                                       const char *key,
+                                       char *out,
+                                       size_t out_sz)
+{
+    cJSON *root = NULL;
+    cJSON *item = NULL;
+    const char *value = NULL;
+
+    if (!out || out_sz == 0) {
+        return false;
+    }
+    out[0] = '\0';
+    if (!body || !body[0] || !key || !key[0]) {
+        return false;
+    }
+
+    root = cJSON_Parse(body);
+    if (!root) {
+        return false;
+    }
+
+    item = cJSON_GetObjectItemCaseSensitive(root, key);
+    if (cJSON_IsString(item) && item->valuestring && item->valuestring[0]) {
+        value = item->valuestring;
+        snprintf(out, out_sz, "%s", value);
+    }
+
+    cJSON_Delete(root);
+    return out[0] != '\0';
 }
 
 /* 校验 chat_id 安全性：仅允许字母数字、下划线和连字符。 */
@@ -612,6 +661,78 @@ static char *build_session_history_json(const char *chat_id)
     return json;
 }
 
+static char *build_session_state_json(const char *chat_id)
+{
+    char *history_json = NULL;
+    char *subagent_json = NULL;
+    cJSON *history_root = NULL;
+    cJSON *subagent_root = NULL;
+    cJSON *root = NULL;
+    cJSON *messages = NULL;
+    char *json = NULL;
+
+    if (!chat_id || !chat_id[0]) {
+        return NULL;
+    }
+
+    history_json = build_session_history_json(chat_id);
+    if (history_json) {
+        history_root = cJSON_Parse(history_json);
+    }
+    subagent_json = delegate_parent_subagent_state_json_build(chat_id);
+    if (subagent_json) {
+        subagent_root = cJSON_Parse(subagent_json);
+    }
+
+    root = cJSON_CreateObject();
+    if (!root) {
+        goto done;
+    }
+    cJSON_AddStringToObject(root, "chat_id", chat_id);
+
+    if (history_root) {
+        messages = cJSON_DetachItemFromObjectCaseSensitive(history_root, "messages");
+    }
+    if (!messages) {
+        messages = cJSON_CreateArray();
+    }
+    if (!messages) {
+        goto done;
+    }
+    cJSON_AddItemToObject(root, "history", messages);
+    messages = NULL;
+
+    if (subagent_root) {
+        cJSON_AddItemToObject(root, "subagent", subagent_root);
+        subagent_root = NULL;
+    } else {
+        cJSON *empty = cJSON_CreateObject();
+        if (!empty) {
+            goto done;
+        }
+        cJSON_AddStringToObject(empty, "chat_id", chat_id);
+        cJSON_AddItemToObject(empty, "coordinators", cJSON_CreateArray());
+        cJSON_AddItemToObject(root, "subagent", empty);
+    }
+
+    cJSON *ui = cJSON_CreateObject();
+    if (!ui) {
+        goto done;
+    }
+    cJSON_AddItemToObject(root, "ui", ui);
+
+    json = cJSON_PrintUnformatted(root);
+
+done:
+    kfree(history_json);
+    kfree(subagent_json);
+    cJSON_Delete(history_root);
+    cJSON_Delete(subagent_root);
+    cJSON_Delete(messages);
+    cJSON_Delete(root);
+    return json;
+}
+
 /**
  * HTTP 请求路由器。
  * 在 ws_server_host.c 的主循环中被调用，当客户端请求不包含 WebSocket 升级头时，
@@ -620,13 +741,14 @@ static char *build_session_history_json(const char *chat_id)
  * 路由表：
  *   GET  /                    → index.html（静态文件或内置降级 HTML）
  *   GET  /index.html          → 同 /
- *   GET  /app.css /app.js     → 前端资源
+ *   GET  /*.css / *.js        → Web 根目录前端资源
  *   GET  /pet.js              → 宠物脚本
  *   GET  /pets/...            → 宠物资源（图片/配置，8MB 上限二进制）
  *   GET  /health              → "ok"
  *   GET  /api/context_stats   → {model, used_tokens, context_limit_tokens, usage_percent}
  *   GET  /api/sessions        → [{chat_id, latest_ts, has_history, has_facts, has_summary}]
  *   GET  /api/session_history → {chat_id, messages: [{role, content, reasoning}]}
+ *   GET  /api/session_state   → {chat_id, history: [...], subagent: {...}, ui: {...}}
  *   GET  /api/ui_config       → {pet: {packages, default_package_id}, terminal: {security_level}}
  *   GET  /api/subagent_state  → {chat_id, coordinators: [...]}
  *   POST /api/session_delete  → 删除会话
@@ -675,7 +797,14 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
     /* POST /api/terminal_security?level=plan|build → 设置终端安全级别 */
     if (strcmp(method, "POST") == 0 && strcmp(path, "/api/terminal_security") == 0) {
         char level[32] = {0};
+        const char *body = http_request_body(req);
         query_get_value(query, "level", level, sizeof(level));
+        if (!level[0]) {
+            json_body_get_string_field(body, "level", level, sizeof(level));
+        }
+        if (!level[0]) {
+            json_body_get_string_field(body, "security_level", level, sizeof(level));
+        }
         if (!is_valid_terminal_security_level(level)) {
             http_send_response(client_fd, "400 Bad Request",
                                "application/json; charset=utf-8",
@@ -819,40 +948,31 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
         return 0;
     }
 
-    /* GET /app.css → 前端样式表 */
-    if (strcmp(path, "/app.css") == 0) {
-        char asset_path[BUF_LARGE];
-        snprintf(asset_path, sizeof(asset_path), "%s/app.css", path_web_dir());
-        http_send_static_file_or_fallback(
-            client_fd,
-            "text/css; charset=utf-8",
-            asset_path,
-            "");
-        return 0;
-    }
-
-    /* GET /app.js → 前端脚本 */
-    if (strcmp(path, "/app.js") == 0) {
-        char asset_path[BUF_LARGE];
-        snprintf(asset_path, sizeof(asset_path), "%s/app.js", path_web_dir());
-        http_send_static_file_or_fallback(
-            client_fd,
-            "application/javascript; charset=utf-8",
-            asset_path,
-            "");
-        return 0;
-    }
-
-    /* GET /pet.js → 宠物前端脚本 */
-    if (strcmp(path, "/pet.js") == 0) {
-        char asset_path[BUF_LARGE];
-        snprintf(asset_path, sizeof(asset_path), "%s/web/pet.js", path_spiffs_base());
-        http_send_static_file_or_fallback(
-            client_fd,
-            "application/javascript; charset=utf-8",
-            asset_path,
-            "");
-        return 0;
+    /* GET /*.css / *.js → Web 根目录前端静态资源 */
+    {
+        const char *asset_name = NULL;
+        const char *asset_type = NULL;
+        if (path[0] == '/') {
+            asset_name = path + 1;
+        }
+        if (asset_name && is_safe_web_asset_name(asset_name)) {
+            const char *ext = strrchr(asset_name, '.');
+            if (ext && strcmp(ext, ".css") == 0) {
+                asset_type = "text/css; charset=utf-8";
+            } else if (ext && strcmp(ext, ".js") == 0) {
+                asset_type = "application/javascript; charset=utf-8";
+            }
+            if (asset_type) {
+                char asset_path[BUF_LARGE];
+                snprintf(asset_path, sizeof(asset_path), "%s/%s", path_web_dir(), asset_name);
+                http_send_static_file_or_fallback(
+                    client_fd,
+                    asset_type,
+                    asset_path,
+                    "");
+                return 0;
+            }
+        }
     }
 
     /* GET /pets/... → 宠物资源（二进制文件，8MB 上限，安全路径校验） */
@@ -929,6 +1049,30 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
             http_send_response(client_fd, "500 Internal Server Error",
                                "application/json; charset=utf-8",
                                "{\"error\":\"history_unavailable\"}");
+            return 0;
+        }
+        http_send_response(client_fd, "200 OK",
+                           "application/json; charset=utf-8", json);
+        kfree(json);
+        return 0;
+    }
+
+    /* GET /api/session_state?chat_id=... → 统一 session-first 恢复投影 */
+    if (strcmp(path, "/api/session_state") == 0) {
+        char chat_id[64] = {0};
+        query_get_value(query, "chat_id", chat_id, sizeof(chat_id));
+        if (!chat_id[0]) {
+            http_send_response(client_fd, "400 Bad Request",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"missing_chat_id\"}");
+            return 0;
+        }
+
+        char *json = build_session_state_json(chat_id);
+        if (!json) {
+            http_send_response(client_fd, "500 Internal Server Error",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"session_state_unavailable\"}");
             return 0;
         }
         http_send_response(client_fd, "200 OK",

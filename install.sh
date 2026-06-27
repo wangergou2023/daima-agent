@@ -29,12 +29,72 @@ install_data_file() {
     install -m644 "$src" "$dst"
 }
 
+sync_directory_clean() {
+    local src_dir="$1"
+    local dst_dir="$2"
+    mkdir -p "$dst_dir"
+    find "$dst_dir" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+    cp -a "$src_dir/." "$dst_dir/"
+}
+
 copy_if_missing() {
     local src="$1"
     local dst="$2"
     if [ ! -e "$dst" ]; then
         install_data_file "$src" "$dst"
     fi
+}
+
+migrate_config_json() {
+    local default_path="$1"
+    local target_path="$2"
+    python3 - "$default_path" "$target_path" <<'PY'
+import json
+import sys
+
+default_path, target_path = sys.argv[1:3]
+
+with open(default_path, "r", encoding="utf-8") as f:
+    defaults = json.load(f)
+with open(target_path, "r", encoding="utf-8") as f:
+    current = json.load(f)
+
+def deep_merge(default_value, current_value):
+    if isinstance(default_value, dict):
+        merged = {}
+        current_dict = current_value if isinstance(current_value, dict) else {}
+        for key, value in default_value.items():
+            merged[key] = deep_merge(value, current_dict.get(key))
+        for key, value in current_dict.items():
+            if key not in merged:
+                merged[key] = value
+        return merged
+    if current_value is None:
+        return default_value
+    return current_value
+
+merged = deep_merge(defaults, current)
+
+default_pet = (
+    defaults.get("web", {}).get("default_pet_package_id")
+)
+web_cfg = merged.setdefault("web", {})
+if not web_cfg.get("default_pet_package_id") or web_cfg.get("default_pet_package_id") == "guga.codex-pet":
+    web_cfg["default_pet_package_id"] = default_pet
+
+common_cfg = merged.setdefault("common", {})
+default_common = defaults.get("common", {})
+if not common_cfg.get("terminal_security_level"):
+    common_cfg["terminal_security_level"] = default_common.get("terminal_security_level", "plan")
+
+vector_cfg = merged.setdefault("vector", {})
+if "enabled" not in vector_cfg:
+    vector_cfg["enabled"] = False
+
+with open(target_path, "w", encoding="utf-8") as f:
+    json.dump(merged, f, ensure_ascii=False, indent=2)
+    f.write("\n")
+PY
 }
 
 ensure_path_snippet() {
@@ -126,8 +186,8 @@ rm -f "$TARGET_BIN"
 install -m755 "./build-kbuild/agent" "$TARGET_BIN"
 install_data_file "./spiffs_data/ca/cacert.pem" "$CA_DIR/cacert.pem"
 
-cp -a "./spiffs_data/web/." "$WEB_DIR/"
-cp -a "./spiffs_data/skills/." "$SKILLS_DIR/"
+sync_directory_clean "./spiffs_data/web" "$WEB_DIR"
+sync_directory_clean "./spiffs_data/skills" "$SKILLS_DIR"
 rm -rf "$SKILLS_DIR/robot-control" \
        "$SKILLS_DIR/feishu-card-writer" \
        "$SKILLS_DIR/pet-director"
@@ -144,20 +204,8 @@ if [ ! -e "$CONFIG_DIR/config.json" ]; then
     else
         install_data_file "./spiffs_data/config/config.example.json" "$CONFIG_DIR/config.json"
     fi
-elif ! grep -q '"vector"' "$CONFIG_DIR/config.json"; then
-    python3 - "$CONFIG_DIR/config.json" <<'PY'
-import json
-import sys
-
-path = sys.argv[1]
-with open(path, "r", encoding="utf-8") as f:
-    data = json.load(f)
-data.setdefault("vector", {})["enabled"] = False
-with open(path, "w", encoding="utf-8") as f:
-    json.dump(data, f, ensure_ascii=False, indent=2)
-    f.write("\n")
-PY
 fi
+migrate_config_json "./spiffs_data/config/config.json" "$CONFIG_DIR/config.json"
 copy_if_missing "./spiffs_data/config/BOOTSTRAP.md" "$CONFIG_DIR/BOOTSTRAP.md"
 copy_if_missing "./spiffs_data/config/IDENTITY.md" "$CONFIG_DIR/IDENTITY.md"
 copy_if_missing "./spiffs_data/config/SOUL.md" "$CONFIG_DIR/SOUL.md"

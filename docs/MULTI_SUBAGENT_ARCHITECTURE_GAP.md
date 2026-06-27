@@ -232,6 +232,18 @@
   - 后端：`delegate_parent_wake.c` 直接下发 `child_session.frames`
   - 前端：`subagent-state.js` 优先消费 `child_session.frames` 生成 detail timeline
   - 这让子会话详情不再完全依赖 `subagent_*` 事件侧推断，开始向 session-first 模型靠拢
+- `child_session.cursor` 也已显式暴露 replay 元信息
+  - `history / frames / commits` 三类窗口都带
+    - `after_seq`
+    - `visible_seq`
+    - `first_visible_seq`
+    - `next_seq`
+    - `high_water_seq`
+    - `has_more`
+    - `replay_reset`
+  - 语义上这已经不再是“当前数组长度”
+  - 而是“子会话 durable seq 空间里，当前窗口覆盖到哪里、下一次应从哪里继续拉”
+  - 这是当前 `daima-agent` 向 `opencode sessions.events(after)` 靠拢最关键的一层协议收敛
 - `child_session.pending_queue` 已从“字符串摘要数组”升级为“结构化请求对象数组”
   - 每个条目至少带 `request_type / request_id / prompt`
   - 这样刷新恢复时，前端拿到的不是“像 blocker 的文本”，而是更接近 `opencode` session reducer 的结构化 blocker snapshot
@@ -2145,6 +2157,18 @@ websocket 回归脚本稳定性修正：
 - `app.js` 不再维护第二份业务状态
 - session list/detail/blocker 以 selector 为唯一来源
 - coordinator 视图降级为辅视图
+
+当前进展补充：
+
+- 已新增 page-level 的 unified restore contract：
+  - `session-restore.js` 现在优先调用 `restoreSessionState(chatId, options)`
+  - 旧的 `history + subagent snapshot` 双通道只保留为兼容回退
+- `app.js` 已通过 `ensureSessionRestore()` 提供这个统一入口
+  - page 层开始按“恢复一个 session 的完整视图状态”思考
+  - 而不再把“history 恢复”和“subagent 恢复”视为两个平级流程
+- 这一步还不是最终形态：
+  - 当前 unified restore 仍是对旧链路的高层包装
+  - 但边界已经收敛成 session-first contract，后续可以继续把 transport replay 吸进同一入口
 
 完成标准：
 
