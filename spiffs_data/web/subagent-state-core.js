@@ -175,6 +175,14 @@
     const currentCommitSeq = maxSessionSeq(detail.commits);
     const currentHistorySeq = maxSessionSeq(detail.history);
 
+    const hasIncomingSeq =
+      incomingFrameSeq > 0 ||
+      incomingCommitSeq > 0 ||
+      incomingHistorySeq > 0;
+    if (!hasIncomingSeq) {
+      return false;
+    }
+
     if (incomingFrameSeq > 0 && currentFrameSeq > 0 && incomingFrameSeq < currentFrameSeq) {
       return true;
     }

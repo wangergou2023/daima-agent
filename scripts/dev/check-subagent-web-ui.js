@@ -1640,6 +1640,22 @@ async function main() {
     'expected kernel detail to retain child session assistant history',
   );
   emit({
+    type: 'subagent_progress',
+    chat_id: 'web_test',
+    coordinator_id: 'dc_ui',
+    task_id: 'dt_a',
+    session_id: 'delegate_sync_a',
+    subagent_type: 'explore',
+    status: 'running',
+    task: '探索 kernel',
+    detail: 'live cursor advance',
+    visible_revision: 123,
+  });
+  expect(
+    (dom.window.agentDebugSubagentUiState?.liveCursor?.visibleRevision || 0) === 123,
+    'expected live websocket subagent event to advance runtime visible cursor',
+  );
+  emit({
     type: 'coordinator_status',
     chat_id: 'web_test',
     coordinator: {
@@ -1926,15 +1942,22 @@ async function main() {
     document.getElementById('subagentDetailPanel')?.textContent?.includes('kernel bootstrap final summary'),
     'expected HTTP subagent bootstrap to restore selected detail final summary',
   );
+  const deltaChatBodies = fetchStub.requestOptions
+    .filter((entry) => entry.url.includes('/api/subagent_state_delta_chat'))
+    .map((entry) => String(entry.options?.body || ''));
+  const matchedDeltaChatReplay = fetchStub.requestOptions.some((entry) =>
+    entry.url.includes('/api/subagent_state_delta_chat') &&
+    entry.options?.method === 'POST' &&
+    String(entry.options?.body || '').includes('"after_visible_revision":7') &&
+    String(entry.options?.body || '').includes('"task_id":"dt_boot_a"') &&
+    String(entry.options?.body || '').includes('"history_after_seq":20') &&
+    String(entry.options?.body || '').includes('"task_id":"dt_boot_b"') &&
+    String(entry.options?.body || '').includes('"commit_after_seq":2'));
+  if (!matchedDeltaChatReplay) {
+    console.error('delta_chat request bodies:', deltaChatBodies);
+  }
   expect(
-    fetchStub.requestOptions.some((entry) =>
-      entry.url.includes('/api/subagent_state_delta_chat') &&
-      entry.options?.method === 'POST' &&
-      String(entry.options?.body || '').includes('"after_visible_revision":7') &&
-      String(entry.options?.body || '').includes('"task_id":"dt_boot_a"') &&
-      String(entry.options?.body || '').includes('"history_after_seq":20') &&
-      String(entry.options?.body || '').includes('"task_id":"dt_boot_b"') &&
-      String(entry.options?.body || '').includes('"commit_after_seq":2')),
+    matchedDeltaChatReplay,
     'expected HTTP subagent bootstrap to request chat delta replay with coordinator revision and child session cursors',
   );
   expect(
