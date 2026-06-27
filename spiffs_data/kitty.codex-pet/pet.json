@@ -1,0 +1,9 @@
+{
+  "id": "kitty",
+  "displayName": "Kitty",
+  "description": "A Hello Kitty-inspired white cat pet with a red bow, blue overalls, and yellow accents.",
+  "spritesheetPath": "spritesheet.webp",
+  "kind": "creature",
+  "source": "codex-pets.net",
+  "sourceId": "kitty"
+}

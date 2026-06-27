@@ -20,10 +20,13 @@ typedef struct {
 	bool saw_explicit_verification;		/* 是否看到显式验证操作 */
 	bool unrecoverable_tool_protocol_error;	/* 是否发生不可恢复的工具协议错误 */
 	bool background_delegate_started;	/* 是否已启动后台 delegate coordinator */
+	bool sync_delegate_completed;		/* 是否已收到可直接返回的同步 delegate 结果 */
 	char last_modified_path[256];		/* 最后修改的文件路径 */
 	char last_checkpoint_path[256];		/* 最后检查点路径 */
 	char tool_protocol_error_reason[256];	/* 协议错误原因描述 */
 	char background_delegate_reply[256];	/* 后台 delegate 的首响文案 */
+	char background_delegate_coordinator_id[64]; /* 当前轮已启动的后台 coordinator */
+	char sync_delegate_reply[1024];		/* 同步 delegate 的可消费总结 */
 } turn_exec_stats_t;
 
 /* 从 LLM 响应构建 assistant 消息内容 JSON */
@@ -32,14 +35,20 @@ cJSON *agent_turn_build_assistant_content(const llm_response_t *resp);
 /* 当 LLM 未返回有效文本时生成强制终止回复 */
 char *agent_turn_generate_forced_final_response(const char *system_prompt,
 						cJSON *messages,
-						const char *reason);
+						const char *reason,
+						bool response_format_json_object);
 
 /* 执行 LLM 响应中的工具调用并构建工具结果消息 JSON */
 cJSON *agent_turn_build_tool_results(const llm_response_t *resp,
 				     const struct message *msg,
+				     const char *tools_json,
 				     char *tool_output,
 				     size_t tool_output_size,
 				     turn_exec_stats_t *stats);
+
+void agent_turn_maybe_mark_sync_delegate_completed(turn_exec_stats_t *stats,
+						   const char *tool_name,
+						   const char *tool_output);
 
 /* 根据执行统计决定是否触发自动验证（代码修改但未显式验证时触发） */
 void agent_turn_maybe_run_auto_verification(const turn_exec_stats_t *stats, char **io_final_text);

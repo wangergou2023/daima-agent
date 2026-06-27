@@ -12,17 +12,17 @@
 
 #include <stdbool.h>
 
-/* 回退链最大模型数量 */
+/* 回退链最大 provider 数量 */
 #define FALLBACK_MAX_MODELS 5
 
 /**
- * 模型回退配置。
- * models[] 为首选模型（索引 0）及其备用模型列表。
+ * Provider 回退配置。
+ * providers[] 为首选 provider（索引 0）及其备用 provider 列表。
  */
 typedef struct {
-	bool enabled;                        /* 是否启用回退功能 */
-	char models[FALLBACK_MAX_MODELS][64]; /* 模型名称列表（首条为主模型，后续为备用） */
-	int model_count;                     /* 有效模型数量 */
+	bool enabled;                           /* 是否启用回退功能 */
+	char providers[FALLBACK_MAX_MODELS][64]; /* provider 名称列表（首条为主，后续为备用） */
+	int provider_count;                     /* 有效 provider 数量 */
 } model_fallback_cfg_t;
 
 /**
@@ -31,9 +31,10 @@ typedef struct {
  * 优先级：
  * 1. 环境变量 MODEL_FALLBACK_ENABLED=0 → 直接返回 disabled
  * 2. category_routing.json 中的 model_fallback 段 → model_fallback.fallback_models
- * 3. fallback_models.json → 直接解析模型数组
- * 4. config.json 中的 providers → 取非 active_provider 的其他 provider 模型
- * 5. 默认：仅使用当前运行时 provider 模型
+ *    或 model_fallback.fallback_providers
+ * 3. fallback_models.json → 解析模型数组并映射回 provider
+ * 4. config.json 中的 providers → 取非 active_provider 的其他 provider
+ * 5. 默认：仅使用当前 active provider
  *
  * @return 加载到的配置（结构体值拷贝，无堆内存）
  */
@@ -58,4 +59,6 @@ err_t model_fallback_chat_with_fallback(
 	const char *system_prompt,
 	cJSON *messages,
 	const char *tools_json,
+	const char *model_override,
+	bool response_format_json_object,
 	llm_response_t *resp);

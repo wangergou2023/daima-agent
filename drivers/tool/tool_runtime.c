@@ -10,6 +10,7 @@
 #include "interactive.h"
 #include "drivers/tool/tool_invocation_context.h"
 #include "drivers/tool/tool_bus_view.h"
+#include "delegate/delegate_task_store.h"
 #include "cjson.h"
 #include "linux/printk.h"
 #include "linux/slab.h"
@@ -61,6 +62,57 @@ static void log_tool_runtime_result(const char *tool_name,
         if (output_preview[i] == '\n' || output_preview[i] == '\r' || output_preview[i] == '\t') output_preview[i] = ' ';
     }
     pr_info("execute result tool=%s err=%s elapsed_ms=%ld input_len=%u input=%s output_len=%u output=%s", tool_name && tool_name[0] ? tool_name : "<missing>", err_name(err), elapsed_ms, (unsigned)in_len, input_preview[0] ? input_preview : "<empty>", (unsigned)out_len, output_preview[0] ? output_preview : "<empty>");
+}
+
+static void copy_tool_runtime_preview(char *dest, size_t dest_size, const char *src)
+{
+    size_t len;
+    size_t shown;
+    if (!dest || dest_size == 0) {
+        return;
+    }
+    dest[0] = '\0';
+    if (!src || !src[0]) {
+        return;
+    }
+    len = strlen(src);
+    shown = len > dest_size - 1 ? dest_size - 1 : len;
+    memcpy(dest, src, shown);
+    dest[shown] = '\0';
+    for (size_t i = 0; i < shown; i++) {
+        if (dest[i] == '\n' || dest[i] == '\r' || dest[i] == '\t') {
+            dest[i] = ' ';
+        }
+    }
+}
+
+static void maybe_project_delegate_child_tool_step(const struct message *msg,
+                                                   const char *tool_name,
+                                                   const char *tool_input,
+                                                   const char *tool_output)
+{
+    delegate_task_record_t task = {0};
+    char detail[192];
+    char preview[256];
+    const char *effective_tool = tool_name && tool_name[0] ? tool_name : "<missing>";
+
+    if (!msg || !msg->chat_id[0] || !effective_tool[0]) {
+        return;
+    }
+    if (strcmp(effective_tool, "delegate_task") == 0) {
+        return;
+    }
+    if (delegate_task_store_find_by_session(msg->chat_id, &task, NULL) != 0) {
+        return;
+    }
+
+    snprintf(detail, sizeof(detail), "tool call: %s", effective_tool);
+    if (tool_output && tool_output[0]) {
+        copy_tool_runtime_preview(preview, sizeof(preview), tool_output);
+    } else {
+        copy_tool_runtime_preview(preview, sizeof(preview), tool_input);
+    }
+    delegate_task_store_append_session_step(task.task_id, "tool", detail, preview);
 }
 
 /**
@@ -176,7 +228,9 @@ err_t tool_runtime_execute_call(const llm_tool_call_t *call,
 
     out_result->elapsed_ms = (ended.tv_sec - started.tv_sec) * 1000L
                            + (ended.tv_nsec - started.tv_nsec) / 1000000L;
+    out_result->effective_tool_name = effective_tool_name;
     out_result->effective_input = patched_input;
+    maybe_project_delegate_child_tool_step(msg, effective_tool_name, tool_input, tool_output);
     log_tool_runtime_result(effective_tool_name, tool_input, tool_output, exec_err, out_result->elapsed_ms);
     return exec_err;
 }

@@ -59,6 +59,23 @@ static char *build_current_turn_content(const struct message *msg)
 		return buf;
 	}
 
+	if (strcmp(source, MSG_SOURCE_DELEGATE) == 0) {
+		const char *fmt =
+			"This is a delegate completion event, not a new user message.\n"
+			"Event source: delegate\n"
+			"A coordinator batch of subagents has completed. You must summarize directly from the provided coordinator outputs.\n"
+			"Do not restart the same delegation, do not repeat the same broad discovery, and do not ignore completed agent outputs.\n"
+			"If the coordinator already contains enough evidence, produce the merged answer for the user now.\n\n"
+			"Delegate payload: %s";
+		size_t need = snprintf(NULL, 0, fmt, content) + 1;
+		char *buf = kzalloc(need, GFP_KERNEL);
+		if (!buf) {
+			return NULL;
+		}
+		snprintf(buf, need, fmt, content);
+		return buf;
+	}
+
 	if (strcmp(source, MSG_SOURCE_INTERNAL) == 0) {
 		return strdup(
 			"This is an internal control event, not a user message.\n"

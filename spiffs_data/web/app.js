@@ -7,11 +7,12 @@ const dot = document.getElementById('dot');
 const ctxBadge = document.getElementById('ctxBadge');
 const themeSelect = document.getElementById('themeSelect');
 const terminalSecuritySelect = document.getElementById('terminalSecuritySelect');
-const sudoModal = document.getElementById('sudoModal');
-const sudoPrompt = document.getElementById('sudoPrompt');
-const sudoInput = document.getElementById('sudoInput');
-const sudoCancel = document.getElementById('sudoCancel');
-const sudoSubmit = document.getElementById('sudoSubmit');
+const interactiveModal = document.getElementById('interactiveModal');
+const interactiveTitle = document.getElementById('interactiveTitle');
+const interactivePrompt = document.getElementById('interactivePrompt');
+const interactiveInput = document.getElementById('interactiveInput');
+const interactiveCancel = document.getElementById('interactiveCancel');
+const interactiveSubmit = document.getElementById('interactiveSubmit');
 const sendBtn = document.getElementById('sendBtn');
 const attachmentPreview = document.getElementById('attachmentPreview');
 const attachmentImage = document.getElementById('attachmentImage');
@@ -36,6 +37,14 @@ const agentRoleTag = document.getElementById('agentRoleTag');
 const coordinatorPanel = document.getElementById('coordinatorPanel');
 const coordinatorAgents = document.getElementById('coordinatorAgents');
 const coordinatorClose = document.getElementById('coordinatorClose');
+const subagentDetailPanel = document.getElementById('subagentDetailPanel');
+const subagentDetailTitle = document.getElementById('subagentDetailTitle');
+const subagentDetailMeta = document.getElementById('subagentDetailMeta');
+const subagentSessionRail = document.getElementById('subagentSessionRail');
+const subagentDetailTabs = document.getElementById('subagentDetailTabs');
+const subagentDetailBlockers = document.getElementById('subagentDetailBlockers');
+const subagentDetailFrames = document.getElementById('subagentDetailFrames');
+const subagentDetailOutput = document.getElementById('subagentDetailOutput');
 const reconnectToast = document.getElementById('reconnectToast');
 const reconnectToastText = document.getElementById('reconnectToastText');
 const reconnectToastAction = document.getElementById('reconnectToastAction');
@@ -48,7 +57,7 @@ const EMPTY_MULTILINE_HEIGHT = 84;
 const MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024;
 const DEFAULT_UI_CONFIG = Object.freeze({
   pet: {
-    default_package_id: 'guga.codex-pet',
+    default_package_id: 'kitty.codex-pet',
     packages: [],
   },
   terminal: {
@@ -65,15 +74,97 @@ const INTENT_CONFIG = Object.freeze({
 
 const ROLE_LABELS = Object.freeze({
   fast: 'FAST',
+  explore: 'EXPLORE',
+  librarian: 'LIBRARIAN',
   oracle: 'ORACLE',
   implement: 'IMPLEMENT',
 });
 
 const ROLE_EMOJI = Object.freeze({
   fast: '⚡',
+  explore: '🗺️',
+  librarian: '📚',
   oracle: '🧭',
   implement: '🛠️',
 });
+
+const {
+  createEmptySubagentUiState,
+  currentSelectedSubagentKey: currentSelectedSubagentKeyFromState,
+  effectiveSelectedSubagentKey: effectiveSelectedSubagentKeyFromState,
+  orderedCoordinatorStates: orderedCoordinatorStatesFromState,
+  orderedSubagentDetails: orderedSubagentDetailsFromState,
+  subagentEventKey,
+  detailKeyForAgent,
+  subagentEventsForAgent: subagentEventsForAgentFromState,
+  interactiveBlockerKey,
+  currentInteractiveBlocker: currentInteractiveBlockerFromState,
+  selectedSubagentDetailView: selectedSubagentDetailViewFromState,
+  normalizeCoordinatorPayload,
+  reduceSubagentUiEvent: reduceSubagentUiEventCore,
+  hydrateStateFromSnapshot,
+  subagentSummary: subagentSummaryFromState,
+  coordinatorSummaryText: coordinatorSummaryTextFromState,
+  coordinatorPanelViewModel: coordinatorPanelViewModelFromState,
+  detailPanelViewModel: detailPanelViewModelFromState,
+  resolveAgentRole: resolveAgentRoleFromState,
+  formatElapsed: formatElapsedFromState,
+  subagentFocusLabel: subagentFocusLabelFromState,
+  coordinatorAgentHint: coordinatorAgentHintFromState,
+  visibleSubagentTabs: visibleSubagentTabsFromState,
+} = window.AgentSubagentState || {};
+const {
+  renderSubagentDetailPanel: renderSubagentDetailPanelView,
+} = window.AgentSubagentDetailView || {};
+const {
+  createSubagentEventAdapter,
+  interactiveUiConfig: interactiveUiConfigFromAdapter,
+  parseIncomingPayload: parseSubagentIncomingPayload,
+  isSubagentPayload,
+  normalizeSnapshot: normalizeSubagentSnapshot,
+  makeSubagentEventAction,
+  makeCoordinatorAction,
+  makeInteractiveBlockerClearAction,
+  makeHydrateInput,
+  makeInteractivePromptState,
+  resolveRestoredInteractivePrompt,
+  makeInteractiveReplyPayload,
+  makeInteractiveUnblockedEvent,
+  makeInteractiveControllerState,
+  makeInteractiveDismissActions,
+} = window.AgentSubagentEventAdapter || {};
+const {
+  createInteractiveController,
+} = window.AgentSubagentInteractiveController || {};
+const {
+  renderCoordinatorAgent: renderCoordinatorAgentView,
+  renderCoordinatorPanel: renderCoordinatorPanelView,
+  hideCoordinatorPanel: hideCoordinatorPanelView,
+} = window.AgentSubagentCoordinatorView || {};
+const {
+  createCoordinatorPanelController,
+} = window.AgentSubagentCoordinatorController || {};
+const {
+  createSubagentRuntime,
+} = window.AgentSubagentRuntime || {};
+const {
+  createSubagentAppBridge,
+} = window.AgentSubagentAppBridge || {};
+const {
+  createSubagentPanelController,
+} = window.AgentSubagentPanelController || {};
+const {
+  createSubagentUiOrchestrator,
+} = window.AgentSubagentUiOrchestrator || {};
+const {
+  createSubagentTransport,
+} = window.AgentSubagentTransport || {};
+const {
+  createSubagentChatTransport,
+} = window.AgentSubagentChatTransport || {};
+const {
+  createSubagentBootstrap,
+} = window.AgentSubagentBootstrap || {};
 
 const RECONNECT_SESSION_KEY = 'agent_last_session';
 
@@ -82,11 +173,7 @@ let chatId = createChatId();
 localStorage.setItem(CHAT_ID_KEY, chatId);
 
 let ws;
-let reconnectTimer;
-let pingTimer;
-let statsTimer;
 let baseStats = { model: 'unknown', used_tokens: 0, context_limit_tokens: 0 };
-let pendingSudoRequestId = '';
 let stickToBottom = true;
 let currentToolGroup = null;
 let isConnected = false;
@@ -106,11 +193,217 @@ let sessions = [];
 let selectedSessionId = '';
 let localSessions = [];
 let lastMessageSeq = 0;
-let coordinatorVisible = false;
 let currentAgentRole = '';
 let currentAgentModel = '';
-let agentOutputs = {};
+let coordinatorPanelController = null;
 let reconnectToastTimer = null;
+let subagentStateLoadToken = 0;
+let subagentEventAdapter = null;
+let interactiveController = null;
+let subagentRuntime = null;
+let subagentUiOrchestrator = null;
+let subagentTransport = null;
+let subagentChatTransport = null;
+let subagentBootstrap = null;
+let subagentAppBridge = null;
+let subagentPanelController = null;
+
+function setLastMessageSeq(nextSeq) {
+  lastMessageSeq = Number(nextSeq) || 0;
+}
+
+function isStopRequested() {
+  return stopRequested === true;
+}
+
+function clearPendingReasoningCard() {
+  pendingReasoningCard = null;
+}
+
+function appendHistoryMessage(message) {
+  appendNode(makeMessageNode(message.role, message.content || '', message.reasoning || ''));
+}
+
+function applyUploadedImage(data) {
+  pendingImagePath = data?.image_path || '';
+  pendingImageName = data?.filename || pendingImageName || '图片';
+  imageUploadBusy = false;
+  syncAttachmentPreview();
+}
+
+function onSocketOpenForPet() {
+  if (petController) {
+    petController.handleSocketOpen();
+  }
+}
+
+function onToolActivity() {
+  if (petController) {
+    petController.handleToolMessage();
+  }
+}
+
+function onPetResponse(data) {
+  if (petController) {
+    petController.handlePetResponse(data);
+  }
+}
+
+function consumeAssistantText(text) {
+  return petController
+    ? petController.consumeAssistantText(text)
+    : text;
+}
+
+function setPendingReasoningCardFromContent(content) {
+  pendingReasoningCard = makeMessageNode('assistant', '', content);
+  appendNode(pendingReasoningCard);
+}
+
+function commitPendingReasoningCard(text) {
+  if (!pendingReasoningCard) {
+    return false;
+  }
+  const copy = pendingReasoningCard.querySelector('.message-copy');
+  if (copy) {
+    renderAssistantMarkdown(copy, text);
+  }
+  pendingReasoningCard = null;
+  return true;
+}
+
+function ensureSubagentBootstrap() {
+  if (subagentBootstrap || !createSubagentBootstrap) {
+    return subagentBootstrap;
+  }
+  subagentBootstrap = createSubagentBootstrap({
+    createSubagentRuntime,
+    createSubagentUiOrchestrator,
+    createSubagentTransport,
+    createSubagentChatTransport,
+    createEmptySubagentUiState,
+    reduceSubagentUiEvent: reduceSubagentUiEventCore,
+    reduceSubagentUiEventInPlace(action) {
+      reduceSubagentUiEvent(action);
+    },
+    hydrateStateFromSnapshot,
+    makeHydrateInput,
+    currentInteractiveBlocker,
+    makeInteractiveControllerState,
+    ensureInteractiveController,
+    renderSubagentDetailPanel,
+    renderCoordinatorPanelFromState,
+    makeCoordinatorAction,
+    makeSubagentSessionAction: ensureSubagentEventAdapter()?.makeSubagentSessionAction,
+    normalizeCoordinatorPayload,
+    makeInteractiveDismissActions,
+    ensureCoordinatorPanelController,
+    getChatId() {
+      return chatId;
+    },
+    getLastMessageSeq() {
+      return lastMessageSeq;
+    },
+    setLastMessageSeq,
+    getMessageCount() {
+      return messages.childElementCount;
+    },
+    isStopRequested,
+    setStatus,
+    clearAgentState,
+    onSocketOpenForPet,
+    saveReconnectSession,
+    loadSubagentStateSnapshot,
+    refreshContextStats,
+    showReconnectToast,
+    hideReconnectToast,
+    syncSendState,
+    setAssistantIdle() {
+      pendingAssistantResponse = false;
+      stopRequested = false;
+    },
+    appendHistoryMessage,
+    applyUploadedImage,
+    clearPendingImage,
+    clearPendingReasoningCard,
+    addToolMessage(content) {
+      addMessage('tool', content);
+    },
+    onToolActivity,
+    onPetResponse,
+    resetCurrentToolGroup() {
+      currentToolGroup = null;
+    },
+    setPendingReasoningCardFromContent,
+    consumeAssistantText,
+    commitPendingReasoningCard,
+    appendAssistantMessage(text) {
+      if (!text) return;
+      appendNode(makeMessageNode('assistant', text));
+    },
+    handleAgentStateMessage,
+    handleSelfTestResult: renderSelfTestReport,
+    sendPing() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'ping', ts: Date.now(), chat_id: chatId }));
+      }
+    },
+    ensureSocketConnection,
+    handlePlaintextMessage(text) {
+      pendingAssistantResponse = false;
+      stopRequested = false;
+      pendingReasoningCard = null;
+      const assistantText = consumeAssistantText(text);
+      addMessage('assistant', assistantText);
+      syncSendState();
+      saveReconnectSession();
+    },
+    parseIncomingPayload: parseSubagentIncomingPayload,
+    ensureSubagentEventAdapter,
+    isSubagentPayload,
+    fetchImpl: fetch.bind(window),
+  });
+  return subagentBootstrap;
+}
+
+function ensureSubagentRuntime() {
+  if (subagentRuntime) {
+    return subagentRuntime;
+  }
+  subagentRuntime = ensureSubagentBootstrap()?.ensureRuntime?.() || null;
+  return subagentRuntime;
+}
+
+function ensureSubagentUiOrchestrator() {
+  if (subagentUiOrchestrator) {
+    return subagentUiOrchestrator;
+  }
+  subagentUiOrchestrator = ensureSubagentBootstrap()?.ensureUiOrchestrator?.() || null;
+  return subagentUiOrchestrator;
+}
+
+function ensureSubagentChatTransport() {
+  if (subagentChatTransport) {
+    return subagentChatTransport;
+  }
+  subagentChatTransport = ensureSubagentBootstrap()?.ensureChatTransport?.() || null;
+  return subagentChatTransport;
+}
+
+function ensureSubagentTransport() {
+  if (subagentTransport) {
+    return subagentTransport;
+  }
+  subagentTransport = ensureSubagentBootstrap()?.ensureTransport?.() || null;
+  return subagentTransport;
+}
+
+Object.defineProperty(window, 'agentDebugSubagentUiState', {
+  configurable: true,
+  get() {
+    return ensureSubagentRuntime()?.currentState?.() || createEmptySubagentUiState();
+  },
+});
 
 function createChatId() {
   return `web_${Math.random().toString(36).slice(2, 8)}`;
@@ -282,6 +575,7 @@ async function switchSession(nextChatId) {
   } catch (_) {
     renderHistoryMessages([]);
   }
+  await loadSubagentStateSnapshot(chatId);
   refreshContextStats();
 }
 
@@ -298,6 +592,7 @@ async function deleteSession(targetChatId) {
     lastMessageSeq = 0;
     saveReconnectSession();
     renderHistoryMessages([]);
+    replaceSubagentStateSnapshot({ coordinators: [] });
   }
   renderSessions();
 
@@ -321,6 +616,7 @@ function startNewSession() {
   lastMessageSeq = 0;
   saveReconnectSession();
   renderHistoryMessages([]);
+  replaceSubagentStateSnapshot({ coordinators: [] });
   renderSessions();
   refreshContextStats();
 }
@@ -1108,6 +1404,84 @@ function formatSubagentEvent(data) {
   return detail ? `subagent · ${title} · ${detail}` : `subagent · ${title}`;
 }
 
+function trimText(value) {
+  return String(value || '').trim();
+}
+
+function clipText(value, limit = 240) {
+  const text = trimText(value).replace(/\s+/g, ' ');
+  if (!text) return '';
+  return text.length > limit ? `${text.slice(0, limit - 3)}...` : text;
+}
+
+function ensureSubagentAppBridge() {
+  if (subagentAppBridge || !createSubagentAppBridge) {
+    return subagentAppBridge;
+  }
+  subagentAppBridge = createSubagentAppBridge({
+    ensureSubagentRuntime,
+    currentSelectedSubagentKeySelector: currentSelectedSubagentKeyFromState,
+    currentInteractiveBlockerSelector: currentInteractiveBlockerFromState,
+    effectiveSelectedSubagentKeySelector: effectiveSelectedSubagentKeyFromState,
+    orderedCoordinatorStatesSelector: orderedCoordinatorStatesFromState,
+    orderedSubagentDetailsSelector: orderedSubagentDetailsFromState,
+    selectedSubagentDetailViewSelector: selectedSubagentDetailViewFromState,
+    subagentSummarySelector: subagentSummaryFromState,
+    visibleSubagentTabsSelector: visibleSubagentTabsFromState,
+    subagentEventsForAgentSelector: subagentEventsForAgentFromState,
+    normalizeCoordinatorPayload,
+    makeSubagentEventAction,
+    subagentEventKey,
+    formatSubagentEvent,
+    trimText,
+  });
+  return subagentAppBridge;
+}
+
+function currentSelectedSubagentKey() {
+  return ensureSubagentAppBridge()?.currentSelectedSubagentKey?.() || '';
+}
+
+function effectiveSelectedSubagentKey() {
+  return ensureSubagentAppBridge()?.effectiveSelectedSubagentKey?.() || '';
+}
+
+function orderedCoordinatorStates() {
+  return ensureSubagentAppBridge()?.orderedCoordinatorStates?.() || [];
+}
+
+function orderedSubagentDetails() {
+  return ensureSubagentAppBridge()?.orderedSubagentDetails?.() || [];
+}
+
+function subagentSummary() {
+  return ensureSubagentAppBridge()?.subagentSummary?.() || { total: 0, blocked: 0, running: 0, done: 0, failed: 0 };
+}
+
+function visibleSubagentTabs() {
+  return ensureSubagentAppBridge()?.visibleSubagentTabs?.(8) || [];
+}
+
+function subagentEventsForAgent(agent) {
+  return ensureSubagentAppBridge()?.subagentEventsForAgent?.(agent) || [];
+}
+
+function pushSubagentEvent(data) {
+  ensureSubagentAppBridge()?.pushSubagentEvent?.(data);
+}
+
+function reduceSubagentUiEvent(action) {
+  ensureSubagentAppBridge()?.reduceSubagentUiEvent?.(action);
+}
+
+function selectSubagentTab(detailKey) {
+  ensureSubagentAppBridge()?.selectSubagentTab?.(detailKey);
+}
+
+function selectedSubagentDetailView() {
+  return ensureSubagentAppBridge()?.selectedSubagentDetailView?.(chatId) || null;
+}
+
 function summarizeCoordinatorCompletion(payload) {
   const coordinator = payload?.coordinator || payload || {};
   const agents = Array.isArray(coordinator.agents) ? coordinator.agents : [];
@@ -1141,30 +1515,197 @@ function addMessage(role, text) {
   appendNode(makeMessageNode(role, text));
 }
 
-function openSudoPrompt(requestId, promptText) {
-  pendingSudoRequestId = requestId || '';
-  sudoPrompt.textContent = promptText || 'A command needs elevated privileges.';
-  sudoInput.value = '';
-  sudoModal.classList.add('show');
-  setTimeout(() => sudoInput.focus(), 30);
+function addSystemNote(text) {
+  if (!text) return;
+  addMessage('assistant', text);
 }
 
-function closeSudoPrompt() {
-  sudoModal.classList.remove('show');
-  pendingSudoRequestId = '';
-  sudoInput.value = '';
+function interactiveUiConfig(requestType) {
+  return interactiveUiConfigFromAdapter
+    ? interactiveUiConfigFromAdapter(requestType)
+    : {
+      title: '需要授权',
+      prompt: '命令需要提升权限。',
+      placeholder: '输入 sudo 密码',
+      submitText: '继续',
+      inputType: 'password',
+      label: 'sudo permission',
+      blockerKind: 'permission',
+    };
 }
 
-function submitSudoPrompt(cancelled) {
-  if (!ws || ws.readyState !== WebSocket.OPEN || !pendingSudoRequestId) return;
-  ws.send(JSON.stringify({
-    type: 'sudo_password',
-    chat_id: chatId,
-    request_id: pendingSudoRequestId,
-    password: cancelled ? '' : sudoInput.value,
-    cancelled: !!cancelled,
-  }));
-  closeSudoPrompt();
+function ensureInteractiveController() {
+  if (interactiveController || !createInteractiveController) {
+    return interactiveController;
+  }
+  interactiveController = createInteractiveController({
+    modalEl: interactiveModal,
+    titleEl: interactiveTitle,
+    promptEl: interactivePrompt,
+    inputEl: interactiveInput,
+    submitEl: interactiveSubmit,
+    focusInput() {
+      setTimeout(() => interactiveInput.focus(), 30);
+    },
+  });
+  return interactiveController;
+}
+
+function ensureCoordinatorPanelController() {
+  if (coordinatorPanelController || !createCoordinatorPanelController) {
+    return coordinatorPanelController;
+  }
+  coordinatorPanelController = createCoordinatorPanelController({
+    panelEl: coordinatorPanel,
+    agentsEl: coordinatorAgents,
+    renderCoordinatorPanel: renderCoordinatorPanelView,
+    hideCoordinatorPanel: hideCoordinatorPanelView,
+    syncDockState: syncSubagentDetailDockState,
+  });
+  return coordinatorPanelController;
+}
+
+function coordinatorPanelState() {
+  return ensureCoordinatorPanelController()?.state?.() || { visible: false, dismissed: false };
+}
+
+function ensureSubagentPanelController() {
+  if (subagentPanelController || !createSubagentPanelController) {
+    return subagentPanelController;
+  }
+  subagentPanelController = createSubagentPanelController({
+    panelEl: subagentDetailPanel,
+    titleEl: subagentDetailTitle,
+    metaEl: subagentDetailMeta,
+    blockersEl: subagentDetailBlockers,
+    framesEl: subagentDetailFrames,
+    outputEl: subagentDetailOutput,
+    detailPanelEl: subagentDetailPanel,
+    sessionRailEl: subagentSessionRail,
+    detailTabsEl: subagentDetailTabs,
+    coordinatorPanelEl: coordinatorPanel,
+    coordinatorAgentsEl: coordinatorAgents,
+    ensureCoordinatorPanelController,
+    coordinatorPanelState,
+    ensureSubagentUiOrchestrator,
+    renderSubagentDetailPanelView,
+    renderCoordinatorPanelView,
+    hideCoordinatorPanelView,
+    renderCoordinatorAgent,
+    coordinatorSummaryText: coordinatorSummaryTextFromState || (() => ''),
+    makeReasoningNode,
+    renderAssistantMarkdown,
+    subagentSummary,
+    orderedCoordinatorStates,
+    onSelectDetail(detailKey) {
+      selectSubagentTab(detailKey);
+      ensureSubagentPanelController()?.renderCoordinatorPanel?.();
+    },
+    selectDetailPanelView() {
+      return detailPanelViewModelFromState
+        ? (ensureSubagentRuntime()?.select?.(detailPanelViewModelFromState, chatId, { detailLimit: 8 }) || null)
+        : {
+          detailView: selectedSubagentDetailView(),
+          visibleTabs: visibleSubagentTabs(),
+          orderedDetails: orderedSubagentDetails().slice(0, 8),
+          selectedKey: effectiveSelectedSubagentKey(),
+        };
+    },
+    selectCoordinatorPanelView(panelState) {
+      return coordinatorPanelViewModelFromState
+        ? (ensureSubagentRuntime()?.select?.(coordinatorPanelViewModelFromState, panelState) || null)
+        : {
+          orderedStates: orderedCoordinatorStates(),
+          detailStates: orderedSubagentDetails(),
+          summary: subagentSummary(),
+          coordinatorDismissed: panelState.dismissed === true,
+          coordinatorVisible: panelState.visible === true,
+        };
+    },
+    replaceSnapshotFallback(snapshot, helpers) {
+      ensureSubagentRuntime()?.replaceSnapshot?.(
+        normalizeSubagentSnapshot ? normalizeSubagentSnapshot(snapshot) : snapshot,
+        {
+          chatId: helpers?.chatId || chatId,
+          interactiveUiConfig: helpers?.interactiveUiConfig || interactiveUiConfig,
+        }
+      );
+    },
+    applyCoordinatorPayloadFallback(payload) {
+      const action = makeCoordinatorAction ? makeCoordinatorAction(payload) : { kind: 'coordinator', payload };
+      reduceSubagentUiEvent(action);
+      const state = normalizeCoordinatorPayload(payload);
+      ensureCoordinatorPanelController()?.markActive(state?.coordinator_id);
+    },
+  });
+  return subagentPanelController;
+}
+
+function currentInteractiveBlocker() {
+  return ensureSubagentAppBridge()?.currentInteractiveBlocker?.(chatId) || null;
+}
+
+function closeInteractivePrompt() {
+  const activeRequest = ensureInteractiveController()?.currentRequest?.() || null;
+  if (!activeRequest) {
+    ensureInteractiveController()?.clear();
+    ensureSubagentPanelController()?.renderDetailPanel?.();
+    return;
+  }
+  ensureSubagentPanelController()?.dismissInteractiveRequest?.(activeRequest, {
+    now: () => Date.now(),
+    interactiveBlockerKey,
+    subagentEventKey,
+    formatEventText: formatSubagentEvent,
+  });
+}
+
+function ensureSubagentEventAdapter() {
+  if (subagentEventAdapter || !createSubagentEventAdapter) {
+    return subagentEventAdapter;
+  }
+  subagentEventAdapter = createSubagentEventAdapter({
+    getChatId: () => chatId,
+    setInteractiveControllerState(next) {
+      ensureInteractiveController()?.apply(next);
+    },
+    reduceSubagentUiEvent,
+    addSystemNote,
+    renderCoordinatorPanel() {
+      ensureSubagentPanelController()?.renderCoordinatorPanel?.();
+    },
+    handlePetToolMessage() {
+      if (petController) {
+        petController.handleToolMessage();
+      }
+    },
+    pushSubagentEvent,
+    clearPendingReasoningCard() {
+      pendingReasoningCard = null;
+    },
+    updateCoordinatorStatus,
+    handleCoordinatorOutput,
+    setAssistantIdle() {
+      pendingAssistantResponse = false;
+      stopRequested = false;
+    },
+    appendAssistantMessage(text) {
+      if (!text) return;
+      appendNode(makeMessageNode('assistant', text));
+    },
+    syncSendState,
+    summarizeCoordinatorCompletion,
+  });
+  return subagentEventAdapter;
+}
+
+function submitInteractivePrompt(cancelled) {
+  const controller = ensureInteractiveController();
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  const payload = controller?.buildReplyPayload?.(makeInteractiveReplyPayload, chatId, !!cancelled) || null;
+  if (!payload) return;
+  ws.send(JSON.stringify(payload));
+  closeInteractivePrompt();
 }
 
 function setStatus(online) {
@@ -1174,204 +1715,17 @@ function setStatus(online) {
   syncSendState();
 }
 
-function connect() {
+function ensureSocketConnection() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  ws = new WebSocket(`${proto}://${location.host}`);
-  ws.onopen = () => {
-    setStatus(true);
-    clearAgentState();
-    if (petController) {
-      petController.handleSocketOpen();
-    }
-    if (lastMessageSeq > 0) {
-      ws.send(JSON.stringify({
-        type: 'session_sync',
-        chat_id: chatId,
-        last_seq: lastMessageSeq,
-      }));
-      showReconnectToast(chatId, messages.childElementCount);
-    }
-    saveReconnectSession();
-    refreshContextStats();
-    if (pingTimer) clearInterval(pingTimer);
-    pingTimer = setInterval(() => {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'ping', ts: Date.now(), chat_id: chatId }));
-      }
-    }, 15000);
-    if (statsTimer) clearInterval(statsTimer);
-    statsTimer = setInterval(() => refreshContextStats(), 8000);
-  };
-  ws.onclose = () => {
-    setStatus(false);
-    clearAgentState();
-    saveReconnectSession();
-    if (pingTimer) {
-      clearInterval(pingTimer);
-      pingTimer = null;
-    }
-    if (statsTimer) {
-      clearInterval(statsTimer);
-      statsTimer = null;
-    }
-    if (!reconnectTimer) {
-      reconnectTimer = setTimeout(() => {
-        reconnectTimer = null;
-        connect();
-      }, 1500);
-    }
-  };
-  ws.onerror = () => setStatus(false);
-   ws.onmessage = (evt) => {
-     try {
-       const raw = JSON.parse(evt.data);
-       const data = raw.text ? (() => { try { return JSON.parse(raw.text); } catch { return raw; } })() : raw;
-       if (data.type === 'pong') return;
-      if (data.type === 'agent_state') {
-        handleAgentStateMessage(data);
-        return;
-      }
-      if (data.type === 'coordinator_status') {
-        updateCoordinatorStatus(data.agents);
-        return;
-      }
-      if (data.type === 'coordinator_output') {
-        handleCoordinatorOutput(data.agents);
-        return;
-      }
-      if (data.type === 'coordinator_done') {
-        const payload = data.coordinator || {};
-        if (Array.isArray(payload.agents)) {
-          updateCoordinatorStatus(payload.agents);
-          handleCoordinatorOutput(payload.agents);
-        }
-        pendingAssistantResponse = false;
-        stopRequested = false;
-        appendNode(makeMessageNode('assistant', summarizeCoordinatorCompletion(payload)));
-        closeCoordinatorPanel();
-        syncSendState();
-        return;
-      }
-      if (data.type === 'session_sync') {
-        if (data.chat_id === chatId && Array.isArray(data.messages)) {
-          const newMessages = data.messages.filter(
-            (m) => m.role === 'assistant' || m.role === 'user'
-          );
-          for (const msg of newMessages) {
-            appendNode(makeMessageNode(msg.role, msg.content || '', msg.reasoning || ''));
-          }
-          if (data.last_seq !== undefined) {
-            lastMessageSeq = Number(data.last_seq) || 0;
-          }
-          hideReconnectToast();
-          pendingAssistantResponse = false;
-          stopRequested = false;
-          syncSendState();
-          refreshContextStats();
-        }
-        saveReconnectSession();
-        return;
-      }
-      if (data.type === 'upload_done') {
-        if (data.chat_id === chatId) {
-          pendingImagePath = data.image_path || '';
-          pendingImageName = data.filename || pendingImageName || '图片';
-          imageUploadBusy = false;
-          syncAttachmentPreview();
-          syncSendState();
-        }
-        return;
-      }
-      if (data.type === 'upload_error') {
-        clearPendingImage();
-        return;
-      }
-      if (data.type === 'self_test_result') {
-        renderSelfTestReport(data);
-        return;
-      }
-      if (data.type === 'stopped') {
-        if (data.chat_id === chatId && stopRequested) {
-          pendingAssistantResponse = false;
-          stopRequested = false;
-          pendingReasoningCard = null;
-          if (petController) {
-            petController.handleSocketOpen();
-          }
-          syncSendState();
-          saveReconnectSession();
-        }
-        return;
-      }
-      if (data.type === 'sudo_request') {
-        openSudoPrompt(data.request_id, data.prompt || 'Please enter your sudo password to continue this command.');
-        return;
-      }
-      if (data.type === 'tool' && data.content) {
-        if (petController) {
-          petController.handleToolMessage();
-        }
-        addMessage('tool', data.content);
-        pendingReasoningCard = null;
-        return;
-      }
-      if (data.type === 'subagent_start' || data.type === 'subagent_done' || data.type === 'subagent_progress') {
-        if (petController) {
-          petController.handleToolMessage();
-        }
-        addMessage('tool', formatSubagentEvent(data));
-        pendingReasoningCard = null;
-        return;
-      }
-      if (data.type === 'pet_response') {
-        if (petController) {
-          petController.handlePetResponse(data);
-        }
-        return;
-      }
-      if (data.type === 'reasoning' && data.content) {
-        if (petController) {
-          petController.handleToolMessage();
-        }
-        currentToolGroup = null;
-        pendingReasoningCard = makeMessageNode('assistant', '', data.content);
-        appendNode(pendingReasoningCard);
-        syncSendState();
-        return;
-      }
-      if (data.type === 'response' && data.content) {
-        pendingAssistantResponse = false;
-        stopRequested = false;
-        const assistantText = petController
-          ? petController.consumeAssistantText(data.content)
-          : data.content;
-        if (pendingReasoningCard) {
-          const copy = pendingReasoningCard.querySelector('.message-copy');
-          if (copy) {
-            renderAssistantMarkdown(copy, assistantText);
-          }
-          pendingReasoningCard = null;
-        } else {
-          currentToolGroup = null;
-          appendNode(makeMessageNode('assistant', assistantText));
-        }
-        syncSendState();
-        refreshContextStats();
-        saveReconnectSession();
-        return;
-      }
-    } catch (_) {
-      pendingAssistantResponse = false;
-      stopRequested = false;
-      pendingReasoningCard = null;
-      const assistantText = petController
-        ? petController.consumeAssistantText(evt.data)
-        : evt.data;
-      addMessage('assistant', assistantText);
-      syncSendState();
-      saveReconnectSession();
-    }
-  };
+  const transport = ensureSubagentTransport();
+  const lifecycle = transport?.lifecycle || {};
+  ws = transport?.connectSocket
+    ? transport.connectSocket(`${proto}://${location.host}`, lifecycle)
+    : new WebSocket(`${proto}://${location.host}`);
+  if (transport?.connectSocket) {
+    return;
+  }
+  ensureSubagentTransport()?.bindSocket?.(ws, lifecycle);
 }
 
 function sendUserMessage(text, cancelCurrent) {
@@ -1503,16 +1857,16 @@ document.addEventListener('keydown', (e) => {
     if (petChooserButton) petChooserButton.focus();
   }
 });
-sudoSubmit.addEventListener('click', () => submitSudoPrompt(false));
-sudoCancel.addEventListener('click', () => submitSudoPrompt(true));
-sudoInput.addEventListener('keydown', (e) => {
+interactiveSubmit.addEventListener('click', () => submitInteractivePrompt(false));
+interactiveCancel.addEventListener('click', () => submitInteractivePrompt(true));
+interactiveInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
     e.preventDefault();
-    submitSudoPrompt(false);
+    submitInteractivePrompt(false);
   }
   if (e.key === 'Escape') {
     e.preventDefault();
-    submitSudoPrompt(true);
+    submitInteractivePrompt(true);
   }
 });
 
@@ -1558,7 +1912,8 @@ function updateAgentRole(role) {
 function clearAgentState() {
   currentAgentRole = '';
   currentAgentModel = '';
-  agentOutputs = {};
+  ensureCoordinatorPanelController()?.reset();
+  ensureSubagentRuntime()?.reset?.();
   if (agentIntentTag) {
     agentIntentTag.hidden = true;
     agentIntentTag.setAttribute('aria-hidden', 'true');
@@ -1566,6 +1921,57 @@ function clearAgentState() {
   if (agentRoleTag) {
     agentRoleTag.hidden = true;
     agentRoleTag.setAttribute('aria-hidden', 'true');
+  }
+  const controller = ensureInteractiveController();
+  if (controller) {
+    controller.clear();
+  }
+  ensureSubagentPanelController()?.renderCoordinatorPanel?.();
+}
+
+function replaceSubagentStateSnapshot(snapshot) {
+  const hydrateInput = ensureSubagentPanelController()?.replaceSnapshot?.(snapshot, {
+    chatId,
+    interactiveUiConfig,
+  });
+  return hydrateInput;
+}
+
+async function loadSubagentStateSnapshot(targetChatId = chatId) {
+  const requestedChatId = String(targetChatId || '').trim();
+  subagentStateLoadToken += 1;
+  const transport = ensureSubagentTransport();
+  if (transport?.loadSnapshot) {
+    await transport.loadSnapshot(requestedChatId, {
+      interactiveUiConfig,
+      emptySnapshot: { coordinators: [] },
+      isCurrentChatId(value) {
+        return value === chatId;
+      },
+    });
+    return;
+  }
+  const token = subagentStateLoadToken;
+  if (!requestedChatId) {
+    replaceSubagentStateSnapshot({ coordinators: [] });
+    return;
+  }
+
+  try {
+    const resp = await fetch(`/api/subagent_state?chat_id=${encodeURIComponent(requestedChatId)}`, { cache: 'no-store' });
+    if (token !== subagentStateLoadToken || requestedChatId !== chatId) return;
+    if (resp.status === 404) {
+      replaceSubagentStateSnapshot({ coordinators: [] });
+      return;
+    }
+    if (!resp.ok) {
+      return;
+    }
+    const data = await resp.json();
+    if (token !== subagentStateLoadToken || requestedChatId !== chatId) return;
+    replaceSubagentStateSnapshot(data);
+  } catch (_) {
+    if (token !== subagentStateLoadToken || requestedChatId !== chatId) return;
   }
 }
 
@@ -1581,189 +1987,51 @@ function handleAgentStateMessage(data) {
   }
 }
 
-function formatElapsed(ms) {
-  if (!ms || ms <= 0) return '';
-  const s = ms / 1000;
-  if (s < 1) return `${(s * 1000).toFixed(0)}ms`;
-  if (s < 60) return `${s.toFixed(1)}s`;
-  const m = Math.floor(s / 60);
-  const rem = (s % 60).toFixed(0);
-  return `${m}m ${rem}s`;
-}
-
-function resolveAgentRole(name) {
-  const lower = String(name || '').toLowerCase();
-  if (lower.includes('oracle')) return 'oracle';
-  if (lower.includes('implement')) return 'implement';
-  if (lower.includes('fast')) return 'fast';
-  return '';
-}
-
 function renderCoordinatorAgent(agent, maxElapsed) {
-  const row = document.createElement('div');
-  row.className = 'coordinator-agent';
-
-  const outputText = agentOutputs[agent.name] || '';
-  if (outputText) {
-    row.classList.add('has-output');
-  }
-  row.dataset.agentName = agent.name;
-
-  const body = document.createElement('div');
-  body.className = 'coordinator-agent-body';
-
-  const statusEl = document.createElement('span');
-  statusEl.className = `coordinator-agent-status ${agent.status || 'waiting'}`;
-
-  if (agent.status === 'running') {
-    const spinner = document.createElement('span');
-    spinner.className = 'coordinator-agent-spin';
-    spinner.textContent = '⟳';
-    statusEl.appendChild(spinner);
-  } else if (agent.status === 'done') {
-    statusEl.textContent = '✓';
-  } else if (agent.status === 'error') {
-    statusEl.textContent = '✗';
-  } else {
-    statusEl.textContent = '—';
-  }
-
-  const nameEl = document.createElement('span');
-  nameEl.className = 'coordinator-agent-name';
-  const role = resolveAgentRole(agent.name);
-  const emoji = ROLE_EMOJI[role] || '';
-  nameEl.textContent = emoji ? `${emoji} ${agent.name || 'Agent'}` : (agent.name || 'Agent');
-
-  const metaEl = document.createElement('span');
-  metaEl.className = 'coordinator-agent-meta';
-
-  const expandHint = document.createElement('span');
-  expandHint.className = 'coordinator-agent-expand-hint';
-  expandHint.textContent = '▼';
-
-  const elapsedEl = document.createElement('span');
-  elapsedEl.className = 'coordinator-agent-elapsed';
-  const elapsedMs = Number(agent.elapsed_ms) || 0;
-  elapsedEl.textContent = elapsedMs > 0 ? formatElapsed(elapsedMs) : '';
-
-  metaEl.appendChild(expandHint);
-  metaEl.appendChild(elapsedEl);
-
-  body.appendChild(statusEl);
-  body.appendChild(nameEl);
-  body.appendChild(metaEl);
-  row.appendChild(body);
-
-  if (elapsedMs > 0 && maxElapsed > 0) {
-    const barWrap = document.createElement('div');
-    barWrap.className = 'coordinator-agent-bar-wrap';
-
-    const bar = document.createElement('div');
-    bar.className = 'coordinator-agent-bar';
-
-    const fill = document.createElement('div');
-    fill.className = `coordinator-agent-bar-fill ${role} ${agent.status || 'waiting'}`;
-    const pct = Math.min(100, (elapsedMs / maxElapsed) * 100);
-    fill.style.width = `${pct}%`;
-
-    bar.appendChild(fill);
-    barWrap.appendChild(bar);
-    row.appendChild(barWrap);
-  }
-
-  if (outputText) {
-    const output = document.createElement('div');
-    output.className = 'coordinator-agent-output';
-    output.textContent = outputText;
-    row.appendChild(output);
-
-    row.addEventListener('click', () => {
-      row.classList.toggle('expanded');
-    });
-  }
-
-  return row;
+  if (!renderCoordinatorAgentView) return document.createElement('div');
+  return renderCoordinatorAgentView(agent, maxElapsed, {
+    formatElapsed: formatElapsedFromState || (() => ''),
+    resolveAgentRole: resolveAgentRoleFromState || (() => ''),
+    roleEmoji: ROLE_EMOJI,
+    currentSelectedDetailKey: effectiveSelectedSubagentKey(),
+    detailKeyForAgent,
+    coordinatorAgentHint: coordinatorAgentHintFromState || (() => ''),
+    clipText,
+    subagentFocusLabel: subagentFocusLabelFromState || ((value) => String(value || '')),
+    subagentEventsForAgent,
+    onSelectDetail(detailKey) {
+      selectSubagentTab(detailKey);
+      renderCoordinatorPanelFromState();
+    },
+  });
 }
 
-function handleCoordinatorOutput(agents) {
-  if (!coordinatorAgents || !Array.isArray(agents)) return;
-  let changed = false;
-  for (const agent of agents) {
-    if (agent.name && agent.output_text) {
-      agentOutputs[agent.name] = agent.output_text;
-      changed = true;
-    }
-  }
-  if (changed) {
-    const rows = coordinatorAgents.querySelectorAll('.coordinator-agent');
-    for (const row of rows) {
-      const name = row.dataset.agentName;
-      if (!name) continue;
-      const text = agentOutputs[name];
-      if (!text) continue;
-      row.classList.add('has-output');
-      let outputEl = row.querySelector('.coordinator-agent-output');
-      if (!outputEl) {
-        outputEl = document.createElement('div');
-        outputEl.className = 'coordinator-agent-output';
-        row.appendChild(outputEl);
-      }
-      outputEl.textContent = text;
-      if (!row.dataset.hasClick) {
-        row.addEventListener('click', () => {
-          row.classList.toggle('expanded');
-        });
-        row.dataset.hasClick = '1';
-      }
-    }
-  }
+function renderSubagentDetailPanel() {
+  ensureSubagentPanelController()?.renderDetailPanel?.();
 }
 
-function updateCoordinatorStatus(agents) {
-  if (!coordinatorPanel || !coordinatorAgents) return;
-  if (!Array.isArray(agents) || agents.length === 0) {
-    closeCoordinatorPanel();
-    return;
-  }
+function syncSubagentDetailDockState() {
+  ensureSubagentPanelController()?.syncDockState?.();
+}
 
-  let maxElapsed = 0;
-  for (const agent of agents) {
-    const ms = Number(agent.elapsed_ms) || 0;
-    if (ms > maxElapsed) maxElapsed = ms;
-  }
+function renderCoordinatorPanelFromState() {
+  ensureSubagentPanelController()?.renderCoordinatorPanel?.();
+}
 
-  coordinatorAgents.innerHTML = '';
-  for (const agent of agents) {
-    coordinatorAgents.appendChild(renderCoordinatorAgent(agent, maxElapsed));
-  }
+function handleCoordinatorOutput(payload) {
+  ensureSubagentPanelController()?.applyCoordinatorPayload?.(payload, { markActive: true });
+}
 
-  if (!coordinatorVisible) {
-    coordinatorPanel.hidden = false;
-    coordinatorPanel.removeAttribute('aria-hidden');
-    coordinatorPanel.classList.remove('removing');
-    coordinatorVisible = true;
-  }
+function updateCoordinatorStatus(payload) {
+  ensureSubagentPanelController()?.applyCoordinatorPayload?.(payload, { markActive: true });
+}
+
+function hideCoordinatorPanel() {
+  ensureSubagentPanelController()?.hideCoordinatorPanel?.();
 }
 
 function closeCoordinatorPanel() {
-  if (!coordinatorPanel) return;
-  if (!coordinatorVisible) return;
-  agentOutputs = {};
-  coordinatorPanel.classList.add('removing');
-  const onEnd = () => {
-    coordinatorPanel.removeEventListener('transitionend', onEnd);
-    coordinatorPanel.hidden = true;
-    coordinatorPanel.setAttribute('aria-hidden', 'true');
-    coordinatorPanel.classList.remove('removing');
-    coordinatorVisible = false;
-    if (coordinatorAgents) coordinatorAgents.innerHTML = '';
-  };
-  coordinatorPanel.addEventListener('transitionend', onEnd);
-  setTimeout(() => {
-    if (!coordinatorVisible && coordinatorPanel.hidden) return;
-    coordinatorPanel.removeEventListener('transitionend', onEnd);
-    onEnd();
-  }, 400);
+  ensureSubagentPanelController()?.closeCoordinatorPanel?.();
 }
 
 function saveReconnectSession() {
@@ -1874,7 +2142,7 @@ async function initApp() {
   } catch (_) {}
 
   await loadSessions();
-  connect();
+  ensureSocketConnection();
 }
 
 function renderSelfTestReport(data) {

@@ -19,6 +19,7 @@
 #define MSG_SOURCE_CRON      "cron"
 #define MSG_SOURCE_HEARTBEAT "heartbeat"
 #define MSG_SOURCE_INTERNAL  "internal"
+#define MSG_SOURCE_DELEGATE  "delegate"
 
 /* 总线消息类型 */
 struct message {

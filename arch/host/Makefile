@@ -35,6 +35,9 @@ ifneq ($(BREW_CURL),)
     LDFLAGS += -L$(BREW_CURL)/lib
 endif
 
+AGENT_CFLAGS += $(EXTRA_AGENT_CFLAGS)
+LDFLAGS += $(EXTRA_LDFLAGS)
+
 obj-y := portability.o audio_io_stub.o vision_capture_stub.o voice_wake_stub.o
 obj-y += ws_server_host.o llm_http_client_host.o
 obj-y += llm_proxy_routing.o llm_proxy_request.o llm_proxy_host.o

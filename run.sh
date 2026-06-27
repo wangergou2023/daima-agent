@@ -46,10 +46,7 @@ if [[ "$FOREGROUND" -eq 1 ]]; then
   exec ./build-kbuild/agent "${AGENT_ARGS[@]}" 2>&1 | tee "$LOG_FILE"
 fi
 
-(
-  cd "$ROOT_DIR"
-  exec ./build-kbuild/agent "${AGENT_ARGS[@]}" >"$LOG_FILE" 2>&1
-) &
+nohup setsid "$ROOT_DIR/build-kbuild/agent" "${AGENT_ARGS[@]}" >"$LOG_FILE" 2>&1 < /dev/null &
 new_pid="$!"
 echo "$new_pid" > "$PID_FILE"
 

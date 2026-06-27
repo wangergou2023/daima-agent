@@ -34,6 +34,9 @@ static void memory_task(void *arg)
             else
                 strscpy(task.status, TASK_FAILED, sizeof(task.status));
             cJSON_Delete(root);
+            kfree(task.payload);
+            task.payload = NULL;
+            continue;
 
         } else if (strcmp(task.type, TASK_SAVE_SESSION) == 0) {
             cJSON *root = cJSON_Parse(task.payload ? task.payload : "{}");
@@ -53,6 +56,9 @@ static void memory_task(void *arg)
             }
             cJSON_Delete(root);
 
+            kfree(task.payload);
+            task.payload = NULL;
+            continue;
         }
 
         task.result = result;

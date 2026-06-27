@@ -374,7 +374,7 @@ subagent 不是固定主链阶段，而是执行阶段中的可选分支。
    - 通用上下文、会话、压缩、Web 端口、定时配置
 
 2. `web`
-   - Web 相关配置，如默认 pet package
+   - Web 相关配置，如默认 pet package，当前仓库默认值为 `kitty.codex-pet`
 
 3. `vector`
    - Vector 机器人能力开关
@@ -483,6 +483,7 @@ spiffs_data/
 - `skills/xlsx`
 - `skills/md-doc-writer`
 - `guga.codex-pet`
+- `kitty.codex-pet`
 - `luo-xiaohei.codex-pet`
 
 ## 10. 安装、部署与启动

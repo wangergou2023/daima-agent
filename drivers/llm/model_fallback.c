@@ -17,7 +17,8 @@
 #include <string.h>
 #include "linux/slab.h"
 #include "linux/kernel.h"
-static bool add_model(model_fallback_cfg_t *cfg, const char *model);
+static bool add_provider(model_fallback_cfg_t *cfg, const char *provider_name);
+static bool find_provider_by_model_name(const char *model_name, char *provider_name, size_t provider_name_size);
 
 /**
  * 安全字符串拷贝。确保目标缓冲区始终以 '\0' 结尾。
@@ -67,7 +68,7 @@ static char *read_file(const char *path)
 
 /**
  * 加载默认回退配置（无配置文件时）。
- * 仅使用当前生效的 provider 模型作为单一模型列表。
+ * 仅使用当前生效的 provider 作为单一回退链。
  *
  * @param cfg  输出配置
  */
@@ -75,47 +76,67 @@ static void load_default_cfg(model_fallback_cfg_t *cfg)
 {
 	memset(cfg, 0, sizeof(*cfg));
 
-	const char *active_model = runtime_config_get_provider_model();
-	if (!active_model || !active_model[0]) {
-		pr_warn("No active provider model configured, fallback disabled");
+	const char *active_provider = runtime_config_get_active_provider_name();
+	if (!active_provider || !active_provider[0]) {
+		pr_warn("No active provider configured, fallback disabled");
 		cfg->enabled = false;
 		return;
 	}
 
 	cfg->enabled = true;
-	safe_copy(cfg->models[0], sizeof(cfg->models[0]), active_model);
-	cfg->model_count = 1;
+	safe_copy(cfg->providers[0], sizeof(cfg->providers[0]), active_provider);
+	cfg->provider_count = 1;
 
-	pr_debug("Model fallback default: %s (from active provider)", active_model);
+	pr_debug("Model fallback default provider: %s", active_provider);
 }
 
 /**
- * 向配置中添加模型名称。自动去重。
+ * 向配置中添加 provider 名称。自动去重。
  *
  * @param cfg    配置指针
  * @param model  模型名称
  * @return       true 表示成功添加；false 表示已满或已存在
  */
-static bool add_model(model_fallback_cfg_t *cfg, const char *model)
+static bool add_provider(model_fallback_cfg_t *cfg, const char *provider_name)
 {
-	if (!cfg || !model || !model[0] || cfg->model_count >= FALLBACK_MAX_MODELS) {
+	if (!cfg || !provider_name || !provider_name[0] || cfg->provider_count >= FALLBACK_MAX_MODELS) {
 		return false;
 	}
-	/* 去重：已存在的模型不重复添加 */
-	for (int i = 0; i < cfg->model_count; i++) {
-		if (strcmp(cfg->models[i], model) == 0) {
+	for (int i = 0; i < cfg->provider_count; i++) {
+		if (strcmp(cfg->providers[i], provider_name) == 0) {
 			return false;
 		}
 	}
-	safe_copy(cfg->models[cfg->model_count], sizeof(cfg->models[cfg->model_count]), model);
-	cfg->model_count++;
+	safe_copy(cfg->providers[cfg->provider_count], sizeof(cfg->providers[cfg->provider_count]), provider_name);
+	cfg->provider_count++;
 	return true;
 }
 
+static bool find_provider_by_model_name(const char *model_name, char *provider_name, size_t provider_name_size)
+{
+	if (!model_name || !model_name[0] || !provider_name || provider_name_size == 0) {
+		return false;
+	}
+	for (int i = 0;; i++) {
+		const char *candidate = runtime_config_get_provider_name_at(i);
+		const char *candidate_model;
+		if (!candidate || !candidate[0]) {
+			break;
+		}
+		candidate_model = runtime_config_get_provider_model_for_name(candidate);
+		if (candidate_model && strcmp(candidate_model, model_name) == 0) {
+			safe_copy(provider_name, provider_name_size, candidate);
+			return true;
+		}
+	}
+	return false;
+}
+
 /**
- * 解析模型名称 JSON 数组。
- * 格式：["model_a", "model_b", "model_c"]
- * 首条为 primary，后续为 fallback。
+ * 解析 provider/model 名称 JSON 数组。
+ * 支持：
+ * - ["provider_a", "provider_b"]
+ * - ["model_a", "model_b"]，会映射回 provider
  *
  * @param cfg     输出配置（先清空）
  * @param models  cJSON 数组
@@ -132,10 +153,15 @@ static bool parse_models_array(model_fallback_cfg_t *cfg, cJSON *models)
 	cJSON *item = NULL;
 	cJSON_ArrayForEach(item, models) {
 		if (cJSON_IsString(item) && item->valuestring && item->valuestring[0]) {
-			add_model(cfg, item->valuestring);
+			char provider_name[64];
+			if (runtime_config_get_provider_model_for_name(item->valuestring)) {
+				add_provider(cfg, item->valuestring);
+			} else if (find_provider_by_model_name(item->valuestring, provider_name, sizeof(provider_name))) {
+				add_provider(cfg, provider_name);
+			}
 		}
 	}
-	return cfg->model_count > 0;
+	return cfg->provider_count > 0;
 }
 
 /**
@@ -174,33 +200,36 @@ static bool load_json_cfg(model_fallback_cfg_t *cfg, const char *json_text)
 	}
 
 	cJSON *enabled = cJSON_GetObjectItem(root, "enabled");
+	/* fallback_providers 优先，其次 fallback_models / models */
+	cJSON *providers = cJSON_GetObjectItem(root, "fallback_providers");
+	if (!providers) {
+		providers = cJSON_GetObjectItem(root, "providers");
+	}
+	bool ok = parse_models_array(cfg, providers);
 	/* fallback_models 优先，其次 models */
 	cJSON *models = cJSON_GetObjectItem(root, "fallback_models");
 	if (!models) {
 		models = cJSON_GetObjectItem(root, "models");
 	}
-
-	bool ok = parse_models_array(cfg, models);
+	if (!ok) {
+		ok = parse_models_array(cfg, models);
+	}
 	/* 方式 B：从 providers 段收集非 active_provider 的模型 */
 	if (!ok && root == json_root) {
 		cJSON *active_provider = cJSON_GetObjectItem(root, "active_provider");
-		cJSON *providers = cJSON_GetObjectItem(root, "providers");
+		cJSON *provider_map = cJSON_GetObjectItem(root, "providers");
 		if (cJSON_IsString(active_provider) && active_provider->valuestring &&
-		    cJSON_IsObject(providers)) {
+		    cJSON_IsObject(provider_map)) {
 			memset(cfg, 0, sizeof(*cfg));
 			cfg->enabled = true;
 			cJSON *provider = NULL;
-			/* 遍历 providers 对象的所有键，跳过 active_provider 自身 */
-			cJSON_ArrayForEach(provider, providers) {
+			cJSON_ArrayForEach(provider, provider_map) {
 				if (!provider->string || strcmp(provider->string, active_provider->valuestring) == 0) {
-					continue;  /* 跳过当前选中的 provider */
+					continue;
 				}
-				cJSON *model = cJSON_GetObjectItem(provider, "model");
-				if (cJSON_IsString(model) && model->valuestring && model->valuestring[0]) {
-					add_model(cfg, model->valuestring);
-				}
+				add_provider(cfg, provider->string);
 			}
-			ok = cfg->model_count > 0;
+			ok = cfg->provider_count > 0;
 		}
 	}
 	/* enabled 字段覆盖回退开关 */
@@ -301,8 +330,8 @@ model_fallback_cfg_t model_fallback_load_cfg(void)
  * 带模型回退的工具调用（公开接口）。
  *
  * 执行流程：
- * 1. 保存当前主模型名称
- * 2. 用主模型发起 llm_chat_tools
+ * 1. 保存当前主 provider/model
+ * 2. 用当前主 provider 发起请求
  * 3. 成功 → 恢复主模型名称，返回 0
  * 4. 失败 → 加载回退配置
  * 5. 依次尝试备用模型（跳过与主模型重复的条目）
@@ -318,50 +347,68 @@ model_fallback_cfg_t model_fallback_load_cfg(void)
  * @return               成功返回 0
  */
 err_t model_fallback_chat_with_fallback(const char *system_prompt,
-                                              cJSON *messages,
-                                              const char *tools_json,
-                                              llm_response_t *resp)
+                                        cJSON *messages,
+                                        const char *tools_json,
+                                        const char *model_override,
+                                        bool response_format_json_object,
+                                        llm_response_t *resp)
 {
 	if (!resp) {
 		return ERR_INVALID_ARG;
 	}
 
-	/* 保存主模型名称，确保函数返回前恢复 */
-	char primary_model[64];
-	safe_copy(primary_model, sizeof(primary_model), llm_get_model_name());
+	const char *primary_provider = runtime_config_get_active_provider_name();
+	const char *primary_model = (model_override && model_override[0]) ? model_override : llm_get_model_name();
+	char resolved_primary_provider[64] = {0};
+	const char *primary_provider_for_request = primary_provider;
+	if (model_override && model_override[0] &&
+	    find_provider_by_model_name(model_override, resolved_primary_provider, sizeof(resolved_primary_provider)) &&
+	    resolved_primary_provider[0]) {
+		primary_provider_for_request = resolved_primary_provider;
+	}
 
 	/* 首次尝试：主模型 */
-	err_t err = llm_chat_tools(system_prompt, messages, tools_json, resp);
+	err_t err = llm_chat_tools_with_provider_and_format(system_prompt,
+	                                                    messages,
+	                                                    tools_json,
+	                                                    primary_provider_for_request,
+	                                                    primary_model,
+	                                                    response_format_json_object,
+	                                                    resp);
 	if (err == 0) {
-		llm_set_model(primary_model);  /* 恢复（可能在内部被修改） */
 		return 0;
 	}
 
 	/* 加载回退配置 */
 	model_fallback_cfg_t cfg = model_fallback_load_cfg();
-	if (!cfg.enabled || cfg.model_count <= 0) {
-		llm_set_model(primary_model);
+	if (!cfg.enabled || cfg.provider_count <= 0) {
 		return err;
 	}
 
-	/* 依次尝试备用模型（跳过 primary 避免重复） */
+	/* 依次尝试备用 provider（跳过当前 provider 避免重复） */
 	err_t last_err = err;
-	for (int i = 0; i < cfg.model_count; i++) {
-		if (strcmp(cfg.models[i], primary_model) == 0) {
-			continue;  /* 跳过主模型（已尝试失败） */
+	for (int i = 0; i < cfg.provider_count; i++) {
+		const char *provider_name = cfg.providers[i];
+		if (!provider_name[0]) {
+			continue;
 		}
-
-		/* 切换到备用模型重试 */
-		llm_set_model(cfg.models[i]);
-		last_err = llm_chat_tools(system_prompt, messages, tools_json, resp);
+		if (primary_provider_for_request && primary_provider_for_request[0] &&
+		    strcmp(provider_name, primary_provider_for_request) == 0) {
+			continue;
+		}
+		last_err = llm_chat_tools_with_provider_and_format(system_prompt,
+		                                                   messages,
+		                                                   tools_json,
+		                                                   provider_name,
+		                                                   NULL,
+		                                                   response_format_json_object,
+		                                                   resp);
 		if (last_err == 0) {
-			pr_info("Model fallback: primary失败 -> %s", cfg.models[i]);
-			llm_set_model(primary_model);  /* 恢复主模型 */
+			pr_info("Model fallback: primary失败 -> provider %s", provider_name);
 			return 0;
 		}
 	}
 
-	/* 全部失败：恢复主模型，返回最后一个错误 */
-	llm_set_model(primary_model);
+	/* 全部失败：返回最后一个错误 */
 	return last_err;
 }

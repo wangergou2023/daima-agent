@@ -7,5 +7,11 @@
 #include "bus.h"
 #include "err.h"
 
+typedef err_t (*channel_runtime_sender_fn_t)(const char *channel,
+                                             const char *chat_id,
+                                             const char *text,
+                                             const char *reasoning);
+
 /* 将出站消息分发到对应通道（飞书/WebSocket/system 等） */
 err_t channel_runtime_dispatch_outbound(const struct message *msg);
+void channel_runtime_set_sender_override_for_test(channel_runtime_sender_fn_t sender);

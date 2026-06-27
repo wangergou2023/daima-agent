@@ -1,6 +1,7 @@
 {
     "common": {
         "timezone": "UTC",
+        "terminal_security_level": "plan",
         "context_limit_tokens": 0,
         "session_max_msgs": 96,
         "compress_trigger_msgs": 12,
@@ -10,7 +11,7 @@
         "heartbeat_interval_ms": 1800000
     },
     "web": {
-        "default_pet_package_id": ""
+        "default_pet_package_id": "kitty.codex-pet"
     },
     "vector": {
         "enabled": false
@@ -21,9 +22,9 @@
             "quick": "your_quick_provider"
         },
         "role_model_map": {
-            "FAST":         "quick",
-            "ORACLE":       "deep",
-            "IMPLEMENT":    "deep"
+            "FAST": "quick",
+            "ORACLE": "deep",
+            "IMPLEMENT": "deep"
         }
     },
     "active_provider": "your_provider_name",

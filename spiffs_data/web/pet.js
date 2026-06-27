@@ -1,5 +1,5 @@
 (function (global) {
-  const DEFAULT_PACKAGE_ID = 'guga.codex-pet';
+  const DEFAULT_PACKAGE_ID = 'kitty.codex-pet';
   const DEFAULT_FRAME_WIDTH = 192;
   const DEFAULT_FRAME_HEIGHT = 208;
   const DEFAULT_SPRITE_COLUMNS = 8;

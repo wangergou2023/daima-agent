@@ -8,6 +8,7 @@
 #include "compaction.h"
 #include "paths.h"
 #include "recovery.h"
+#include "delegate/delegate_turn_directive.h"
 #include "todo.h"
 #include "turn_common.h"
 #include "turn_dispatch.h"
@@ -102,6 +103,7 @@ void agent_turn_run_post_actions(struct message *msg,
 		session_recovery_clear(msg->chat_id);
 	}
 	if (turn_err == 0 && msg && msg->chat_id[0]) {
+		delegate_turn_directive_clear(msg->chat_id);
 		dispatch_compress_context(msg->chat_id);
 	}
 

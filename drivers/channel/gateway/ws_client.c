@@ -18,6 +18,8 @@
 #include "paths.h"
 #include "bus.h"
 #include "drivers/channel/gateway/ws_server.h"
+#include "delegate/delegate_parent_wake.h"
+#include "delegate/delegate_turn_directive.h"
 #include "drivers/pet/pet_event.h"
 #include "autoconf.h"
 #include "linux/list.h"
@@ -37,7 +39,7 @@
 typedef struct {
     struct list_head list;
     int fd;
-    char chat_id[32];
+    char chat_id[WS_CLIENT_CHAT_ID_LEN];
     bool upload_pending;
     char upload_chat_id[64];
     char upload_filename[128];
@@ -48,6 +50,7 @@ typedef struct {
     time_t last_ping;
     time_t last_pong;
     bool awaiting_pong;
+    pthread_mutex_t write_mutex;
 } ws_client_t;
 
 static ws_client_t s_clients[WS_MAX_CLIENTS];
@@ -126,9 +129,44 @@ static int ws_send_text(int fd, const char *text)
         hlen = 10;
     }
 
-    if (send(fd, header, hlen, 0) != (ssize_t)hlen) return -1;
-    if (send(fd, text, len, 0) != (ssize_t)len) return -1;
+    if (send_all(fd, header, hlen) != 0) return -1;
+    if (send_all(fd, text, len) != 0) return -1;
     return 0;
+}
+
+static int ws_send_text_for_client(ws_client_t *client, const char *text)
+{
+    int ret;
+    int fd;
+
+    if (!client || !text) {
+        return -1;
+    }
+
+    pthread_mutex_lock(&client->write_mutex);
+    fd = client->fd;
+    ret = (fd >= 0) ? ws_send_text(fd, text) : -1;
+    pthread_mutex_unlock(&client->write_mutex);
+    return ret;
+}
+
+static int ws_send_control_for_client(ws_client_t *client,
+                                      unsigned char opcode,
+                                      const void *payload,
+                                      size_t len)
+{
+    int ret;
+    int fd;
+
+    if (!client) {
+        return -1;
+    }
+
+    pthread_mutex_lock(&client->write_mutex);
+    fd = client->fd;
+    ret = (fd >= 0) ? ws_send_control(fd, opcode, payload, len) : -1;
+    pthread_mutex_unlock(&client->write_mutex);
+    return ret;
 }
 
 static void ws_send_json_text(int fd, cJSON *obj)
@@ -352,16 +390,26 @@ static void clear_upload_state(ws_client_t *client)
 
 static void remove_client(int fd)
 {
+    int close_fd = -1;
+    char chat_id[WS_CLIENT_CHAT_ID_LEN] = {0};
+
     pthread_mutex_lock(&s_clients_mutex);
     ws_client_t *client = find_client_by_fd(fd);
     if (client) {
-        pr_info("Client disconnected: %s", client->chat_id);
+        strscpy(chat_id, client->chat_id, sizeof(chat_id));
+        pthread_mutex_lock(&client->write_mutex);
         ws_client_detach(client);
-        close(client->fd);
+        close_fd = client->fd;
         client->fd = -1;
         clear_upload_state(client);
+        pthread_mutex_unlock(&client->write_mutex);
     }
     pthread_mutex_unlock(&s_clients_mutex);
+
+    if (close_fd >= 0) {
+        pr_info("Client disconnected: %s", chat_id);
+        close(close_fd);
+    }
 }
 
 static void client_touch(int fd, time_t now, bool pong)
@@ -429,18 +477,16 @@ static err_t ws_client_session_send_json_with_mode(const char *chat_id, cJSON *o
         }
         return ERR_NOT_FOUND;
     }
-    int fd = client->fd;
-    pthread_mutex_unlock(&s_clients_mutex);
-
     char *json_str = cJSON_PrintUnformatted(obj);
+    pthread_mutex_unlock(&s_clients_mutex);
     if (!json_str) {
         return ERR_NO_MEM;
     }
-    int ret = ws_send_text(fd, json_str);
+    int ret = ws_send_text_for_client(client, json_str);
     kfree(json_str);
     if (ret != 0) {
         pr_warn("Failed to send JSON to %s", chat_id);
-        remove_client(fd);
+        remove_client(client->fd);
         return ERR_FAIL;
     }
     return 0;
@@ -525,6 +571,17 @@ bool ws_client_session_add(int fd)
     pthread_mutex_unlock(&s_clients_mutex);
     pr_warn("Max clients reached, rejecting fd=%d", fd);
     return false;
+}
+
+bool ws_client_chat_id_roundtrip_for_test(const char *chat_id)
+{
+    if (!chat_id || !chat_id[0]) {
+        return false;
+    }
+
+    ws_client_t client = {0};
+    strscpy(client.chat_id, chat_id, sizeof(client.chat_id));
+    return strcmp(client.chat_id, chat_id) == 0;
 }
 static bool ws_read_frame_header(int fd, unsigned char *out_opcode, uint64_t *out_len, bool *out_masked, unsigned char *out_mask)
 {
@@ -661,6 +718,7 @@ static void ws_handle_chat_message(int fd, ws_client_t *client, cJSON *root)
     bool valid_image_path = is_allowed_uploaded_image_path(image_path_value);
     pr_info("WS message from %s: %.40s... image=%s", chat_id, content->valuestring, valid_image_path ? "yes" : "no");
     agent_cancel_request(chat_id, "new_web_message");
+    delegate_parent_wake_record_parent_activity(chat_id);
 
     struct message msg = {0};
     strncpy(msg.channel, CHAN_WEBSOCKET, sizeof(msg.channel) - 1);
@@ -690,7 +748,11 @@ static void ws_handle_stop(int fd, ws_client_t *client, cJSON *root)
         cJSON_AddStringToObject(resp, "chat_id", chat_id);
         char *text = cJSON_PrintUnformatted(resp);
         if (text) {
-            ws_send_text(fd, text);
+            if (client) {
+                ws_send_text_for_client(client, text);
+            } else {
+                ws_send_text(fd, text);
+            }
             kfree(text);
         }
         cJSON_Delete(resp);
@@ -734,23 +796,45 @@ static void ws_handle_pet_action(int fd, ws_client_t *client, cJSON *root)
     }
 }
 
-static void ws_handle_sudo_password(int fd, ws_client_t *client, cJSON *root)
+static void ws_handle_interactive_reply(int fd, ws_client_t *client, cJSON *root)
 {
-    const char *chat_id = client ? client->chat_id : "ws_unknown";
+    const char *chat_id = resolve_client_chat_id(client, root, fd);
     cJSON *cid = cJSON_GetObjectItem(root, "chat_id");
+    cJSON *session_id = cJSON_GetObjectItem(root, "session_id");
+    cJSON *request_type = cJSON_GetObjectItem(root, "request_type");
     cJSON *req = cJSON_GetObjectItem(root, "request_id");
-    cJSON *pwd = cJSON_GetObjectItem(root, "password");
+    cJSON *value = cJSON_GetObjectItem(root, "value");
     cJSON *cancelled = cJSON_GetObjectItem(root, "cancelled");
+    cJSON *delegate_directive = cJSON_GetObjectItem(root, "delegate_directive");
+    if (session_id && cJSON_IsString(session_id) && session_id->valuestring[0]) {
+        chat_id = session_id->valuestring;
+    } else
     if (cid && cJSON_IsString(cid) && cid->valuestring[0]) {
         chat_id = cid->valuestring;
     }
-    if (req && cJSON_IsString(req) && pwd && cJSON_IsString(pwd)) {
-        size_t need = strlen("__sudo_password__::") + strlen(req->valuestring) + strlen(pwd->valuestring) + 8;
+    if (request_type && cJSON_IsString(request_type) && req && cJSON_IsString(req) &&
+        value && cJSON_IsString(value)) {
+        if (delegate_directive && cJSON_IsObject(delegate_directive) && chat_id && chat_id[0]) {
+            char *directive_json = cJSON_PrintUnformatted(delegate_directive);
+            if (directive_json) {
+                if (delegate_turn_directive_store(chat_id, directive_json)) {
+                    pr_info("WS interactive reply stored delegate directive for chat=%s", chat_id);
+                } else {
+                    pr_warn("WS interactive reply failed to store delegate directive for chat=%s", chat_id);
+                }
+                kfree(directive_json);
+            }
+        }
+        size_t need = strlen("__interactive_reply__:::") +
+                      strlen(request_type->valuestring) +
+                      strlen(req->valuestring) +
+                      strlen(value->valuestring) + 8;
         char *payload2 = kzalloc(need, GFP_KERNEL);
         if (payload2) {
-            snprintf(payload2, need, "__sudo_password__:%s:%s:%d",
+            snprintf(payload2, need, "__interactive_reply__:%s:%s:%s:%d",
+                     request_type->valuestring,
                      req->valuestring,
-                     pwd->valuestring,
+                     value->valuestring,
                      (cancelled && cJSON_IsTrue(cancelled)) ? 1 : 0);
             struct message msg = {0};
             strncpy(msg.channel, CHAN_WEBSOCKET, sizeof(msg.channel) - 1);
@@ -760,6 +844,25 @@ static void ws_handle_sudo_password(int fd, ws_client_t *client, cJSON *root)
             message_bus_push_inbound(&msg);
         }
     }
+}
+
+static void ws_handle_sudo_password(int fd, ws_client_t *client, cJSON *root)
+{
+    if (!root) {
+        return;
+    }
+    if (!cJSON_GetObjectItem(root, "request_type")) {
+        cJSON_AddStringToObject(root, "request_type", "sudo_password");
+    }
+    if (!cJSON_GetObjectItem(root, "value")) {
+        cJSON *pwd = cJSON_GetObjectItem(root, "password");
+        if (pwd && cJSON_IsString(pwd)) {
+            cJSON_AddStringToObject(root, "value", pwd->valuestring);
+        } else {
+            cJSON_AddStringToObject(root, "value", "");
+        }
+    }
+    ws_handle_interactive_reply(fd, client, root);
 }
 
 static void ws_dispatch_text_frame(int fd, ws_client_t *client, const char *payload, time_t now)
@@ -780,7 +883,11 @@ static void ws_dispatch_text_frame(int fd, ws_client_t *client, const char *payl
     const char *type_str = type->valuestring;
 
     if (strcmp(type_str, "ping") == 0) {
-        ws_send_text(fd, "{\"type\":\"pong\"}");
+        if (client) {
+            ws_send_text_for_client(client, "{\"type\":\"pong\"}");
+        } else {
+            ws_send_text(fd, "{\"type\":\"pong\"}");
+        }
     } else if (strcmp(type_str, "upload_image") == 0) {
         ws_handle_upload_request(fd, client, root);
     } else if (strcmp(type_str, "message") == 0) {
@@ -789,11 +896,18 @@ static void ws_dispatch_text_frame(int fd, ws_client_t *client, const char *payl
         ws_handle_stop(fd, client, root);
     } else if (strcmp(type_str, PET_WS_TYPE_ACTION) == 0) {
         ws_handle_pet_action(fd, client, root);
+    } else if (strcmp(type_str, "interactive_reply") == 0) {
+        ws_handle_interactive_reply(fd, client, root);
     } else if (strcmp(type_str, "sudo_password") == 0) {
         ws_handle_sudo_password(fd, client, root);
     }
 
     cJSON_Delete(root);
+}
+
+void ws_client_dispatch_text_frame_for_test(int fd, void *client, const char *payload, time_t now)
+{
+    ws_dispatch_text_frame(fd, (ws_client_t *)client, payload, now);
 }
 
 static void handle_message(int fd)
@@ -843,6 +957,7 @@ void ws_client_session_init(void)
     for (int i = 0; i < WS_MAX_CLIENTS; i++) {
         INIT_LIST_HEAD(&s_clients[i].list);
         s_clients[i].fd = -1;
+        pthread_mutex_init(&s_clients[i].write_mutex, NULL);
     }
     pthread_mutex_lock(&s_pending_mutex);
     s_pending_response[0] = '\0';
@@ -904,7 +1019,10 @@ void ws_client_session_keepalive_tick(void)
     pthread_mutex_unlock(&s_clients_mutex);
 
     for (int i = 0; i < ping_count; i++) {
-        if (ws_send_ping(ping_fds[i]) != 0) {
+        ws_client_t *client = find_client_by_fd(ping_fds[i]);
+        int ret = client ? ws_send_control_for_client(client, 0x9, NULL, 0)
+                         : ws_send_ping(ping_fds[i]);
+        if (ret != 0) {
             remove_client(ping_fds[i]);
         }
     }

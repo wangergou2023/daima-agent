@@ -391,7 +391,7 @@ Agent 决策发生在：
 相关文件：
 
 - `drivers/tool/tool_delegate.c`
-- `kernel/tooling/delegate_task_store.c`
+- `kernel/tooling/delegate/delegate_task_store.c`
 - `kernel/sched/core.c`
 - `kernel/sched/sched.h`
 

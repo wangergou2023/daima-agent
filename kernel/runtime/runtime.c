@@ -12,10 +12,11 @@
 #include "linux/kernel.h"
 
 runtime_config_state_t s_cfg;
+static bool s_runtime_self_test_mode = false;
 
 static const char *DEFAULT_TIMEZONE = "CST-8";
 static const char *DEFAULT_LLM_MODEL = "kimi-k2.5";
-static const char *DEFAULT_WEB_PET_PACKAGE_ID = "guga.codex-pet";
+static const char *DEFAULT_WEB_PET_PACKAGE_ID = "kitty.codex-pet";
 static const char *DEFAULT_TERMINAL_SECURITY_LEVEL = "build";
 
 enum {
@@ -59,6 +60,16 @@ const char *runtime_config_default_terminal_security_level(void)
 int runtime_config_default_request_timeout_ms(void)
 {
     return DEFAULT_LLM_REQUEST_TIMEOUT_MS;
+}
+
+void runtime_set_self_test_mode(bool enabled)
+{
+    s_runtime_self_test_mode = enabled;
+}
+
+bool runtime_is_self_test_mode(void)
+{
+    return s_runtime_self_test_mode;
 }
 
 void runtime_config_reset_defaults(runtime_config_state_t *cfg)

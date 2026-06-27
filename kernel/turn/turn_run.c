@@ -4,6 +4,7 @@
 
 #include "turn_run.h"
 #include "turn_exec.h"
+#include "turn_common.h"
 #include "cancel.h"
 #include "recovery.h"
 
@@ -13,6 +14,8 @@
 
 #include "drivers/llm/llm_proxy.h"
 #include "drivers/llm/model_fallback.h"
+#include "drivers/tool/tool_delegate.h"
+#include "drivers/tool/tool_delegate_protocol.h"
 #include "autoconf.h"
 #include "linux/compiler.h"
 #include "linux/kernel.h"
@@ -74,6 +77,28 @@ static void sanitize_dsml_reply_text(char **io_text)
     }
 }
 
+static bool is_delegate_no_tools_turn(const struct message *msg, const char *tools_json)
+{
+    return msg &&
+           strcmp(agent_msg_source_or_default(msg), MSG_SOURCE_DELEGATE) == 0 &&
+           (!tools_json || !tools_json[0]);
+}
+
+static bool delegate_no_tools_reply_needs_forced_retry(const char *text)
+{
+    if (!text || !text[0]) {
+        return false;
+    }
+    if (tool_delegate_text_has_dsml_markup(text) ||
+        tool_delegate_text_has_transcript_markup_public(text)) {
+        return true;
+    }
+    return strstr(text, "\"tool\"") != NULL ||
+           strstr(text, "\"arguments\"") != NULL ||
+           strstr(text, "delegate_task") != NULL ||
+           strstr(text, "```json") != NULL;
+}
+
 /** 检查取消令牌并标记取消状态。返回 true 表示已被取消。
  *  @param stage  描述当前阶段的字符串，用于日志 */
 static bool mark_cancelled_if_needed(const struct message *msg,
@@ -96,31 +121,37 @@ static err_t cancellable_llm_chat_tools(const struct message *msg,
                                                cJSON *messages,
                                                const char *tools_json,
                                                const char *model_override,
+                                               bool response_format_json_object,
                                                llm_response_t *resp)
 {
     agent_cancel_enter_current_turn(msg->chat_id, cancel_token);
-    err_t err = llm_chat_tools_with_model(system_prompt, messages, tools_json, model_override, resp);
+    err_t err = llm_chat_tools_with_model_and_format(system_prompt,
+                                                     messages,
+                                                     tools_json,
+                                                     model_override,
+                                                     response_format_json_object,
+                                                     resp);
     agent_cancel_leave_current_turn();
     return err;
 }
 
 /** 可取消版模型回退调用：临时设置覆盖模型，调用后恢复原模型。 */
 static err_t cancellable_model_fallback_chat_tools(const struct message *msg,
-                                                         uint64_t cancel_token,
-                                                         const char *system_prompt,
-                                                         cJSON *messages,
-                                                         const char *tools_json,
-                                                         const char *model_override,
-                                                         llm_response_t *resp)
+                                                   uint64_t cancel_token,
+                                                   const char *system_prompt,
+                                                   cJSON *messages,
+                                                   const char *tools_json,
+                                                   const char *model_override,
+                                                   bool response_format_json_object,
+                                                   llm_response_t *resp)
 {
     agent_cancel_enter_current_turn(msg->chat_id, cancel_token);
-    char previous_model[64];
-    strscpy(previous_model, llm_get_model_name(), sizeof(previous_model));
-    if (model_override && model_override[0]) {
-        llm_set_model(model_override);
-    }
-    err_t err = model_fallback_chat_with_fallback(system_prompt, messages, tools_json, resp);
-    llm_set_model(previous_model);
+    err_t err = model_fallback_chat_with_fallback(system_prompt,
+                                                  messages,
+                                                  tools_json,
+                                                  model_override,
+                                                  response_format_json_object,
+                                                  resp);
     agent_cancel_leave_current_turn();
     return err;
 }
@@ -129,12 +160,13 @@ static err_t cancellable_model_fallback_chat_tools(const struct message *msg,
 static cJSON *cancellable_build_tool_results(const struct message *msg,
                                              uint64_t cancel_token,
                                              const llm_response_t *resp,
+                                             const char *tools_json,
                                              char *tool_output,
                                              size_t tool_output_size,
                                              turn_exec_stats_t *stats)
 {
     agent_cancel_enter_current_turn(msg->chat_id, cancel_token);
-    cJSON *tool_results = agent_turn_build_tool_results(resp, msg, tool_output, tool_output_size, stats);
+    cJSON *tool_results = agent_turn_build_tool_results(resp, msg, tools_json, tool_output, tool_output_size, stats);
     agent_cancel_leave_current_turn();
     return tool_results;
 }
@@ -152,12 +184,13 @@ static cJSON *cancellable_build_tool_results(const struct message *msg,
 err_t agent_turn_run(
     const char *system_prompt,
     cJSON *messages,
-    const char *tools_json,
-    const struct message *msg,
-    const char *model_override,
-    int max_tool_iterations,
-    uint64_t cancel_token,
-    char **out_final_text,
+	const char *tools_json,
+	const struct message *msg,
+	const char *model_override,
+	bool response_format_json_object,
+	int max_tool_iterations,
+	uint64_t cancel_token,
+	char **out_final_text,
     char **out_reasoning_text,
     int *out_iteration,
     bool *out_tool_budget_exhausted,
@@ -199,9 +232,23 @@ err_t agent_turn_run(
         memset(&resp, 0, sizeof(resp));
         /* 根据配置选择直连 LLM 或走模型回退路径 */
         if (IS_ENABLED(CONFIG_MODEL_FALLBACK_ENABLED)) {
-            err = cancellable_model_fallback_chat_tools(msg, cancel_token, system_prompt, messages, tools_json, model_override, &resp);
+            err = cancellable_model_fallback_chat_tools(msg,
+                                                        cancel_token,
+                                                        system_prompt,
+                                                        messages,
+                                                        tools_json,
+                                                        model_override,
+                                                        response_format_json_object,
+                                                        &resp);
         } else {
-            err = cancellable_llm_chat_tools(msg, cancel_token, system_prompt, messages, tools_json, model_override, &resp);
+            err = cancellable_llm_chat_tools(msg,
+                                             cancel_token,
+                                             system_prompt,
+                                             messages,
+                                             tools_json,
+                                             model_override,
+                                             response_format_json_object,
+                                             &resp);
         }
 
         if (unlikely(err != 0)) {
@@ -235,6 +282,33 @@ err_t agent_turn_run(
             if (!final_text && final_reasoning_text) {
                 final_text = strdup(final_reasoning_text);
             }
+
+            if (final_text && is_delegate_no_tools_turn(msg, tools_json)) {
+                char cleaned[2048];
+                tool_delegate_sanitize_summary_text_copy(cleaned, sizeof(cleaned), final_text);
+                if (cleaned[0] && !delegate_no_tools_reply_needs_forced_retry(cleaned)) {
+                    kfree(final_text);
+                    final_text = strdup(cleaned);
+                } else if (delegate_no_tools_reply_needs_forced_retry(final_text)) {
+                    pr_warn("Delegate no-tools turn produced pseudo-tool output, forcing final retry: chat=%s",
+                            msg->chat_id);
+                    kfree(final_text);
+                    final_text = agent_turn_generate_forced_final_response(
+                        system_prompt,
+                        messages,
+                        "不要输出工具调用 JSON、代码块、DSML 或内部协议。请直接基于已有子任务结果给出合并总结。",
+                        response_format_json_object);
+                    sanitize_dsml_reply_text(&final_text);
+                    if (final_text) {
+                        tool_delegate_sanitize_summary_text_copy(cleaned, sizeof(cleaned), final_text);
+                        if (cleaned[0]) {
+                            kfree(final_text);
+                            final_text = strdup(cleaned);
+                        }
+                    }
+                }
+            }
+
             llm_response_free(&resp);
             err = 0;
             break;
@@ -250,7 +324,7 @@ err_t agent_turn_run(
 
         /* 将工具执行结果以 user 角色追加进历史，LLM 可据此决定下一步 */
         cJSON *tool_results = cancellable_build_tool_results(
-            msg, cancel_token, &resp, tool_output, TOOL_OUTPUT_SIZE, &stats);
+            msg, cancel_token, &resp, tools_json, tool_output, TOOL_OUTPUT_SIZE, &stats);
         cJSON *result_msg = cJSON_CreateObject();
         cJSON_AddStringToObject(result_msg, "role", "user");
         cJSON_AddItemToObject(result_msg, "content", tool_results);
@@ -271,13 +345,22 @@ err_t agent_turn_run(
             break;
         }
 
+        if (stats.sync_delegate_completed) {
+            final_text = strdup(stats.sync_delegate_reply[0]
+                                    ? stats.sync_delegate_reply
+                                    : "子任务已完成。");
+            err = 0;
+            break;
+        }
+
         /* 检测不可恢复的工具协议错误（如模型幻觉出不存在的工具名） */
         if (stats.unrecoverable_tool_protocol_error) {
             pr_warn("Unrecoverable tool protocol error for chat %s: %s", msg->chat_id, stats.tool_protocol_error_reason);
             final_text = agent_turn_generate_forced_final_response(
                 system_prompt,
                 messages,
-                "工具调用协议出现不可恢复错误。");
+                "工具调用协议出现不可恢复错误。",
+                response_format_json_object);
             err = 0;
             break;
         }
@@ -290,7 +373,8 @@ err_t agent_turn_run(
         final_text = agent_turn_generate_forced_final_response(
             system_prompt,
             messages,
-            "工具调用轮次已达上限。");
+            "工具调用轮次已达上限。",
+            response_format_json_object);
         err = 0;
     }
 

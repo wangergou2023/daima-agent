@@ -318,9 +318,23 @@ err_t ws_server_send_tool_event(const char *chat_id, const char *text)
 
 err_t ws_server_send_subagent_event(const char *chat_id,
                                     const char *event_type,
+                                    const char *task_id,
+                                    const char *session_id,
+                                    const char *coordinator_id,
+                                    unsigned long visible_revision,
                                     const char *subagent_type,
+                                    const char *status,
                                     const char *task,
-                                    const char *detail)
+                                    const char *detail,
+                                    const char *output,
+                                    const char *visible_output,
+                                    const char *target_files,
+                                    const char *scope_path,
+                                    const char *scope_kind,
+                                    const char *analysis_focus,
+                                    const char *blocker_kind,
+                                    const char *blocker_text,
+                                    const char *blocker_scope)
 {
     cJSON *resp = cJSON_CreateObject();
     if (!resp) {
@@ -328,9 +342,41 @@ err_t ws_server_send_subagent_event(const char *chat_id,
     }
     cJSON_AddStringToObject(resp, "type", event_type ? event_type : "subagent_progress");
     cJSON_AddStringToObject(resp, "chat_id", chat_id ? chat_id : "");
+    cJSON_AddStringToObject(resp, "task_id", task_id ? task_id : "");
+    cJSON_AddStringToObject(resp, "session_id", session_id ? session_id : "");
+    cJSON_AddStringToObject(resp, "coordinator_id", coordinator_id ? coordinator_id : "");
+    cJSON_AddNumberToObject(resp, "visible_revision", (double)visible_revision);
     cJSON_AddStringToObject(resp, "subagent_type", subagent_type ? subagent_type : "");
+    cJSON_AddStringToObject(resp, "status", status ? status : "");
     cJSON_AddStringToObject(resp, "task", task ? task : "");
     cJSON_AddStringToObject(resp, "detail", detail ? detail : "");
+    if (output && output[0]) {
+        cJSON_AddStringToObject(resp, "output", output);
+    }
+    if (visible_output && visible_output[0]) {
+        cJSON_AddStringToObject(resp, "visible_output", visible_output);
+    }
+    if (target_files && target_files[0]) {
+        cJSON_AddStringToObject(resp, "target_files", target_files);
+    }
+    if (scope_path && scope_path[0]) {
+        cJSON_AddStringToObject(resp, "scope_path", scope_path);
+    }
+    if (scope_kind && scope_kind[0]) {
+        cJSON_AddStringToObject(resp, "scope_kind", scope_kind);
+    }
+    if (analysis_focus && analysis_focus[0]) {
+        cJSON_AddStringToObject(resp, "analysis_focus", analysis_focus);
+    }
+    if (blocker_kind && blocker_kind[0]) {
+        cJSON_AddStringToObject(resp, "blocker_kind", blocker_kind);
+    }
+    if (blocker_text && blocker_text[0]) {
+        cJSON_AddStringToObject(resp, "blocker_text", blocker_text);
+    }
+    if (blocker_scope && blocker_scope[0]) {
+        cJSON_AddStringToObject(resp, "blocker_scope", blocker_scope);
+    }
     err_t err = ws_client_session_send_json_quiet(chat_id, resp);
     cJSON_Delete(resp);
     return err;
@@ -338,31 +384,31 @@ err_t ws_server_send_subagent_event(const char *chat_id,
 
 static err_t ws_server_send_coordinator_message(const char *chat_id,
                                                 const char *type,
-                                                const char *json_agents)
+                                                const char *json_payload)
 {
     cJSON *resp = cJSON_CreateObject();
-    cJSON *agents = cJSON_Parse(json_agents ? json_agents : "[]");
-    if (!resp || !agents || !cJSON_IsArray(agents)) {
+    cJSON *payload = cJSON_Parse(json_payload ? json_payload : "{}");
+    if (!resp || !payload || !cJSON_IsObject(payload)) {
         cJSON_Delete(resp);
-        cJSON_Delete(agents);
+        cJSON_Delete(payload);
         return ERR_INVALID_ARG;
     }
     cJSON_AddStringToObject(resp, "type", type);
     cJSON_AddStringToObject(resp, "chat_id", chat_id ? chat_id : "");
-    cJSON_AddItemToObject(resp, "agents", agents);
+    cJSON_AddItemToObject(resp, "coordinator", payload);
     err_t err = ws_client_session_send_json_quiet(chat_id, resp);
     cJSON_Delete(resp);
     return err;
 }
 
-err_t ws_server_send_coordinator_status(const char *chat_id, const char *json_agents)
+err_t ws_server_send_coordinator_status(const char *chat_id, const char *json_payload)
 {
-    return ws_server_send_coordinator_message(chat_id, "coordinator_status", json_agents);
+    return ws_server_send_coordinator_message(chat_id, "coordinator_status", json_payload);
 }
 
-err_t ws_server_send_coordinator_output(const char *chat_id, const char *json_agents)
+err_t ws_server_send_coordinator_output(const char *chat_id, const char *json_payload)
 {
-    return ws_server_send_coordinator_message(chat_id, "coordinator_output", json_agents);
+    return ws_server_send_coordinator_message(chat_id, "coordinator_output", json_payload);
 }
 
 err_t ws_server_send_coordinator_done(const char *chat_id, const char *json_payload)
@@ -377,6 +423,23 @@ err_t ws_server_send_coordinator_done(const char *chat_id, const char *json_payl
     cJSON_AddStringToObject(resp, "type", "coordinator_done");
     cJSON_AddStringToObject(resp, "chat_id", chat_id ? chat_id : "");
     cJSON_AddItemToObject(resp, "coordinator", payload);
+    err_t err = ws_client_session_send_json_quiet(chat_id, resp);
+    cJSON_Delete(resp);
+    return err;
+}
+
+err_t ws_server_send_subagent_session(const char *chat_id, const char *json_payload)
+{
+    cJSON *resp = cJSON_CreateObject();
+    cJSON *payload = cJSON_Parse(json_payload ? json_payload : "{}");
+    if (!resp || !payload || !cJSON_IsObject(payload)) {
+        cJSON_Delete(resp);
+        cJSON_Delete(payload);
+        return ERR_INVALID_ARG;
+    }
+    cJSON_AddStringToObject(resp, "type", "subagent_session");
+    cJSON_AddStringToObject(resp, "chat_id", chat_id ? chat_id : "");
+    cJSON_AddItemToObject(resp, "session", payload);
     err_t err = ws_client_session_send_json_quiet(chat_id, resp);
     cJSON_Delete(resp);
     return err;
@@ -402,9 +465,56 @@ err_t ws_server_send_pet_response(const char *pet_chat_id, const char *text)
     return err;
 }
 
-/* 向 Web 客户端发送 sudo 密码请求（type="sudo_request"）。 */
-err_t ws_server_send_sudo_request(const char *chat_id, const char *request_id, const char *prompt_text)
+err_t ws_server_send_interactive_request(const char *chat_id,
+                                         const char *request_type,
+                                         const char *request_id,
+                                         const char *prompt_text,
+                                         const char *task_id,
+                                         const char *session_id,
+                                         const char *coordinator_id)
 {
+    cJSON *resp = cJSON_CreateObject();
+    if (!resp) {
+        return ERR_NO_MEM;
+    }
+    cJSON_AddStringToObject(resp, "type", "interactive_request");
+    cJSON_AddStringToObject(resp, "chat_id", chat_id ? chat_id : "");
+    cJSON_AddStringToObject(resp, "request_type", request_type ? request_type : "");
+    cJSON_AddStringToObject(resp, "request_id", request_id ? request_id : "");
+    cJSON_AddStringToObject(resp, "prompt", prompt_text ? prompt_text : "");
+    if (task_id && task_id[0]) {
+        cJSON_AddStringToObject(resp, "task_id", task_id);
+    }
+    if (session_id && session_id[0]) {
+        cJSON_AddStringToObject(resp, "session_id", session_id);
+    }
+    if (coordinator_id && coordinator_id[0]) {
+        cJSON_AddStringToObject(resp, "coordinator_id", coordinator_id);
+    }
+    err_t err = ws_client_session_send_json(chat_id, resp);
+    cJSON_Delete(resp);
+    return err;
+}
+
+/* 向 Web 客户端发送 sudo 密码请求（兼容旧 type="sudo_request"）。 */
+err_t ws_server_send_sudo_request(const char *chat_id,
+                                  const char *request_id,
+                                  const char *prompt_text,
+                                  const char *task_id,
+                                  const char *session_id,
+                                  const char *coordinator_id)
+{
+    err_t err = ws_server_send_interactive_request(chat_id,
+                                                   "sudo_password",
+                                                   request_id,
+                                                   prompt_text ? prompt_text : "Please enter your sudo password.",
+                                                   task_id,
+                                                   session_id,
+                                                   coordinator_id);
+    if (err != 0) {
+        return err;
+    }
+
     cJSON *resp = cJSON_CreateObject();
     if (!resp) {
         return ERR_NO_MEM;
@@ -413,7 +523,16 @@ err_t ws_server_send_sudo_request(const char *chat_id, const char *request_id, c
     cJSON_AddStringToObject(resp, "chat_id", chat_id ? chat_id : "");
     cJSON_AddStringToObject(resp, "request_id", request_id ? request_id : "");
     cJSON_AddStringToObject(resp, "prompt", prompt_text ? prompt_text : "Please enter your sudo password.");
-    err_t err = ws_client_session_send_json(chat_id, resp);
+    if (task_id && task_id[0]) {
+        cJSON_AddStringToObject(resp, "task_id", task_id);
+    }
+    if (session_id && session_id[0]) {
+        cJSON_AddStringToObject(resp, "session_id", session_id);
+    }
+    if (coordinator_id && coordinator_id[0]) {
+        cJSON_AddStringToObject(resp, "coordinator_id", coordinator_id);
+    }
+    err = ws_client_session_send_json(chat_id, resp);
     cJSON_Delete(resp);
     return err;
 }

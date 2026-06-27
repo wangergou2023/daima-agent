@@ -6,19 +6,21 @@ include $(TOPDIR)/scripts/Kbuild.include
 
 src := $(obj)
 kbuild-dir := $(if $(filter /%,$(src)),$(src),$(srctree)/$(src))
+obj-out := $(BUILD_DIR)/$(obj)
 
 include $(kbuild-dir)/Makefile
 
 __subdir-y := $(patsubst %/,%,$(filter %/, $(obj-y)))
 obj-y := $(filter-out %/, $(obj-y))
 
-obj-files := $(addprefix $(obj)/, $(obj-y))
+obj-files := $(addprefix $(obj-out)/, $(obj-y))
+dep-files := $(obj-files:.o=.d)
 
-# 编译当前目录的 .c → .o
-$(obj)/%.o: $(src)/%.c
+# 编译当前目录的 .c → build-kbuild/<dir>/*.o
+$(obj-out)/%.o: $(src)/%.c
 	@mkdir -p $(dir $@)
-	@echo "  CC      $(obj)/$(*F).o"
-	$(Q)$(CC) $(AGENT_CFLAGS) -c -o $@ $<
+	@echo "  CC      $(patsubst $(BUILD_DIR)/%,%,$@)"
+	$(Q)$(CC) $(AGENT_CFLAGS) -MMD -MP -MF $(@:.o=.d) -c -o $@ $<
 
 # 子目录递归
 subdirs: $(patsubst %, _subdir_%, $(__subdir-y))
@@ -38,3 +40,5 @@ built-in.o: $(obj-files) subdirs
 	@mkdir -p $(BUILD_DIR)
 	@printf '%s\n' $(obj-files) >> $(BUILD_DIR)/objects.list
 endif
+
+-include $(dep-files)

@@ -147,12 +147,14 @@ static size_t append_operator_guide_fallback(char *buf, size_t size, size_t offs
         "6. 具体实现或改代码需要交给子代理时，调用 `delegate_task` 并使用 `subagent_type='implement'`。\n"
         "7. 一旦你已经把 discovery 委托给子代理，就不要在同一轮里重复做相同搜索；等待结果并综合结论。\n"
         "8. 只有在委托结果已经缩小范围后，才自己用 `files` 深读少量关键文件做确认。\n"
-        "9. 分析代码时，先缩小范围：优先用 `files` 的 `action=search`（`output_mode=files_only/count`、`file_glob`、`path`）找候选文件，再用 `files action=read` 分页深读，不要一上来把很多文件整份读完。\n"
-        "10. 新建、修改、删除文本文件时，默认顺序是：先用 `files action=search/read` 看清上下文，再用 `apply_patch`。\n"
-        "11. `terminal` 适合安装工具、构建、运行命令、看 git 或进程；不适合替代 `files` / `apply_patch` 做文件查看或文本修改。\n"
-        "12. 调用 `terminal` 时，安装软件、更新索引、构建大项目要主动设置更长 `timeout`；看到结构化结果后，要基于 `exit_code`、`timed_out`、`output` 判断是否真的成功。\n"
-        "13. 遇到 bug、功能缺失、体验问题时，先加载 `Work Item 收集` 技能，用 `work_item` 工具记录而非直接修复。\n"
-        "14. 当使用 `cron action=add` 发送到 WebSocket 或飞书时，务必设置 `channel='websocket'` 或 `channel='feishu'` 并提供有效 `chat_id`。\n");
+        "9. 如果用户明确要求“多个 subagent / 同时安排 / 分别分析 / 并行摸底 / 最后汇总”，不要先自己对这些目录做 `files list/search/read`。应先发一次批量 `delegate_task({tasks:[...]})`，把独立子问题拆成多个子代理，再等待 coordinator 结果。\n"
+        "10. 在这种多 subagent 请求里，只有当子代理结果返回后，才允许你自己补读极少量文件做收敛；不要先自己做三四个目录的摸底再去委托。\n"
+        "11. 分析代码时，先缩小范围：优先用 `files` 的 `action=search`（`output_mode=files_only/count`、`file_glob`、`path`）找候选文件，再用 `files action=read` 分页深读，不要一上来把很多文件整份读完。\n"
+        "12. 新建、修改、删除文本文件时，默认顺序是：先用 `files action=search/read` 看清上下文，再用 `apply_patch`。\n"
+        "13. `terminal` 适合安装工具、构建、运行命令、看 git 或进程；不适合替代 `files` / `apply_patch` 做文件查看或文本修改。\n"
+        "14. 调用 `terminal` 时，安装软件、更新索引、构建大项目要主动设置更长 `timeout`；看到结构化结果后，要基于 `exit_code`、`timed_out`、`output` 判断是否真的成功。\n"
+        "15. 遇到 bug、功能缺失、体验问题时，先加载 `Work Item 收集` 技能，用 `work_item` 工具记录而非直接修复。\n"
+        "16. 当使用 `cron action=add` 发送到 WebSocket 或飞书时，务必设置 `channel='websocket'` 或 `channel='feishu'` 并提供有效 `chat_id`。\n");
 
     offset = append_textf(
         buf, size, offset,
@@ -185,6 +187,7 @@ static size_t append_operator_guide_fallback(char *buf, size_t size, size_t offs
         "- `delegate_task` 是语义化子代理委托工具，优先用于 research、discovery、architecture 和 large implementation。\n"
         "- 常用形式：`delegate_task({subagent_type:\"explore|librarian|oracle|implement\", prompt:\"...\", description:\"...\"})`。\n"
         "- 当一个步骤里有 2 个及以上彼此独立的子问题时，优先使用一次批量调用：`delegate_task({tasks:[...]})`，不要连续发多个单独的 `delegate_task`。\n"
+        "- 如果用户显式要求“多个 subagent / 同时安排 / 分别分析 / 并行摸底 / 最后汇总”，这条批量调用规则是强约束，不是建议；不要先自己对这些子问题调用 `files` 做大范围摸底。\n"
         "- `tasks[]` 适合并行的代码摸底、文档/配置核对、架构评审，以及互不依赖的实现子任务；批量启动后应使用返回的 `coordinator_id` 轮询整体状态。\n"
         "- 需要并行摸底时可设 `run_in_background=true`，随后用返回的 `task_id` 继续轮询同一个委托任务。\n"
         "- `oracle` 用于架构与方案裁决；`explore` 用于代码探索；`librarian` 用于参考资料；`implement` 用于实现执行。\n"

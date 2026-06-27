@@ -15,6 +15,7 @@ AGENT_CFLAGS += -iquote $(TOPDIR)/kernel/channel
 AGENT_CFLAGS += -iquote $(TOPDIR)/kernel/runtime
 AGENT_CFLAGS += -iquote $(TOPDIR)/kernel/context
 AGENT_CFLAGS += -iquote $(TOPDIR)/kernel/tooling
+AGENT_CFLAGS += -iquote $(TOPDIR)/kernel/tooling/delegate
 
 ARCH ?= host
 export ARCH
@@ -35,6 +36,7 @@ endif
 core-y := init/
 core-y += kernel/ kernel/turn/ kernel/time/ kernel/printk/
 core-y += kernel/channel/ kernel/runtime/ kernel/context/ kernel/tooling/
+core-y += kernel/tooling/delegate/
 core-y += ipc/ lib/ net/ fs/
 core-y += drivers/llm/ drivers/channel/feishu/ drivers/channel/vector/ drivers/channel/gateway/
 core-y += drivers/tool/ drivers/memory/ drivers/skill/ drivers/voice/
@@ -86,10 +88,12 @@ modules:
 clean:
 	$(Q)rm -rf build-kbuild build-host build-mips build-arm
 	$(Q)find init kernel drivers arch ipc lib net fs include -name '*.o' -delete
+	$(Q)find init kernel drivers arch ipc lib net fs include -name '*.d' -delete
 
 kbuild-clean:
 	$(Q)rm -rf $(BUILD_DIR)
 	$(Q)find init kernel drivers arch ipc lib net fs include -name '*.o' -delete
+	$(Q)find init kernel drivers arch ipc lib net fs include -name '*.d' -delete
 
 mrproper: clean
 	$(Q)rm -f .config .config.old

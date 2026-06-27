@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "linux/kernel.h"
+#include "linux/printk.h"
 
 static bool prometheus_contains_any(const char *text, const char *const *needles, size_t needle_count)
 {
@@ -52,6 +53,16 @@ static bool prometheus_has_file_or_path(const char *text)
            strchr(text, '/') != NULL;
 }
 
+static bool prometheus_has_explicit_file_target(const char *text)
+{
+    static const char *const file_markers[] = {
+        ".c", ".h", ".py", ".js", ".ts", ".tsx", ".jsx", ".json", ".md",
+        ".cmake", ".sh", ".go", ".rs", ".java", ".html", ".css", "CMakeLists.txt",
+    };
+
+    return prometheus_contains_any(text, file_markers, sizeof(file_markers) / sizeof(file_markers[0]));
+}
+
 static bool prometheus_has_tech_stack(const char *text)
 {
     static const char *const tech_terms[] = {
@@ -81,7 +92,71 @@ static bool prometheus_has_quantity_requirement(const char *text)
     return prometheus_contains_any(text, quantity_terms, sizeof(quantity_terms) / sizeof(quantity_terms[0]));
 }
 
-/** 检查消息是否足够具体：≥20 Unicode 字符 + (文件扩展名 或 技术栈关键词 或 数字要求)。 */
+static bool prometheus_has_explicit_target_verb(const char *text)
+{
+    static const char *const target_verbs[] = {
+        "修改", "改", "改成", "更新", "重构", "实现", "补", "增加", "新增", "删除",
+        "replace", "change", "update", "refactor", "implement", "add", "remove",
+    };
+
+    return prometheus_contains_any(text, target_verbs, sizeof(target_verbs) / sizeof(target_verbs[0]));
+}
+
+static bool prometheus_has_scope_anchor(const char *text)
+{
+    static const char *const scope_terms[] = {
+        "只", "仅", "限定", "重点", "围绕", "针对", "聚焦", "模块", "文件", "函数",
+        "class", "function", "module", "file", "only", "focus", "scope",
+    };
+
+    return prometheus_contains_any(text, scope_terms, sizeof(scope_terms) / sizeof(scope_terms[0]));
+}
+
+static bool prometheus_has_uncertain_scope(const char *text)
+{
+    static const char *const uncertain_scope_terms[] = {
+        "没想好", "还没想好", "还没决定", "哪个模块", "哪个文件", "哪个目录",
+        "not sure which", "haven't decided", "not decided",
+    };
+
+    return prometheus_contains_any(text, uncertain_scope_terms,
+                                   sizeof(uncertain_scope_terms) / sizeof(uncertain_scope_terms[0]));
+}
+
+static bool prometheus_requests_start_without_scope(const char *text)
+{
+    static const char *const vague_markers[] = {
+        "先直接开始", "你先开始", "先做起来", "先弄", "先改", "随便改", "帮我改一下",
+        "i haven't decided", "not sure", "just start", "start directly", "figure it out",
+    };
+
+    return prometheus_contains_any(text, vague_markers, sizeof(vague_markers) / sizeof(vague_markers[0]));
+}
+
+static bool prometheus_must_force_interview(const char *user_message)
+{
+    if (!user_message || !user_message[0]) {
+        return false;
+    }
+
+    if (prometheus_requests_start_without_scope(user_message)) {
+        return true;
+    }
+
+    if (prometheus_has_explicit_target_verb(user_message) &&
+        (prometheus_has_file_or_path(user_message) || prometheus_has_tech_stack(user_message)) &&
+        !prometheus_has_scope_anchor(user_message) &&
+        !prometheus_has_quantity_requirement(user_message)) {
+        return true;
+    }
+
+    return false;
+}
+
+/** 检查消息是否足够具体：
+ *  1. 至少 20 个 Unicode 字符
+ *  2. 不能是“先开始/没想好改哪”的明显模糊实现请求
+ *  3. 必须同时给出足够的目标锚点，而不是只有路径/技术名词 */
 static bool prometheus_message_is_specific(const char *user_message)
 {
     if (!user_message || !user_message[0]) {
@@ -92,16 +167,59 @@ static bool prometheus_message_is_specific(const char *user_message)
         return false;
     }
 
-    return prometheus_has_file_or_path(user_message) ||
-           prometheus_has_tech_stack(user_message) ||
-           prometheus_has_quantity_requirement(user_message);
+    if (prometheus_requests_start_without_scope(user_message)) {
+        return false;
+    }
+    if (prometheus_has_uncertain_scope(user_message)) {
+        return false;
+    }
+
+    bool has_path = prometheus_has_file_or_path(user_message);
+    bool has_file_target = prometheus_has_explicit_file_target(user_message);
+    bool has_stack = prometheus_has_tech_stack(user_message);
+    bool has_quantity = prometheus_has_quantity_requirement(user_message);
+    bool has_target_verb = prometheus_has_explicit_target_verb(user_message);
+    bool has_scope_anchor = prometheus_has_scope_anchor(user_message) &&
+                            !prometheus_has_uncertain_scope(user_message);
+
+    if (has_quantity && (has_path || has_stack || has_scope_anchor)) {
+        return true;
+    }
+
+    if (has_path && has_target_verb && has_scope_anchor) {
+        return true;
+    }
+
+    if (has_file_target && has_target_verb) {
+        return true;
+    }
+
+    if (has_stack && has_target_verb && (has_scope_anchor || has_quantity)) {
+        return true;
+    }
+
+    return false;
+}
+
+bool prometheus_message_is_specific_for_test(const char *user_message)
+{
+    return prometheus_message_is_specific(user_message);
 }
 
 /** 不适合 LLM 时使用的硬编码 fallback 澄清问题。 */
 static void prometheus_fallback_questions(const char *user_message, char *out, size_t out_size)
 {
-    (void)user_message;
     if (!out || out_size == 0) {
+        return;
+    }
+
+    if (prometheus_requests_start_without_scope(user_message)) {
+        snprintf(out,
+                 out_size,
+                 "你准备先改哪个具体模块或目录？\n"
+                 "这次是要做架构分析、功能实现，还是问题修复？\n"
+                 "本轮先产出什么结果最合适：分析结论、代码修改，还是验证脚本？");
+        out[out_size - 1] = '\0';
         return;
     }
 
@@ -134,11 +252,19 @@ static err_t prometheus_generate_questions_with_llm(const char *user_message,
         return ERR_INVALID_ARG;
     }
 
+    if (prometheus_must_force_interview(user_message)) {
+        prometheus_fallback_questions(user_message, out, out_size);
+        return 0;
+    }
+
     char prompt[4096];
     int n = snprintf(prompt,
                      sizeof(prompt),
                      "用户想要: %s\n\n"
-                     "这个需求够具体吗？如果不够，请生成2-3个简短的澄清问题。\n"
+                     "这个需求是否已经足够具体到可以直接开始改代码？\n"
+                     "如果用户还没决定改哪个模块、只说先开始、或只是给了仓库路径/技术背景但没有明确范围，必须视为不具体。\n"
+                     "这种情况下绝对不要回复 SPECIFIC，必须生成 2-3 个简短澄清问题。\n"
+                     "只有在修改范围、目标模块/文件、以及本轮目标都已经明确时，才允许回复 SPECIFIC。\n"
                      "只需要回复问题本身，每行一个，不要有其他内容。\n"
                      "如果已经够具体，只回复\"SPECIFIC\"。",
                      user_message ? user_message : "");
@@ -195,9 +321,20 @@ err_t prometheus_check_needs_interview(const char *user_message,
 #if !PROMETHEUS_INTERVIEW_ENABLED
     return 0;
 #else
+    if (prometheus_must_force_interview(user_message)) {
+        prometheus_fallback_questions(user_message, out->questions, sizeof(out->questions));
+        out->needs_interview = true;
+        pr_info("PrometheusInterview: forced needs_interview=1 message=%.160s questions=%.200s",
+                user_message ? user_message : "",
+                out->questions);
+        return 0;
+    }
+
     if (prometheus_message_is_specific(user_message)) {
         snprintf(out->questions, sizeof(out->questions), "SPECIFIC");
         out->needs_interview = false;
+        pr_info("PrometheusInterview: specific needs_interview=0 message=%.160s",
+                user_message ? user_message : "");
         return 0;
     }
 
@@ -212,6 +349,10 @@ err_t prometheus_check_needs_interview(const char *user_message,
     if (!out->needs_interview) {
         snprintf(out->questions, sizeof(out->questions), "SPECIFIC");
     }
+    pr_info("PrometheusInterview: llm needs_interview=%d message=%.160s questions=%.200s",
+            out->needs_interview ? 1 : 0,
+            user_message ? user_message : "",
+            out->questions);
     return 0;
 #endif
 }

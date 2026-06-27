@@ -1,0 +1,25 @@
+{
+  "name": "daima-agent",
+  "version": "1.0.0",
+  "description": "嵌入式 AI Agent，基于 Linux 内核风格架构。`C11 + Kbuild`，单二进制。",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "lib": "lib"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wangergou2023/daima-agent.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/wangergou2023/daima-agent/issues"
+  },
+  "homepage": "https://github.com/wangergou2023/daima-agent#readme"
+}

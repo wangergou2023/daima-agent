@@ -18,7 +18,7 @@ Daima Agent 是一个 `C11 + Kbuild` 的单二进制 AI Agent。默认框架只�
 | turn 执行 | `kernel/turn/turn_pipeline.c` | interview → run → finalize |
 | turn 收尾 | `kernel/turn/turn_finish.c` | 回复、持久化、Ralph、回收 |
 | subagent 语义委托入口 | `drivers/tool/tool_delegate.c` | `delegate_task`，暴露 `explore / librarian / oracle / implement` |
-| subagent 后台状态 | `kernel/tooling/delegate_task_store.c` | `task_id` 轮询 |
+| subagent 后台状态 | `kernel/tooling/delegate/delegate_task_store.c` | `task_id` 轮询 |
 | skill 摘要 | `drivers/skill/skill_summary.c` | 只构建摘要 |
 | skill 工具激活 | `drivers/skill/skill_tools.c` | 显式注册 / 注销 |
 

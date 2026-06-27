@@ -13,6 +13,8 @@
 
 static char *s_tools_json;
 static char *s_base_tools_json;
+static char *s_tools_json_no_delegate;
+static char *s_base_tools_json_no_delegate;
 
 static bool is_vector_tool_name(const char *name)
 {
@@ -96,7 +98,7 @@ static void add_tool_json(cJSON *arr, const struct tool_device *def)
     cJSON_AddItemToArray(arr, tool);
 }
 
-static char *build_tools_json_filtered(bool include_vector_tools)
+static char *build_tools_json_filtered(bool include_vector_tools, bool include_delegate_tool)
 {
     cJSON *arr = cJSON_CreateArray();
 
@@ -116,6 +118,9 @@ static char *build_tools_json_filtered(bool include_vector_tools)
         if (!include_vector_tools && is_vector_tool_name(tool->name)) {
             continue;
         }
+        if (!include_delegate_tool && strcmp(tool->name, "delegate_task") == 0) {
+            continue;
+        }
         add_tool_json(arr, tool);
     }
 
@@ -126,10 +131,21 @@ static char *build_tools_json_filtered(bool include_vector_tools)
 
 static void rebuild_tools_json(void)
 {
+    if (s_tools_json &&
+        s_base_tools_json &&
+        s_tools_json_no_delegate &&
+        s_base_tools_json_no_delegate) {
+        return;
+    }
+
     kfree(s_tools_json);
     kfree(s_base_tools_json);
-    s_tools_json = build_tools_json_filtered(true);
-    s_base_tools_json = build_tools_json_filtered(false);
+    kfree(s_tools_json_no_delegate);
+    kfree(s_base_tools_json_no_delegate);
+    s_tools_json = build_tools_json_filtered(true, true);
+    s_base_tools_json = build_tools_json_filtered(false, true);
+    s_tools_json_no_delegate = build_tools_json_filtered(true, false);
+    s_base_tools_json_no_delegate = build_tools_json_filtered(false, false);
 }
 
 const char *tool_bus_tools_json(void)
@@ -143,6 +159,18 @@ const char *tool_bus_tools_json_for_channel(const char *channel)
     rebuild_tools_json();
     if (channel && tool_bus_channel_allows_tool(channel, "robot_dummy")) {
         return s_tools_json;
+    }
+    return s_base_tools_json ? s_base_tools_json : s_tools_json;
+}
+
+const char *tool_bus_tools_json_for_channel_without_delegate(const char *channel)
+{
+    rebuild_tools_json();
+    if (channel && tool_bus_channel_allows_tool(channel, "robot_dummy")) {
+        return s_tools_json_no_delegate ? s_tools_json_no_delegate : s_tools_json;
+    }
+    if (s_base_tools_json_no_delegate) {
+        return s_base_tools_json_no_delegate;
     }
     return s_base_tools_json ? s_base_tools_json : s_tools_json;
 }

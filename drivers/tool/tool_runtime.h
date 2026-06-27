@@ -10,6 +10,7 @@
 
 typedef struct {
     long elapsed_ms;
+    const char *effective_tool_name; /* 若为 NULL，表示仍使用 call->name */
     char *effective_input; /* 若为 NULL，表示仍使用 call->input */
 } tool_runtime_result_t;
 

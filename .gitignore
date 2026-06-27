@@ -9,6 +9,7 @@
 .DS_Store
 Thumbs.db
 *.o
+*.d
 build-kbuild/
 build-host/
 build-mips/

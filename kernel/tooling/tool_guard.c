@@ -3,6 +3,7 @@
 
 #include "tool_guard.h"
 
+#include "cjson.h"
 #include <string.h>
 
 static bool text_has_placeholder_value(const char *text)
@@ -16,6 +17,31 @@ static bool is_placeholder_tool_name(const char *tool_name)
            (strcmp(tool_name, "$TOOL_NAME") == 0 ||
             strcmp(tool_name, "<tool_name>") == 0 ||
             strcmp(tool_name, "tool_name") == 0);
+}
+
+bool agent_tool_name_is_advertised(const char *tools_json, const char *tool_name)
+{
+    if (!tool_name || !tool_name[0] || !tools_json || !tools_json[0]) {
+        return false;
+    }
+
+    cJSON *root = cJSON_Parse(tools_json);
+    if (!root || !cJSON_IsArray(root)) {
+        cJSON_Delete(root);
+        return false;
+    }
+
+    bool found = false;
+    cJSON *item = NULL;
+    cJSON_ArrayForEach(item, root) {
+        const char *name = cJSON_GetStringValue(cJSON_GetObjectItem(item, "name"));
+        if (name && strcmp(name, tool_name) == 0) {
+            found = true;
+            break;
+        }
+    }
+    cJSON_Delete(root);
+    return found;
 }
 
 /** 判断工具调用是否属于不可恢复的协议失败，应中止当前 turn。

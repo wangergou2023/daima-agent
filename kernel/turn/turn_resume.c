@@ -45,26 +45,28 @@ bool agent_turn_resume_poll(void)
         return false;
     }
 
-    const char *chat_id = turn_context_find_by_task(reply.id);
-    if (!chat_id) {
+    char chat_id[64];
+    struct turn_snapshot snap;
+    memset(&snap, 0, sizeof(snap));
+
+    if (!turn_context_find_by_task(reply.id, chat_id, sizeof(chat_id))) {
         pr_warn("turn_resume: orphan task reply %s, discarded", reply.id);
         kfree(reply.payload);
         kfree(reply.result);
         return true;
     }
 
-    struct turn_snapshot *snap = turn_context_load(chat_id);
-    if (!snap) {
+    if (!turn_context_load_copy(chat_id, &snap)) {
         kfree(reply.payload);
         kfree(reply.result);
         return true;
     }
 
     cJSON *root = cJSON_Parse(reply.result ? reply.result : "{}");
-    append_tool_results(snap->messages, cJSON_GetObjectItem(root, "results"));
+    append_tool_results(snap.messages, cJSON_GetObjectItem(root, "results"));
     cJSON_Delete(root);
 
-    snap->pending_task_id[0] = '\0';
+    snap.pending_task_id[0] = '\0';
 
     char *final_text = NULL;
     char *reasoning_text = NULL;
@@ -75,19 +77,20 @@ bool agent_turn_resume_poll(void)
     struct message resume_msg = {
         .channel = "", .chat_id = "", .source = "", .content = NULL, .reasoning = NULL
     };
-    strscpy(resume_msg.channel, snap->channel, sizeof(resume_msg.channel));
-    strscpy(resume_msg.chat_id, snap->chat_id, sizeof(resume_msg.chat_id));
+    strscpy(resume_msg.channel, snap.channel, sizeof(resume_msg.channel));
+    strscpy(resume_msg.chat_id, snap.chat_id, sizeof(resume_msg.chat_id));
 
-    const char *tools_json = tool_bus_tools_json_for_channel(snap->channel);
+    const char *tools_json = tool_bus_tools_json_for_channel(snap.channel);
     err_t err = agent_turn_run(
-        snap->system_prompt, snap->messages, tools_json, &resume_msg,
-        NULL, 0, snap->cancel_token,
+        snap.system_prompt, snap.messages, tools_json, &resume_msg,
+        NULL, false, 0, snap.cancel_token,
         &final_text, &reasoning_text, &iteration, &tool_budget_exhausted, &cancelled);
 
     agent_finalize_turn(&resume_msg, &final_text, &reasoning_text, err, iteration,
-                        tool_budget_exhausted, cancelled, snap->iteration);
+                        tool_budget_exhausted, cancelled, snap.iteration);
 
     turn_context_remove(chat_id);
+    turn_context_snapshot_cleanup(&snap);
     kfree(reply.payload);
     kfree(reply.result);
     return true;

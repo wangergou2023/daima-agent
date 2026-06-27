@@ -119,24 +119,43 @@
     </section>
   </main>
 
-  <div id="sudoModal" class="sudo-modal">
+  <div id="interactiveModal" class="sudo-modal">
     <div class="sudo-card">
-      <div class="sudo-title">需要授权</div>
-      <div id="sudoPrompt" class="sudo-body">命令需要提升权限。</div>
-      <input id="sudoInput" class="sudo-input" type="password" placeholder="输入 sudo 密码" />
+      <div id="interactiveTitle" class="sudo-title">需要授权</div>
+      <div id="interactivePrompt" class="sudo-body">命令需要提升权限。</div>
+      <input id="interactiveInput" class="sudo-input" type="password" placeholder="输入 sudo 密码" />
       <div class="sudo-actions">
-        <button id="sudoCancel" type="button" class="ghost-btn">取消</button>
-        <button id="sudoSubmit" type="button">继续</button>
+        <button id="interactiveCancel" type="button" class="ghost-btn">取消</button>
+        <button id="interactiveSubmit" type="button">继续</button>
       </div>
     </div>
   </div>
 
   <aside id="coordinatorPanel" class="coordinator-panel" hidden aria-hidden="true">
     <div class="coordinator-head">
-      <span class="coordinator-title">Coordinator</span>
+      <div class="coordinator-head-copy">
+        <span class="coordinator-title">Coordinator</span>
+        <span class="coordinator-summary">等待子任务</span>
+      </div>
       <button id="coordinatorClose" class="coordinator-close" type="button" aria-label="关闭">×</button>
     </div>
-    <div id="coordinatorAgents" class="coordinator-agents"></div>
+    <div class="coordinator-layout">
+      <div id="coordinatorAgents" class="coordinator-agents"></div>
+    </div>
+  </aside>
+
+  <aside id="subagentDetailPanel" class="subagent-detail-panel" hidden aria-hidden="true">
+    <div class="subagent-detail-head">
+      <div class="subagent-detail-copy">
+        <span id="subagentDetailTitle" class="subagent-detail-title">Subagent</span>
+        <span id="subagentDetailMeta" class="subagent-detail-meta">等待选择子任务</span>
+      </div>
+    </div>
+    <div id="subagentSessionRail" class="subagent-session-rail" aria-label="子会话列表"></div>
+    <div id="subagentDetailTabs" class="subagent-detail-tabs" role="tablist" aria-label="子任务详情标签"></div>
+    <div id="subagentDetailBlockers" class="subagent-detail-blockers"></div>
+    <div id="subagentDetailFrames" class="subagent-detail-frames"></div>
+    <div id="subagentDetailOutput" class="subagent-detail-output"></div>
   </aside>
 
   <aside id="petDock" class="pet-dock" hidden aria-hidden="true">
@@ -172,6 +191,22 @@
   </div>
 
   <script src="/pet.js"></script>
+  <script src="/subagent-state-core.js"></script>
+  <script src="/subagent-state-selectors.js"></script>
+  <script src="/subagent-state-reducer.js"></script>
+  <script src="/subagent-state.js"></script>
+  <script src="/subagent-runtime.js"></script>
+  <script src="/subagent-app-bridge.js"></script>
+  <script src="/subagent-panel-controller.js"></script>
+  <script src="/subagent-detail-view.js"></script>
+  <script src="/subagent-event-adapter.js"></script>
+  <script src="/subagent-interactive-controller.js"></script>
+  <script src="/subagent-coordinator-view.js"></script>
+  <script src="/subagent-coordinator-controller.js"></script>
+  <script src="/subagent-ui-orchestrator.js"></script>
+  <script src="/subagent-transport.js"></script>
+  <script src="/subagent-chat-transport.js"></script>
+  <script src="/subagent-bootstrap.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

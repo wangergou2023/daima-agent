@@ -22,15 +22,28 @@ struct turn_snapshot {
     uint64_t dispatched_at;
     uint32_t timeout_ms;
 
+    /* 父会话 interview / 交互恢复态 */
+    char pending_request_type[32];
+    char pending_request_id[64];
+    char pending_request_prompt[512];
+
 };
 
 /* 按 chat_id 存取异步恢复快照 */
 void turn_context_save(const struct turn_snapshot *snap);
-struct turn_snapshot *turn_context_load(const char *chat_id);
+bool turn_context_load_copy(const char *chat_id, struct turn_snapshot *out);
 void turn_context_remove(const char *chat_id);
+void turn_context_snapshot_cleanup(struct turn_snapshot *snap);
 
 /* 按 task_id 找回 chat_id */
-const char *turn_context_find_by_task(const char *task_id);
+bool turn_context_find_by_task(const char *task_id, char *chat_id, size_t chat_id_size);
+bool turn_context_set_pending_request(const char *chat_id,
+                                      const char *request_type,
+                                      const char *request_id,
+                                      const char *prompt_text);
+bool turn_context_clear_pending_request(const char *chat_id,
+                                        const char *request_type,
+                                        const char *request_id);
 
 /* peek: 是否有回复到达（非阻塞） */
 bool core_has_reply(void);

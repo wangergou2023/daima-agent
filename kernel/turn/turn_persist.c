@@ -57,6 +57,7 @@ void agent_turn_queue_outbound_text(const struct message *msg, char *text, const
     struct message out = {0};
     strncpy(out.channel, msg->channel, sizeof(out.channel) - 1);
     strncpy(out.chat_id, msg->chat_id, sizeof(out.chat_id) - 1);
+    strncpy(out.source, agent_msg_source_or_default(msg), sizeof(out.source) - 1);
     out.content = text;
     out.reasoning = reasoning && reasoning[0] ? strdup(reasoning) : NULL;
 

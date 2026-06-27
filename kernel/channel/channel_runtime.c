@@ -9,9 +9,14 @@
 #include "drivers/channel/vector/vector_channel.h"
 #include "drivers/channel/gateway/ws_client.h"
 #include "drivers/channel/gateway/ws_server.h"
+#include "turn_common.h"
 #include "linux/printk.h"
 #include "drivers/voice/voice_channel.h"
 #include "drivers/voice/tts_player.h"
+#include "delegate/delegate_task_store.h"
+#include "delegate/delegate_parent_wake.h"
+
+static channel_runtime_sender_fn_t s_sender_override_for_test;
 /** 按通道类型文本发送：websocket → ws_server，pet → ws_server_pet，voice → tts_speak，feishu → feishu_send_card。 */
 static err_t channel_runtime_send_text(const char *channel,
                                              const char *chat_id,
@@ -20,6 +25,9 @@ static err_t channel_runtime_send_text(const char *channel,
 {
     if (!channel || !chat_id || !text) {
         return ERR_INVALID_ARG;
+    }
+    if (s_sender_override_for_test) {
+        return s_sender_override_for_test(channel, chat_id, text, reasoning);
     }
 
     if (strcmp(channel, CHAN_WEBSOCKET) == 0) {
@@ -52,8 +60,19 @@ err_t channel_runtime_dispatch_outbound(const struct message *msg)
         return ERR_INVALID_ARG;
     }
     err_t err = channel_runtime_send_text(msg->channel, msg->chat_id, msg->content, msg->reasoning);
+    if (err == 0 &&
+        strcmp(msg->channel, CHAN_WEBSOCKET) == 0 &&
+        strcmp(agent_msg_source_or_default(msg), MSG_SOURCE_DELEGATE) != 0) {
+        delegate_task_store_mark_parent_response_sent(msg->chat_id);
+        delegate_parent_wake_record_parent_activity(msg->chat_id);
+    }
     if (err != 0 && strcmp(msg->channel, CHAN_WEBSOCKET) == 0) {
         ws_pending_save(msg->content);
     }
     return err;
+}
+
+void channel_runtime_set_sender_override_for_test(channel_runtime_sender_fn_t sender)
+{
+    s_sender_override_for_test = sender;
 }

@@ -21,3 +21,5 @@ bool agent_tool_protocol_failure_should_stop(const char *tool_name,
 					     const char *tool_input,
 					     const char *tool_output,
 					     err_t tool_err);
+
+bool agent_tool_name_is_advertised(const char *tools_json, const char *tool_name);

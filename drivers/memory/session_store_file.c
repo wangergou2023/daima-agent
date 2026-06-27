@@ -20,6 +20,42 @@
 #include "linux/printk.h"
 #include "linux/slab.h"
 #include "linux/kernel.h"
+
+static void session_history_make_id(char *buf,
+                                    size_t size,
+                                    const char *role,
+                                    const char *source,
+                                    const char *content,
+                                    double ts,
+                                    int ordinal)
+{
+    unsigned long hash = 2166136261u;
+    const unsigned char *ptr = NULL;
+    const char *parts[] = {
+        role ? role : "",
+        source ? source : "",
+        content ? content : "",
+    };
+
+    if (!buf || size == 0) {
+        return;
+    }
+
+    for (size_t part_idx = 0; part_idx < sizeof(parts) / sizeof(parts[0]); part_idx++) {
+        for (ptr = (const unsigned char *)parts[part_idx]; ptr && *ptr; ptr++) {
+            hash ^= (unsigned long)(*ptr);
+            hash *= 16777619u;
+        }
+        hash ^= (unsigned long)'|';
+        hash *= 16777619u;
+    }
+
+    snprintf(buf, size, "hist-%lld-%d-%08lx",
+             (long long)ts,
+             ordinal,
+             hash);
+}
+
 static bool is_compaction_summary_content(const cJSON *content)
 {
     const char *text = cJSON_IsString((cJSON *)content) ? content->valuestring : NULL;
@@ -27,6 +63,100 @@ static bool is_compaction_summary_content(const cJSON *content)
         return false;
     }
     return strncmp(text, "[上下文压缩摘要]", strlen("[上下文压缩摘要]")) == 0;
+}
+
+static unsigned long session_history_resolve_seq(const cJSON *obj, int ordinal)
+{
+    cJSON *seq = NULL;
+
+    if (!obj) {
+        return ordinal > 0 ? (unsigned long)ordinal : 0;
+    }
+
+    seq = cJSON_GetObjectItem((cJSON *)obj, "seq");
+    if (seq && cJSON_IsNumber(seq) && seq->valuedouble > 0) {
+        return (unsigned long)seq->valuedouble;
+    }
+
+    return ordinal > 0 ? (unsigned long)ordinal : 0;
+}
+
+static unsigned long session_history_next_seq(FILE *f)
+{
+    long original_pos = 0;
+    unsigned long max_seq = 0;
+    int ordinal = 0;
+    char line[16384];
+
+    if (!f) {
+        return 1;
+    }
+
+    original_pos = ftell(f);
+    if (original_pos < 0) {
+        original_pos = 0;
+    }
+    rewind(f);
+
+    while (fgets(line, sizeof(line), f)) {
+        size_t len = strlen(line);
+        cJSON *obj = NULL;
+        unsigned long seq_value = 0;
+
+        if (len > 0 && line[len - 1] == '\n') line[len - 1] = '\0';
+        if (line[0] == '\0') continue;
+
+        obj = cJSON_Parse(line);
+        if (!obj) continue;
+        if (is_compaction_summary_content(cJSON_GetObjectItem(obj, "content"))) {
+            cJSON_Delete(obj);
+            continue;
+        }
+
+        ordinal++;
+        seq_value = session_history_resolve_seq(obj, ordinal);
+        if (seq_value > max_seq) {
+            max_seq = seq_value;
+        }
+        cJSON_Delete(obj);
+    }
+
+    fseek(f, original_pos, SEEK_SET);
+    return max_seq > 0 ? max_seq + 1 : 1;
+}
+
+static const char *session_history_resolve_id(const cJSON *obj,
+                                              char *buf,
+                                              size_t size,
+                                              int ordinal)
+{
+    cJSON *id = NULL;
+    cJSON *role = NULL;
+    cJSON *content = NULL;
+    cJSON *source = NULL;
+    cJSON *ts = NULL;
+
+    if (!obj) {
+        return "";
+    }
+
+    id = cJSON_GetObjectItem((cJSON *)obj, "id");
+    if (id && cJSON_IsString(id) && id->valuestring && id->valuestring[0]) {
+        return id->valuestring;
+    }
+
+    role = cJSON_GetObjectItem((cJSON *)obj, "role");
+    content = cJSON_GetObjectItem((cJSON *)obj, "content");
+    source = cJSON_GetObjectItem((cJSON *)obj, "source");
+    ts = cJSON_GetObjectItem((cJSON *)obj, "ts");
+    session_history_make_id(buf,
+                            size,
+                            cJSON_IsString(role) ? role->valuestring : "",
+                            cJSON_IsString(source) ? source->valuestring : "",
+                            cJSON_IsString(content) ? content->valuestring : "",
+                            cJSON_IsNumber(ts) ? ts->valuedouble : 0,
+                            ordinal);
+    return buf;
 }
 
 err_t session_store_file_artifact_path(const char *chat_id,
@@ -66,7 +196,7 @@ static err_t file_append_ex(const char *chat_id,
         return path_err;
     }
 
-    FILE *f = fopen(path, "a");
+    FILE *f = fopen(path, "a+");
     if (!f) {
         pr_err("Cannot open session file %s", path);
         return ERR_FAIL;
@@ -74,12 +204,21 @@ static err_t file_append_ex(const char *chat_id,
     flock(fileno(f), LOCK_EX);
 
     cJSON *obj = cJSON_CreateObject();
+    char entry_id[64];
+    double now_ts = (double)time(NULL);
+    unsigned long next_seq = 1;
+
+    next_seq = session_history_next_seq(f);
+
     cJSON_AddStringToObject(obj, "role", role);
     cJSON_AddStringToObject(obj, "content", content);
     if (source && source[0]) {
         cJSON_AddStringToObject(obj, "source", source);
     }
-    cJSON_AddNumberToObject(obj, "ts", (double)time(NULL));
+    session_history_make_id(entry_id, sizeof(entry_id), role, source, content, now_ts, 0);
+    cJSON_AddStringToObject(obj, "id", entry_id);
+    cJSON_AddNumberToObject(obj, "seq", (double)next_seq);
+    cJSON_AddNumberToObject(obj, "ts", now_ts);
 
     char *line = cJSON_PrintUnformatted(obj);
     cJSON_Delete(obj);
@@ -123,6 +262,7 @@ static err_t file_get_history_json(const char *chat_id, char *buf, size_t size, 
     cJSON *messages[SESSION_MAX_MSGS];
     int count = 0;
     int write_idx = 0;
+    int line_no = 0;
 
     char line[16384];
     while (fgets(line, sizeof(line), f)) {
@@ -132,10 +272,22 @@ static err_t file_get_history_json(const char *chat_id, char *buf, size_t size, 
 
         cJSON *obj = cJSON_Parse(line);
         if (!obj) continue;
+        line_no++;
 
         if (is_compaction_summary_content(cJSON_GetObjectItem(obj, "content"))) {
             cJSON_Delete(obj);
             continue;
+        }
+
+        if (!cJSON_GetObjectItem(obj, "id")) {
+            char entry_id[64];
+            const char *resolved_id = session_history_resolve_id(obj, entry_id, sizeof(entry_id), line_no);
+            if (resolved_id && resolved_id[0]) {
+                cJSON_AddStringToObject(obj, "id", resolved_id);
+            }
+        }
+        if (!cJSON_GetObjectItem(obj, "seq")) {
+            cJSON_AddNumberToObject(obj, "seq", (double)session_history_resolve_seq(obj, line_no));
         }
 
         if (count >= effective_max) {
@@ -156,12 +308,29 @@ static err_t file_get_history_json(const char *chat_id, char *buf, size_t size, 
         cJSON *entry = cJSON_CreateObject();
         cJSON *role = cJSON_GetObjectItem(src, "role");
         cJSON *content = cJSON_GetObjectItem(src, "content");
+        cJSON *id = cJSON_GetObjectItem(src, "id");
         cJSON *source = cJSON_GetObjectItem(src, "source");
+        cJSON *ts = cJSON_GetObjectItem(src, "ts");
+        char entry_id[64];
+        const char *resolved_id = NULL;
         if (role && content) {
+            if (id && cJSON_IsString(id) && id->valuestring && id->valuestring[0]) {
+                resolved_id = id->valuestring;
+            } else {
+                resolved_id = session_history_resolve_id(src, entry_id, sizeof(entry_id), start + i + 1);
+            }
+            if (resolved_id && resolved_id[0]) {
+                cJSON_AddStringToObject(entry, "id", resolved_id);
+            }
             cJSON_AddStringToObject(entry, "role", role->valuestring);
             cJSON_AddStringToObject(entry, "content", content->valuestring);
+            cJSON_AddNumberToObject(entry, "seq",
+                                    (double)session_history_resolve_seq(src, start + i + 1));
             if (source && cJSON_IsString(source) && source->valuestring && source->valuestring[0]) {
                 cJSON_AddStringToObject(entry, "source", source->valuestring);
+            }
+            if (ts && cJSON_IsNumber(ts)) {
+                cJSON_AddNumberToObject(entry, "ts", ts->valuedouble);
             }
         }
         cJSON_AddItemToArray(arr, entry);
@@ -218,17 +387,39 @@ static err_t file_rewrite_from_array(const char *chat_id, const cJSON *messages)
         }
 
         cJSON *obj = cJSON_CreateObject();
+        char entry_id[64];
+        const char *resolved_id = NULL;
+        cJSON *source = NULL;
+        cJSON *id = NULL;
+        cJSON *ts = NULL;
+        double ts_value = 0;
+        unsigned long seq_value = 0;
         if (!obj) {
             fclose(f);
             return ERR_NO_MEM;
         }
+        source = cJSON_GetObjectItem((cJSON *)msg, "source");
+        id = cJSON_GetObjectItem((cJSON *)msg, "id");
+        ts = cJSON_GetObjectItem((cJSON *)msg, "ts");
+        ts_value = (ts && cJSON_IsNumber(ts)) ? ts->valuedouble : (double)time(NULL);
+        seq_value = session_history_resolve_seq((cJSON *)msg, 0);
         cJSON_AddStringToObject(obj, "role", role->valuestring);
         cJSON_AddStringToObject(obj, "content", content->valuestring);
-        cJSON *source = cJSON_GetObjectItem((cJSON *)msg, "source");
         if (source && cJSON_IsString(source) && source->valuestring && source->valuestring[0]) {
             cJSON_AddStringToObject(obj, "source", source->valuestring);
         }
-        cJSON_AddNumberToObject(obj, "ts", (double)time(NULL));
+        if (id && cJSON_IsString(id) && id->valuestring && id->valuestring[0]) {
+            resolved_id = id->valuestring;
+        } else {
+            resolved_id = session_history_resolve_id((cJSON *)msg, entry_id, sizeof(entry_id), 0);
+        }
+        if (resolved_id && resolved_id[0]) {
+            cJSON_AddStringToObject(obj, "id", resolved_id);
+        }
+        if (seq_value > 0) {
+            cJSON_AddNumberToObject(obj, "seq", (double)seq_value);
+        }
+        cJSON_AddNumberToObject(obj, "ts", ts_value);
 
         char *line = cJSON_PrintUnformatted(obj);
         cJSON_Delete(obj);

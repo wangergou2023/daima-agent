@@ -30,12 +30,27 @@ err_t ws_server_send_with_reasoning(const char *chat_id, const char *text, const
 err_t ws_server_send_tool_event(const char *chat_id, const char *text);
 err_t ws_server_send_subagent_event(const char *chat_id,
                                     const char *event_type,
+                                    const char *task_id,
+                                    const char *session_id,
+                                    const char *coordinator_id,
+                                    unsigned long visible_revision,
                                     const char *subagent_type,
+                                    const char *status,
                                     const char *task,
-                                    const char *detail);
-err_t ws_server_send_coordinator_status(const char *chat_id, const char *json_agents);
-err_t ws_server_send_coordinator_output(const char *chat_id, const char *json_agents);
+                                    const char *detail,
+                                    const char *output,
+                                    const char *visible_output,
+                                    const char *target_files,
+                                    const char *scope_path,
+                                    const char *scope_kind,
+                                    const char *analysis_focus,
+                                    const char *blocker_kind,
+                                    const char *blocker_text,
+                                    const char *blocker_scope);
+err_t ws_server_send_coordinator_status(const char *chat_id, const char *json_payload);
+err_t ws_server_send_coordinator_output(const char *chat_id, const char *json_payload);
 err_t ws_server_send_coordinator_done(const char *chat_id, const char *json_payload);
+err_t ws_server_send_subagent_session(const char *chat_id, const char *json_payload);
 
 /**
  * 发送宠物通道回复；逻辑 chat_id 为 pet_chat_id，底层仍复用对应 WebSocket 连接。
@@ -44,9 +59,25 @@ err_t ws_server_send_coordinator_done(const char *chat_id, const char *json_payl
 err_t ws_server_send_pet_response(const char *pet_chat_id, const char *text);
 
 /**
+ * 发送通用交互请求，让 Web UI 根据 request_type 选择对应交互组件。
+ */
+err_t ws_server_send_interactive_request(const char *chat_id,
+                                         const char *request_type,
+                                         const char *request_id,
+                                         const char *prompt_text,
+                                         const char *task_id,
+                                         const char *session_id,
+                                         const char *coordinator_id);
+
+/**
  * 发送 sudo 密码请求，让 Web UI 展示密码输入框。
  */
-err_t ws_server_send_sudo_request(const char *chat_id, const char *request_id, const char *prompt_text);
+err_t ws_server_send_sudo_request(const char *chat_id,
+                                  const char *request_id,
+                                  const char *prompt_text,
+                                  const char *task_id,
+                                  const char *session_id,
+                                  const char *coordinator_id);
 
 /**
  * 停止 WebSocket 服务器。

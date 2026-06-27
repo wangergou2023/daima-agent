@@ -37,6 +37,10 @@
 #include "paths.h"
 #include "runtime.h"
 #include "context_build.h"
+#include "delegate/delegate_state_json.h"
+#include "delegate/delegate_session_json.h"
+#include "delegate/delegate_task_store.h"
+#include "kernel/turn/turn_context.h"
 #include "drivers/llm/llm_proxy.h"
 #include "drivers/memory/session_store.h"
 #include "autoconf.h"
@@ -314,6 +318,20 @@ static void query_get_value(const char *query, const char *key, char *out, size_
         if (!amp) break;
         p = amp + 1;
     }
+}
+
+static const char *http_request_body(const char *req)
+{
+    const char *marker = NULL;
+
+    if (!req) {
+        return NULL;
+    }
+    marker = strstr(req, "\r\n\r\n");
+    if (!marker) {
+        return NULL;
+    }
+    return marker + 4;
 }
 
 /* 校验 chat_id 安全性：仅允许字母数字、下划线和连字符。 */
@@ -610,6 +628,7 @@ static char *build_session_history_json(const char *chat_id)
  *   GET  /api/sessions        → [{chat_id, latest_ts, has_history, has_facts, has_summary}]
  *   GET  /api/session_history → {chat_id, messages: [{role, content, reasoning}]}
  *   GET  /api/ui_config       → {pet: {packages, default_package_id}, terminal: {security_level}}
+ *   GET  /api/subagent_state  → {chat_id, coordinators: [...]}
  *   POST /api/session_delete  → 删除会话
  *   POST /api/terminal_security → 设置终端安全级别
  *   其他 → 404
@@ -674,6 +693,108 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
         http_send_response(client_fd, "200 OK",
                            "application/json; charset=utf-8",
                            "{\"ok\":true}");
+        return 0;
+    }
+
+    if (strcmp(method, "POST") == 0 && strcmp(path, "/api/subagent_state_deltas") == 0) {
+        char chat_id[64] = {0};
+        const char *body = http_request_body(req);
+        cJSON *parsed = NULL;
+        cJSON *chat_id_item = NULL;
+        char *json = NULL;
+
+        if (!body || !body[0]) {
+            http_send_response(client_fd, "400 Bad Request",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"missing_request_body\"}");
+            return 0;
+        }
+
+        parsed = cJSON_Parse(body);
+        if (!parsed) {
+            http_send_response(client_fd, "400 Bad Request",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"invalid_json_body\"}");
+            return 0;
+        }
+
+        chat_id_item = cJSON_GetObjectItemCaseSensitive(parsed, "chat_id");
+        if (cJSON_IsString(chat_id_item) && chat_id_item->valuestring) {
+            snprintf(chat_id, sizeof(chat_id), "%s", chat_id_item->valuestring);
+        }
+        cJSON_Delete(parsed);
+
+        if (!chat_id[0]) {
+            http_send_response(client_fd, "400 Bad Request",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"missing_chat_id\"}");
+            return 0;
+        }
+
+        json = delegate_subagent_session_deltas_json_build(chat_id, body);
+        if (!json) {
+            http_send_response(client_fd, "404 Not Found",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"subagent_state_deltas_unavailable\"}");
+            return 0;
+        }
+        http_send_response(client_fd, "200 OK",
+                           "application/json; charset=utf-8", json);
+        kfree(json);
+        return 0;
+    }
+
+    if (strcmp(method, "POST") == 0 && strcmp(path, "/api/subagent_state_delta_chat") == 0) {
+        char chat_id[64] = {0};
+        unsigned long after_visible_revision = 0;
+        const char *body = http_request_body(req);
+        cJSON *parsed = NULL;
+        cJSON *chat_id_item = NULL;
+        cJSON *after_item = NULL;
+        char *json = NULL;
+
+        if (!body || !body[0]) {
+            http_send_response(client_fd, "400 Bad Request",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"missing_request_body\"}");
+            return 0;
+        }
+
+        parsed = cJSON_Parse(body);
+        if (!parsed) {
+            http_send_response(client_fd, "400 Bad Request",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"invalid_json_body\"}");
+            return 0;
+        }
+
+        chat_id_item = cJSON_GetObjectItemCaseSensitive(parsed, "chat_id");
+        if (cJSON_IsString(chat_id_item) && chat_id_item->valuestring) {
+            snprintf(chat_id, sizeof(chat_id), "%s", chat_id_item->valuestring);
+        }
+        after_item = cJSON_GetObjectItemCaseSensitive(parsed, "after_visible_revision");
+        if (cJSON_IsNumber(after_item) && after_item->valuedouble > 0) {
+            after_visible_revision = (unsigned long)after_item->valuedouble;
+        }
+        cJSON_Delete(parsed);
+
+        if (!chat_id[0]) {
+            http_send_response(client_fd, "400 Bad Request",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"missing_chat_id\"}");
+            return 0;
+        }
+
+        json = delegate_parent_subagent_state_delta_json_build(chat_id, after_visible_revision, body);
+        if (!json) {
+            http_send_response(client_fd, "404 Not Found",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"subagent_state_delta_chat_unavailable\"}");
+            return 0;
+        }
+        http_send_response(client_fd, "200 OK",
+                           "application/json; charset=utf-8", json);
+        kfree(json);
         return 0;
     }
 
@@ -823,6 +944,75 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
             http_send_response(client_fd, "500 Internal Server Error",
                                "application/json; charset=utf-8",
                                "{\"error\":\"ui_config_unavailable\"}");
+            return 0;
+        }
+        http_send_response(client_fd, "200 OK",
+                           "application/json; charset=utf-8", json);
+        kfree(json);
+        return 0;
+    }
+
+    if (strcmp(path, "/api/subagent_state") == 0) {
+        char chat_id[64] = {0};
+        query_get_value(query, "chat_id", chat_id, sizeof(chat_id));
+        if (!chat_id[0]) {
+            http_send_response(client_fd, "400 Bad Request",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"missing_chat_id\"}");
+            return 0;
+        }
+
+        char *json = delegate_parent_subagent_state_json_build(chat_id);
+        if (!json) {
+            http_send_response(client_fd, "404 Not Found",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"subagent_state_unavailable\"}");
+            return 0;
+        }
+        http_send_response(client_fd, "200 OK",
+                           "application/json; charset=utf-8", json);
+        kfree(json);
+        return 0;
+    }
+
+    if (strcmp(path, "/api/subagent_state_delta") == 0) {
+        char task_id[64] = {0};
+        char history_after_seq_raw[32] = {0};
+        char frame_after_seq_raw[32] = {0};
+        char commit_after_seq_raw[32] = {0};
+        unsigned long history_after_seq = 0;
+        unsigned long frame_after_seq = 0;
+        unsigned long commit_after_seq = 0;
+
+        query_get_value(query, "task_id", task_id, sizeof(task_id));
+        query_get_value(query, "history_after_seq", history_after_seq_raw, sizeof(history_after_seq_raw));
+        query_get_value(query, "frame_after_seq", frame_after_seq_raw, sizeof(frame_after_seq_raw));
+        query_get_value(query, "commit_after_seq", commit_after_seq_raw, sizeof(commit_after_seq_raw));
+        if (!task_id[0]) {
+            http_send_response(client_fd, "400 Bad Request",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"missing_task_id\"}");
+            return 0;
+        }
+
+        if (history_after_seq_raw[0]) {
+            history_after_seq = strtoul(history_after_seq_raw, NULL, 10);
+        }
+        if (frame_after_seq_raw[0]) {
+            frame_after_seq = strtoul(frame_after_seq_raw, NULL, 10);
+        }
+        if (commit_after_seq_raw[0]) {
+            commit_after_seq = strtoul(commit_after_seq_raw, NULL, 10);
+        }
+
+        char *json = delegate_subagent_session_delta_json_build(task_id,
+                                                                history_after_seq,
+                                                                frame_after_seq,
+                                                                commit_after_seq);
+        if (!json) {
+            http_send_response(client_fd, "404 Not Found",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"subagent_state_delta_unavailable\"}");
             return 0;
         }
         http_send_response(client_fd, "200 OK",

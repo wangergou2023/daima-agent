@@ -5,6 +5,8 @@
 #include "err.h"
 
 err_t runtime_config_init(void);
+void runtime_set_self_test_mode(bool enabled);
+bool runtime_is_self_test_mode(void);
 
 const char *runtime_config_get_timezone(void);
 int runtime_config_get_web_port(void);

@@ -69,6 +69,7 @@ bool agent_msg_is_synthetic_event(const struct message *msg)
     const char *source = agent_msg_source_or_default(msg);
     if (strcmp(source, MSG_SOURCE_CRON) == 0 ||
         strcmp(source, MSG_SOURCE_HEARTBEAT) == 0 ||
+        strcmp(source, MSG_SOURCE_DELEGATE) == 0 ||
         strcmp(source, MSG_SOURCE_INTERNAL) == 0) {
         return true;
     }

@@ -11,3 +11,4 @@ typedef struct {
 
 err_t prometheus_check_needs_interview(const char *user_message,
                                              prometheus_state_t *out);
+bool prometheus_message_is_specific_for_test(const char *user_message);
