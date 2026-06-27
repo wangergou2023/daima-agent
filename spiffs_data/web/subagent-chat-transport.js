@@ -79,6 +79,7 @@
       api.syncSendState?.();
       api.refreshContextStats?.();
       api.saveReconnectSession?.();
+      api.scheduleCurrentSessionHistoryReconcile?.(api.getChatId?.());
     }
 
     function createHandlers() {

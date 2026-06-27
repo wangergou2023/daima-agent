@@ -853,6 +853,7 @@
       interactiveBlockers: new Map(),
       liveCursor: {
         visibleRevision: 0,
+        afterVisibleRevision: 0,
       },
       selectedTabKey: '',
     };

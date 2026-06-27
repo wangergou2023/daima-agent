@@ -67,6 +67,7 @@ function buildDom() {
 function createFetchStub() {
   const requests = [];
   const requestOptions = [];
+  let sessionHistoryData = { messages: [] };
   let snapshotData = {
     chat_id: 'web_test',
     interactive: {
@@ -100,6 +101,9 @@ function createFetchStub() {
         failed_count: 0,
         effective_output_count: 2,
         visible_revision: 7,
+        replay_cursor: {
+          visible_revision: 7,
+        },
         completion_notified: true,
         parent_response_sent: true,
         parent_resume_enqueued: true,
@@ -326,12 +330,16 @@ function createFetchStub() {
         return { model: 'deepseek-v4-pro', used_tokens: 0, context_limit_tokens: 1048576 };
       }
       if (text.includes('/api/sessions')) return { sessions: [] };
-      if (text.includes('/api/session_history')) return { messages: [] };
+      if (text.includes('/api/session_history')) return sessionHistoryData;
       if (text.includes('/api/subagent_state_delta_chat')) {
         return {
           chat_id: 'web_test',
           after_visible_revision: 7,
           max_visible_revision: 12,
+          replay_cursor: {
+            after_visible_revision: 7,
+            visible_revision: 12,
+          },
           changed_count: 1,
           item_count: 2,
           coordinators: [
@@ -350,6 +358,9 @@ function createFetchStub() {
               failed_count: 0,
               effective_output_count: 1,
               visible_revision: 12,
+              replay_cursor: {
+                visible_revision: 12,
+              },
               wake_state: 'dispatched',
               wake_retry_count: 0,
               agents: [
@@ -727,6 +738,9 @@ function createFetchStub() {
   fetchStub.setSnapshotData = (next) => {
     snapshotData = next;
   };
+  fetchStub.setSessionHistoryData = (next) => {
+    sessionHistoryData = next || { messages: [] };
+  };
   fetchStub.requests = requests;
   fetchStub.requestOptions = requestOptions;
   return fetchStub;
@@ -1013,7 +1027,28 @@ async function main() {
 
   await new Promise((resolve) => setTimeout(resolve, 120));
 
-  emit({ type: 'response', chat_id: 'web_test', content: '已启动后台子任务，coordinator_id=dc_ui。' });
+  const currentChatId = dom.window.localStorage.getItem('agent_chat_id') || '';
+  expect(currentChatId.startsWith('web_'),
+    `expected runtime to allocate websocket chat id, got ${currentChatId}`);
+  expect(dom.window.document.getElementById('status')?.textContent?.includes('已连接'),
+    'expected websocket open to move connection badge to connected');
+
+  fetchStub.setSessionHistoryData({
+    messages: [
+      { seq: 1, role: 'user', content: '帮我分析目录结构' },
+      { seq: 2, role: 'assistant', content: '已启动后台子任务，coordinator_id=dc_ui。' },
+    ],
+  });
+  emit({ type: 'response', chat_id: currentChatId, content: '已启动后台子任务，coordinator_id=dc_ui。' });
+  await new Promise((resolve) => setTimeout(resolve, 220));
+  expect(
+    fetchStub.requests.some((url) => String(url).includes(`/api/session_history?chat_id=${currentChatId}`)),
+    'expected assistant response to trigger current session history reconcile',
+  );
+  expect(
+    dom.window.document.getElementById('messages')?.textContent?.includes('已启动后台子任务，coordinator_id=dc_ui。'),
+    'expected assistant response to remain visible after automatic history reconcile',
+  );
   emit({
     type: 'subagent_start',
     chat_id: 'web_test',
@@ -1959,6 +1994,10 @@ async function main() {
   expect(
     matchedDeltaChatReplay,
     'expected HTTP subagent bootstrap to request chat delta replay with coordinator revision and child session cursors',
+  );
+  expect(
+    deltaChatBodies.some((body) => body.includes('"after_visible_revision":7')),
+    'expected HTTP subagent bootstrap to use explicit replay cursor visible revision',
   );
   expect(
     document.getElementById('subagentDetailPanel')?.textContent?.includes('Need sudo approval from bootstrap snapshot'),

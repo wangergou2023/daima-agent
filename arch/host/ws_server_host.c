@@ -346,6 +346,13 @@ err_t ws_server_send_subagent_event(const char *chat_id,
     cJSON_AddStringToObject(resp, "session_id", session_id ? session_id : "");
     cJSON_AddStringToObject(resp, "coordinator_id", coordinator_id ? coordinator_id : "");
     cJSON_AddNumberToObject(resp, "visible_revision", (double)visible_revision);
+    {
+        cJSON *replay_cursor = cJSON_CreateObject();
+        if (replay_cursor) {
+            cJSON_AddNumberToObject(replay_cursor, "visible_revision", (double)visible_revision);
+            cJSON_AddItemToObject(resp, "replay_cursor", replay_cursor);
+        }
+    }
     cJSON_AddStringToObject(resp, "subagent_type", subagent_type ? subagent_type : "");
     cJSON_AddStringToObject(resp, "status", status ? status : "");
     cJSON_AddStringToObject(resp, "task", task ? task : "");

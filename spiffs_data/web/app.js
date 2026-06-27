@@ -177,6 +177,7 @@ let baseStats = { model: 'unknown', used_tokens: 0, context_limit_tokens: 0 };
 let stickToBottom = true;
 let currentToolGroup = null;
 let isConnected = false;
+let connectionState = 'connecting';
 let pendingAssistantResponse = false;
 let stopRequested = false;
 let pendingReasoningCard = null;
@@ -272,6 +273,46 @@ function commitPendingReasoningCard(text) {
   return true;
 }
 
+function extractLastSeqFromHistory(history) {
+  const items = Array.isArray(history) ? history : [];
+  let maxSeq = 0;
+  for (const item of items) {
+    const seq = Number(item?.seq) || 0;
+    if (seq > maxSeq) {
+      maxSeq = seq;
+    }
+  }
+  return maxSeq;
+}
+
+async function reconcileCurrentSessionHistory(targetChatId = chatId) {
+  const requestedChatId = String(targetChatId || '').trim();
+  if (!requestedChatId) return false;
+  try {
+    const resp = await fetch(`/api/session_history?chat_id=${encodeURIComponent(requestedChatId)}`, { cache: 'no-store' });
+    if (!resp.ok || requestedChatId !== chatId) return false;
+    const data = await resp.json();
+    const history = Array.isArray(data?.messages) ? data.messages : [];
+    if (requestedChatId !== chatId) return false;
+    renderHistoryMessages(history);
+    selectedSessionId = requestedChatId;
+    renderSessions();
+    saveReconnectSession();
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function scheduleCurrentSessionHistoryReconcile(targetChatId = chatId, delayMs = 160) {
+  const requestedChatId = String(targetChatId || '').trim();
+  if (!requestedChatId) return;
+  setTimeout(() => {
+    if (requestedChatId !== chatId) return;
+    reconcileCurrentSessionHistory(requestedChatId);
+  }, delayMs);
+}
+
 function ensureSubagentBootstrap() {
   if (subagentBootstrap || !createSubagentBootstrap) {
     return subagentBootstrap;
@@ -341,6 +382,7 @@ function ensureSubagentBootstrap() {
       if (!text) return;
       appendNode(makeMessageNode('assistant', text));
     },
+    scheduleCurrentSessionHistoryReconcile,
     handleAgentStateMessage,
     handleSelfTestResult: renderSelfTestReport,
     sendPing() {
@@ -554,6 +596,7 @@ function renderHistoryMessages(history) {
   stickToBottom = true;
   scrollToBottom(false);
   syncScrollButton();
+  setLastMessageSeq(extractLastSeqFromHistory(history));
 }
 
 async function switchSession(nextChatId) {
@@ -1709,9 +1752,21 @@ function submitInteractivePrompt(cancelled) {
 }
 
 function setStatus(online) {
-  isConnected = online;
-  statusEl.textContent = online ? '已连接' : '未连接';
-  dot.classList.toggle('on', online);
+  const nextState = online === true
+    ? 'connected'
+    : online === false
+      ? 'disconnected'
+      : (String(online || '').trim() || 'connecting');
+  connectionState = nextState;
+  isConnected = nextState === 'connected';
+  statusEl.textContent =
+    nextState === 'connected'
+      ? '已连接'
+      : nextState === 'disconnected'
+        ? '未连接'
+        : '连接中';
+  dot.classList.toggle('on', nextState === 'connected');
+  dot.classList.toggle('connecting', nextState === 'connecting');
   syncSendState();
 }
 
@@ -1719,6 +1774,7 @@ function ensureSocketConnection() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   const transport = ensureSubagentTransport();
   const lifecycle = transport?.lifecycle || {};
+  setStatus('connecting');
   ws = transport?.connectSocket
     ? transport.connectSocket(`${proto}://${location.host}`, lifecycle)
     : new WebSocket(`${proto}://${location.host}`);
@@ -2111,7 +2167,7 @@ async function initApp() {
   renderPetChooser(activePetPackageId);
   attachPetController();
 
-  setStatus(false);
+  setStatus('connecting');
   applyTheme(storedTheme);
   autoResize();
   refreshContextStats();

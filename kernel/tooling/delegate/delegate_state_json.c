@@ -227,10 +227,12 @@ char *delegate_coordinator_snapshot_json_build(const delegate_coordinator_record
 {
     cJSON *root = cJSON_CreateObject();
     cJSON *agents = cJSON_CreateArray();
+    cJSON *replay_cursor = cJSON_CreateObject();
 
-    if (!record || !root || !agents) {
+    if (!record || !root || !agents || !replay_cursor) {
         cJSON_Delete(root);
         cJSON_Delete(agents);
+        cJSON_Delete(replay_cursor);
         return NULL;
     }
 
@@ -254,6 +256,8 @@ char *delegate_coordinator_snapshot_json_build(const delegate_coordinator_record
     cJSON_AddNumberToObject(root, "failed_count", record->failed_count);
     cJSON_AddNumberToObject(root, "effective_output_count", record->effective_output_count);
     cJSON_AddNumberToObject(root, "visible_revision", (double)record->visible_revision);
+    cJSON_AddNumberToObject(replay_cursor, "visible_revision", (double)record->visible_revision);
+    cJSON_AddItemToObject(root, "replay_cursor", replay_cursor);
     cJSON_AddBoolToObject(root, "completion_notified", record->completion_notified);
     cJSON_AddBoolToObject(root, "parent_response_sent", record->parent_response_sent);
     cJSON_AddBoolToObject(root, "parent_resume_enqueued", record->parent_resume_enqueued);
@@ -350,18 +354,22 @@ char *delegate_subagent_session_payload_json_build(const delegate_coordinator_re
     cJSON *item = cJSON_CreateObject();
     cJSON *interactive = cJSON_CreateObject();
     cJSON *blockers = cJSON_CreateArray();
+    cJSON *replay_cursor = cJSON_CreateObject();
 
-    if (!root || !item || !interactive || !blockers) {
+    if (!root || !item || !interactive || !blockers || !replay_cursor) {
         cJSON_Delete(root);
         cJSON_Delete(item);
         cJSON_Delete(interactive);
         cJSON_Delete(blockers);
+        cJSON_Delete(replay_cursor);
         return NULL;
     }
 
     cJSON_AddStringToObject(root, "coordinator_id", record ? record->coordinator_id : "");
     cJSON_AddStringToObject(root, "chat_id", record ? record->chat_id : "");
     cJSON_AddNumberToObject(root, "visible_revision", record ? (double)record->visible_revision : 0.0);
+    cJSON_AddNumberToObject(replay_cursor, "visible_revision", record ? (double)record->visible_revision : 0.0);
+    cJSON_AddItemToObject(root, "replay_cursor", replay_cursor);
     cJSON_AddStringToObject(root, "task_id", agent ? agent->task_id : "");
     cJSON_AddStringToObject(root, "session_id", agent ? agent->session_id : "");
     cJSON_AddStringToObject(root, "subagent_type", agent ? agent->subagent_type : "");
@@ -594,6 +602,7 @@ char *delegate_parent_subagent_state_delta_json_build(const char *chat_id,
     cJSON *root = NULL;
     cJSON *coordinators = NULL;
     cJSON *items = NULL;
+    cJSON *replay_cursor = NULL;
     unsigned long max_visible_revision = after_visible_revision;
     int changed_count = 0;
     int item_count = 0;
@@ -619,10 +628,12 @@ char *delegate_parent_subagent_state_delta_json_build(const char *chat_id,
     root = cJSON_CreateObject();
     coordinators = cJSON_CreateArray();
     items = cJSON_CreateArray();
-    if (!root || !coordinators || !items) {
+    replay_cursor = cJSON_CreateObject();
+    if (!root || !coordinators || !items || !replay_cursor) {
         cJSON_Delete(root);
         cJSON_Delete(coordinators);
         cJSON_Delete(items);
+        cJSON_Delete(replay_cursor);
         cJSON_Delete(request);
         return NULL;
     }
@@ -726,6 +737,9 @@ char *delegate_parent_subagent_state_delta_json_build(const char *chat_id,
 
     cJSON_AddNumberToObject(root, "after_visible_revision", (double)after_visible_revision);
     cJSON_AddNumberToObject(root, "max_visible_revision", (double)max_visible_revision);
+    cJSON_AddNumberToObject(replay_cursor, "after_visible_revision", (double)after_visible_revision);
+    cJSON_AddNumberToObject(replay_cursor, "visible_revision", (double)max_visible_revision);
+    cJSON_AddItemToObject(root, "replay_cursor", replay_cursor);
     cJSON_AddNumberToObject(root, "changed_count", changed_count);
     cJSON_AddNumberToObject(root, "item_count", item_count);
     cJSON_AddItemToObject(root, "coordinators", coordinators);

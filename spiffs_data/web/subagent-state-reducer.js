@@ -27,6 +27,16 @@
   } = core;
   const { interactiveBlockerKey, selectedSubagentDetail } = selectors;
 
+  function cursorVisibleRevision(payload) {
+    return Number(payload?.replay_cursor?.visible_revision) ||
+      Number(payload?.visible_revision) ||
+      0;
+  }
+
+  function cursorAfterVisibleRevision(payload) {
+    return Number(payload?.replay_cursor?.after_visible_revision) || 0;
+  }
+
   function reduceSubagentUiEvent(state, action, helpers) {
     if (!state || !action || !action.kind || !helpers) return state;
     const nextState = state;
@@ -44,11 +54,15 @@
 
     if (action.kind === 'subagent_event') {
       const payload = action.payload || {};
-      const payloadVisibleRevision = Number(payload?.visible_revision) || 0;
+      const payloadVisibleRevision = cursorVisibleRevision(payload);
       if (payloadVisibleRevision > (Number(nextState?.liveCursor?.visibleRevision) || 0)) {
         nextState.liveCursor = {
           ...(nextState.liveCursor || {}),
           visibleRevision: payloadVisibleRevision,
+          afterVisibleRevision: Math.max(
+            Number(nextState?.liveCursor?.afterVisibleRevision) || 0,
+            cursorAfterVisibleRevision(payload),
+          ),
         };
       }
       const key = action.key || subagentEventKey(payload);
@@ -123,11 +137,15 @@
     if (action.kind === 'subagent_session') {
       const payload = action.payload || {};
       const agent = payload.agent && typeof payload.agent === 'object' ? payload.agent : null;
-      const payloadVisibleRevision = Number(payload?.visible_revision) || 0;
+      const payloadVisibleRevision = cursorVisibleRevision(payload);
       if (payloadVisibleRevision > (Number(nextState?.liveCursor?.visibleRevision) || 0)) {
         nextState.liveCursor = {
           ...(nextState.liveCursor || {}),
           visibleRevision: payloadVisibleRevision,
+          afterVisibleRevision: Math.max(
+            Number(nextState?.liveCursor?.afterVisibleRevision) || 0,
+            cursorAfterVisibleRevision(payload),
+          ),
         };
       }
       const key = trimText(payload?.task_id) || trimText(payload?.session_id) ||
@@ -367,10 +385,14 @@
     if (action.kind === 'coordinator') {
       const next = helpers.normalizeCoordinatorPayload(action.payload);
       if (!next.coordinator_id) return nextState;
-      if ((Number(next.visible_revision) || 0) > (Number(nextState?.liveCursor?.visibleRevision) || 0)) {
+      if (cursorVisibleRevision(next) > (Number(nextState?.liveCursor?.visibleRevision) || 0)) {
         nextState.liveCursor = {
           ...(nextState.liveCursor || {}),
-          visibleRevision: Number(next.visible_revision) || 0,
+          visibleRevision: cursorVisibleRevision(next),
+          afterVisibleRevision: Math.max(
+            Number(nextState?.liveCursor?.afterVisibleRevision) || 0,
+            cursorAfterVisibleRevision(next),
+          ),
         };
       }
       const previous = nextState.coordinators.get(next.coordinator_id);
@@ -496,6 +518,11 @@
     const interactiveUiConfig = options?.interactiveUiConfig;
     let state = createEmptySubagentUiState();
     const coordinators = Array.isArray(snapshot?.coordinators) ? snapshot.coordinators : [];
+    state.liveCursor = {
+      ...(state.liveCursor || {}),
+      visibleRevision: cursorVisibleRevision(snapshot),
+      afterVisibleRevision: cursorAfterVisibleRevision(snapshot),
+    };
 
     for (const coordinator of coordinators) {
       state = reduceSubagentUiEvent(state, { kind: 'coordinator', payload: coordinator }, {

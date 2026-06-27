@@ -445,6 +445,11 @@ button {
   box-shadow: 0 0 0 5px rgba(61, 179, 127, 0.14);
 }
 
+.dot.connecting {
+  background: #e0a642;
+  box-shadow: 0 0 0 5px rgba(224, 166, 66, 0.14);
+}
+
 .thread-card {
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;

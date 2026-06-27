@@ -113,13 +113,19 @@
 
     function collectCoordinatorRevision(state) {
       const liveRevision = Number(state?.liveCursor?.visibleRevision) || 0;
+      const explicitCursorRevision = Math.max(
+        liveRevision,
+        Number(state?.liveCursor?.afterVisibleRevision) || 0,
+      );
       const coordinators = state?.coordinators;
       if (!coordinators || typeof coordinators.values !== 'function') {
-        return liveRevision;
+        return explicitCursorRevision;
       }
-      let maxRevision = liveRevision;
+      let maxRevision = explicitCursorRevision;
       for (const coordinator of coordinators.values()) {
-        const revision = Number(coordinator?.visible_revision) || 0;
+        const revision = Number(coordinator?.replay_cursor?.visible_revision) ||
+          Number(coordinator?.visible_revision) ||
+          0;
         if (revision > maxRevision) {
           maxRevision = revision;
         }

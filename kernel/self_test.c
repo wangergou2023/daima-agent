@@ -2908,6 +2908,7 @@ static err_t test_subagent_sender(const char *chat_id,
                                   const char *task_id,
                                   const char *session_id,
                                   const char *coordinator_id,
+                                  unsigned long visible_revision,
                                   const char *subagent_type,
                                   const char *status,
                                   const char *task,
@@ -2924,6 +2925,7 @@ static err_t test_subagent_sender(const char *chat_id,
 {
     (void)session_id;
     (void)coordinator_id;
+    (void)visible_revision;
     (void)subagent_type;
     (void)task;
     (void)output;

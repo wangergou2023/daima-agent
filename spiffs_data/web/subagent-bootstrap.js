@@ -112,6 +112,7 @@
         clearAgentState: api.clearAgentState,
         onSocketOpenForPet: api.onSocketOpenForPet,
         saveReconnectSession: api.saveReconnectSession,
+        scheduleCurrentSessionHistoryReconcile: api.scheduleCurrentSessionHistoryReconcile,
         loadSubagentStateSnapshot: api.loadSubagentStateSnapshot,
         refreshContextStats: api.refreshContextStats,
         showReconnectToast: api.showReconnectToast,
