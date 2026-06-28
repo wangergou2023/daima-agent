@@ -374,6 +374,7 @@ err_t ws_server_send_tool_event(const char *chat_id, const char *text)
 err_t ws_server_send_subagent_event(const char *chat_id,
                                     const char *event_type,
                                     const char *task_id,
+                                    const char *task_key,
                                     const char *session_id,
                                     const char *coordinator_id,
                                     unsigned long visible_revision,
@@ -398,6 +399,9 @@ err_t ws_server_send_subagent_event(const char *chat_id,
     cJSON_AddStringToObject(resp, "type", event_type ? event_type : "subagent_progress");
     cJSON_AddStringToObject(resp, "chat_id", chat_id ? chat_id : "");
     cJSON_AddStringToObject(resp, "task_id", task_id ? task_id : "");
+    if (task_key && task_key[0]) {
+        cJSON_AddStringToObject(resp, "task_key", task_key);
+    }
     cJSON_AddStringToObject(resp, "session_id", session_id ? session_id : "");
     cJSON_AddStringToObject(resp, "coordinator_id", coordinator_id ? coordinator_id : "");
     cJSON_AddNumberToObject(resp, "visible_revision", (double)visible_revision);

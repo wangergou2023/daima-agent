@@ -29,6 +29,7 @@ typedef struct delegate_request {
     char team_name[DELEGATE_TEAM_NAME_LEN];
     char dispatch_mode[24];
     char task_id[DELEGATE_TASK_ID_LEN];
+    char task_key[DELEGATE_TASK_KEY_LEN];
     char coordinator_id[DELEGATE_COORDINATOR_ID_LEN];
     bool run_in_background;
     bool is_batch;

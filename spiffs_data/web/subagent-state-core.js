@@ -498,6 +498,7 @@
   }
 
   function normalizeCoordinatorAgent(agent) {
+    const coordinatorId = trimText(agent?.coordinator_id);
     const taskId = trimText(agent?.task_id);
     const taskKey = trimText(agent?.task_key);
     const dependsOn = trimText(agent?.depends_on);
@@ -540,6 +541,7 @@
       ? (childVisible || output || trimText(agent?.raw_output))
       : (output || trimText(agent?.raw_output));
     return {
+      coordinator_id: coordinatorId,
       task_id: taskId,
       task_key: taskKey,
       depends_on: dependsOn,
@@ -1006,16 +1008,47 @@
     };
   }
 
+  function fallbackDetailKey(taskId, sessionId, coordinatorId, taskKey, taskName, subagentType) {
+    const stableTaskId = trimText(taskId);
+    if (stableTaskId) return stableTaskId;
+
+    const stableSessionId = trimText(sessionId);
+    if (stableSessionId) return stableSessionId;
+
+    const stableCoordinatorId = trimText(coordinatorId);
+    const stableTaskKey = trimText(taskKey);
+    if (stableCoordinatorId && stableTaskKey) {
+      return `${stableCoordinatorId}:${stableTaskKey}`;
+    }
+
+    const stableTaskName = trimText(taskName);
+    if (stableCoordinatorId && stableTaskName) {
+      return `${stableCoordinatorId}:${stableTaskName}`;
+    }
+
+    return stableTaskName || trimText(subagentType);
+  }
+
   function subagentEventKey(data) {
-    const taskId = trimText(data?.task_id);
-    if (taskId) return taskId;
-    const sessionId = trimText(data?.session_id);
-    if (sessionId) return sessionId;
-    return trimText(data?.task || data?.subagent_type);
+    return fallbackDetailKey(
+      data?.task_id,
+      data?.session_id,
+      data?.coordinator_id,
+      data?.task_key,
+      data?.task,
+      data?.subagent_type,
+    );
   }
 
   function detailKeyForAgent(agent) {
-    return trimText(agent?.task_id) || trimText(agent?.session_id) || trimText(agent?.name);
+    return fallbackDetailKey(
+      agent?.task_id,
+      agent?.session_id,
+      agent?.coordinator_id,
+      agent?.task_key,
+      agent?.name,
+      agent?.subagent_type,
+    );
   }
 
   function subagentEventsForAgent(agent, state) {
@@ -1024,6 +1057,14 @@
     const candidates = [
       trimText(agent?.task_id),
       trimText(agent?.session_id),
+      fallbackDetailKey(
+        agent?.task_id,
+        agent?.session_id,
+        agent?.coordinator_id,
+        agent?.task_key,
+        agent?.name,
+        agent?.subagent_type,
+      ),
       trimText(agent?.name),
     ].filter(Boolean);
 

@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 
 #include "drivers/channel/feishu/feishu_targets.h"
+#include "drivers/tool/tool_decomposition_policy.h"
 #include "drivers/tool/tool_file_ops.h"
 #include "drivers/tool/tool_delegate_path_resolve.h"
 #include "drivers/tool/tool_delegate_repo_batch.h"
@@ -26,7 +27,9 @@
 static char *build_forced_delegate_preflight_batch(const struct message *msg);
 static char *build_user_prompt_scoped_delegate_batch(const struct message *msg);
 static char *build_user_prompt_generic_delegate_batch(const struct message *msg);
+static char *build_user_prompt_serial_delegate_batch(const struct message *msg);
 static char *build_llm_generic_delegate_batch(const struct message *msg);
+static char *build_forced_decomposition_delegate_batch(const struct message *msg);
 static void json_set_string(cJSON *obj, const char *key, const char *value);
 
 static bool invocation_text_has_work_signal(const char *line)
@@ -300,6 +303,11 @@ static char *build_user_prompt_generic_delegate_batch(const struct message *msg)
     return tool_delegate_build_user_prompt_generic_delegate_batch_json(msg);
 }
 
+static char *build_user_prompt_serial_delegate_batch(const struct message *msg)
+{
+    return tool_delegate_build_user_prompt_serial_delegate_batch_json(msg);
+}
+
 static char *build_forced_parallel_delegate_batch_from_message(const struct message *msg)
 {
     if (!msg || !msg->content || tool_invocation_context_message_is_delegate_subagent(msg)) {
@@ -327,6 +335,37 @@ static char *build_forced_repo_parallel_delegate_batch(const struct message *msg
         batch = build_forced_parallel_delegate_batch_from_message(msg);
     }
     return batch;
+}
+
+static char *build_forced_decomposition_delegate_batch(const struct message *msg)
+{
+    tool_decomposition_mode_t mode;
+    char *batch;
+
+    if (!msg || !msg->content || tool_invocation_context_message_is_delegate_subagent(msg)) {
+        return NULL;
+    }
+
+    mode = tool_decomposition_policy_classify_message(msg);
+    if (mode == TOOL_DECOMP_NONE) {
+        return NULL;
+    }
+
+    if (mode == TOOL_DECOMP_SERIAL) {
+        batch = build_user_prompt_serial_delegate_batch(msg);
+        if (batch) {
+            return batch;
+        }
+    }
+
+    batch = build_llm_generic_delegate_batch(msg);
+    if (batch) {
+        return batch;
+    }
+    if (mode == TOOL_DECOMP_PARALLEL) {
+        return build_forced_repo_parallel_delegate_batch(msg);
+    }
+    return NULL;
 }
 
 static char *load_delegate_turn_directive_json(const struct message *msg)
@@ -584,28 +623,12 @@ bool tool_invocation_context_message_requests_multi_subagents(const struct messa
 
 bool tool_invocation_context_message_prefers_parallel_subagents(const struct message *msg)
 {
-    explicit_multi_scope_group_t explicit_scopes;
+    return tool_decomposition_policy_prefers_parallel(msg);
+}
 
-    if (!msg || !msg->content) {
-        return false;
-    }
-    if (tool_invocation_context_message_is_delegate_subagent(msg)) {
-        return false;
-    }
-    if (message_explicitly_disallows_parallel_subagents(msg)) {
-        return false;
-    }
-    if (tool_delegate_collect_explicit_multi_scope_paths_from_message(msg, &explicit_scopes) &&
-        explicit_scopes.count >= 2) {
-        return true;
-    }
-    if (tool_invocation_context_message_requests_multi_subagents(msg)) {
-        return true;
-    }
-    if (message_looks_like_multi_workstream_request(msg)) {
-        return true;
-    }
-    return false;
+bool tool_invocation_context_message_prefers_serial_subagents(const struct message *msg)
+{
+    return tool_decomposition_policy_classify_message(msg) == TOOL_DECOMP_SERIAL;
 }
 
 bool tool_invocation_context_message_should_offer_delegate_tool(const struct message *msg)
@@ -619,7 +642,7 @@ bool tool_invocation_context_message_should_offer_delegate_tool(const struct mes
     if (message_explicitly_disallows_parallel_subagents(msg)) {
         return false;
     }
-    if (tool_invocation_context_message_prefers_parallel_subagents(msg)) {
+    if (tool_decomposition_policy_requires_delegate_only(msg)) {
         return true;
     }
     return message_looks_like_complex_task(msg);
@@ -800,16 +823,50 @@ static bool delegate_json_batch_valid(const char *json_text)
     return count >= 2;
 }
 
+static char *normalize_delegate_batch_for_mode(const char *json_text,
+                                               tool_decomposition_mode_t mode)
+{
+    cJSON *root;
+    cJSON *tasks;
+    char *json = NULL;
+
+    if (!json_text || !json_text[0] || mode == TOOL_DECOMP_NONE) {
+        return NULL;
+    }
+
+    root = cJSON_Parse(json_text);
+    if (!root || !cJSON_IsObject(root)) {
+        cJSON_Delete(root);
+        return NULL;
+    }
+
+    tasks = cJSON_GetObjectItem(root, "tasks");
+    if (!tasks || !cJSON_IsArray(tasks) || cJSON_GetArraySize(tasks) < 2) {
+        cJSON_Delete(root);
+        return NULL;
+    }
+
+    if (mode == TOOL_DECOMP_SERIAL) {
+        json_set_string(root, "dispatch_mode", "staged");
+        json = cJSON_PrintUnformatted(root);
+    }
+
+    cJSON_Delete(root);
+    return json;
+}
+
 static char *build_llm_generic_delegate_batch(const struct message *msg)
 {
     cJSON *messages = NULL;
     cJSON *um = NULL;
     llm_response_t resp;
     char prompt[4096];
+    tool_decomposition_mode_t mode;
 
     if (!msg || !msg->content || !msg->content[0]) {
         return NULL;
     }
+    mode = tool_decomposition_policy_classify_message(msg);
 
     snprintf(prompt,
              sizeof(prompt),
@@ -870,12 +927,18 @@ static char *build_llm_generic_delegate_batch(const struct message *msg)
     cJSON_Delete(messages);
 
     if (resp.text && delegate_json_batch_valid(resp.text)) {
-        char *json = strdup(resp.text);
+        char *json = normalize_delegate_batch_for_mode(resp.text, mode);
+        if (!json) {
+            json = strdup(resp.text);
+        }
         llm_response_free(&resp);
         return json;
     }
     if (resp.reasoning_content && delegate_json_batch_valid(resp.reasoning_content)) {
-        char *json = strdup(resp.reasoning_content);
+        char *json = normalize_delegate_batch_for_mode(resp.reasoning_content, mode);
+        if (!json) {
+            json = strdup(resp.reasoning_content);
+        }
         llm_response_free(&resp);
         return json;
     }
@@ -962,6 +1025,7 @@ static char *patch_cron_action_add_target(const llm_tool_call_t *call, const str
 char *tool_invocation_context_patch_input(const llm_tool_call_t *call, const struct message *msg)
 {
     char *delegate_scope_patch = NULL;
+    char *forced_delegate_batch = NULL;
 
     if (!call || !msg) {
         return NULL;
@@ -978,6 +1042,17 @@ char *tool_invocation_context_patch_input(const llm_tool_call_t *call, const str
         delegate_scope_patch = patch_delegate_subagent_terminal_input(call, msg);
         if (delegate_scope_patch) {
             return delegate_scope_patch;
+        }
+    }
+    if ((strcmp(call->name, "files") == 0 || strcmp(call->name, "terminal") == 0) &&
+        !tool_invocation_context_message_is_delegate_subagent(msg) &&
+        tool_decomposition_policy_requires_delegate_only(msg)) {
+        forced_delegate_batch = build_forced_decomposition_delegate_batch(msg);
+        if (forced_delegate_batch) {
+            pr_info("Patched %s to decomposition delegate batch for chat=%s",
+                    call->name,
+                    msg->chat_id);
+            return forced_delegate_batch;
         }
     }
     char *directive = NULL;
@@ -1005,6 +1080,7 @@ char *tool_invocation_context_patch_input(const llm_tool_call_t *call, const str
     }
     if (strcmp(call->name, "delegate_task") == 0) {
         cJSON *root = cJSON_Parse(call->input ? call->input : "{}");
+        tool_decomposition_mode_t decomp_mode = tool_decomposition_policy_classify_message(msg);
         bool has_stored_directive = false;
         char directive_buf[16384];
         const char *subagent_type = root ? cJSON_GetStringValue(cJSON_GetObjectItem(root, "subagent_type")) : NULL;
@@ -1016,6 +1092,7 @@ char *tool_invocation_context_patch_input(const llm_tool_call_t *call, const str
         bool missing_delegate_shape = (!subagent_type || !subagent_type[0]) && !has_valid_tasks;
         bool should_force_batch = false;
         bool should_force_generic_parallel = false;
+        bool should_force_serial_delegate = false;
         bool should_rewrite_scoped_batch = false;
         bool should_rewrite_path_scoped_batch_to_generic = false;
         bool should_rewrite_invalid_delegate = false;
@@ -1033,10 +1110,10 @@ char *tool_invocation_context_patch_input(const llm_tool_call_t *call, const str
                              delegate_task_input_is_single_explore(root);
         should_force_generic_parallel = !has_stored_directive &&
                                         delegate_task_input_is_single_explore(root) &&
-                                        msg->intent == INTENT_INVESTIGATE &&
-                                        message_looks_like_complex_task(msg) &&
-                                        message_looks_like_repo_analysis_request(msg) &&
-                                        !message_explicitly_disallows_parallel_subagents(msg);
+                                        tool_invocation_context_message_prefers_parallel_subagents(msg);
+        should_force_serial_delegate = !has_stored_directive &&
+                                       delegate_task_input_is_single_explore(root) &&
+                                       tool_invocation_context_message_prefers_serial_subagents(msg);
         should_rewrite_scoped_batch = !has_stored_directive &&
                                       tasks && cJSON_IsArray(tasks) &&
                                       cJSON_GetArraySize(tasks) >= 2 &&
@@ -1056,11 +1133,13 @@ char *tool_invocation_context_patch_input(const llm_tool_call_t *call, const str
                                                     !message_explicitly_disallows_parallel_subagents(msg) &&
                                                     (!delegate_task_input_has_dispatch_mode(root, "staged") ||
                                                      !delegate_task_batch_has_task_key(root, "oracle_synthesis"));
-        pr_info("delegate_task patch check: chat=%s stored_directive=%d should_force_batch=%d should_force_generic_parallel=%d has_tasks=%d subagent_type=%s",
+        pr_info("delegate_task patch check: chat=%s mode=%s stored_directive=%d should_force_batch=%d should_force_generic_parallel=%d should_force_serial_delegate=%d has_tasks=%d subagent_type=%s",
                 msg->chat_id,
+                tool_decomposition_mode_name(decomp_mode),
                 has_stored_directive ? 1 : 0,
                 should_force_batch ? 1 : 0,
                 should_force_generic_parallel ? 1 : 0,
+                should_force_serial_delegate ? 1 : 0,
                 (tasks && cJSON_IsArray(tasks)) ? 1 : 0,
                 subagent_type ? subagent_type : "<null>");
         cJSON_Delete(root);
@@ -1069,13 +1148,26 @@ char *tool_invocation_context_patch_input(const llm_tool_call_t *call, const str
             return strdup(directive_buf);
         }
         if (should_force_batch) {
+            pr_info("delegate decomposition selected fallback=preflight_batch chat=%s mode=%s",
+                    msg->chat_id,
+                    tool_decomposition_mode_name(decomp_mode));
             return build_forced_delegate_preflight_batch(msg);
         }
         if (should_force_generic_parallel) {
-            scoped_batch = build_forced_repo_parallel_delegate_batch(msg);
+            scoped_batch = build_forced_decomposition_delegate_batch(msg);
             if (scoped_batch) {
-                pr_info("Patched single explore delegate_task to generic multi-subagent batch for chat=%s",
-                        msg->chat_id);
+                pr_info("delegate decomposition selected fallback=parallel_batch chat=%s mode=%s",
+                        msg->chat_id,
+                        tool_decomposition_mode_name(decomp_mode));
+                return scoped_batch;
+            }
+        }
+        if (should_force_serial_delegate) {
+            scoped_batch = build_forced_decomposition_delegate_batch(msg);
+            if (scoped_batch) {
+                pr_info("delegate decomposition selected fallback=serial_staged_batch chat=%s mode=%s",
+                        msg->chat_id,
+                        tool_decomposition_mode_name(decomp_mode));
                 return scoped_batch;
             }
         }
@@ -1118,6 +1210,15 @@ const char *tool_invocation_context_patch_tool_name(const llm_tool_call_t *call,
 {
     if (!call || !msg) {
         return NULL;
+    }
+    if ((strcmp(call->name, "files") == 0 || strcmp(call->name, "terminal") == 0) &&
+        tool_decomposition_policy_requires_delegate_only(msg) &&
+        !tool_invocation_context_message_is_delegate_subagent(msg)) {
+        pr_info("delegate decomposition reroute: chat=%s mode=%s from=%s to=delegate_task",
+                msg->chat_id,
+                tool_decomposition_mode_name(tool_decomposition_policy_classify_message(msg)),
+                call->name);
+        return "delegate_task";
     }
     return NULL;
 }

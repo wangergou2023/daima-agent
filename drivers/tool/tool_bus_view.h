@@ -17,3 +17,4 @@ err_t tool_bus_execute_for_channel(const char *channel,
 const char *tool_bus_tools_json(void);
 const char *tool_bus_tools_json_for_channel(const char *channel);
 const char *tool_bus_tools_json_for_channel_without_delegate(const char *channel);
+const char *tool_bus_tools_json_delegate_only(void);

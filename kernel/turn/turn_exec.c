@@ -509,24 +509,27 @@ cJSON *agent_turn_build_tool_results(const llm_response_t *resp,
     for (int i = 0; i < resp->call_count; i++) {
         const llm_tool_call_t *call = &resp->calls[i];
         const char *tool_input = call->input ? call->input : "{}";
+        const char *patched_tool_name = tool_invocation_context_patch_tool_name(call, msg);
+        const char *advertised_tool_name =
+            (patched_tool_name && patched_tool_name[0]) ? patched_tool_name : call->name;
         tool_runtime_result_t rt = {0};
-        bool tool_advertised = agent_tool_name_is_advertised(tools_json, call->name);
+        bool tool_advertised = agent_tool_name_is_advertised(tools_json, advertised_tool_name);
 
         if (!tool_advertised) {
             snprintf(tool_output,
                      tool_output_size,
                      "tool protocol error: tool '%s' was not advertised for this turn",
-                     call->name);
+                     advertised_tool_name);
             pr_warn("Rejected non-advertised tool call: chat=%s source=%s tool=%s",
                     msg->chat_id,
                     agent_msg_source_or_default(msg),
-                    call->name);
+                    advertised_tool_name);
             if (stats) {
                 stats->unrecoverable_tool_protocol_error = true;
                 snprintf(stats->tool_protocol_error_reason,
                          sizeof(stats->tool_protocol_error_reason),
                          "工具 %s 不在当前轮允许工具集中",
-                         call->name);
+                         advertised_tool_name);
             }
             append_tool_result_block(content, call->id, tool_output);
             continue;

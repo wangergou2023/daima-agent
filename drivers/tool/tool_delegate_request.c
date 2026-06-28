@@ -65,6 +65,7 @@ err_t tool_delegate_parse_request(const char *input_json,
     const char *prompt = cJSON_GetStringValue(cJSON_GetObjectItem(root, "prompt"));
     const char *subagent_type = cJSON_GetStringValue(cJSON_GetObjectItem(root, "subagent_type"));
     const char *task_id = cJSON_GetStringValue(cJSON_GetObjectItem(root, "task_id"));
+    const char *task_key = cJSON_GetStringValue(cJSON_GetObjectItem(root, "task_key"));
     const char *coordinator_id = cJSON_GetStringValue(cJSON_GetObjectItem(root, "coordinator_id"));
     const char *action = cJSON_GetStringValue(cJSON_GetObjectItem(root, "action"));
     const char *scope = cJSON_GetStringValue(cJSON_GetObjectItem(root, "scope"));
@@ -179,12 +180,17 @@ err_t tool_delegate_parse_request(const char *input_json,
             return ERR_INVALID_ARG;
         }
         strscpy(req->coordinator_id, coordinator_id ? coordinator_id : "", sizeof(req->coordinator_id));
+        pr_info("delegate batch parsed: dispatch_mode=%s batch_count=%d coordinator=%s",
+                req->dispatch_mode[0] ? req->dispatch_mode : "<default>",
+                req->batch_count,
+                req->coordinator_id[0] ? req->coordinator_id : "<new>");
         cJSON_Delete(root);
         return 0;
     }
 
     if (task_id && task_id[0]) {
         strscpy(req->task_id, task_id, sizeof(req->task_id));
+        strscpy(req->task_key, task_key ? task_key : "", sizeof(req->task_key));
         strscpy(req->subagent_type, subagent_type ? subagent_type : "", sizeof(req->subagent_type));
         cJSON_Delete(root);
         return 0;
@@ -227,6 +233,7 @@ err_t tool_delegate_parse_request(const char *input_json,
     strscpy(req->prompt, prompt ? prompt : "", sizeof(req->prompt));
     strscpy(req->subagent_type, subagent_type, sizeof(req->subagent_type));
     strscpy(req->task_id, task_id ? task_id : "", sizeof(req->task_id));
+    strscpy(req->task_key, task_key ? task_key : "", sizeof(req->task_key));
     strscpy(req->coordinator_id, coordinator_id ? coordinator_id : "", sizeof(req->coordinator_id));
     req->run_in_background = cJSON_IsBool(run_bg) ? cJSON_IsTrue(run_bg) : false;
 

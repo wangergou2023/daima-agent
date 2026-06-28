@@ -15,6 +15,7 @@ static char *s_tools_json;
 static char *s_base_tools_json;
 static char *s_tools_json_no_delegate;
 static char *s_base_tools_json_no_delegate;
+static char *s_delegate_only_json;
 
 static bool is_vector_tool_name(const char *name)
 {
@@ -129,12 +130,38 @@ static char *build_tools_json_filtered(bool include_vector_tools, bool include_d
     return json;
 }
 
+static char *build_tools_json_delegate_only(void)
+{
+    cJSON *arr = cJSON_CreateArray();
+
+    if (!tool_bus) {
+        char *json = cJSON_PrintUnformatted(arr);
+        cJSON_Delete(arr);
+        return json;
+    }
+
+    struct list_head *pos;
+    for (pos = tool_bus->devices.next; pos != &tool_bus->devices; pos = pos->next) {
+        struct device *dev = container_of(pos, struct device, bus_node);
+        const struct tool_device *tool = dev->data;
+        if (!tool || !dev->drv || strcmp(tool->name, "delegate_task") != 0) {
+            continue;
+        }
+        add_tool_json(arr, tool);
+    }
+
+    char *json = cJSON_PrintUnformatted(arr);
+    cJSON_Delete(arr);
+    return json;
+}
+
 static void rebuild_tools_json(void)
 {
     if (s_tools_json &&
         s_base_tools_json &&
         s_tools_json_no_delegate &&
-        s_base_tools_json_no_delegate) {
+        s_base_tools_json_no_delegate &&
+        s_delegate_only_json) {
         return;
     }
 
@@ -142,10 +169,12 @@ static void rebuild_tools_json(void)
     kfree(s_base_tools_json);
     kfree(s_tools_json_no_delegate);
     kfree(s_base_tools_json_no_delegate);
+    kfree(s_delegate_only_json);
     s_tools_json = build_tools_json_filtered(true, true);
     s_base_tools_json = build_tools_json_filtered(false, true);
     s_tools_json_no_delegate = build_tools_json_filtered(true, false);
     s_base_tools_json_no_delegate = build_tools_json_filtered(false, false);
+    s_delegate_only_json = build_tools_json_delegate_only();
 }
 
 const char *tool_bus_tools_json(void)
@@ -173,4 +202,10 @@ const char *tool_bus_tools_json_for_channel_without_delegate(const char *channel
         return s_base_tools_json_no_delegate;
     }
     return s_base_tools_json ? s_base_tools_json : s_tools_json;
+}
+
+const char *tool_bus_tools_json_delegate_only(void)
+{
+    rebuild_tools_json();
+    return s_delegate_only_json ? s_delegate_only_json : "[]";
 }

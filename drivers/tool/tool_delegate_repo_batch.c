@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include "cjson.h"
+#include "drivers/tool/tool_delegate_batch_policy.h"
 #include "drivers/tool/tool_invocation_context.h"
 #include "drivers/tool/tool_delegate_path_resolve.h"
 #include "drivers/tool/tool_files.h"
@@ -612,6 +613,32 @@ static void build_generic_batch_task_prompt(const char *full_prompt,
              task_line && task_line[0] ? task_line : "");
 }
 
+static void build_generic_serial_batch_task_prompt(const char *full_prompt,
+                                                   const char *task_line,
+                                                   int index,
+                                                   int total,
+                                                   char *dst,
+                                                   size_t dst_size)
+{
+    if (!dst || dst_size == 0) {
+        return;
+    }
+    dst[0] = '\0';
+    snprintf(dst,
+             dst_size,
+             "你只负责串行流程中的第 %d/%d 步，不要跳步，也不要并行拆分。\n"
+             "原始用户请求：%s\n"
+             "当前步骤：%s\n"
+             "要求：\n"
+             "1. 只完成当前步骤直接需要的分析或产出。\n"
+             "2. 如果上游步骤结果已提供，只基于上游结果继续推进。\n"
+             "3. 不要擅自扩展到后续步骤。",
+             index + 1,
+             total,
+             full_prompt && full_prompt[0] ? full_prompt : "",
+             task_line && task_line[0] ? task_line : "");
+}
+
 static bool collect_generic_task_lines_from_prompt(const char *content,
                                                    char tasks[][512],
                                                    int max_tasks)
@@ -645,6 +672,238 @@ static bool collect_generic_task_lines_from_prompt(const char *content,
             break;
         }
         cursor = line_end + 1;
+    }
+
+    return count >= 2;
+}
+
+static bool ordered_marker_at(const char *cursor, const char **marker, size_t *marker_len)
+{
+    static const char *const ordered_markers[] = {
+        "先", "然后", "再", "接着", "最后",
+        "first", "then", "next", "finally"
+    };
+
+    if (!cursor || !marker || !marker_len) {
+        return false;
+    }
+
+    for (size_t i = 0; i < ARRAY_SIZE(ordered_markers); i++) {
+        size_t len = strlen(ordered_markers[i]);
+        if (strncmp(cursor, ordered_markers[i], len) == 0) {
+            *marker = ordered_markers[i];
+            *marker_len = len;
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool collect_inline_ordered_task_lines_from_prompt(const char *content,
+                                                          char tasks[][512],
+                                                          int max_tasks)
+{
+    const char *cursor;
+    int count = 0;
+
+    if (!content || !content[0] || !tasks || max_tasks <= 0) {
+        return false;
+    }
+
+    cursor = content;
+    while (*cursor && count < max_tasks) {
+        const char *marker = NULL;
+        size_t marker_len = 0;
+        const char *segment_start;
+        const char *segment_end;
+        char line[512];
+        size_t len;
+
+        if (!ordered_marker_at(cursor, &marker, &marker_len)) {
+            cursor++;
+            continue;
+        }
+
+        segment_start = cursor + marker_len;
+        while (*segment_start == ' ' || *segment_start == '\t') {
+            segment_start++;
+        }
+
+        segment_end = segment_start;
+        while (*segment_end) {
+            const char *next_marker = NULL;
+            size_t next_marker_len = 0;
+
+            if (ordered_marker_at(segment_end, &next_marker, &next_marker_len)) {
+                break;
+            }
+            if (*segment_end == '\n' || *segment_end == '\r') {
+                break;
+            }
+            segment_end++;
+        }
+
+        len = (size_t)(segment_end - segment_start);
+        while (len > 0 &&
+               (segment_start[len - 1] == ' ' || segment_start[len - 1] == '\t' ||
+                segment_start[len - 1] == ',' || segment_start[len - 1] == ';')) {
+            len--;
+        }
+        if (len >= sizeof(line)) {
+            len = sizeof(line) - 1;
+        }
+        if (len > 0) {
+            memcpy(line, segment_start, len);
+            line[len] = '\0';
+            strip_task_bullet_prefix(line);
+            while (line[0]) {
+                size_t tail = strlen(line);
+                if (tail == 0) {
+                    break;
+                }
+                if (line[tail - 1] == ' ' || line[tail - 1] == '\t' ||
+                    line[tail - 1] == ',' || line[tail - 1] == ';') {
+                    line[tail - 1] = '\0';
+                    continue;
+                }
+                if (tail >= 3 &&
+                    (unsigned char)line[tail - 3] == 0xEF &&
+                    (unsigned char)line[tail - 2] == 0xBC &&
+                    (unsigned char)line[tail - 1] == 0x8C) {
+                    line[tail - 3] = '\0';
+                    continue;
+                }
+                if (tail >= 3 &&
+                    (unsigned char)line[tail - 3] == 0xE3 &&
+                    (unsigned char)line[tail - 2] == 0x80 &&
+                    (unsigned char)line[tail - 1] == 0x82) {
+                    line[tail - 3] = '\0';
+                    continue;
+                }
+                break;
+            }
+            if (line[0] &&
+                strchr(line, '/') == NULL &&
+                generic_task_line_has_work_signal(line) &&
+                !path_already_selected(tasks, count, line)) {
+                strscpy(tasks[count++], line, sizeof(tasks[0]));
+            }
+        }
+
+        cursor = segment_end;
+    }
+
+    return count >= 2;
+}
+
+static bool clause_boundary_at(const char *cursor, size_t *boundary_len)
+{
+    static const char *const boundaries[] = {
+        "，并", "，再", "，然后", "，最后", "并且", "并", "再", "然后", "最后",
+        ", and ", ", then ", " and ", " then ", " finally "
+    };
+
+    if (!cursor || !boundary_len) {
+        return false;
+    }
+
+    for (size_t i = 0; i < ARRAY_SIZE(boundaries); i++) {
+        size_t len = strlen(boundaries[i]);
+        if (strncmp(cursor, boundaries[i], len) == 0) {
+            *boundary_len = len;
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool collect_inline_clause_task_lines_from_prompt(const char *content,
+                                                         char tasks[][512],
+                                                         int max_tasks)
+{
+    const char *cursor;
+    int count = 0;
+
+    if (!content || !content[0] || !tasks || max_tasks <= 0) {
+        return false;
+    }
+
+    cursor = content;
+    while (*cursor && count < max_tasks) {
+        const char *segment_end = cursor;
+        char line[512];
+        size_t len;
+
+        while (*segment_end) {
+            size_t boundary_len = 0;
+            if (clause_boundary_at(segment_end, &boundary_len)) {
+                break;
+            }
+            if (*segment_end == '\n' || *segment_end == '\r') {
+                break;
+            }
+            segment_end++;
+        }
+
+        len = (size_t)(segment_end - cursor);
+        if (len >= sizeof(line)) {
+            len = sizeof(line) - 1;
+        }
+        if (len > 0) {
+            memcpy(line, cursor, len);
+            line[len] = '\0';
+            strip_task_bullet_prefix(line);
+            trim_ascii_whitespace_inplace(line);
+            while (line[0]) {
+                size_t tail = strlen(line);
+                if (tail == 0) {
+                    break;
+                }
+                if (line[tail - 1] == ' ' || line[tail - 1] == '\t' ||
+                    line[tail - 1] == ',' || line[tail - 1] == ';') {
+                    line[tail - 1] = '\0';
+                    continue;
+                }
+                if (tail >= 3 &&
+                    (unsigned char)line[tail - 3] == 0xEF &&
+                    (unsigned char)line[tail - 2] == 0xBC &&
+                    (unsigned char)line[tail - 1] == 0x8C) {
+                    line[tail - 3] = '\0';
+                    continue;
+                }
+                if (tail >= 3 &&
+                    (unsigned char)line[tail - 3] == 0xE3 &&
+                    (unsigned char)line[tail - 2] == 0x80 &&
+                    (unsigned char)line[tail - 1] == 0x82) {
+                    line[tail - 3] = '\0';
+                    continue;
+                }
+                break;
+            }
+            if (line[0] &&
+                strchr(line, '/') == NULL &&
+                generic_task_line_has_work_signal(line) &&
+                !path_already_selected(tasks, count, line)) {
+                strscpy(tasks[count++], line, sizeof(tasks[0]));
+            }
+        }
+
+        while (*segment_end) {
+            size_t boundary_len = 0;
+            if (!clause_boundary_at(segment_end, &boundary_len)) {
+                break;
+            }
+            segment_end += boundary_len;
+            while (*segment_end == ' ' || *segment_end == '\t') {
+                segment_end++;
+            }
+            break;
+        }
+
+        if (segment_end == cursor) {
+            break;
+        }
+        cursor = segment_end;
     }
 
     return count >= 2;
@@ -695,6 +954,88 @@ char *tool_delegate_build_user_prompt_generic_delegate_batch_json(const struct m
     }
 
     cJSON_AddStringToObject(root, "dispatch_mode", "parallel");
+    cJSON_AddItemToObject(root, "tasks", tasks);
+    {
+        char *json = cJSON_PrintUnformatted(root);
+        cJSON_Delete(root);
+        return json;
+    }
+}
+
+char *tool_delegate_build_user_prompt_serial_delegate_batch_json(const struct message *msg)
+{
+    char task_lines[8][512];
+    cJSON *root = NULL;
+    cJSON *tasks = NULL;
+    int total = 0;
+
+    if (!msg || !msg->content) {
+        return NULL;
+    }
+    if (!collect_generic_task_lines_from_prompt(msg->content,
+                                                task_lines,
+                                                ARRAY_SIZE(task_lines)) &&
+        !collect_inline_ordered_task_lines_from_prompt(msg->content,
+                                                       task_lines,
+                                                       ARRAY_SIZE(task_lines)) &&
+        !collect_inline_clause_task_lines_from_prompt(msg->content,
+                                                       task_lines,
+                                                       ARRAY_SIZE(task_lines))) {
+        return NULL;
+    }
+
+    for (int i = 0; i < (int)ARRAY_SIZE(task_lines) && task_lines[i][0]; i++) {
+        total++;
+    }
+    if (total < 2) {
+        return NULL;
+    }
+
+    root = cJSON_CreateObject();
+    tasks = cJSON_CreateArray();
+    if (!root || !tasks) {
+        cJSON_Delete(root);
+        cJSON_Delete(tasks);
+        return NULL;
+    }
+
+    for (int i = 0; i < total; i++) {
+        char prompt[2048];
+        char task_key[64];
+        const char *subagent_type = infer_scope_subagent_type_from_user_prompt(task_lines[i]);
+        cJSON *item = cJSON_CreateObject();
+
+        if (!item) {
+            continue;
+        }
+        build_generic_serial_batch_task_prompt(msg->content,
+                                               task_lines[i],
+                                               i,
+                                               total,
+                                               prompt,
+                                               sizeof(prompt));
+        build_generic_task_key_from_index(i, task_key, sizeof(task_key));
+        cJSON_AddStringToObject(item, "task_key", task_key);
+        cJSON_AddStringToObject(item, "description", task_lines[i]);
+        cJSON_AddStringToObject(item, "subagent_type", subagent_type);
+        cJSON_AddStringToObject(item, "prompt", prompt);
+        if (i > 0) {
+            cJSON *depends = cJSON_CreateArray();
+            char dep_key[64];
+            snprintf(dep_key, sizeof(dep_key), "task_%d", i);
+            cJSON_AddItemToArray(depends, cJSON_CreateString(dep_key));
+            cJSON_AddItemToObject(item, "depends_on", depends);
+        }
+        cJSON_AddItemToArray(tasks, item);
+    }
+
+    if (cJSON_GetArraySize(tasks) < 2) {
+        cJSON_Delete(root);
+        cJSON_Delete(tasks);
+        return NULL;
+    }
+
+    cJSON_AddStringToObject(root, "dispatch_mode", "staged");
     cJSON_AddItemToObject(root, "tasks", tasks);
     {
         char *json = cJSON_PrintUnformatted(root);
@@ -1450,6 +1791,10 @@ bool tool_delegate_request_prefers_parallel_scope_batch(const delegate_request_t
     if (!bounded_overview) {
         return false;
     }
+    if (!has_explicit_scopes &&
+        tool_delegate_prompt_prefers_unified_repo_analysis(req->prompt, req->description)) {
+        return false;
+    }
     if (!preserves_root && !has_explicit_scopes) {
         return false;
     }
@@ -1506,6 +1851,12 @@ bool tool_delegate_should_expand_parallel_scope_batch(const delegate_request_t *
     }
     if (!bounded_overview) {
         pr_info("delegate parallel-scope batch skip: desc=%s reason=not_bounded_overview",
+                req->description[0] ? req->description : "-");
+        return false;
+    }
+    if (!has_explicit_scopes &&
+        tool_delegate_prompt_prefers_unified_repo_analysis(req->prompt, req->description)) {
+        pr_info("delegate parallel-scope batch skip: desc=%s reason=unified_repo_analysis",
                 req->description[0] ? req->description : "-");
         return false;
     }

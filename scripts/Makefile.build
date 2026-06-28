@@ -1,0 +1,29 @@
+src := $(obj)
+src-dir := $(if $(filter /%,$(src)),$(src),$(TOPDIR)/$(src))
+
+obj-y :=
+
+include $(src-dir)/Makefile
+
+obj-files := $(filter %.o,$(obj-y))
+subdirs := $(addprefix $(obj)/,$(patsubst %/,%,$(filter %/,$(obj-y))))
+subdir-builtins := $(addsuffix /built-in.o,$(subdirs))
+full-obj-files := $(addprefix $(obj)/,$(obj-files))
+targets := $(full-obj-files) $(subdir-builtins)
+
+.PHONY: __build $(subdirs)
+
+__build: $(targets)
+	@if [ -n "$(targets)" ]; then \
+		$(LD) -r -o $(obj)/built-in.o $(targets); \
+	fi
+
+$(subdirs):
+	@$(MAKE) -f $(TOPDIR)/scripts/Makefile.build obj=$@
+
+$(subdir-builtins): %/built-in.o:
+	@$(MAKE) -f $(TOPDIR)/scripts/Makefile.build obj=$*
+
+$(obj)/%.o: $(obj)/%.c
+	@echo "  CC      $@"
+	@$(CC) $(AGENT_CFLAGS) $(EXTRA_CFLAGS) -c -o $@ $<

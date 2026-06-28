@@ -7,6 +7,7 @@ typedef err_t (*delegate_parent_wake_sender_fn_t)(const char *chat_id, const cha
 typedef err_t (*delegate_parent_wake_subagent_sender_fn_t)(const char *chat_id,
                                                            const char *event_type,
                                                            const char *task_id,
+                                                           const char *task_key,
                                                            const char *session_id,
                                                            const char *coordinator_id,
                                                            unsigned long visible_revision,

@@ -31,6 +31,7 @@ err_t ws_server_send_tool_event(const char *chat_id, const char *text);
 err_t ws_server_send_subagent_event(const char *chat_id,
                                     const char *event_type,
                                     const char *task_id,
+                                    const char *task_key,
                                     const char *session_id,
                                     const char *coordinator_id,
                                     unsigned long visible_revision,

@@ -34,9 +34,8 @@ endif
 
 # 核心目录列表 (Kbuild 风格 obj-y 清单)
 core-y := init/
-core-y += kernel/ kernel/turn/ kernel/time/ kernel/printk/
+core-y += kernel/ kernel/turn/ kernel/printk/
 core-y += kernel/channel/ kernel/runtime/ kernel/context/ kernel/tooling/
-core-y += kernel/tooling/delegate/
 core-y += ipc/ lib/ net/ fs/
 core-y += drivers/llm/ drivers/channel/feishu/ drivers/channel/vector/ drivers/channel/gateway/
 core-y += drivers/tool/ drivers/memory/ drivers/skill/ drivers/voice/
@@ -56,6 +55,7 @@ $(BUILD_DIR):
 
 $(agent-dirs): $(BUILD_DIR)
 	$(Q)$(MAKE) -f $(TOPDIR)/scripts/Makefile.build obj=$@
+	@echo $(TOPDIR)/$@/built-in.o >> $(BUILD_DIR)/objects.list
 
 cjson: $(BUILD_DIR)
 	@echo "  CC      $(BUILD_DIR)/cjson.o"
@@ -64,6 +64,7 @@ cjson: $(BUILD_DIR)
 
 arch-obj: $(BUILD_DIR)
 	$(Q)$(MAKE) -f $(TOPDIR)/scripts/Makefile.build obj=arch/$(ARCH)
+	@echo $(TOPDIR)/arch/$(ARCH)/built-in.o >> $(BUILD_DIR)/objects.list
 
 agent: $(agent-dirs) cjson arch-obj
 	@echo "  LD      agent"

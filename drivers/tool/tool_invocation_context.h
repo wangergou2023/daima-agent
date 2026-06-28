@@ -13,6 +13,7 @@ const char *tool_invocation_context_patch_tool_name(const llm_tool_call_t *call,
 bool tool_invocation_context_message_requests_multi_subagents(const struct message *msg);
 bool tool_invocation_context_message_is_delegate_subagent(const struct message *msg);
 bool tool_invocation_context_message_prefers_parallel_subagents(const struct message *msg);
+bool tool_invocation_context_message_prefers_serial_subagents(const struct message *msg);
 bool tool_invocation_context_message_should_offer_delegate_tool(const struct message *msg);
 bool tool_invocation_context_delegate_scope_path(const struct message *msg,
                                                  char *scope_path,

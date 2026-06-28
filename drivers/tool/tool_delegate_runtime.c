@@ -48,6 +48,7 @@ err_t tool_delegate_run_background_coordinator(const delegate_request_t *req,
         }
         strscpy(child->description, req->batch_tasks[i].description, sizeof(child->description));
         strscpy(child->target_path, req->batch_tasks[i].target_path, sizeof(child->target_path));
+        strscpy(child->task_key, req->batch_tasks[i].task_key, sizeof(child->task_key));
         if (strcmp(req->batch_tasks[i].subagent_type, "implement") == 0) {
             strscpy(child->prompt, req->batch_tasks[i].prompt, sizeof(child->prompt));
             strlcat(child->prompt, implement_target_files_note, sizeof(child->prompt));

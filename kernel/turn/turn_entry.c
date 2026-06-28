@@ -18,7 +18,9 @@
 #include "turn_prompt.h"
 #include "turn_prepare.h"
 #include "drivers/tool/tool_bus_view.h"
+#include "drivers/tool/tool_decomposition_policy.h"
 #include "drivers/tool/tool_invocation_context.h"
+#include "drivers/tool/tool_orchestration_policy.h"
 #include "bus.h"
 #include "turn_common.h"
 #include "linux/printk.h"
@@ -637,12 +639,23 @@ static void agent_turn_run_from_prepared(struct message *msg,
 					 agent_turn_io_t *io,
 					 const agent_turn_decision_t *decision)
 {
+	tool_decomposition_mode_t decomp_mode =
+		tool_decomposition_policy_classify_message(msg);
+	bool delegate_only = tool_orchestration_policy_requires_delegate_only(msg);
 	const char *tools_json =
-		turn_should_expose_delegate_tool(msg)
-			? tool_bus_tools_json_for_channel(msg->channel)
-			: tool_bus_tools_json_for_channel_without_delegate(msg->channel);
+		delegate_only
+			? tool_bus_tools_json_delegate_only()
+			: (turn_should_expose_delegate_tool(msg)
+				? tool_bus_tools_json_for_channel(msg->channel)
+				: tool_bus_tools_json_for_channel_without_delegate(msg->channel));
 	const char *model_override =
 		agent_turn_resolve_model(msg, decision->active_role);
+
+	pr_info("turn tool routing: chat=%s mode=%s delegate_only=%d expose_delegate=%d",
+		msg && msg->chat_id[0] ? msg->chat_id : "-",
+		tool_decomposition_mode_name(decomp_mode),
+		delegate_only ? 1 : 0,
+		turn_should_expose_delegate_tool(msg) ? 1 : 0);
 
 	agent_run_prepared_turn(msg, io->system_prompt, io->messages, tools_json,
 				model_override, msg->chat_id, 0);
