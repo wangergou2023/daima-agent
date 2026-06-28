@@ -82,3 +82,22 @@ bool agent_tool_protocol_failure_should_stop(const char *tool_name,
 
     return false;
 }
+
+bool agent_tool_failure_is_recoverable_noise(const char *tool_name,
+                                             const char *tool_input,
+                                             const char *tool_output,
+                                             err_t tool_err)
+{
+    if (tool_err == 0) {
+        return false;
+    }
+
+    if (tool_name && strcmp(tool_name, "delegate_task") == 0 &&
+        tool_input && strcmp(tool_input, "{}") == 0 &&
+        tool_output &&
+        strstr(tool_output, "missing required field 'subagent_type'")) {
+        return true;
+    }
+
+    return false;
+}

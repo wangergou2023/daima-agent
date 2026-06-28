@@ -27,9 +27,9 @@
 #define DELEGATE_REQUEST_PROMPT_LEN 256
 #define DELEGATE_TEAM_NAME_LEN 48
 #define DELEGATE_TEAM_RUN_ID_LEN 32
-#define DELEGATE_COORDINATOR_AGENTS_MAX 8
-#define DELEGATE_TASK_STORE_MAX 8
-#define DELEGATE_COORDINATOR_STORE_MAX 4
+#define DELEGATE_COORDINATOR_AGENTS_MAX 16
+#define DELEGATE_TASK_STORE_MAX 128
+#define DELEGATE_COORDINATOR_STORE_MAX 32
 #define DELEGATE_SESSION_SUMMARY_LEN 320
 #define DELEGATE_SESSION_FRAME_LIMIT 80
 #define DELEGATE_SESSION_COMMIT_LIMIT 80
@@ -323,6 +323,8 @@ bool delegate_task_store_drain_changed_coordinators(delegate_coordinator_record_
                                                     size_t max_out);
 bool delegate_task_store_peek_changed_coordinators(delegate_coordinator_record_t *out,
                                                    size_t max_out);
+bool delegate_task_store_list_active_coordinators(delegate_coordinator_record_t *out,
+                                                  size_t max_out);
 err_t delegate_task_store_snapshot_coordinator(const char *coordinator_id,
                                                delegate_coordinator_record_t *out);
 err_t delegate_task_store_snapshot_parent(const char *chat_id,
@@ -333,4 +335,5 @@ err_t delegate_task_store_find_by_session(const char *session_id,
 err_t delegate_task_store_find_parent_route_by_session(const char *session_id,
                                                        delegate_parent_route_view_t *out);
 int delegate_task_store_running_count(void);
+int delegate_task_store_running_count_for_parent(const char *chat_id);
 void delegate_task_store_reset_for_test(void);

@@ -6,6 +6,40 @@
 #include "linux/printk.h"
 #include "text.h"
 
+static bool coordinator_is_terminal_and_fully_visible(const delegate_coordinator_record_t *coordinator)
+{
+    if (!coordinator || !coordinator->coordinator_id[0]) {
+        return false;
+    }
+    if (coordinator->queued_count > 0 || coordinator->running_count > 0) {
+        return false;
+    }
+    if (strcmp(coordinator->status, "done") != 0 &&
+        strcmp(coordinator->status, "failed") != 0) {
+        return false;
+    }
+    if (coordinator->visible_revision == 0 ||
+        coordinator->last_sent_revision != coordinator->visible_revision) {
+        return false;
+    }
+    if (!coordinator->parent_resume_enqueued &&
+        coordinator->completion_notified) {
+        return false;
+    }
+    return true;
+}
+
+static void refresh_coordinator_if_needed_locked(delegate_coordinator_record_t *coordinator)
+{
+    if (!coordinator || !coordinator->coordinator_id[0]) {
+        return;
+    }
+    if (coordinator_is_terminal_and_fully_visible(coordinator)) {
+        return;
+    }
+    refresh_coordinator_locked(coordinator);
+}
+
 bool delegate_task_store_poll_updates(delegate_coordinator_record_t *out,
                                       size_t max_out)
 {
@@ -31,7 +65,7 @@ bool delegate_task_store_poll_updates(delegate_coordinator_record_t *out,
                 poll_record_locked(&s_records[task_idx]);
             }
         }
-        refresh_coordinator_locked(coordinator);
+        refresh_coordinator_if_needed_locked(coordinator);
         if (!coordinator->changed || !coordinator->parent_response_sent) {
             continue;
         }
@@ -68,7 +102,7 @@ bool delegate_task_store_drain_changed_coordinators(delegate_coordinator_record_
                 poll_record_locked(&s_records[task_idx]);
             }
         }
-        refresh_coordinator_locked(coordinator);
+        refresh_coordinator_if_needed_locked(coordinator);
         if (!coordinator->changed) {
             continue;
         }
@@ -105,9 +139,42 @@ bool delegate_task_store_peek_changed_coordinators(delegate_coordinator_record_t
                 poll_record_locked(&s_records[task_idx]);
             }
         }
-        refresh_coordinator_locked(coordinator);
+        refresh_coordinator_if_needed_locked(coordinator);
         if (!coordinator->changed) {
             continue;
+        }
+        out[emitted++] = *coordinator;
+        found = true;
+    }
+    mutex_unlock(&s_delegate_mutex);
+    return found;
+}
+
+bool delegate_task_store_list_active_coordinators(delegate_coordinator_record_t *out,
+                                                  size_t max_out)
+{
+    bool found = false;
+    if (!out || max_out == 0) {
+        return false;
+    }
+
+    ensure_store_init();
+    mutex_lock(&s_delegate_mutex);
+    size_t emitted = 0;
+    for (int i = 0; i < DELEGATE_COORDINATOR_STORE_MAX && emitted < max_out; i++) {
+        delegate_coordinator_record_t *coordinator = &s_coordinators[i];
+        if (!coordinator->coordinator_id[0]) {
+            continue;
+        }
+        if (strcmp(coordinator->status, "done") == 0 ||
+            strcmp(coordinator->status, "failed") == 0) {
+            continue;
+        }
+        for (int j = 0; j < coordinator->agent_count; j++) {
+            int task_idx = find_record_index(coordinator->agents[j].task_id);
+            if (task_idx >= 0) {
+                poll_record_locked(&s_records[task_idx]);
+            }
         }
         out[emitted++] = *coordinator;
         found = true;
@@ -138,7 +205,7 @@ err_t delegate_task_store_snapshot_coordinator(const char *coordinator_id,
             poll_record_locked(&s_records[task_idx]);
         }
     }
-    refresh_coordinator_locked(coordinator);
+    refresh_coordinator_if_needed_locked(coordinator);
     *out = *coordinator;
     mutex_unlock(&s_delegate_mutex);
     return 0;
@@ -168,7 +235,7 @@ err_t delegate_task_store_snapshot_parent(const char *chat_id,
                 poll_record_locked(&s_records[task_idx]);
             }
         }
-        refresh_coordinator_locked(coordinator);
+        refresh_coordinator_if_needed_locked(coordinator);
         if (out->coordinator_count < DELEGATE_COORDINATOR_STORE_MAX) {
             delegate_parent_coordinator_list_item_t *item =
                 &out->coordinators[out->coordinator_count++];
@@ -321,9 +388,41 @@ int delegate_task_store_running_count(void)
     ensure_store_init();
     mutex_lock(&s_delegate_mutex);
     for (int i = 0; i < DELEGATE_TASK_STORE_MAX; i++) {
-        if (s_records[i].task_id[0] && s_records[i].status == DELEGATE_TASK_RUNNING) {
+        if (!s_records[i].task_id[0] || s_records[i].status != DELEGATE_TASK_RUNNING) {
+            continue;
+        }
+        if (s_records[i].blocker_kind[0] || s_records[i].blocker_text[0] ||
+            (s_records[i].pending_request.request_type[0] &&
+             s_records[i].pending_request.prompt_text[0])) {
+            continue;
+        }
+        {
             running++;
         }
+    }
+    mutex_unlock(&s_delegate_mutex);
+    return running;
+}
+
+int delegate_task_store_running_count_for_parent(const char *chat_id)
+{
+    int running = 0;
+
+    if (!chat_id || !chat_id[0]) {
+        return 0;
+    }
+
+    ensure_store_init();
+    mutex_lock(&s_delegate_mutex);
+    for (int i = 0; i < DELEGATE_COORDINATOR_STORE_MAX; i++) {
+        if (!s_coordinators[i].coordinator_id[0]) {
+            continue;
+        }
+        if (strcmp(s_coordinators[i].chat_id, chat_id) != 0) {
+            continue;
+        }
+        refresh_coordinator_if_needed_locked(&s_coordinators[i]);
+        running += s_coordinators[i].running_count;
     }
     mutex_unlock(&s_delegate_mutex);
     return running;

@@ -4,7 +4,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CHAT_ID="web_probe_sudo_blocker_$(date +%s)"
-PROMPT="帮我改一下 /home/wangergou/code/github/daima-agent ，但我还没想好改哪个模块，你先直接开始。"
+PROMPT="帮我改一下 ${ROOT_DIR} ，但我还没想好改哪个模块，你先直接开始。"
 ANSWER="先不要改代码，先把范围拆清楚后再继续。"
 DIRECTIVE_FILE="$(mktemp)"
 

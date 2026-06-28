@@ -67,7 +67,7 @@ int allocate_record_index(void)
             return i;
         }
     }
-    return 0;
+    return -1;
 }
 
 int find_coordinator_index(const char *coordinator_id)
@@ -91,7 +91,7 @@ int allocate_coordinator_index(void)
             return i;
         }
     }
-    return 0;
+    return -1;
 }
 
 void clear_record(delegate_task_record_t *record)
@@ -198,6 +198,9 @@ static err_t store_task_record_locked(const char *task_id,
     int idx = find_record_index(task_id);
     if (idx < 0) {
         idx = allocate_record_index();
+        if (idx < 0) {
+            return ERR_NO_MEM;
+        }
     } else {
         clear_record(&s_records[idx]);
     }
@@ -254,6 +257,16 @@ err_t delegate_task_store_plan(const char *task_id,
     err_t err = store_task_record_locked(task_id, coordinator_id, session_id, subagent_type, task_key,
                                          description, prompt, model, scope_path, scope_kind, analysis_focus,
                                          depends_on, preflight_tool, DELEGATE_TASK_QUEUED);
+    if (err == 0) {
+        int idx = find_record_index(task_id);
+        pr_info("delegate_store plan: task_id=%s slot=%d coordinator=%s session_id=%s subagent=%s scope=%s",
+                task_id ? task_id : "-",
+                idx,
+                coordinator_id ? coordinator_id : "-",
+                session_id ? session_id : "-",
+                subagent_type ? subagent_type : "-",
+                scope_path ? scope_path : "-");
+    }
     if (err == 0 && coordinator_id && coordinator_id[0]) {
         int coord_idx = find_coordinator_index(coordinator_id);
         if (coord_idx >= 0) {
@@ -687,6 +700,10 @@ err_t delegate_task_store_start_coordinator(const char *coordinator_id,
     int idx = find_coordinator_index(coordinator_id);
     if (idx < 0) {
         idx = allocate_coordinator_index();
+        if (idx < 0) {
+            mutex_unlock(&s_delegate_mutex);
+            return ERR_NO_MEM;
+        }
     }
     memset(&s_coordinators[idx], 0, sizeof(s_coordinators[idx]));
     strscpy(s_coordinators[idx].coordinator_id, coordinator_id, sizeof(s_coordinators[idx].coordinator_id));
@@ -754,6 +771,14 @@ err_t delegate_task_store_attach_task(const char *coordinator_id,
             view->task_id,
             view->description);
     refresh_coordinator_locked(coordinator);
+    pr_info("delegate_store attach refreshed: coordinator=%s agent_count=%d status=%s queued=%d running=%d completed=%d failed=%d",
+            coordinator_id,
+            coordinator->agent_count,
+            coordinator->status[0] ? coordinator->status : "-",
+            coordinator->queued_count,
+            coordinator->running_count,
+            coordinator->completed_count,
+            coordinator->failed_count);
     bump_coordinator_visible_revision_locked(coordinator);
     mutex_unlock(&s_delegate_mutex);
     return 0;

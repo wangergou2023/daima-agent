@@ -14,6 +14,43 @@
     return text.length > limit ? `${text.slice(0, Math.max(0, limit - 3))}...` : text;
   }
 
+  function childSessionVisibleText(childSession) {
+    if (!childSession || typeof childSession !== 'object') return '';
+
+    const latestOutput = trimText(childSession?.latest_frame?.output_preview);
+    if (latestOutput) return latestOutput;
+
+    const latestDetail = trimText(childSession?.latest_frame?.detail);
+    if (latestDetail) return latestDetail;
+
+    const summary = trimText(childSession?.summary);
+    if (summary) return summary;
+
+    const history = Array.isArray(childSession?.history) ? childSession.history : [];
+    for (let idx = history.length - 1; idx >= 0; idx -= 1) {
+      const entry = history[idx];
+      const role = trimText(entry?.role);
+      const content = trimText(entry?.content);
+      if (role === 'assistant' && content) return content;
+      const reasoning = trimText(entry?.reasoning);
+      if (reasoning) return reasoning;
+    }
+
+    const commits = Array.isArray(childSession?.commits) ? childSession.commits : [];
+    for (let idx = commits.length - 1; idx >= 0; idx -= 1) {
+      const text = trimText(commits[idx]?.text);
+      if (text) return text;
+    }
+
+    return '';
+  }
+
+  function preferredSessionText(childSession, fallbackText) {
+    const childVisible = childSessionVisibleText(childSession);
+    if (childVisible) return childVisible;
+    return trimText(fallbackText);
+  }
+
   function timestampValue(value) {
     const num = Number(value);
     return Number.isFinite(num) && num > 0 ? num : Date.now();
@@ -96,6 +133,38 @@
     return timeline[timeline.length - 1] || null;
   }
 
+  function deriveVisibleOutputText(detail, latestFrame) {
+    const frameOutput = trimText(latestFrame?.output_preview);
+    if (frameOutput) {
+      return frameOutput;
+    }
+
+    const frameDetail = trimText(latestFrame?.detail);
+    if (frameDetail && isTerminalStatus(detail?.status)) {
+      return frameDetail;
+    }
+
+    const sessionSummary = trimText(detail?.session_summary);
+    if (sessionSummary) {
+      return sessionSummary;
+    }
+
+    const blockerText = trimText(latestFrame?.blocker_text);
+    if (blockerText) {
+      return blockerText;
+    }
+
+    return trimText(detail?.output);
+  }
+
+  function deriveCanonicalOutputText(childSession, detail, fallbackText) {
+    const preferred = preferredSessionText(childSession, fallbackText);
+    if (preferred) {
+      return preferred;
+    }
+    return deriveVisibleOutputText(detail, detail?.latest_frame);
+  }
+
   function isTerminalStatus(status) {
     const text = trimText(status);
     return text === 'done' || text === 'failed' || text === 'error';
@@ -104,7 +173,7 @@
   function detailLooksMoreComplete(detail) {
     if (!detail || typeof detail !== 'object') return false;
     if (isTerminalStatus(detail.status)) return true;
-    if (trimText(detail.output)) return true;
+    if (trimText(deriveVisibleOutputText(detail, detail.latest_frame))) return true;
     if (trimText(detail.session_summary)) return true;
     return false;
   }
@@ -195,23 +264,52 @@
     return false;
   }
 
-  function deriveSessionSummary(detail, latestFrame) {
-    const explicitOutput = trimText(detail?.output);
-    if (explicitOutput) {
-      return clipText(explicitOutput, 280);
-    }
+  function childSessionFreshnessRevision(childSession) {
+    if (!childSession || typeof childSession !== 'object') return 0;
 
+    const cursor = childSession.cursor && typeof childSession.cursor === 'object'
+      ? childSession.cursor
+      : null;
+    const windowMeta = childSession.window && typeof childSession.window === 'object'
+      ? childSession.window
+      : null;
+
+    return Math.max(
+      Number(childSession?.latest_frame?.seq) || 0,
+      maxSessionSeq(childSession.frames),
+      maxSessionSeq(childSession.commits),
+      maxSessionSeq(childSession.history),
+      Number(cursor?.frames?.visible_seq) || 0,
+      Number(cursor?.commits?.visible_seq) || 0,
+      Number(cursor?.history?.visible_seq) || 0,
+      Number(windowMeta?.frame_last_seq) || 0,
+      Number(windowMeta?.commit_last_seq) || 0,
+      Number(windowMeta?.history_last_seq) || 0,
+    );
+  }
+
+  function deriveSessionSummary(detail, latestFrame) {
     const frameOutput = trimText(latestFrame?.output_preview);
     if (frameOutput) {
-      return frameOutput;
+      return clipText(frameOutput, 280);
+    }
+
+    const sessionSummary = trimText(detail?.session_summary);
+    if (sessionSummary) {
+      return clipText(sessionSummary, 280);
     }
 
     const blockerText = trimText(latestFrame?.blocker_text);
     if (blockerText) {
-      return blockerText;
+      return clipText(blockerText, 280);
     }
 
-    return trimText(latestFrame?.detail);
+    const frameDetail = trimText(latestFrame?.detail);
+    if (frameDetail) {
+      return clipText(frameDetail, 280);
+    }
+
+    return clipText(trimText(detail?.output), 280);
   }
 
   function commitKey(commit) {
@@ -408,6 +506,7 @@
     const description = trimText(agent?.description || agent?.name || subagentType || 'subagent');
     const status = trimText(agent?.status) || 'waiting';
     const model = trimText(agent?.model);
+    const summary = trimText(agent?.summary);
     const output = trimText(agent?.output || agent?.output_text);
     const targetFiles = trimText(agent?.target_files);
     const scopePath = trimText(agent?.scope_path);
@@ -434,6 +533,12 @@
     const childSession = agent?.child_session && typeof agent.child_session === 'object'
       ? agent.child_session
       : null;
+    const childVisible = childSessionVisibleText(childSession);
+    const childBlocked = childSessionLooksBlocked(childSession);
+    const canonicalSummary = summary || trimText(childSession?.summary) || childVisible;
+    const canonicalOutput = (!childBlocked || isTerminalStatus(status))
+      ? (childVisible || output || trimText(agent?.raw_output))
+      : (output || trimText(agent?.raw_output));
     return {
       task_id: taskId,
       task_key: taskKey,
@@ -444,10 +549,13 @@
       description,
       status,
       model,
+      summary: canonicalSummary,
       scope_path: scopePath,
       scope_kind: scopeKind,
       analysis_focus: analysisFocus,
-      output,
+      output: canonicalOutput,
+      output_text: canonicalOutput,
+      raw_output: trimText(agent?.raw_output) || output,
       target_files: targetFiles,
       elapsed_ms: elapsedMs,
       write_approved: writeApproved,
@@ -1005,6 +1113,8 @@
     DETAIL_HISTORY_LIMIT,
     trimText,
     clipText,
+    childSessionVisibleText,
+    preferredSessionText,
     timestampValue,
     timelineKeyFromFrame,
     makeTimelineFrame,
@@ -1013,10 +1123,13 @@
     isTerminalStatus,
     detailLooksMoreComplete,
     childSessionLooksBlocked,
+    deriveVisibleOutputText,
     shouldPreserveNewerDetail,
     childSessionIsOlderThanDetail,
+    childSessionFreshnessRevision,
     deriveSessionSummary,
     commitKey,
+    deriveCanonicalOutputText,
     makeCommitRecord,
     mergeCommits,
     blockerKey,

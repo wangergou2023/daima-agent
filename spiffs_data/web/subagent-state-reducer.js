@@ -16,8 +16,11 @@
     mergeSessionHistory,
     shouldPreserveNewerDetail,
     childSessionIsOlderThanDetail,
+    childSessionFreshnessRevision,
+    deriveCanonicalOutputText,
     isTerminalStatus,
     deriveSessionSummary,
+    deriveVisibleOutputText,
     createEmptySubagentUiState,
     subagentEventKey,
     detailKeyForAgent,
@@ -87,7 +90,7 @@
       const incomingStatus = trimText(payload?.status);
       const preserveTerminalDetail = isTerminalStatus(previous.status) &&
         !isTerminalStatus(incomingStatus) &&
-        trimText(previous.output || previous.session_summary);
+        trimText(deriveVisibleOutputText(previous, previous.latest_frame));
       const timeline = mergeTimeline(previous.timeline, payload, previous);
       const blockers = mergeBlockers(previous.blockers, payload, previous);
       const commits = mergeCommits(previous.commits, payload, previous);
@@ -124,6 +127,11 @@
         history: previous.history || [],
         latest_frame: latestFrame,
         pending_request: clearBlocker ? null : (previous.pending_request || null),
+        freshness_revision: Math.max(
+          Number(previous?.freshness_revision) || 0,
+          payloadVisibleRevision,
+          Number(nextState?.liveCursor?.visibleRevision) || 0,
+        ),
       };
       nextDetail.pending_queue = derivePendingQueue(nextDetail);
       nextDetail.session_summary = deriveSessionSummary(nextDetail, latestFrame) || previous.session_summary || '';
@@ -154,15 +162,22 @@
 
       const previous = nextState.details.get(key) || {};
       const previousVisibleRevision = Number(previous?.visible_revision) || 0;
+      const previousFreshnessRevision = Number(previous?.freshness_revision) || previousVisibleRevision;
       const coordinatorVisibleRevision = Number(
         nextState.coordinators.get(trimText(payload?.coordinator_id))?.visible_revision
       ) || 0;
-      const staleVisibleRevision = payloadVisibleRevision > 0 &&
-        Math.max(previousVisibleRevision, coordinatorVisibleRevision) > payloadVisibleRevision;
       const childSession = normalizeChildSession(agent.child_session, {
         status: trimText(payload?.status) || trimText(agent?.status),
         task: trimText(payload?.task) || trimText(agent?.description),
       });
+      const childSessionRevision = childSessionFreshnessRevision(childSession);
+      const incomingFreshnessRevision = Math.max(
+        payloadVisibleRevision,
+        childSessionRevision,
+        Number(nextState?.liveCursor?.visibleRevision) || 0,
+      );
+      const staleVisibleRevision = payloadVisibleRevision > 0 &&
+        Math.max(previousFreshnessRevision, coordinatorVisibleRevision) > incomingFreshnessRevision;
       const incomingStatusIsNonTerminal = !isTerminalStatus(trimText(payload?.status) || trimText(agent?.status));
       const replaceChildSession = action.replaceChildSession === true ||
         childSession?.window?.replay_reset === true;
@@ -174,6 +189,9 @@
       const preserveNewerDetail = shouldPreserveNewerDetail(previous, status, childSession, previous.status);
       const blockerKind = trimText(agent?.blocker_kind);
       const blockerText = trimText(agent?.blocker_text);
+      const agentSummary = trimText(agent?.summary);
+      const agentOutput = trimText(agent?.output || agent?.output_text);
+      const childVisibleOutput = deriveCanonicalOutputText(childSession, previous, agentOutput || agentSummary);
       const childPendingRequest = childSession?.pending_request || null;
       const childPendingQueue = childSession?.pending_queue || null;
       const childHasPendingQueue = !!(
@@ -192,7 +210,7 @@
       const staleByCompletedSummaryRegression = !!(
         !replaceChildSession &&
         isTerminalStatus(previous.status) &&
-        trimText(previous.output || previous.session_summary) &&
+        trimText(deriveVisibleOutputText(previous, previous.latest_frame)) &&
         !trimText(agent?.output) &&
         childIndicatesBlocked
       );
@@ -229,6 +247,7 @@
         session_id: trimText(payload?.session_id) || trimText(agent?.session_id) || previous.session_id || '',
         coordinator_id: trimText(payload?.coordinator_id) || previous.coordinator_id || '',
         visible_revision: Math.max(previousVisibleRevision, payloadVisibleRevision),
+        freshness_revision: Math.max(previousFreshnessRevision, incomingFreshnessRevision),
         subagent_type: trimText(payload?.subagent_type) || trimText(agent?.subagent_type) || previous.subagent_type || '',
         task: trimText(payload?.task) || trimText(agent?.description) || previous.task || '',
         status: (preserveNewerDetail || staleVisibleRevision || staleByTerminalRegression || staleByCompletedSummaryRegression) &&
@@ -241,11 +260,11 @@
         analysis_focus: trimText(agent?.analysis_focus) || previous.analysis_focus || '',
         depends_on: trimText(payload?.depends_on) || trimText(agent?.depends_on) || previous.depends_on || '',
         elapsed_ms: Number(agent?.elapsed_ms) || previous.elapsed_ms || 0,
-        output: preserveNewerDetail && !trimText(agent?.output)
+        output: preserveNewerDetail && !agentOutput
           ? (previous.output || '')
           : (replaceChildSession
-            ? (trimText(agent?.output) || trimText(childSession?.summary) || '')
-            : (trimText(agent?.output) || previous.output || '')),
+            ? (childVisibleOutput || previous.output || '')
+            : (childVisibleOutput || previous.output || '')),
         target_files: trimText(agent?.target_files) || previous.target_files || '',
         write_approved: agent?.write_approved === true || previous.write_approved === true,
         blocker_kind: preserveNewerDetail
@@ -292,7 +311,7 @@
         ? (previous.session_summary || deriveSessionSummary(nextDetail, latestFrame) || '')
         : (freezeChildSession
           ? (previous.session_summary || deriveSessionSummary(nextDetail, latestFrame) || '')
-          : (childSession?.summary || deriveSessionSummary(nextDetail, latestFrame) || previous.session_summary || ''));
+          : (childVisibleOutput || childSession?.summary || deriveSessionSummary(nextDetail, latestFrame) || previous.session_summary || ''));
       if (replaceChildSession && !freezeChildSession) {
         nextDetail.blockers = [];
       }
@@ -396,27 +415,98 @@
         };
       }
       const previous = nextState.coordinators.get(next.coordinator_id);
+      const runtimeVisibleRevision = Number(nextState?.liveCursor?.visibleRevision) || 0;
       const staleCoordinatorRevision = previous &&
         Number(previous.visible_revision) > 0 &&
         Number(next.visible_revision) > 0 &&
         Number(next.visible_revision) < Number(previous.visible_revision);
+      const staleByRuntimeCursor = Number(next.visible_revision) > 0 &&
+        runtimeVisibleRevision > 0 &&
+        Number(next.visible_revision) < runtimeVisibleRevision;
       for (const agent of next.agents) {
         const detailKey = detailKeyForAgent(agent);
         if (detailKey) {
           const previousDetail = nextState.details.get(detailKey) || {};
+          const previousDetailFreshnessRevision = Number(previousDetail?.freshness_revision) ||
+            Number(previousDetail?.visible_revision) || 0;
           const events = subagentEventsForAgent(agent, nextState);
           const mergedBlockerKind = trimText(agent.blocker_kind) || trimText(agent.coordinator_blocker_kind);
           const mergedBlockerText = trimText(agent.blocker_text) || trimText(agent.coordinator_blocker_text);
           const shouldClearMergedBlocker = !mergedBlockerKind &&
             !mergedBlockerText &&
-            (trimText(agent.status) === 'done' || trimText(agent.status) === 'running');
+            (isTerminalStatus(trimText(agent.status)) || trimText(agent.status) === 'running');
           const childSession = normalizeChildSession(agent.child_session, {
             status: agent.status,
             task: agent.name,
           });
-          const staleChildSession = childSessionIsOlderThanDetail(previousDetail, childSession);
+          const agentSummary = trimText(agent.summary);
+          const agentOutput = trimText(agent.output);
+          const childVisibleOutput = deriveCanonicalOutputText(childSession, previousDetail, agentOutput || agentSummary);
+          const childSessionRevision = childSessionFreshnessRevision(childSession);
+          const incomingFreshnessRevision = Math.max(
+            Number(next.visible_revision) || 0,
+            childSessionRevision,
+            Number(nextState?.liveCursor?.visibleRevision) || 0,
+          );
+          const previousEffectiveOutput = trimText(
+            deriveVisibleOutputText(previousDetail, previousDetail.latest_frame)
+          );
+          const previousHadTerminalResult = isTerminalStatus(previousDetail.status) ||
+            isTerminalStatus(trimText(previousDetail?.latest_frame?.status)) ||
+            trimText(previousDetail?.latest_frame?.phase) === 'done' ||
+            trimText(previousDetail?.latest_frame?.phase) === 'failed';
+          const staleChildSession = childSessionIsOlderThanDetail(previousDetail, childSession) ||
+            (incomingFreshnessRevision > 0 && previousDetailFreshnessRevision > incomingFreshnessRevision);
           const preserveNewerDetail = shouldPreserveNewerDetail(previousDetail, agent.status, childSession, previousDetail.status);
-          const freezeChildSession = preserveNewerDetail || staleChildSession || staleCoordinatorRevision;
+          const incomingLooksBlockedOrIncomplete = !!(
+            !agentOutput &&
+            (
+              trimText(agent.blocker_kind) ||
+              trimText(agent.blocker_text) ||
+              childSession?.pending_request ||
+              ((Array.isArray(childSession?.pending_queue?.permissions) && childSession.pending_queue.permissions.length > 0) ||
+                (Array.isArray(childSession?.pending_queue?.questions) && childSession.pending_queue.questions.length > 0)) ||
+              trimText(childSession?.latest_frame?.blocker_kind) ||
+              trimText(childSession?.latest_frame?.blocker_text) ||
+              !isTerminalStatus(trimText(agent.status))
+            )
+          );
+          const staleByEffectiveOutputRegression = !!(
+            previousHadTerminalResult &&
+            previousEffectiveOutput &&
+            incomingLooksBlockedOrIncomplete
+          );
+          const staleByCompletedSummaryRegression = !!(
+            isTerminalStatus(previousDetail.status) &&
+            !isTerminalStatus(trimText(agent.status)) &&
+            previousEffectiveOutput &&
+            !trimText(agent.output) &&
+            (
+              trimText(agent.blocker_kind) ||
+              trimText(agent.blocker_text) ||
+              childSession?.pending_request ||
+              ((Array.isArray(childSession?.pending_queue?.permissions) && childSession.pending_queue.permissions.length > 0) ||
+                (Array.isArray(childSession?.pending_queue?.questions) && childSession.pending_queue.questions.length > 0)) ||
+              trimText(childSession?.latest_frame?.blocker_kind) ||
+              trimText(childSession?.latest_frame?.blocker_text)
+            )
+          );
+          const freezeChildSession = preserveNewerDetail ||
+            staleChildSession ||
+            staleCoordinatorRevision ||
+            staleByRuntimeCursor ||
+            staleByCompletedSummaryRegression ||
+            staleByEffectiveOutputRegression;
+          const retainRicherSessionWindow = !freezeChildSession &&
+            isTerminalStatus(trimText(agent.status)) &&
+            (
+              ((Array.isArray(previousDetail.history) ? previousDetail.history.length : 0) >
+                (Array.isArray(childSession?.history) ? childSession.history.length : 0)) ||
+              ((Array.isArray(previousDetail.timeline) ? previousDetail.timeline.length : 0) >
+                (Array.isArray(childSession?.frames) ? childSession.frames.length : 0)) ||
+              ((Array.isArray(previousDetail.commits) ? previousDetail.commits.length : 0) >
+                (Array.isArray(childSession?.commits) ? childSession.commits.length : 0))
+            );
           const mergedStatus = preserveNewerDetail &&
             isTerminalStatus(previousDetail.status) &&
             !isTerminalStatus(agent.status)
@@ -429,7 +519,41 @@
               : (childSession?.frames?.length
               ? mergeSessionTimeline(previousDetail.timeline, childSession.frames)
               : (previousDetail.timeline || [])));
-          const latestFrame = deriveLatestFrame(childTimeline);
+          const nextTimeline = childTimeline.slice();
+          const timelineNeedsTerminalSummaryFrame = !preserveNewerDetail &&
+            !freezeChildSession &&
+            isTerminalStatus(agent.status) &&
+            !!childVisibleOutput;
+          if (timelineNeedsTerminalSummaryFrame) {
+            const terminalFrame = {
+              id: trimText(previousDetail?.latest_frame?.id) || '',
+              seq: Number(childSession?.latest_frame?.seq) || Number(previousDetail?.latest_frame?.seq) || 0,
+              type: 'subagent_done',
+              status: trimText(agent.status),
+              phase: trimText(agent.status) === 'error' || trimText(agent.status) === 'failed' ? 'failed' : 'done',
+              task: trimText(agent.name) || trimText(previousDetail?.task),
+              detail: childVisibleOutput || trimText(previousDetail?.latest_frame?.detail) || '',
+              output_preview: childVisibleOutput,
+              blocker_kind: '',
+              blocker_text: '',
+              ts: Number(childSession?.latest_frame?.ts) || Number(previousDetail?.latest_frame?.ts) || Date.now(),
+            };
+            terminalFrame.key = [
+              trimText(terminalFrame.type),
+              trimText(terminalFrame.status),
+              trimText(terminalFrame.phase),
+              trimText(terminalFrame.detail),
+              trimText(terminalFrame.output_preview),
+              trimText(terminalFrame.blocker_kind),
+            ].join('|');
+            const lastFrame = nextTimeline[nextTimeline.length - 1];
+            if (lastFrame && trimText(lastFrame.key) === trimText(terminalFrame.key)) {
+              nextTimeline[nextTimeline.length - 1] = { ...lastFrame, ...terminalFrame };
+            } else {
+              nextTimeline.push(terminalFrame);
+            }
+          }
+          const latestFrame = deriveLatestFrame(nextTimeline);
           const mergedCommits = preserveNewerDetail
             ? (previousDetail.commits || [])
             : (freezeChildSession
@@ -445,53 +569,91 @@
             session_id: agent.session_id || previousDetail.session_id || '',
             coordinator_id: next.coordinator_id || previousDetail.coordinator_id || '',
             visible_revision: Math.max(Number(previousDetail.visible_revision) || 0, Number(next.visible_revision) || 0),
+            freshness_revision: Math.max(previousDetailFreshnessRevision, incomingFreshnessRevision),
             team_run_id: next.team_run_id || previousDetail.team_run_id || '',
             subagent_type: agent.subagent_type || previousDetail.subagent_type || '',
             task: agent.name || previousDetail.task || '',
-            status: staleCoordinatorRevision ? (previousDetail.status || mergedStatus) : mergedStatus,
+            status: (staleCoordinatorRevision || staleByEffectiveOutputRegression)
+              || staleByRuntimeCursor
+              ? (previousDetail.status || mergedStatus)
+              : mergedStatus,
             model: agent.model || previousDetail.model || '',
             scope_path: agent.scope_path || previousDetail.scope_path || '',
             scope_kind: agent.scope_kind || previousDetail.scope_kind || '',
             analysis_focus: agent.analysis_focus || previousDetail.analysis_focus || '',
             depends_on: agent.depends_on || previousDetail.depends_on || '',
             elapsed_ms: Number(agent.elapsed_ms) || previousDetail.elapsed_ms || 0,
-            output: preserveNewerDetail && !trimText(agent.output)
+            output: preserveNewerDetail && !agentOutput
               ? (previousDetail.output || '')
-              : (staleCoordinatorRevision ? (previousDetail.output || '') : (agent.output || previousDetail.output || '')),
+              : ((staleCoordinatorRevision || staleByRuntimeCursor || staleByCompletedSummaryRegression || staleByEffectiveOutputRegression)
+                ? (previousDetail.output || '')
+                : (childVisibleOutput || previousDetail.output || '')),
             target_files: agent.target_files || previousDetail.target_files || '',
             write_approved: agent.write_approved || previousDetail.write_approved || false,
             blocker_kind: preserveNewerDetail
               ? (shouldClearMergedBlocker ? '' : (previousDetail.blocker_kind || ''))
-              : (staleCoordinatorRevision ? (previousDetail.blocker_kind || '') : (shouldClearMergedBlocker ? '' : (mergedBlockerKind || previousDetail.blocker_kind || ''))),
+              : ((staleCoordinatorRevision || staleByRuntimeCursor || staleByCompletedSummaryRegression || staleByEffectiveOutputRegression)
+                ? (previousDetail.blocker_kind || '')
+                : (shouldClearMergedBlocker ? '' : (mergedBlockerKind || previousDetail.blocker_kind || ''))),
             blocker_text: preserveNewerDetail
               ? (shouldClearMergedBlocker ? '' : (previousDetail.blocker_text || ''))
-              : (staleCoordinatorRevision ? (previousDetail.blocker_text || '') : (shouldClearMergedBlocker ? '' : (mergedBlockerText || previousDetail.blocker_text || ''))),
+              : ((staleCoordinatorRevision || staleByRuntimeCursor || staleByCompletedSummaryRegression || staleByEffectiveOutputRegression)
+                ? (previousDetail.blocker_text || '')
+                : (shouldClearMergedBlocker ? '' : (mergedBlockerText || previousDetail.blocker_text || ''))),
             blocker_scope: preserveNewerDetail
               ? (shouldClearMergedBlocker ? '' : (previousDetail.blocker_scope || ''))
-              : (staleCoordinatorRevision ? (previousDetail.blocker_scope || '') : (shouldClearMergedBlocker ? '' : (agent.blocker_kind ? 'task' : (agent.coordinator_blocker_kind ? 'coordinator' : (previousDetail.blocker_scope || ''))))),
+              : ((staleCoordinatorRevision || staleByRuntimeCursor || staleByCompletedSummaryRegression || staleByEffectiveOutputRegression)
+                ? (previousDetail.blocker_scope || '')
+                : (shouldClearMergedBlocker ? '' : (agent.blocker_kind ? 'task' : (agent.coordinator_blocker_kind ? 'coordinator' : (previousDetail.blocker_scope || ''))))),
             wake_last_error: agent.wake_last_error || previousDetail.wake_last_error || '',
-            pending_request: childSession?.pending_request || agent.pending_request || previousDetail.pending_request || null,
+            pending_request: shouldClearMergedBlocker
+              ? null
+              : (childSession?.pending_request || agent.pending_request || previousDetail.pending_request || null),
             frames: childSession?.frames?.length
-              ? (freezeChildSession ? (previousDetail.frames || []) : mergeSessionFrames(previousDetail.frames, childSession.frames))
+              ? (freezeChildSession
+                ? (previousDetail.frames || [])
+                : (retainRicherSessionWindow
+                  ? mergeSessionFrames(previousDetail.frames, childSession.frames)
+                  : mergeSessionFrames(previousDetail.frames, childSession.frames)))
               : events,
-            timeline: childTimeline,
+            timeline: nextTimeline,
             blockers: previousDetail.blockers || [],
             commits: mergedCommits,
-            history: freezeChildSession ? (previousDetail.history || []) : mergeSessionHistory(previousDetail.history, childSession?.history),
-            latest_frame: freezeChildSession ? (previousDetail.latest_frame || latestFrame) : (childSession?.latest_frame || latestFrame),
-            window: freezeChildSession ? (previousDetail.window || null) : (childSession?.window || previousDetail.window || null),
+            history: freezeChildSession
+              ? (previousDetail.history || [])
+              : (retainRicherSessionWindow
+                ? mergeSessionHistory(previousDetail.history, childSession?.history)
+                : mergeSessionHistory(previousDetail.history, childSession?.history)),
+            latest_frame: freezeChildSession
+              ? (previousDetail.latest_frame || latestFrame)
+              : ((retainRicherSessionWindow && previousDetail.latest_frame && latestFrame &&
+                  (Number(previousDetail.latest_frame.ts) || 0) > (Number(latestFrame?.ts) || 0))
+                ? previousDetail.latest_frame
+                : (childSession?.latest_frame || latestFrame)),
+            window: freezeChildSession
+              ? (previousDetail.window || null)
+              : (retainRicherSessionWindow
+                ? (previousDetail.window || childSession?.window || null)
+                : (childSession?.window || previousDetail.window || null)),
           };
           if (freezeChildSession) {
             nextDetail.pending_request = previousDetail.pending_request || null;
           }
+          if (shouldClearMergedBlocker && !freezeChildSession && !preserveNewerDetail) {
+            nextDetail.pending_request = null;
+          }
           nextDetail.pending_queue = preserveNewerDetail
             ? derivePendingQueue(nextDetail)
-            : (freezeChildSession ? derivePendingQueue(nextDetail) : (childSession?.pending_queue || derivePendingQueue(nextDetail)));
+            : (freezeChildSession
+              ? derivePendingQueue(nextDetail)
+              : (shouldClearMergedBlocker
+                ? derivePendingQueue(nextDetail)
+                : (childSession?.pending_queue || derivePendingQueue(nextDetail))));
           nextDetail.session_summary = preserveNewerDetail
             ? (previousDetail.session_summary || deriveSessionSummary(nextDetail, latestFrame) || '')
             : (freezeChildSession
               ? (previousDetail.session_summary || deriveSessionSummary(nextDetail, latestFrame) || '')
-              : (childSession?.summary || deriveSessionSummary(nextDetail, latestFrame) || previousDetail.session_summary || ''));
+              : (childVisibleOutput || childSession?.summary || deriveSessionSummary(nextDetail, latestFrame) || previousDetail.session_summary || ''));
           nextState.details.set(detailKey, nextDetail);
         }
       }
@@ -501,6 +663,25 @@
         : (previous ? { ...previous, ...next } : { ...next });
       delete mergedCoordinator.agents;
       nextState.coordinators.set(next.coordinator_id, mergedCoordinator);
+      {
+        const selectedKey = trimText(nextState.selectedTabKey);
+        const selectedDetail = selectedKey ? nextState.details.get(selectedKey) : null;
+        const selectedBelongsToCoordinator = trimText(selectedDetail?.coordinator_id) === trimText(next.coordinator_id);
+        const selectedFailed = selectedBelongsToCoordinator &&
+          (trimText(selectedDetail?.status) === 'failed' || trimText(selectedDetail?.status) === 'error');
+        const preferredAgent = next.agents.find((agent) => {
+          if (!isTerminalStatus(agent.status) || trimText(agent.status) !== 'done') {
+            return false;
+          }
+          const detailKey = detailKeyForAgent(agent);
+          const detail = detailKey ? nextState.details.get(detailKey) : null;
+          return !!trimText(deriveVisibleOutputText(detail, detail?.latest_frame));
+        });
+        const preferredKey = preferredAgent ? detailKeyForAgent(preferredAgent) : '';
+        if (selectedFailed && preferredKey) {
+          nextState.selectedTabKey = preferredKey;
+        }
+      }
       if (!nextState.selectedTabKey) {
         const firstAgent = next.agents[0];
         const firstKey = detailKeyForAgent(firstAgent);
@@ -516,12 +697,30 @@
   function hydrateStateFromSnapshot(snapshot, options) {
     const chatId = trimText(options?.chatId);
     const interactiveUiConfig = options?.interactiveUiConfig;
-    let state = createEmptySubagentUiState();
     const coordinators = Array.isArray(snapshot?.coordinators) ? snapshot.coordinators : [];
+    const snapshotBlockers = typeof interactiveUiConfig === 'function'
+      ? normalizeInteractiveSnapshot(snapshot, chatId, interactiveUiConfig)
+      : [];
+    const explicitEmptySnapshot = coordinators.length === 0 && snapshotBlockers.length === 0;
+    const previousState = options?.previousState && typeof options.previousState === 'object'
+      ? options.previousState
+      : null;
+    let state = explicitEmptySnapshot
+      ? createEmptySubagentUiState()
+      : (previousState ? {
+          ...previousState,
+          coordinators: new Map(previousState.coordinators || []),
+          details: new Map(previousState.details || []),
+          eventLog: new Map(previousState.eventLog || []),
+          blockerLog: new Map(previousState.blockerLog || []),
+          interactive: new Map(previousState.interactive || []),
+        } : createEmptySubagentUiState());
+    const snapshotVisibleRevision = cursorVisibleRevision(snapshot);
+    const snapshotAfterVisibleRevision = cursorAfterVisibleRevision(snapshot);
     state.liveCursor = {
       ...(state.liveCursor || {}),
-      visibleRevision: cursorVisibleRevision(snapshot),
-      afterVisibleRevision: cursorAfterVisibleRevision(snapshot),
+      visibleRevision: Math.max(Number(state?.liveCursor?.visibleRevision) || 0, snapshotVisibleRevision),
+      afterVisibleRevision: Math.max(Number(state?.liveCursor?.afterVisibleRevision) || 0, snapshotAfterVisibleRevision),
     };
 
     for (const coordinator of coordinators) {
@@ -531,7 +730,6 @@
     }
 
     if (typeof interactiveUiConfig === 'function') {
-      const snapshotBlockers = normalizeInteractiveSnapshot(snapshot, chatId, interactiveUiConfig);
       for (const blocker of snapshotBlockers) {
         state = reduceSubagentUiEvent(state, { kind: 'interactive_blocker_set', blocker }, {
           normalizeCoordinatorPayload: options?.normalizeCoordinatorPayload || core.normalizeCoordinatorPayload,

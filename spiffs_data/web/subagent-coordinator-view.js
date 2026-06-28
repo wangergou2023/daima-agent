@@ -300,12 +300,12 @@
       return { coordinatorVisible };
     }
     onBeforeHide?.();
+    panelEl.hidden = true;
+    panelEl.setAttribute('aria-hidden', 'true');
     panelEl.classList.add('removing');
     const nextVisible = false;
     const onEnd = () => {
       panelEl.removeEventListener('transitionend', onEnd);
-      panelEl.hidden = true;
-      panelEl.setAttribute('aria-hidden', 'true');
       panelEl.classList.remove('removing');
       if (agentsEl) agentsEl.innerHTML = '';
       onAfterHide?.();

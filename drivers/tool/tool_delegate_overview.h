@@ -9,6 +9,7 @@
 
 bool tool_delegate_prepare_subagent_prompt(const char *subagent_type,
                                            const char *description,
+                                           const char *target_path,
                                            const char *prompt,
                                            char *prepared_prompt,
                                            size_t prepared_prompt_size,

@@ -75,8 +75,8 @@
       const summary = document.createElement('div');
       summary.className = 'subagent-session-card-summary';
       summary.textContent = detail.session_summary ||
-        detail.latest_frame?.detail ||
         detail.latest_frame?.output_preview ||
+        detail.latest_frame?.detail ||
         detail.output ||
         '等待更多子会话信息';
 

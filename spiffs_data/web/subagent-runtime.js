@@ -28,7 +28,10 @@
     }
 
     function replaceSnapshot(snapshot, helpers) {
-      state = hydrateState(snapshot, helpers);
+      state = hydrateState(snapshot, {
+        ...(helpers && typeof helpers === 'object' ? helpers : {}),
+        previousState: state,
+      });
       return state;
     }
 

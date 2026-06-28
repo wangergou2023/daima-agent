@@ -575,11 +575,60 @@ void poll_record_locked(delegate_task_record_t *record)
     (void)record;
 }
 
+static void debug_dump_missing_coordinator_task_locked(const delegate_coordinator_record_t *coordinator,
+                                                       const char *missing_task_id)
+{
+    if (!coordinator) {
+        return;
+    }
+
+    pr_warn("delegate projection missing task record: coordinator=%s missing_task_id=%s agent_count=%d",
+            coordinator->coordinator_id[0] ? coordinator->coordinator_id : "-",
+            missing_task_id && missing_task_id[0] ? missing_task_id : "-",
+            coordinator->agent_count);
+
+    for (int i = 0; i < coordinator->agent_count; i++) {
+        const delegate_coordinator_agent_view_t *view = &coordinator->agents[i];
+        pr_warn("delegate projection agent slot=%d task_id=%s session_id=%s status=%s scope=%s",
+                i,
+                view->task_id[0] ? view->task_id : "-",
+                view->session_id[0] ? view->session_id : "-",
+                view->status[0] ? view->status : "-",
+                view->scope_path[0] ? view->scope_path : "-");
+    }
+
+    for (int i = 0; i < DELEGATE_TASK_STORE_MAX; i++) {
+        const delegate_task_record_t *record = &s_records[i];
+        if (!record->task_id[0]) {
+            continue;
+        }
+        if (strcmp(record->coordinator_id, coordinator->coordinator_id) != 0) {
+            continue;
+        }
+        pr_warn("delegate projection store slot=%d task_id=%s session_id=%s status=%s subagent=%s scope=%s",
+                i,
+                record->task_id,
+                record->session_id[0] ? record->session_id : "-",
+                task_status_name(record->status),
+                record->subagent_type[0] ? record->subagent_type : "-",
+                record->scope_path[0] ? record->scope_path : "-");
+    }
+}
+
 void refresh_coordinator_locked(delegate_coordinator_record_t *coordinator)
 {
     if (!coordinator || !coordinator->coordinator_id[0]) {
         return;
     }
+
+    int prev_completed_count = coordinator->completed_count;
+    int prev_running_count = coordinator->running_count;
+    int prev_queued_count = coordinator->queued_count;
+    int prev_failed_count = coordinator->failed_count;
+    int prev_effective_output_count = coordinator->effective_output_count;
+    char prev_status[sizeof(coordinator->status)];
+    memset(prev_status, 0, sizeof(prev_status));
+    strscpy(prev_status, coordinator->status, sizeof(prev_status));
 
     int completed_count = 0;
     int running_count = 0;
@@ -600,6 +649,7 @@ void refresh_coordinator_locked(delegate_coordinator_record_t *coordinator)
         delegate_coordinator_agent_view_t *view = &coordinator->agents[i];
         int task_idx = find_record_index(view->task_id);
         if (task_idx < 0) {
+            debug_dump_missing_coordinator_task_locked(coordinator, view->task_id);
             continue;
         }
         delegate_task_record_t *record = &s_records[task_idx];
@@ -644,6 +694,11 @@ void refresh_coordinator_locked(delegate_coordinator_record_t *coordinator)
             strscpy(view->status, "queued", sizeof(view->status));
             queued_count++;
             any_queued = true;
+        } else if (record->blocker_kind[0] || record->blocker_text[0] ||
+                   (record->pending_request.request_type[0] &&
+                    record->pending_request.prompt_text[0])) {
+            strscpy(view->status, "blocked", sizeof(view->status));
+            any_running = true;
         } else {
             strscpy(view->status, "running", sizeof(view->status));
             any_running = true;
@@ -682,4 +737,20 @@ void refresh_coordinator_locked(delegate_coordinator_record_t *coordinator)
             sizeof(coordinator->blocker_kind));
     strscpy(coordinator->blocker_text, any_blocked ? coordinator_blocker_text : "",
             sizeof(coordinator->blocker_text));
+    if (prev_completed_count != coordinator->completed_count ||
+        prev_running_count != coordinator->running_count ||
+        prev_queued_count != coordinator->queued_count ||
+        prev_failed_count != coordinator->failed_count ||
+        prev_effective_output_count != coordinator->effective_output_count ||
+        strcmp(prev_status, coordinator->status) != 0) {
+        pr_info("delegate projection refresh: coordinator=%s agent_count=%d queued=%d running=%d completed=%d failed=%d effective=%d status=%s",
+                coordinator->coordinator_id[0] ? coordinator->coordinator_id : "-",
+                coordinator->agent_count,
+                coordinator->queued_count,
+                coordinator->running_count,
+                coordinator->completed_count,
+                coordinator->failed_count,
+                coordinator->effective_output_count,
+                coordinator->status[0] ? coordinator->status : "-");
+    }
 }

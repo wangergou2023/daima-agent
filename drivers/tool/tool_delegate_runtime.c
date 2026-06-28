@@ -36,10 +36,11 @@ err_t tool_delegate_run_background_coordinator(const delegate_request_t *req,
                                                       req->team_name[0] ? req->team_name : "delegate-team",
                                                       req->dispatch_mode[0] ? req->dispatch_mode : "parallel");
     if (err != 0) {
-        snprintf(output, output_size, "delegate_task: failed to create coordinator");
+        snprintf(output, output_size, "delegate_task: failed to create coordinator: %s", err_name(err));
         return err;
     }
 
+    int attached_count = 0;
     for (int i = 0; i < req->batch_count; i++) {
         delegate_request_t *child = kzalloc(sizeof(*child), GFP_KERNEL);
         if (!child) {
@@ -91,10 +92,29 @@ err_t tool_delegate_run_background_coordinator(const delegate_request_t *req,
                                        (const delegate_preflight_tool_view_t *)&child->preflight_tool);
         if (err != 0) {
             kfree(child);
-            continue;
+            snprintf(output, output_size,
+                     "delegate_task: failed to persist background task %d/%d: %s",
+                     i + 1,
+                     req->batch_count,
+                     err_name(err));
+            return err;
         }
-        delegate_task_store_attach_task(coordinator_id, task_id);
+        err = delegate_task_store_attach_task(coordinator_id, task_id);
+        if (err != 0) {
+            kfree(child);
+            snprintf(output, output_size,
+                     "delegate_task: failed to attach background task %d/%d: %s",
+                     i + 1,
+                     req->batch_count,
+                     err_name(err));
+            return err;
+        }
+        attached_count++;
         kfree(child);
+    }
+    if (attached_count <= 0) {
+        snprintf(output, output_size, "delegate_task: no background tasks were attached");
+        return ERR_FAIL;
     }
     err = tool_delegate_launch_ready_background_subagents(coordinator_id, parent_chat_id);
     if (err != 0) {

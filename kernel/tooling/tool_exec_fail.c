@@ -1,6 +1,7 @@
 /* 工具调用失败观察与 work_item 收集 */
 #include "tool_exec_fail.h"
 #include "tool_feedback.h"
+#include "tool_guard.h"
 #include "linux/printk.h"
 #include "text.h"
 #include "work_item.h"
@@ -89,6 +90,7 @@ void collect_tool_failure_work_item(const struct message *msg,
                                      err_t tool_err)
 {
     if (!tool_name || tool_err == 0) return;
+    if (agent_tool_failure_is_recoverable_noise(tool_name, tool_input, tool_output, tool_err)) return;
 
     static tool_failure_observer_t observer;
 

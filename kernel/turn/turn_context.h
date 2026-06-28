@@ -27,6 +27,10 @@ struct turn_snapshot {
     char pending_request_id[64];
     char pending_request_prompt[512];
 
+    /* 最近一次已被父链消费的 delegate resume 水位 */
+    char consumed_delegate_coordinator_id[32];
+    unsigned long consumed_delegate_visible_revision;
+
 };
 
 /* 按 chat_id 存取异步恢复快照 */
@@ -44,6 +48,9 @@ bool turn_context_set_pending_request(const char *chat_id,
 bool turn_context_clear_pending_request(const char *chat_id,
                                         const char *request_type,
                                         const char *request_id);
+bool turn_context_set_delegate_resume_consumed(const char *chat_id,
+                                               const char *coordinator_id,
+                                               unsigned long visible_revision);
 
 /* peek: 是否有回复到达（非阻塞） */
 bool core_has_reply(void);

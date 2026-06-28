@@ -152,6 +152,9 @@ const {
   createSessionRestore,
 } = window.AgentSessionRestore || {};
 const {
+  createSessionStateRuntime,
+} = window.AgentSessionStateRuntime || {};
+const {
   createSubagentAppBridge,
 } = window.AgentSubagentAppBridge || {};
 const {
@@ -230,11 +233,11 @@ let currentAgentRole = '';
 let currentAgentModel = '';
 let coordinatorPanelController = null;
 let reconnectToastTimer = null;
-let subagentStateLoadToken = 0;
 let subagentEventAdapter = null;
 let interactiveController = null;
 let subagentRuntime = null;
 let sessionRestore = null;
+let sessionStateRuntime = null;
 let subagentUiOrchestrator = null;
 let subagentTransport = null;
 let subagentChatTransport = null;
@@ -324,55 +327,23 @@ function extractLastSeqFromHistory(history) {
   return maxSeq;
 }
 
-function ensureSessionRestore() {
-  if (sessionRestore || !createSessionRestore) {
-    return sessionRestore;
+function ensureSessionStateRuntime() {
+  if (sessionStateRuntime || !createSessionStateRuntime) {
+    return sessionStateRuntime;
   }
-  sessionRestore = createSessionRestore({
+  sessionStateRuntime = createSessionStateRuntime({
+    createSessionRestore,
     fetchImpl: fetch.bind(window),
-    async restoreSessionState(targetChatId, options = {}) {
-      const requestedChatId = String(targetChatId || '').trim();
-      const opts = options && typeof options === 'object' ? options : {};
-      const transport = ensureSubagentTransport();
-      if (!requestedChatId) {
-        if (opts.restoreSubagent !== false) {
-          replaceSubagentStateSnapshot({ coordinators: [] });
-        }
-        return {
-          chatId: requestedChatId,
-          status: 'empty',
-          history: [],
-          restoredHistory: false,
-          restoredSubagent: opts.restoreSubagent !== false,
-          stale: false,
-        };
-      }
-
-      if (transport?.restoreSessionState) {
-        return transport.restoreSessionState(requestedChatId, {
-          ...opts,
-          interactiveUiConfig,
-          emptySnapshot: { coordinators: [] },
-          fetchSessionHistory: fetchSessionHistoryMessages,
-          isCurrentChatId(value) {
-            return String(value || '').trim() === chatId;
-          },
-        });
-      }
-
-      const history = await fetchSessionHistoryMessages(requestedChatId);
-      return {
-        chatId: requestedChatId,
-        status: Array.isArray(history) ? 'ok' : 'partial',
-        history: Array.isArray(history) ? history : [],
-        restoredHistory: Array.isArray(history),
-        restoredSubagent: false,
-        stale: String(chatId || '').trim() !== requestedChatId,
-      };
+    interactiveUiConfig,
+    ensureSubagentTransport,
+    applySubagentSnapshot(snapshot, options) {
+      return ensureSubagentPanelController()?.replaceSnapshot?.(snapshot, {
+        chatId: chatId,
+        interactiveUiConfig,
+        ...(options && typeof options === 'object' ? options : {}),
+      });
     },
-    loadSubagentStateSnapshot,
     renderHistoryMessages,
-    replaceSubagentStateSnapshot,
     renderSessions,
     saveReconnectSession,
     refreshContextStats,
@@ -380,19 +351,36 @@ function ensureSessionRestore() {
     setSelectedSessionId(nextChatId) {
       selectedSessionId = nextChatId;
     },
-    isCurrentChatId(candidate) {
-      return String(candidate || '').trim() === chatId;
+    getChatId() {
+      return chatId;
+    },
+    getLastMessageSeq() {
+      return lastMessageSeq;
+    },
+    getMessageCount() {
+      return messages.childElementCount;
+    },
+    emptySnapshot() {
+      return { coordinators: [] };
     },
   });
+  return sessionStateRuntime;
+}
+
+function ensureSessionRestore() {
+  if (sessionRestore) {
+    return sessionRestore;
+  }
+  sessionRestore = ensureSessionStateRuntime()?.ensureSessionRestore?.() || null;
   return sessionRestore;
 }
 
 async function fetchSessionHistoryMessages(targetChatId) {
-  return ensureSessionRestore()?.fetchSessionHistoryMessages?.(targetChatId) || null;
+  return ensureSessionStateRuntime()?.fetchSessionHistoryMessages?.(targetChatId) || null;
 }
 
 async function restoreSessionViewState(targetChatId = chatId, options = {}) {
-  return ensureSessionRestore()?.restoreSessionViewState?.(targetChatId, options) || {
+  return ensureSessionStateRuntime()?.restoreSessionViewState?.(targetChatId, options) || {
     history: [],
     restoredHistory: false,
     restoredSubagent: false,
@@ -401,50 +389,11 @@ async function restoreSessionViewState(targetChatId = chatId, options = {}) {
 }
 
 async function reconcileCurrentSessionHistory(targetChatId = chatId, options = {}) {
-  const requestedChatId = String(targetChatId || '').trim();
-  if (!requestedChatId) return false;
-  const minMessageCount = Number(options?.minMessageCount) || 0;
-  const minLastSeq = Number(options?.minLastSeq) || 0;
-  const history = await fetchSessionHistoryMessages(requestedChatId);
-  if (!Array.isArray(history) || requestedChatId !== chatId) {
-    return false;
-  }
-  const historyLastSeq = extractLastSeqFromHistory(history);
-  if (history.length < minMessageCount) return false;
-  if (historyLastSeq < minLastSeq || historyLastSeq < lastMessageSeq) return false;
-  renderHistoryMessages(history);
-  selectedSessionId = requestedChatId;
-  renderSessions();
-  saveReconnectSession();
-  return true;
+  return ensureSessionStateRuntime()?.reconcileCurrentSessionHistory?.(targetChatId, options) || false;
 }
 
 function scheduleCurrentSessionHistoryReconcile(targetChatId = chatId, options = {}) {
-  const requestedChatId = String(targetChatId || '').trim();
-  if (!requestedChatId) return;
-  const attempt = Number(options?.attempt) || 0;
-  const maxAttempts = Math.max(0, Number(options?.maxAttempts) || 6);
-  const delayMs = Number(options?.delayMs) || 160;
-  const minMessageCount = Number(options?.minMessageCount) || messages.childElementCount;
-  const minLastSeq = Number(options?.minLastSeq) || lastMessageSeq;
-  setTimeout(() => {
-    if (requestedChatId !== chatId) return;
-    reconcileCurrentSessionHistory(requestedChatId, {
-      minMessageCount,
-      minLastSeq,
-    }).then((ok) => {
-      if (ok || requestedChatId !== chatId || attempt >= maxAttempts) {
-        return;
-      }
-      scheduleCurrentSessionHistoryReconcile(requestedChatId, {
-        attempt: attempt + 1,
-        maxAttempts,
-        minMessageCount,
-        minLastSeq,
-        delayMs: Math.min(delayMs * 2, 1200),
-      });
-    });
-  }, delayMs);
+  ensureSessionStateRuntime()?.scheduleCurrentSessionHistoryReconcile?.(targetChatId, options);
 }
 
 function ensureSubagentBootstrap() {
@@ -1602,10 +1551,15 @@ function ensureSubagentAppBridge() {
     subagentSummarySelector: subagentSummaryFromState,
     visibleSubagentTabsSelector: visibleSubagentTabsFromState,
     subagentEventsForAgentSelector: subagentEventsForAgentFromState,
+    normalizeSnapshot: normalizeSubagentSnapshot,
     normalizeCoordinatorPayload,
     makeSubagentEventAction,
+    makeCoordinatorAction,
     subagentEventKey,
     formatSubagentEvent,
+    markCoordinatorActive(coordinatorId) {
+      ensureCoordinatorPanelController()?.markActive?.(coordinatorId);
+    },
     trimText,
   });
   return subagentAppBridge;
@@ -1796,19 +1750,13 @@ function ensureSubagentPanelController() {
         };
     },
     replaceSnapshotFallback(snapshot, helpers) {
-      ensureSubagentRuntime()?.replaceSnapshot?.(
-        normalizeSubagentSnapshot ? normalizeSubagentSnapshot(snapshot) : snapshot,
-        {
-          chatId: helpers?.chatId || chatId,
-          interactiveUiConfig: helpers?.interactiveUiConfig || interactiveUiConfig,
-        }
-      );
+      ensureSubagentAppBridge()?.replaceSnapshot?.(snapshot, {
+        chatId: helpers?.chatId || chatId,
+        interactiveUiConfig: helpers?.interactiveUiConfig || interactiveUiConfig,
+      });
     },
     applyCoordinatorPayloadFallback(payload) {
-      const action = makeCoordinatorAction ? makeCoordinatorAction(payload) : { kind: 'coordinator', payload };
-      reduceSubagentUiEvent(action);
-      const state = normalizeCoordinatorPayload(payload);
-      ensureCoordinatorPanelController()?.markActive(state?.coordinator_id);
+      ensureSubagentAppBridge()?.applyCoordinatorPayload?.(payload, { markActive: true });
     },
   });
   return subagentPanelController;
@@ -2125,57 +2073,18 @@ function clearAgentState() {
 }
 
 function replaceSubagentStateSnapshot(snapshot) {
-  const hydrateInput = ensureSubagentPanelController()?.replaceSnapshot?.(snapshot, {
-    chatId,
-    interactiveUiConfig,
-  });
-  return hydrateInput;
+  return ensureSessionStateRuntime()?.replaceSubagentStateSnapshot?.(snapshot) ||
+    ensureSubagentPanelController()?.replaceSnapshot?.(snapshot, {
+      chatId,
+      interactiveUiConfig,
+    });
 }
 
 async function loadSubagentStateSnapshot(targetChatId = chatId) {
-  const requestedChatId = String(targetChatId || '').trim();
-  subagentStateLoadToken += 1;
-  const transport = ensureSubagentTransport();
-  const transportOptions = {
-    interactiveUiConfig,
-    emptySnapshot: { coordinators: [] },
-    isCurrentChatId(value) {
-      return value === chatId;
-    },
+  return ensureSessionStateRuntime()?.loadSubagentStateSnapshot?.(targetChatId) || {
+    chatId: String(targetChatId || '').trim(),
+    status: 'error',
   };
-  if (transport?.loadUnifiedSessionState) {
-    const unified = await transport.loadUnifiedSessionState(requestedChatId, transportOptions);
-    if (unified?.status === 'ok' || unified?.status === 'stale' || unified?.status === 'empty') {
-      return unified;
-    }
-  }
-  if (transport?.loadSnapshot) {
-    return transport.loadSnapshot(requestedChatId, transportOptions);
-  }
-  const token = subagentStateLoadToken;
-  if (!requestedChatId) {
-    replaceSubagentStateSnapshot({ coordinators: [] });
-    return { chatId: requestedChatId, status: 'empty' };
-  }
-
-  try {
-    const resp = await fetch(`/api/subagent_state?chat_id=${encodeURIComponent(requestedChatId)}`, { cache: 'no-store' });
-    if (token !== subagentStateLoadToken || requestedChatId !== chatId) return { chatId: requestedChatId, status: 'stale' };
-    if (resp.status === 404) {
-      replaceSubagentStateSnapshot({ coordinators: [] });
-      return { chatId: requestedChatId, status: 'empty' };
-    }
-    if (!resp.ok) {
-      return { chatId: requestedChatId, status: 'error' };
-    }
-    const data = await resp.json();
-    if (token !== subagentStateLoadToken || requestedChatId !== chatId) return { chatId: requestedChatId, status: 'stale' };
-    replaceSubagentStateSnapshot(data);
-    return { chatId: requestedChatId, status: 'ok', data };
-  } catch (_) {
-    if (token !== subagentStateLoadToken || requestedChatId !== chatId) return { chatId: requestedChatId, status: 'stale' };
-    return { chatId: requestedChatId, status: 'error' };
-  }
 }
 
 function handleAgentStateMessage(data) {
@@ -2364,6 +2273,7 @@ window.addEventListener('error', (event) => {
 function renderSelfTestReport(data) {
   const pct = data.passed * 100 / data.total;
   const color = pct === 100 ? '#22c55e' : pct >= 80 ? '#f59e0b' : '#ef4444';
+  const probe = data && typeof data.log_probe === 'object' ? data.log_probe : null;
 
   let itemsHtml = '';
   (data.items || []).forEach(function(item) {
@@ -2372,6 +2282,25 @@ function renderSelfTestReport(data) {
     itemsHtml += '<div class="st-item '+cls+'"><span class="st-icon">'+icon+'</span><span class="st-name">'+item.name+'</span></div>';
   });
 
+  let probeHtml = '';
+  if (probe) {
+    let verdict = '日志证据不足';
+    if (probe.pending) verdict = '已安排本轮日志分析，等待 agent 完成 opencode 分析后回看日志';
+    else if (probe.multi_subagent_confirmed) verdict = '已确认多 subagent 调度';
+    else if (!probe.marker_found) verdict = '未命中本次自检日志 marker';
+    probeHtml =
+      '<div class="st-items">' +
+      '<div class="st-item '+((probe.pending || probe.multi_subagent_confirmed) ? 'pass' : 'fail')+'">' +
+      '<span class="st-icon">'+(probe.pending ? '⏳' : (probe.multi_subagent_confirmed ? '🧭' : '⚠️'))+'</span>' +
+      '<span class="st-name">'+verdict+'</span>' +
+      '</div>' +
+      '<div class="st-item">' +
+      '<span class="st-icon">•</span>' +
+      '<span class="st-name">attach_task: '+(Number(probe.attach_task_hits) || 0)+'，launch candidate: '+(Number(probe.launch_candidate_hits) || 0)+'，restore queued: '+(Number(probe.restore_queued_hits) || 0)+'</span>' +
+      '</div>' +
+      '</div>';
+  }
+
   const html =
     '<div class="self-test-report">' +
     '<div class="st-header">' +
@@ -2379,6 +2308,7 @@ function renderSelfTestReport(data) {
     '<span class="st-score" style="color:'+color+'">'+data.passed+'/'+data.total+' 通过</span>' +
     '</div>' +
     '<div class="st-bar"><div class="st-bar-fill" style="width:'+pct+'%;background:'+color+'"></div></div>' +
+    probeHtml +
     '<div class="st-items">'+itemsHtml+'</div>' +
     '</div>';
 

@@ -27,6 +27,7 @@ void tool_delegate_normalize_batch_child_request(delegate_request_t *child)
 
     if (!tool_delegate_prepare_subagent_prompt(child->subagent_type,
                                                child->description,
+                                               child->target_path,
                                                child->prompt,
                                                prepared_prompt,
                                                sizeof(prepared_prompt),

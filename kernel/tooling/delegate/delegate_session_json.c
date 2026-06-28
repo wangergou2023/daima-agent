@@ -5,6 +5,7 @@
 
 #include "drivers/tool/tool_delegate_result_json.h"
 #include "drivers/memory/session_store.h"
+#include "linux/kernel.h"
 
 typedef struct {
     cJSON *array;
@@ -103,6 +104,172 @@ static const char *delegate_render_visible_text(const char *text,
         return rendered;
     }
     return text;
+}
+
+static bool delegate_frame_is_lifecycle_prelude(cJSON *frame)
+{
+    const char *type = NULL;
+    const char *phase = NULL;
+    const char *status = NULL;
+
+    if (!frame || !cJSON_IsObject(frame)) {
+        return false;
+    }
+
+    type = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(frame, "type"));
+    phase = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(frame, "phase"));
+    status = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(frame, "status"));
+
+    if (type && strcmp(type, "subagent_start") == 0) {
+        return true;
+    }
+    if (type && strcmp(type, "subagent_progress") == 0 &&
+        phase && (strcmp(phase, "queued") == 0 || strcmp(phase, "progress") == 0) &&
+        status && (strcmp(status, "queued") == 0 || strcmp(status, "running") == 0)) {
+        return true;
+    }
+    return false;
+}
+
+static bool delegate_child_session_has_assistant_history(cJSON *history)
+{
+    int size = 0;
+
+    if (!history || !cJSON_IsArray(history)) {
+        return false;
+    }
+
+    size = cJSON_GetArraySize(history);
+    for (int idx = size - 1; idx >= 0; idx--) {
+        cJSON *entry = cJSON_GetArrayItem(history, idx);
+        const char *role = entry
+            ? cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(entry, "role"))
+            : NULL;
+        const char *content = entry
+            ? cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(entry, "content"))
+            : NULL;
+        if (role && strcmp(role, "assistant") == 0 && content && content[0]) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool delegate_text_looks_like_lifecycle_prelude(const char *text)
+{
+    if (!text || !text[0]) {
+        return false;
+    }
+
+    return strstr(text, "· started") != NULL ||
+           strstr(text, "· running") != NULL ||
+           strcmp(text, "queued") == 0;
+}
+
+bool delegate_child_session_preferred_visible_text(const delegate_task_record_t *task_snapshot,
+                                                   char *buf,
+                                                   size_t buf_size)
+{
+    delegate_child_session_json_options_t options = {
+        .history_limit = DELEGATE_CHILD_SESSION_HISTORY_LIMIT_DEFAULT,
+    };
+    cJSON *child = NULL;
+    cJSON *latest = NULL;
+    cJSON *history = NULL;
+    cJSON *commits = NULL;
+    const char *text = NULL;
+    char rendered[1024];
+    bool ok = false;
+
+    if (!task_snapshot || !buf || buf_size == 0) {
+        return false;
+    }
+    buf[0] = '\0';
+
+    child = delegate_child_session_json_build_from_task(task_snapshot, &options);
+    if (!child) {
+        return false;
+    }
+
+    latest = cJSON_GetObjectItemCaseSensitive(child, "latest_frame");
+    history = cJSON_GetObjectItemCaseSensitive(child, "history");
+    if (latest) {
+        text = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(latest, "output_preview"));
+        if (!text || !text[0]) {
+            text = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(latest, "detail"));
+        }
+        if (text && text[0] &&
+            !(delegate_frame_is_lifecycle_prelude(latest) &&
+              delegate_child_session_has_assistant_history(history))) {
+            strscpy(buf,
+                    delegate_render_visible_text(text, rendered, sizeof(rendered)),
+                    buf_size);
+            ok = buf[0] != '\0';
+            goto out;
+        }
+    }
+
+    text = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(child, "summary"));
+    if (text && text[0] &&
+        !(delegate_text_looks_like_lifecycle_prelude(text) &&
+          delegate_child_session_has_assistant_history(history))) {
+        strscpy(buf,
+                delegate_render_visible_text(text, rendered, sizeof(rendered)),
+                buf_size);
+        ok = buf[0] != '\0';
+        goto out;
+    }
+
+    if (history && cJSON_IsArray(history)) {
+        int size = cJSON_GetArraySize(history);
+        for (int idx = size - 1; idx >= 0; idx--) {
+            cJSON *entry = cJSON_GetArrayItem(history, idx);
+            const char *role = entry
+                ? cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(entry, "role"))
+                : NULL;
+            const char *content = entry
+                ? cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(entry, "content"))
+                : NULL;
+            if (role && strcmp(role, "assistant") == 0 && content && content[0]) {
+                strscpy(buf,
+                        delegate_render_visible_text(content, rendered, sizeof(rendered)),
+                        buf_size);
+                ok = buf[0] != '\0';
+                goto out;
+            }
+        }
+    }
+
+    commits = cJSON_GetObjectItemCaseSensitive(child, "commits");
+    if (commits && cJSON_IsArray(commits)) {
+        int size = cJSON_GetArraySize(commits);
+        for (int idx = size - 1; idx >= 0; idx--) {
+            cJSON *entry = cJSON_GetArrayItem(commits, idx);
+            const char *commit_text = entry
+                ? cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(entry, "text"))
+                : NULL;
+            if (commit_text && commit_text[0]) {
+                strscpy(buf,
+                        delegate_render_visible_text(commit_text, rendered, sizeof(rendered)),
+                        buf_size);
+                ok = buf[0] != '\0';
+                goto out;
+            }
+        }
+    }
+
+    if (task_snapshot->output[0]) {
+        strscpy(buf,
+                delegate_render_visible_text(task_snapshot->output,
+                                             rendered,
+                                             sizeof(rendered)),
+                buf_size);
+        ok = buf[0] != '\0';
+    }
+
+out:
+    cJSON_Delete(child);
+    return ok;
 }
 
 static bool delegate_is_compaction_summary_text(const char *text)

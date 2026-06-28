@@ -172,11 +172,13 @@
 
       transport = api.createSubagentTransport({
         parseIncomingPayload: api.parseIncomingPayload,
+        getChatId: api.getChatId,
         getEventAdapter() {
           return api.ensureSubagentEventAdapter?.();
         },
         isSubagentPayload: api.isSubagentPayload,
         fetchImpl: api.fetchImpl,
+        scheduleCurrentSessionHistoryReconcile: api.scheduleCurrentSessionHistoryReconcile,
         applySnapshot(snapshot, helpers) {
           ensureUiOrchestrator()?.applySnapshot?.(snapshot, helpers);
         },

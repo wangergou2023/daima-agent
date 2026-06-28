@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include "drivers/tool/tool_files.h"
+#include "paths.h"
 #include "linux/kernel.h"
 
 static bool extract_single_absolute_path_token(const char *prompt, char *path, size_t path_size)
@@ -146,6 +147,44 @@ static bool resolve_existing_path_with_fuzzy_components(const char *input, char 
     return access(resolved, F_OK) == 0;
 }
 
+static bool workspace_repo_root_from_prompt(const char *text, char *path, size_t path_size)
+{
+    DIR *dir;
+    struct dirent *entry;
+    char candidate[512];
+    const char *workspace = path_workspace_dir();
+
+    if (!text || !text[0] || !workspace || !workspace[0] || !path || path_size == 0) {
+        return false;
+    }
+
+    dir = opendir(workspace);
+    if (!dir) {
+        return false;
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+        if (!strstr(text, entry->d_name)) {
+            continue;
+        }
+        if (!join_path_checked(workspace, entry->d_name, candidate, sizeof(candidate))) {
+            continue;
+        }
+        if (!tool_delegate_file_is_directory(candidate)) {
+            continue;
+        }
+        strscpy(path, candidate, path_size);
+        closedir(dir);
+        return true;
+    }
+
+    closedir(dir);
+    return false;
+}
+
 bool tool_delegate_extract_single_absolute_repo_path(const char *prompt, char *path, size_t path_size)
 {
     char raw[512];
@@ -190,8 +229,87 @@ bool tool_delegate_extract_single_absolute_repo_path(const char *prompt, char *p
     return true;
 }
 
+bool tool_delegate_extract_repo_scoped_path(const char *text,
+                                            const char *repo_root,
+                                            char *path,
+                                            size_t path_size)
+{
+    const char *cursor = text;
+    char candidate[512];
+    const char *repo_name = NULL;
+
+    if (!text || !text[0] || !repo_root || !repo_root[0] || !path || path_size == 0) {
+        return false;
+    }
+    path[0] = '\0';
+
+    repo_name = tool_delegate_path_basename(repo_root);
+    if (!repo_name || !repo_name[0]) {
+        return false;
+    }
+
+    while (cursor && *cursor) {
+        const char *match = strstr(cursor, repo_name);
+        const char *start = NULL;
+        const char *end = NULL;
+        size_t len = 0;
+
+        if (!match) {
+            break;
+        }
+        if (match != text) {
+            unsigned char prev = (unsigned char)match[-1];
+            if (!isspace(prev) && prev != '`' && prev != '"' && prev != '\'' &&
+                prev != '(' && prev != '[' && prev != '{' && prev != '/') {
+                cursor = match + strlen(repo_name);
+                continue;
+            }
+        }
+        start = match + strlen(repo_name);
+        if (*start == '/') {
+            start++;
+        } else {
+            cursor = start;
+            continue;
+        }
+        end = start;
+        while (*end) {
+            unsigned char ch = (unsigned char)*end;
+            if (isspace(ch) || ch == '`' || ch == '"' || ch == '\'' ||
+                ch == ',' || ch == ')' || ch == '(' || ch == '}' || ch == ']' ||
+                ch == ':' || ch == ';') {
+                break;
+            }
+            if (ch & 0x80) {
+                break;
+            }
+            end++;
+        }
+
+        len = (size_t)(end - start);
+        if (len > 0 && len < sizeof(candidate) &&
+            snprintf(candidate, sizeof(candidate), "%s/%.*s", repo_root, (int)len, start) <
+                (int)sizeof(candidate) &&
+            access(candidate, F_OK) == 0) {
+            if (!tool_delegate_file_is_directory(candidate)) {
+                char *slash = strrchr(candidate, '/');
+                if (slash && slash != candidate) {
+                    *slash = '\0';
+                }
+            }
+            strscpy(path, candidate, path_size);
+            return true;
+        }
+        cursor = end;
+    }
+
+    return false;
+}
+
 bool tool_delegate_resolve_repo_root(const delegate_request_t *req, char *path, size_t path_size)
 {
+    const char *text = NULL;
+
     if (!req || !path || path_size == 0) {
         return false;
     }
@@ -200,9 +318,14 @@ bool tool_delegate_resolve_repo_root(const delegate_request_t *req, char *path, 
         strscpy(path, req->target_path, path_size);
         return true;
     }
-    return tool_delegate_extract_single_absolute_repo_path(req->prompt[0] ? req->prompt : req->description,
-                                                           path,
-                                                           path_size);
+    text = req->prompt[0] ? req->prompt : req->description;
+    if (workspace_repo_root_from_prompt(text, path, path_size)) {
+        return true;
+    }
+    if (tool_delegate_extract_single_absolute_repo_path(text, path, path_size)) {
+        return true;
+    }
+    return false;
 }
 
 bool tool_delegate_file_is_directory(const char *path)

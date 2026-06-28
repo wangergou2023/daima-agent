@@ -10,6 +10,7 @@
 #include "drivers/tool/tool_files.h"
 #include "linux/kernel.h"
 #include "linux/slab.h"
+#include "paths.h"
 
 static bool text_contains_any(const char *text, const char *const *keywords, size_t keyword_count)
 {
@@ -186,6 +187,71 @@ static void append_repo_root_guidance(const char *prompt,
     strlcat(prepared_prompt, repo_root, prepared_prompt_size);
 }
 
+static void append_workspace_contract_guidance(char *prepared_prompt,
+                                               size_t prepared_prompt_size)
+{
+    const char *workspace;
+
+    if (!prepared_prompt || prepared_prompt_size == 0) {
+        return;
+    }
+
+    workspace = path_workspace_dir();
+    if (!workspace || !workspace[0]) {
+        return;
+    }
+    if (strlen(prepared_prompt) + strlen(workspace) + 640 >= prepared_prompt_size) {
+        return;
+    }
+
+    strlcat(prepared_prompt,
+            "\n\nWorkspace contract:\n- Agent workspace root: ",
+            prepared_prompt_size);
+    strlcat(prepared_prompt, workspace, prepared_prompt_size);
+    strlcat(prepared_prompt,
+            "\n"
+            "- Never guess fake roots like `/repo`, `/workspace`, `/project`, or `/data/workspace`.\n"
+            "- Prefer the injected absolute target path or resolved repo root for `files` calls.\n"
+            "- When shell is necessary, set `terminal.workdir` to the exact project path instead of using `cd ... && ...` probing.\n",
+            prepared_prompt_size);
+}
+
+static void append_authoritative_target_contract(const char *description,
+                                                 const char *target_path,
+                                                 char *prepared_prompt,
+                                                 size_t prepared_prompt_size)
+{
+    if (!prepared_prompt || prepared_prompt_size == 0 || !target_path || !target_path[0]) {
+        return;
+    }
+    if (strlen(prepared_prompt) + strlen(target_path) + strlen(description ? description : "") + 1200 >=
+        prepared_prompt_size) {
+        return;
+    }
+
+    strlcat(prepared_prompt,
+            "\n\nAuthoritative target contract:\n"
+            "- Primary target path: ",
+            prepared_prompt_size);
+    strlcat(prepared_prompt, target_path, prepared_prompt_size);
+    strlcat(prepared_prompt,
+            "\n"
+            "- Requested task label: ",
+            prepared_prompt_size);
+    strlcat(prepared_prompt,
+            description && description[0] ? description : "(no description)",
+            prepared_prompt_size);
+    strlcat(prepared_prompt,
+            "\n"
+            "- Treat the absolute target path above as authoritative. It is stronger than task labels, session ids, shorthand names, or inferred aliases.\n"
+            "- Start from this exact path or its direct children. Do not begin from the workspace root unless the target path itself is the workspace root.\n"
+            "- Do not search the workspace for task-label fragments such as `a1`, `b1`, `h1`, `l1`, `pa11`, `pb11`, `prr`, `block-ready`, or similar coordinator/test identifiers.\n"
+            "- Do not derive paths from task ids, session ids, coordinator ids, or prompt nicknames. Use the injected absolute target path instead.\n"
+            "- If the target path is a directory, first inspect that directory directly. If it is a file, inspect that file directly.\n"
+            "- If the target path does not exist, report that mismatch explicitly instead of probing sibling fake paths.\n",
+            prepared_prompt_size);
+}
+
 static bool extract_single_absolute_c_file_path(const char *prompt, char *path, size_t path_size)
 {
     if (!prompt || !path || path_size == 0) {
@@ -241,6 +307,7 @@ static bool read_file_excerpt(const char *path, char *out, size_t out_size)
 
 bool tool_delegate_prepare_subagent_prompt(const char *subagent_type,
                                            const char *description,
+                                           const char *target_path,
                                            const char *prompt,
                                            char *prepared_prompt,
                                            size_t prepared_prompt_size,
@@ -259,18 +326,24 @@ bool tool_delegate_prepare_subagent_prompt(const char *subagent_type,
         if (prompt &&
             (strcmp(subagent_type ? subagent_type : "", "librarian") == 0 ||
              strcmp(subagent_type ? subagent_type : "", "oracle") == 0)) {
-            append_repo_root_guidance(prompt, NULL, prepared_prompt, prepared_prompt_size);
+            append_repo_root_guidance(prompt, target_path, prepared_prompt, prepared_prompt_size);
+            append_workspace_contract_guidance(prepared_prompt, prepared_prompt_size);
+            append_authoritative_target_contract(description, target_path, prepared_prompt, prepared_prompt_size);
         }
         return true;
     }
 
     if (prompt_looks_like_repo_overview(prompt, description)) {
-        build_bounded_explore_prompt(description, prompt, NULL, prepared_prompt, prepared_prompt_size);
-        append_repo_root_guidance(prompt, NULL, prepared_prompt, prepared_prompt_size);
+        build_bounded_explore_prompt(description, prompt, target_path, prepared_prompt, prepared_prompt_size);
+        append_repo_root_guidance(prompt, target_path, prepared_prompt, prepared_prompt_size);
+        append_workspace_contract_guidance(prepared_prompt, prepared_prompt_size);
+        append_authoritative_target_contract(description, target_path, prepared_prompt, prepared_prompt_size);
         return true;
     }
 
-    append_repo_root_guidance(prompt, NULL, prepared_prompt, prepared_prompt_size);
+    append_repo_root_guidance(prompt, target_path, prepared_prompt, prepared_prompt_size);
+    append_workspace_contract_guidance(prepared_prompt, prepared_prompt_size);
+    append_authoritative_target_contract(description, target_path, prepared_prompt, prepared_prompt_size);
 
     char path[512];
     if (!extract_single_absolute_c_file_path(prompt, path, sizeof(path))) {

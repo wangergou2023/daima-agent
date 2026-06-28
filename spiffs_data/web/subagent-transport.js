@@ -84,18 +84,38 @@
       }
       if (data.type === 'response' && data.content) {
         context?.handleAssistantResponse?.(data);
+        context?.scheduleCurrentSessionHistoryReconcile?.(data.chat_id || context?.getChatId?.());
         return { handled: true, data };
       }
       return { handled: false, data };
     }
 
-    function collectDeltaTargets(state) {
+    function detailBelongsToChat(detail, state, chatId) {
+      const nextChatId = String(chatId || '').trim();
+      if (!nextChatId) {
+        return true;
+      }
+      const coordinatorId = String(detail?.coordinator_id || '').trim();
+      if (!coordinatorId) {
+        return false;
+      }
+      const coordinators = state?.coordinators;
+      const coordinator = coordinators && typeof coordinators.get === 'function'
+        ? coordinators.get(coordinatorId)
+        : null;
+      return String(coordinator?.chat_id || '').trim() === nextChatId;
+    }
+
+    function collectDeltaTargets(state, chatId) {
       const details = state?.details;
       if (!details || typeof details.values !== 'function') {
         return [];
       }
       const targets = [];
       for (const detail of details.values()) {
+        if (!detailBelongsToChat(detail, state, chatId)) {
+          continue;
+        }
         const taskId = String(detail?.task_id || '').trim();
         if (!taskId) {
           continue;
@@ -115,7 +135,8 @@
       return targets;
     }
 
-    function collectCoordinatorRevision(state) {
+    function collectCoordinatorRevision(state, chatId) {
+      const nextChatId = String(chatId || '').trim();
       const liveRevision = Number(state?.liveCursor?.visibleRevision) || 0;
       const explicitCursorRevision = Math.max(
         liveRevision,
@@ -127,6 +148,9 @@
       }
       let maxRevision = explicitCursorRevision;
       for (const coordinator of coordinators.values()) {
+        if (nextChatId && String(coordinator?.chat_id || '').trim() !== nextChatId) {
+          continue;
+        }
         const revision = Number(coordinator?.replay_cursor?.visible_revision) ||
           Number(coordinator?.visible_revision) ||
           0;
@@ -135,6 +159,142 @@
         }
       }
       return maxRevision;
+    }
+
+    function isStaleRecoveryToken(token, chatId, options) {
+      return token !== snapshotToken ||
+        (typeof options?.isCurrentChatId === 'function' && !options.isCurrentChatId(chatId));
+    }
+
+    function collectSnapshotCoordinatorRevision(snapshot, chatId) {
+      const nextChatId = String(chatId || '').trim();
+      const coordinators = Array.isArray(snapshot?.coordinators) ? snapshot.coordinators : [];
+      let maxRevision = 0;
+      for (const coordinator of coordinators) {
+        if (!coordinator || typeof coordinator !== 'object') {
+          continue;
+        }
+        if (nextChatId && String(coordinator?.chat_id || '').trim() !== nextChatId) {
+          continue;
+        }
+        const revision = Number(coordinator?.replay_cursor?.visible_revision) ||
+          Number(coordinator?.visible_revision) ||
+          0;
+        if (revision > maxRevision) {
+          maxRevision = revision;
+        }
+      }
+      return maxRevision;
+    }
+
+    function collectRecoveryCursor(snapshot, runtimeState, chatId) {
+      const snapshotRevision = Number(snapshot?.replay_cursor?.visible_revision) ||
+        Number(snapshot?.visible_revision) ||
+        0;
+      if (snapshotRevision > 0) {
+        return snapshotRevision;
+      }
+      const snapshotCoordinatorRevision = collectSnapshotCoordinatorRevision(snapshot, chatId);
+      if (snapshotCoordinatorRevision > 0) {
+        return snapshotCoordinatorRevision;
+      }
+      return collectCoordinatorRevision(runtimeState, chatId);
+    }
+
+    async function recoverSnapshotDeltas(chatId, snapshot, token, options) {
+      const runtimeState = typeof api.getRuntimeState === 'function' ? api.getRuntimeState() : null;
+      const afterVisibleRevision = collectRecoveryCursor(snapshot, runtimeState, chatId);
+      const deltaTargets = collectDeltaTargets(runtimeState, chatId);
+      const reasonBase = String(options?.reasonBase || 'snapshot_recovery').trim();
+
+      if (!deltaTargets.length) {
+        return {
+          chatId,
+          status: 'empty',
+          afterVisibleRevision,
+          deltaTargets,
+        };
+      }
+      if (isStaleRecoveryToken(token, chatId, options)) {
+        return {
+          chatId,
+          status: 'stale',
+          afterVisibleRevision,
+          deltaTargets,
+        };
+      }
+
+      const chatDeltaResult = await loadChatDelta(chatId, afterVisibleRevision, deltaTargets, {
+        reason: `${reasonBase}_chat`,
+      });
+      if (chatDeltaResult?.status === 'ok') {
+        if (chatDeltaResult.itemCount < deltaTargets.length) {
+          const returnedTaskIds = new Set(
+            Array.isArray(chatDeltaResult?.data?.items)
+              ? chatDeltaResult.data.items
+                  .map((item) => String(item?.task_id || '').trim())
+                  .filter(Boolean)
+              : []
+          );
+          for (const target of deltaTargets) {
+            if (returnedTaskIds.has(target.taskId)) {
+              continue;
+            }
+            if (isStaleRecoveryToken(token, chatId, options)) {
+              return {
+                chatId,
+                status: 'stale',
+                afterVisibleRevision,
+                deltaTargets,
+              };
+            }
+            await loadTaskDelta(target.taskId, target, {
+              reason: `${reasonBase}_fallback`,
+            });
+          }
+        }
+        return {
+          chatId,
+          status: 'ok',
+          afterVisibleRevision,
+          deltaTargets,
+          result: chatDeltaResult,
+        };
+      }
+
+      const batchResult = await loadTaskDeltas(chatId, deltaTargets, {
+        reason: `${reasonBase}_batch`,
+      });
+      if (batchResult?.status === 'ok') {
+        return {
+          chatId,
+          status: 'ok',
+          afterVisibleRevision,
+          deltaTargets,
+          result: batchResult,
+        };
+      }
+
+      for (const target of deltaTargets) {
+        if (isStaleRecoveryToken(token, chatId, options)) {
+          return {
+            chatId,
+            status: 'stale',
+            afterVisibleRevision,
+            deltaTargets,
+          };
+        }
+        await loadTaskDelta(target.taskId, target, {
+          reason: `${reasonBase}_fallback`,
+        });
+      }
+
+      return {
+        chatId,
+        status: 'ok',
+        afterVisibleRevision,
+        deltaTargets,
+      };
     }
 
     async function loadTaskDelta(taskId, cursors, options) {
@@ -357,36 +517,12 @@
           return { token, chatId, status: 'stale' };
         }
         api.applySnapshot?.(data, { chatId, interactiveUiConfig: options?.interactiveUiConfig });
-        const runtimeState = typeof api.getRuntimeState === 'function' ? api.getRuntimeState() : null;
-        const afterVisibleRevision = collectCoordinatorRevision(runtimeState);
-        const deltaTargets = collectDeltaTargets(runtimeState);
-        if (deltaTargets.length) {
-          if (token !== snapshotToken || (typeof options?.isCurrentChatId === 'function' && !options.isCurrentChatId(chatId))) {
-            return { token, chatId, status: 'stale' };
-          }
-          const chatDeltaResult = await loadChatDelta(chatId, afterVisibleRevision, deltaTargets, { reason: 'snapshot_recovery_chat' });
-          if (chatDeltaResult?.status !== 'ok') {
-            const batchResult = await loadTaskDeltas(chatId, deltaTargets, { reason: 'snapshot_recovery_batch' });
-            if (batchResult?.status !== 'ok') {
-              for (const target of deltaTargets) {
-                if (token !== snapshotToken || (typeof options?.isCurrentChatId === 'function' && !options.isCurrentChatId(chatId))) {
-                  return { token, chatId, status: 'stale' };
-                }
-                await loadTaskDelta(target.taskId, target, { reason: 'snapshot_recovery_fallback' });
-              }
-            }
-          } else if (chatDeltaResult.itemCount < deltaTargets.length) {
-            for (const target of deltaTargets) {
-              if (token !== snapshotToken || (typeof options?.isCurrentChatId === 'function' && !options.isCurrentChatId(chatId))) {
-                return { token, chatId, status: 'stale' };
-              }
-              const present = Array.isArray(chatDeltaResult?.data?.items) &&
-                chatDeltaResult.data.items.some((item) => String(item?.task_id || '') === target.taskId);
-              if (!present) {
-                await loadTaskDelta(target.taskId, target, { reason: 'snapshot_recovery_fallback' });
-              }
-            }
-          }
+        const recovery = await recoverSnapshotDeltas(chatId, data, token, {
+          ...options,
+          reasonBase: 'snapshot_recovery',
+        });
+        if (recovery?.status === 'stale') {
+          return { token, chatId, status: 'stale' };
         }
         return { token, chatId, status: 'ok', data };
       } catch (_) {
@@ -407,10 +543,21 @@
       }
 
       try {
-        const resp = await api.fetchImpl?.(
-          `/api/session_state?chat_id=${encodeURIComponent(chatId)}`,
+        let resp = await api.fetchImpl?.(
+          `/api/session_events?chat_id=${encodeURIComponent(chatId)}`,
           { cache: 'no-store' }
         );
+        let mode = 'session_events';
+        if (token !== snapshotToken || (typeof options?.isCurrentChatId === 'function' && !options.isCurrentChatId(chatId))) {
+          return { token, chatId, status: 'stale', history: [] };
+        }
+        if (resp?.status === 404) {
+          resp = await api.fetchImpl?.(
+            `/api/session_state?chat_id=${encodeURIComponent(chatId)}`,
+            { cache: 'no-store' }
+          );
+          mode = 'session_state';
+        }
         if (token !== snapshotToken || (typeof options?.isCurrentChatId === 'function' && !options.isCurrentChatId(chatId))) {
           return { token, chatId, status: 'stale', history: [] };
         }
@@ -425,33 +572,63 @@
           return { token, chatId, status: 'stale', history: [] };
         }
 
-        const history = Array.isArray(data?.history) ? data.history : [];
+        const events = Array.isArray(data?.events) ? data.events : [];
+        const historyFromEvents = [];
+        let replayedTypedSessionEvent = false;
         const snapshot = data?.subagent && typeof data.subagent === 'object'
           ? data.subagent
           : { chat_id: chatId, coordinators: [] };
+        const history = Array.isArray(data?.history) && data.history.length
+          ? data.history
+          : historyFromEvents;
 
         api.applySnapshot?.(snapshot, { chatId, interactiveUiConfig: options?.interactiveUiConfig });
-        const runtimeState = typeof api.getRuntimeState === 'function' ? api.getRuntimeState() : null;
-        const afterVisibleRevision = collectCoordinatorRevision(runtimeState);
-        const deltaTargets = collectDeltaTargets(runtimeState);
-        if (deltaTargets.length) {
-          if (token !== snapshotToken || (typeof options?.isCurrentChatId === 'function' && !options.isCurrentChatId(chatId))) {
-            return { token, chatId, status: 'stale', history };
+        for (const event of events) {
+          if (!event || typeof event !== 'object') {
+            continue;
           }
-          const chatDeltaResult = await loadChatDelta(chatId, afterVisibleRevision, deltaTargets, { reason: 'session_state_recovery_chat' });
-          if (chatDeltaResult?.status !== 'ok') {
-            const batchResult = await loadTaskDeltas(chatId, deltaTargets, { reason: 'session_state_recovery_batch' });
-            if (batchResult?.status !== 'ok') {
-              for (const target of deltaTargets) {
-                if (token !== snapshotToken || (typeof options?.isCurrentChatId === 'function' && !options.isCurrentChatId(chatId))) {
-                  return { token, chatId, status: 'stale', history };
-                }
-                await loadTaskDelta(target.taskId, target, { reason: 'session_state_recovery_fallback' });
-              }
+          const eventType = String(event.type || '').trim();
+          const payload = event.payload && typeof event.payload === 'object' ? event.payload : null;
+          if (eventType === 'history_message' && payload) {
+            historyFromEvents.push(payload);
+            continue;
+          }
+          if (eventType === 'coordinator_snapshot' && payload) {
+            api.applyCoordinatorPayload?.(payload, {
+              markActive: false,
+              reason: 'session_events_replay',
+            });
+            continue;
+          }
+          if (eventType === 'subagent_session' && payload) {
+            replayedTypedSessionEvent = true;
+            api.applySessionPayload?.({ session: payload }, {
+              replaceChildSession: true,
+              reason: 'session_events_replay',
+            });
+            continue;
+          }
+          if (eventType === 'subagent_snapshot' && payload) {
             }
+        }
+
+        if (!replayedTypedSessionEvent) {
+          const recovery = await recoverSnapshotDeltas(chatId, snapshot, token, {
+            ...options,
+            reasonBase: mode === 'session_events' ? 'session_events_recovery' : 'session_state_recovery',
+          });
+          if (recovery?.status === 'stale') {
+            return { token, chatId, status: 'stale', history: history.length ? history : historyFromEvents };
           }
         }
-        return { token, chatId, status: 'ok', history, data };
+        return {
+          token,
+          chatId,
+          status: 'ok',
+          history: history.length ? history : historyFromEvents,
+          data,
+          mode,
+        };
       } catch (_) {
         if (token !== snapshotToken || (typeof options?.isCurrentChatId === 'function' && !options.isCurrentChatId(chatId))) {
           return { token, chatId, status: 'stale', history: [] };

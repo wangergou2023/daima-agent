@@ -2,7 +2,6 @@
 
 #include <string.h>
 
-#include "drivers/tool/tool_delegate_dispatch.h"
 #include "drivers/tool/tool_delegate_protocol.h"
 #include "drivers/tool/tool_delegate_sync.h"
 #include "drivers/tool/tool_delegate_snapshot.h"
@@ -10,6 +9,7 @@
 #include "linux/printk.h"
 #include "linux/slab.h"
 #include "os.h"
+#include "kernel/turn/turn_common.h"
 
 #define DELEGATE_RESULT_JSON_MAX 3072
 
@@ -76,6 +76,12 @@ static void background_subagent_task(void *arg)
             job->task_id,
             job->req.subagent_type[0] ? job->req.subagent_type : "-",
             job->parent_chat_id[0] ? job->parent_chat_id : "-");
+    {
+        int test_delay_ms = agent_env_int_or_default("DELEGATE_BG_TEST_TASK_DELAY_MS", 0);
+        if (test_delay_ms > 0) {
+            task_delay((uint32_t)test_delay_ms);
+        }
+    }
     err = tool_delegate_run_sync_single_subagent(job->kind,
                                                  &job->req,
                                                  job->task_id,
@@ -89,10 +95,6 @@ static void background_subagent_task(void *arg)
             err_name(err));
     if (err != 0) {
         delegate_task_store_fail(job->task_id, err, output);
-        if (job->req.coordinator_id[0]) {
-            tool_delegate_launch_ready_background_subagents(job->req.coordinator_id,
-                                                            job->parent_chat_id);
-        }
         kfree(job);
         return;
     }
@@ -103,10 +105,6 @@ static void background_subagent_task(void *arg)
     extract_target_files_from_summary_text(summary, target_files, sizeof(target_files));
     write_approved = target_files[0] != '\0';
     delegate_task_store_complete(job->task_id, summary, target_files, write_approved);
-    if (job->req.coordinator_id[0]) {
-        tool_delegate_launch_ready_background_subagents(job->req.coordinator_id,
-                                                        job->parent_chat_id);
-    }
     kfree(job);
 }
 

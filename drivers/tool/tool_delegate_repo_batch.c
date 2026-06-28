@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "cjson.h"
+#include "drivers/tool/tool_delegate_path_resolve.h"
 #include "linux/kernel.h"
 #include "linux/printk.h"
 #include "lib/text.h"
@@ -21,6 +22,36 @@ static bool path_already_selected(char paths[][512], int count, const char *cand
             return true;
         }
     }
+    return false;
+}
+
+static bool prompt_has_multiple_repo_relative_scope_mentions(const char *text,
+                                                             const char *repo_root)
+{
+    const char *repo_name;
+    char needle[160];
+    const char *cursor;
+    int hits = 0;
+
+    if (!text || !text[0] || !repo_root || !repo_root[0]) {
+        return false;
+    }
+
+    repo_name = tool_delegate_path_basename(repo_root);
+    if (!repo_name || !repo_name[0] ||
+        snprintf(needle, sizeof(needle), "%s/", repo_name) >= (int)sizeof(needle)) {
+        return false;
+    }
+
+    cursor = text;
+    while ((cursor = strstr(cursor, needle)) != NULL) {
+        hits++;
+        if (hits >= 2) {
+            return true;
+        }
+        cursor += strlen(needle);
+    }
+
     return false;
 }
 
@@ -46,45 +77,29 @@ static bool collect_explicit_prompt_paths(const delegate_request_t *req,
 
     strscpy(paths[count++], repo_root, sizeof(paths[0]));
     cursor = text;
-    while ((cursor = strchr(cursor, '/')) != NULL && count < 4) {
-        char raw[512];
+    while (cursor && *cursor && count < 4) {
         char normalized[512];
-        const char *end = cursor;
-        size_t len = 0;
+        const char *repo_hit = strstr(cursor, tool_delegate_path_basename(repo_root));
 
-        while (*end) {
-            unsigned char ch = (unsigned char)*end;
-            if (isspace(ch) || ch == '`' || ch == '"' || ch == '\'' ||
-                ch == ',' || ch == ')' || ch == '(' || ch == '}' || ch == ']' ||
-                ch == ':' || ch == ';') {
-                break;
-            }
-            if (ch & 0x80) {
-                break;
-            }
-            end++;
+        if (!repo_hit) {
+            break;
         }
-        len = (size_t)(end - cursor);
-        if (len <= 1 || len >= sizeof(raw)) {
-            cursor = end;
-            continue;
-        }
-
-        memcpy(raw, cursor, len);
-        raw[len] = '\0';
-        if (!tool_delegate_extract_single_absolute_repo_path(raw, normalized, sizeof(normalized)) ||
+        if (!tool_delegate_extract_repo_scoped_path(repo_hit, repo_root, normalized, sizeof(normalized)) ||
             !normalized[0] ||
             strcmp(normalized, repo_root) == 0 ||
             strncmp(normalized, repo_root, strlen(repo_root)) != 0 ||
             path_already_selected(paths, count, normalized)) {
-            cursor = end;
+            cursor = repo_hit + strlen(tool_delegate_path_basename(repo_root));
             continue;
         }
 
         strscpy(paths[count++], normalized, sizeof(paths[0]));
-        cursor = end;
+        cursor = repo_hit + strlen(tool_delegate_path_basename(repo_root));
     }
 
+    if (count < 2 && prompt_has_multiple_repo_relative_scope_mentions(text, repo_root)) {
+        return true;
+    }
     *out_count = count;
     return count >= 2;
 }
@@ -171,9 +186,9 @@ bool tool_delegate_should_expand_repo_root_overview_batch(const delegate_request
     has_target_path = req->target_path[0] != '\0';
     target_path_blocks_batch = false;
     is_explore = strcmp(req->subagent_type, "explore") == 0;
-    bounded_overview = tool_delegate_request_is_bounded_explore_overview(req);
-    preserves_root = tool_delegate_overview_request_preserves_repo_root(req->prompt, req->description);
     has_explicit_scopes = collect_explicit_prompt_paths(req, paths, &count);
+    bounded_overview = tool_delegate_request_is_bounded_explore_overview(req) || has_explicit_scopes;
+    preserves_root = tool_delegate_overview_request_preserves_repo_root(req->prompt, req->description);
 
     if (has_target_path) {
         target_path_blocks_batch = !resolve_batch_scopes(req, paths, &count);

@@ -1,5 +1,9 @@
 # Daima Agent 多 Subagent 架构地图
 
+> 先读：
+> - 当前目标架构与下一阶段收敛顺序，请优先看 [MULTI_SUBAGENT_TARGET_ARCHITECTURE.md](./MULTI_SUBAGENT_TARGET_ARCHITECTURE.md)
+> - 本文档保留为“当前代码分层地图”索引，适合快速找入口文件，不再作为最终架构结论文档。
+
 这份文档是 `docs/MULTI_SUBAGENT_ARCHITECTURE_GAP.md` 的压缩版执行地图，只回答四个问题：
 
 1. 当前代码已经分成了哪些层

@@ -95,22 +95,39 @@ err_t tool_delegate_parse_request(const char *input_json,
     if (tasks && cJSON_IsArray(tasks) && cJSON_GetArraySize(tasks) > 0) {
         req->is_batch = true;
         req->batch_count = 0;
+        int item_index = 0;
         cJSON *item = NULL;
         cJSON_ArrayForEach(item, tasks) {
+            item_index++;
             if (!cJSON_IsObject(item) || req->batch_count >= DELEGATE_COORDINATOR_AGENTS_MAX) {
+                pr_info("delegate batch parse skip: item=%d reason=not_object_or_capacity count=%d",
+                        item_index,
+                        req->batch_count);
                 continue;
             }
             const char *item_type = cJSON_GetStringValue(cJSON_GetObjectItem(item, "subagent_type"));
             const char *item_prompt = cJSON_GetStringValue(cJSON_GetObjectItem(item, "prompt"));
+            if ((!item_prompt || !item_prompt[0])) {
+                item_prompt = cJSON_GetStringValue(cJSON_GetObjectItem(item, "prom"));
+            }
             const char *item_desc = cJSON_GetStringValue(cJSON_GetObjectItem(item, "description"));
             const char *item_target_path = cJSON_GetStringValue(cJSON_GetObjectItem(item, "target_path"));
             const char *item_task_key = cJSON_GetStringValue(cJSON_GetObjectItem(item, "task_key"));
             cJSON *depends_on = cJSON_GetObjectItem(item, "depends_on");
             cJSON *item_preflight = cJSON_GetObjectItem(item, "preflight_tool");
             if (!item_type || !item_type[0] || !item_prompt || !item_prompt[0]) {
+                pr_info("delegate batch parse skip: item=%d reason=missing_required type=%s desc=%s prompt_present=%d",
+                        item_index,
+                        item_type ? item_type : "-",
+                        item_desc ? item_desc : "-",
+                        item_prompt && item_prompt[0] ? 1 : 0);
                 continue;
             }
             if (tool_delegate_parse_subagent_kind(item_type) == DELEGATE_SUBAGENT_INVALID) {
+                pr_info("delegate batch parse skip: item=%d reason=invalid_subagent type=%s desc=%s",
+                        item_index,
+                        item_type ? item_type : "-",
+                        item_desc ? item_desc : "-");
                 continue;
             }
             int idx = req->batch_count++;
@@ -125,6 +142,13 @@ err_t tool_delegate_parse_request(const char *input_json,
             tool_delegate_sanitize_task_key(item_task_key && item_task_key[0] ? item_task_key : item_desc,
                                             req->batch_tasks[idx].task_key,
                                             sizeof(req->batch_tasks[idx].task_key));
+            pr_info("delegate batch parse accept: item=%d idx=%d type=%s desc=%s task_key=%s target=%s",
+                    item_index,
+                    idx,
+                    req->batch_tasks[idx].subagent_type,
+                    req->batch_tasks[idx].description,
+                    req->batch_tasks[idx].task_key,
+                    req->batch_tasks[idx].target_path[0] ? req->batch_tasks[idx].target_path : "-");
             if (cJSON_IsString(depends_on)) {
                 tool_delegate_append_dependency_csv(req->batch_tasks[idx].depends_on,
                                                     sizeof(req->batch_tasks[idx].depends_on),

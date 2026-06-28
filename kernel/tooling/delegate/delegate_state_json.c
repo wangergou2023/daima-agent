@@ -62,9 +62,8 @@ static void append_agent_summary_json(cJSON *item,
                                       bool include_full_output)
 {
     char preview[256];
-    char rendered[512];
+    char preferred[512];
     delegate_task_record_t task_snapshot;
-    bool summary_added = false;
 
     if (!item || !agent) {
         return;
@@ -91,56 +90,25 @@ static void append_agent_summary_json(cJSON *item,
         cJSON_AddStringToObject(item, "analysis_focus", agent->analysis_focus);
     }
     cJSON_AddNumberToObject(item, "elapsed_ms", agent->elapsed_ms);
-    if (delegate_task_store_snapshot(agent->task_id, &task_snapshot) == 0 &&
-        task_snapshot.output[0]) {
-        if (tool_delegate_parse_result_json_rendered(task_snapshot.output,
-                                                     rendered,
-                                                     sizeof(rendered))) {
-            text_shorten(rendered, preview, sizeof(preview), 180);
-        } else {
-            text_shorten(task_snapshot.output, preview, sizeof(preview), 180);
-        }
-        if (preview[0]) {
-            cJSON_AddStringToObject(item, "summary", preview);
-            summary_added = true;
-        }
-        if (include_full_output) {
-            cJSON_AddStringToObject(item, "output", task_snapshot.output);
-        }
-    }
-    if (!summary_added && agent->session_id[0]) {
-        char history_json[4096];
-        if (session_store_get_history_json(agent->session_id,
-                                           history_json,
-                                           sizeof(history_json),
-                                           8) == 0 &&
-            history_json[0]) {
-            cJSON *history = cJSON_Parse(history_json);
-            if (history && cJSON_IsArray(history)) {
-                int size = cJSON_GetArraySize(history);
-                for (int idx = size - 1; idx >= 0; idx--) {
-                    cJSON *entry = cJSON_GetArrayItem(history, idx);
-                    cJSON *role = entry ? cJSON_GetObjectItemCaseSensitive(entry, "role") : NULL;
-                    cJSON *content = entry ? cJSON_GetObjectItemCaseSensitive(entry, "content") : NULL;
-                    if (!cJSON_IsString(role) || strcmp(role->valuestring, "assistant") != 0 ||
-                        !cJSON_IsString(content) || !content->valuestring[0]) {
-                        continue;
-                    }
-                    if (tool_delegate_parse_result_json_rendered(content->valuestring,
-                                                                 rendered,
-                                                                 sizeof(rendered))) {
-                        text_shorten(rendered, preview, sizeof(preview), 180);
-                    } else {
-                        text_shorten(content->valuestring, preview, sizeof(preview), 180);
-                    }
-                    if (preview[0]) {
-                        cJSON_AddStringToObject(item, "summary", preview);
-                        summary_added = true;
-                    }
-                    break;
-                }
+    if (delegate_task_store_snapshot(agent->task_id, &task_snapshot) == 0) {
+        if (delegate_child_session_preferred_visible_text(&task_snapshot,
+                                                          preferred,
+                                                          sizeof(preferred))) {
+            text_shorten(preferred, preview, sizeof(preview), 180);
+            text_sanitize_utf8_json(preview);
+            if (preview[0]) {
+                cJSON_AddStringToObject(item, "summary", preview);
             }
-            cJSON_Delete(history);
+            if (preferred[0]) {
+                cJSON_AddStringToObject(item, "output", preferred);
+            }
+        }
+
+        if (task_snapshot.output[0]) {
+            cJSON_AddStringToObject(item, "raw_output", task_snapshot.output);
+        }
+        if (include_full_output && task_snapshot.output[0] && !cJSON_GetObjectItemCaseSensitive(item, "output")) {
+            cJSON_AddStringToObject(item, "output", task_snapshot.output);
         }
     }
     if (agent->target_files[0]) {
@@ -232,7 +200,7 @@ static void append_task_pending_request_json(cJSON *item,
     }
 
     if (task_snapshot.output[0]) {
-        cJSON_AddStringToObject(item, "output", task_snapshot.output);
+        cJSON_AddStringToObject(item, "raw_output", task_snapshot.output);
     }
     if (!task_snapshot.pending_request.request_type[0]) {
         return;
@@ -644,6 +612,10 @@ char *delegate_parent_subagent_state_delta_json_build(const char *chat_id,
     unsigned long max_visible_revision = after_visible_revision;
     int changed_count = 0;
     int item_count = 0;
+    char changed_coordinator_ids[DELEGATE_COORDINATOR_STORE_MAX][DELEGATE_COORDINATOR_ID_LEN];
+    int changed_coordinator_count = 0;
+    char requested_task_ids[DELEGATE_TASK_STORE_MAX][DELEGATE_TASK_ID_LEN];
+    int requested_task_count = 0;
 
     if (!chat_id || !chat_id[0]) {
         return NULL;
@@ -700,6 +672,13 @@ char *delegate_parent_subagent_state_delta_json_build(const char *chat_id,
             if (coord) {
                 cJSON_AddItemToArray(coordinators, coord);
                 changed_count++;
+                if (changed_coordinator_count < DELEGATE_COORDINATOR_STORE_MAX) {
+                    snprintf(changed_coordinator_ids[changed_coordinator_count],
+                             sizeof(changed_coordinator_ids[0]),
+                             "%s",
+                             snapshot.coordinator_id);
+                    changed_coordinator_count++;
+                }
             }
         }
         if (snapshot.visible_revision > max_visible_revision) {
@@ -728,6 +707,13 @@ char *delegate_parent_subagent_state_delta_json_build(const char *chat_id,
                 continue;
             }
             task_id = task_id_item->valuestring;
+            if (requested_task_count < DELEGATE_TASK_STORE_MAX) {
+                snprintf(requested_task_ids[requested_task_count],
+                         sizeof(requested_task_ids[0]),
+                         "%s",
+                         task_id);
+                requested_task_count++;
+            }
 
             for (int i = 0; i < parent_view.task_count; i++) {
                 if (strcmp(parent_view.tasks[i].task_id, task_id) == 0) {
@@ -771,6 +757,52 @@ char *delegate_parent_subagent_state_delta_json_build(const char *chat_id,
             cJSON_AddItemToArray(items, item);
             item_count++;
         }
+    }
+
+    for (int i = 0; i < parent_view.task_count; i++) {
+        const delegate_parent_task_list_item_t *task_item = &parent_view.tasks[i];
+        bool coordinator_changed = false;
+        bool already_requested = false;
+        char *payload = NULL;
+        cJSON *item = NULL;
+
+        if (!task_item->task_id[0] || !task_item->coordinator_id[0]) {
+            continue;
+        }
+
+        for (int coord_idx = 0; coord_idx < changed_coordinator_count; coord_idx++) {
+            if (strcmp(changed_coordinator_ids[coord_idx], task_item->coordinator_id) == 0) {
+                coordinator_changed = true;
+                break;
+            }
+        }
+        if (!coordinator_changed) {
+            continue;
+        }
+
+        for (int task_idx = 0; task_idx < requested_task_count; task_idx++) {
+            if (strcmp(requested_task_ids[task_idx], task_item->task_id) == 0) {
+                already_requested = true;
+                break;
+            }
+        }
+        if (already_requested) {
+            continue;
+        }
+
+        payload = delegate_subagent_session_delta_json_build(task_item->task_id, 0, 0, 0);
+        if (!payload) {
+            continue;
+        }
+
+        item = cJSON_Parse(payload);
+        kfree(payload);
+        if (!item) {
+            continue;
+        }
+
+        cJSON_AddItemToArray(items, item);
+        item_count++;
     }
 
     cJSON_AddNumberToObject(root, "after_visible_revision", (double)after_visible_revision);

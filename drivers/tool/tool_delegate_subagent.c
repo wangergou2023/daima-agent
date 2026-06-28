@@ -5,6 +5,7 @@
 
 #include "drivers/llm/llm_proxy.h"
 #include "kernel/router.h"
+#include "paths.h"
 
 static agent_role_t subagent_role_for_kind(delegate_subagent_kind_t kind)
 {
@@ -34,9 +35,13 @@ delegate_subagent_kind_t tool_delegate_parse_subagent_kind(const char *subagent_
 
 const char *tool_delegate_subagent_prompt_prefix(delegate_subagent_kind_t kind)
 {
+    static char explore_prompt[8192];
+
     switch (kind) {
     case DELEGATE_SUBAGENT_EXPLORE:
-        return
+        snprintf(
+            explore_prompt,
+            sizeof(explore_prompt),
             "You are an EXPLORE subagent.\n"
             "\n"
             "Mission:\n"
@@ -57,10 +62,17 @@ const char *tool_delegate_subagent_prompt_prefix(delegate_subagent_kind_t kind)
             "- Ignore build artifacts like .o unless the caller explicitly asks about generated outputs.\n"
             "- If your current draft sounds like 'I will read X next' or 'let me inspect Y first', you are not done yet. Keep using tools until you can state concrete findings.\n"
             "\n"
+            "Repository scope contract:\n"
+            "- The agent workspace root is %s.\n"
+            "- Do not guess synthetic roots like `/repo`, `/workspace`, `/project`, `/data/workspace`, or other invented mount points.\n"
+            "- Use the exact absolute repo root or target path injected by the caller. If the caller did not inject one, orient from the current tool-visible working directory first.\n"
+            "- When using `terminal`, prefer the structured `workdir` field instead of `cd ... && ...` path guessing.\n"
+            "- If a prompt includes `Resolved repo root` or another explicit absolute path, treat that path as authoritative.\n"
+            "\n"
             "Tool discipline:\n"
             "- Prefer `files action=list/search` to find scope, then `files action=read` for confirmation.\n"
             "- For `files action=search`, always provide a real `pattern`. When searching by filename, use `target=files` and put the filename/glob-like term in `pattern`; `file_glob` is only an optional filter and never replaces `pattern`.\n"
-            "- Valid examples: `{\"action\":\"search\",\"path\":\"/repo\",\"pattern\":\"*.c\",\"target\":\"files\",\"output_mode\":\"files_only\"}` and `{\"action\":\"search\",\"path\":\"/repo\",\"pattern\":\"agent_turn_run\",\"target\":\"content\",\"file_glob\":\"*.c\"}`.\n"
+            "- Valid examples: `{\"action\":\"search\",\"path\":\"/absolute/repo/root\",\"pattern\":\"*.c\",\"target\":\"files\",\"output_mode\":\"files_only\"}` and `{\"action\":\"search\",\"path\":\"/absolute/repo/root\",\"pattern\":\"agent_turn_run\",\"target\":\"content\",\"file_glob\":\"*.c\"}`.\n"
             "- Start with the requested path and its top-level children before descending.\n"
             "- For broad structure requests, cap yourself to a small number of targeted follow-up listings/reads.\n"
             "- Default budget mindset: 1 top-level listing, 2-4 focused follow-up listings/searches, and only a few targeted reads.\n"
@@ -85,7 +97,9 @@ const char *tool_delegate_subagent_prompt_prefix(delegate_subagent_kind_t kind)
             "- Final answer must be valid JSON object, not markdown. Include keys: status, summary, evidence, risks, next_files.\n"
             "- status must be \"done\" only when you are returning findings. summary must contain conclusions, not next-step narration.\n"
             "- Never use a preamble as the final answer. Forbidden final-answer patterns include: '我先看一下', '我们来看一下', 'I will inspect', 'Let me read the file first'.\n"
-            "- Do not give fake certainty. If something is inferred, say it is inferred.";
+            "- Do not give fake certainty. If something is inferred, say it is inferred.",
+            path_workspace_dir());
+        return explore_prompt;
     case DELEGATE_SUBAGENT_LIBRARIAN:
         return
             "You are a LIBRARIAN subagent.\n"

@@ -3,19 +3,25 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+OMO_ROOT="${OMO_ROOT:-$(cd "$ROOT_DIR/../oh-my-openagent" 2>/dev/null && pwd || true)}"
 CHAT_ID_A="web_probe_concurrent_a_$(date +%s)"
 CHAT_ID_B="web_probe_concurrent_b_$(date +%s)"
 OUT_A="$(mktemp)"
 OUT_B="$(mktemp)"
 RUN_LOG="/tmp/daima-agent-concurrent-run.log"
 
-PROMPT_A="帮我分析 /home/wangergou/code/github/daima-agent 的目录结构和关键模块，要求同时安排多个 subagent：分别分析 kernel、drivers/tool、drivers/llm，最后汇总。"
-PROMPT_B="帮我分析 /home/wangergou/code/github/oh-my-openagent 的目录结构和关键模块，要求同时安排多个 subagent：分别分析 packages/omo-opencode、packages/omo-web、packages/omo-agent-service，最后汇总。"
+PROMPT_A="帮我分析 ${ROOT_DIR} 的目录结构和关键模块，要求同时安排多个 subagent：分别分析 kernel、drivers/tool、drivers/llm，最后汇总。"
+PROMPT_B="帮我分析 ${OMO_ROOT} 的目录结构和关键模块，要求同时安排多个 subagent：分别分析 packages/omo-opencode、packages/omo-web、packages/omo-agent-service，最后汇总。"
 
 cleanup() {
   rm -f "$OUT_A" "$OUT_B"
 }
 trap cleanup EXIT
+
+if [ -z "$OMO_ROOT" ] || [ ! -d "$OMO_ROOT" ]; then
+  echo "missing oh-my-openagent repo; set OMO_ROOT to a valid path" >&2
+  exit 1
+fi
 
 cd "$ROOT_DIR"
 

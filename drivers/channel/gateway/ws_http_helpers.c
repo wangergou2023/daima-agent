@@ -775,6 +775,209 @@ done:
     return json;
 }
 
+static char *build_session_events_json(const char *chat_id)
+{
+    char *subagent_json = NULL;
+    cJSON *subagent_root = NULL;
+    cJSON *root = NULL;
+    cJSON *messages = NULL;
+    cJSON *events = NULL;
+    cJSON *cursor = NULL;
+    char *json = NULL;
+    session_history_window_meta_t history_meta;
+    int event_seq = 0;
+
+    if (!chat_id || !chat_id[0]) {
+        return NULL;
+    }
+
+    messages = build_session_history_messages_array(chat_id);
+    memset(&history_meta, 0, sizeof(history_meta));
+    history_meta.limit = AGENT_MAX_HISTORY;
+    history_meta.next_seq = 1;
+    if (session_store_get_history_window_meta(chat_id, AGENT_MAX_HISTORY, &history_meta) != 0) {
+        history_meta.count = messages ? cJSON_GetArraySize(messages) : 0;
+        history_meta.total = history_meta.count;
+    }
+
+    subagent_json = delegate_parent_subagent_state_json_build(chat_id);
+    if (subagent_json) {
+        subagent_root = cJSON_Parse(subagent_json);
+    }
+
+    root = cJSON_CreateObject();
+    events = cJSON_CreateArray();
+    cursor = cJSON_CreateObject();
+    if (!root || !events || !cursor) {
+        goto done;
+    }
+
+    cJSON_AddStringToObject(root, "chat_id", chat_id);
+    cJSON_AddStringToObject(root, "stream_kind", "session_events");
+    cJSON_AddNumberToObject(cursor, "after_seq", 0);
+    cJSON_AddNumberToObject(cursor, "visible_seq", history_meta.last_seq);
+    cJSON_AddNumberToObject(cursor, "first_visible_seq", history_meta.first_seq);
+    cJSON_AddNumberToObject(cursor, "next_seq", history_meta.next_seq);
+    cJSON_AddNumberToObject(cursor, "high_water_seq", history_meta.high_water_seq);
+    cJSON_AddBoolToObject(cursor, "has_more", history_meta.has_more);
+    cJSON_AddBoolToObject(cursor, "replay_reset", history_meta.truncated);
+    cJSON_AddItemToObject(root, "cursor", cursor);
+    cursor = NULL;
+
+    if (messages && cJSON_IsArray(messages)) {
+        int size = cJSON_GetArraySize(messages);
+        for (int idx = 0; idx < size; idx++) {
+            cJSON *msg = cJSON_GetArrayItem(messages, idx);
+            const cJSON *seq = msg ? cJSON_GetObjectItemCaseSensitive(msg, "seq") : NULL;
+            cJSON *event = cJSON_CreateObject();
+            cJSON *payload = msg ? cJSON_Duplicate(msg, 1) : NULL;
+            if (!event || !payload) {
+                cJSON_Delete(event);
+                cJSON_Delete(payload);
+                continue;
+            }
+            cJSON_AddStringToObject(event, "id", "history");
+            cJSON_AddStringToObject(event, "type", "history_message");
+            cJSON_AddNumberToObject(event,
+                                    "seq",
+                                    cJSON_IsNumber(seq) ? seq->valuedouble : (double)(idx + 1));
+            cJSON_AddItemToObject(event, "payload", payload);
+            cJSON_AddItemToArray(events, event);
+            event_seq = idx + 1;
+        }
+    }
+
+    if (subagent_root) {
+        cJSON *coordinators = cJSON_GetObjectItemCaseSensitive(subagent_root, "coordinators");
+        if (coordinators && cJSON_IsArray(coordinators)) {
+            cJSON *coordinator = NULL;
+            cJSON_ArrayForEach(coordinator, coordinators) {
+                cJSON *coordinator_event = NULL;
+                cJSON *coordinator_payload = NULL;
+                cJSON *agents = NULL;
+                cJSON *agent = NULL;
+                const char *coordinator_id = NULL;
+
+                if (!coordinator || !cJSON_IsObject(coordinator)) {
+                    continue;
+                }
+
+                coordinator_payload = cJSON_Duplicate(coordinator, 1);
+                coordinator_event = cJSON_CreateObject();
+                if (coordinator_event && coordinator_payload) {
+                    cJSON_AddStringToObject(coordinator_event, "id", "coordinator_snapshot");
+                    cJSON_AddStringToObject(coordinator_event, "type", "coordinator_snapshot");
+                    cJSON_AddNumberToObject(coordinator_event, "seq", (double)(++event_seq));
+                    cJSON_AddItemToObject(coordinator_event, "payload", coordinator_payload);
+                    cJSON_AddItemToArray(events, coordinator_event);
+                } else {
+                    cJSON_Delete(coordinator_event);
+                    cJSON_Delete(coordinator_payload);
+                }
+
+                coordinator_id = cJSON_GetStringValue(
+                    cJSON_GetObjectItemCaseSensitive(coordinator, "coordinator_id"));
+                agents = cJSON_GetObjectItemCaseSensitive(coordinator, "agents");
+                if (!agents || !cJSON_IsArray(agents)) {
+                    continue;
+                }
+
+                cJSON_ArrayForEach(agent, agents) {
+                    cJSON *session_event = NULL;
+                    cJSON *session_payload = NULL;
+                    cJSON *child_session = NULL;
+
+                    if (!agent || !cJSON_IsObject(agent)) {
+                        continue;
+                    }
+
+                    child_session = cJSON_GetObjectItemCaseSensitive(agent, "child_session");
+                    if (!child_session || !cJSON_IsObject(child_session)) {
+                        continue;
+                    }
+
+                    session_payload = cJSON_CreateObject();
+                    session_event = cJSON_CreateObject();
+                    if (!session_payload || !session_event) {
+                        cJSON_Delete(session_payload);
+                        cJSON_Delete(session_event);
+                        continue;
+                    }
+
+                    cJSON_AddStringToObject(session_payload, "coordinator_id",
+                                            coordinator_id ? coordinator_id : "");
+                    cJSON_AddStringToObject(session_payload, "task_id",
+                                            cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(agent, "task_id")) ?: "");
+                    cJSON_AddStringToObject(session_payload, "task_key",
+                                            cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(agent, "task_key")) ?: "");
+                    cJSON_AddStringToObject(session_payload, "session_id",
+                                            cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(agent, "session_id")) ?: "");
+                    cJSON_AddStringToObject(session_payload, "subagent_type",
+                                            cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(agent, "subagent_type")) ?: "");
+                    cJSON_AddStringToObject(session_payload, "status",
+                                            cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(agent, "status")) ?: "");
+                    cJSON_AddStringToObject(session_payload, "task",
+                                            cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(agent, "description")) ?: "");
+                    cJSON_AddItemToObject(session_payload, "agent", cJSON_Duplicate(agent, 1));
+
+                    cJSON_AddStringToObject(session_event, "id", "subagent_session");
+                    cJSON_AddStringToObject(session_event, "type", "subagent_session");
+                    cJSON_AddNumberToObject(session_event, "seq", (double)(++event_seq));
+                    cJSON_AddItemToObject(session_event, "payload", session_payload);
+                    cJSON_AddItemToArray(events, session_event);
+                }
+            }
+        }
+
+        {
+            cJSON *event = cJSON_CreateObject();
+            cJSON *payload = cJSON_Duplicate(subagent_root, 1);
+            if (event && payload) {
+                cJSON_AddStringToObject(event, "id", "subagent_snapshot");
+                cJSON_AddStringToObject(event, "type", "subagent_snapshot");
+                cJSON_AddNumberToObject(event, "seq", (double)(++event_seq));
+                cJSON_AddItemToObject(event, "payload", payload);
+                cJSON_AddItemToArray(events, event);
+            } else {
+                cJSON_Delete(event);
+                cJSON_Delete(payload);
+            }
+        }
+    }
+
+    cJSON_AddItemToObject(root, "events", events);
+    events = NULL;
+    if (messages) {
+        cJSON_AddItemToObject(root, "history", messages);
+        messages = NULL;
+    } else {
+        cJSON_AddItemToObject(root, "history", cJSON_CreateArray());
+    }
+    if (subagent_root) {
+        cJSON_AddItemToObject(root, "subagent", subagent_root);
+        subagent_root = NULL;
+    } else {
+        cJSON *empty = cJSON_CreateObject();
+        if (!empty) {
+            goto done;
+        }
+        cJSON_AddStringToObject(empty, "chat_id", chat_id);
+        cJSON_AddItemToObject(empty, "coordinators", cJSON_CreateArray());
+        cJSON_AddItemToObject(root, "subagent", empty);
+    }
+
+    json = cJSON_PrintUnformatted(root);
+
+done:
+    kfree(subagent_json);
+    cJSON_Delete(subagent_root);
+    cJSON_Delete(messages);
+    cJSON_Delete(events);
+    cJSON_Delete(cursor);
+    cJSON_Delete(root);
+    return json;
+}
+
 /**
  * HTTP 请求路由器。
  * 在 ws_server_host.c 的主循环中被调用，当客户端请求不包含 WebSocket 升级头时，
@@ -791,6 +994,7 @@ done:
  *   GET  /api/sessions        → [{chat_id, latest_ts, has_history, has_facts, has_summary}]
  *   GET  /api/session_history → {chat_id, messages: [{role, content, reasoning}]}
  *   GET  /api/session_state   → {chat_id, history: [...], subagent: {...}, ui: {...}}
+ *   GET  /api/session_events  → {chat_id, events: [...], history: [...], subagent: {...}, cursor: {...}}
  *   GET  /api/ui_config       → {pet: {packages, default_package_id}, terminal: {security_level}}
  *   GET  /api/subagent_state  → {chat_id, coordinators: [...]}
  *   POST /api/session_delete  → 删除会话
@@ -1115,6 +1319,30 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
             http_send_response(client_fd, "500 Internal Server Error",
                                "application/json; charset=utf-8",
                                "{\"error\":\"session_state_unavailable\"}");
+            return 0;
+        }
+        http_send_response(client_fd, "200 OK",
+                           "application/json; charset=utf-8", json);
+        kfree(json);
+        return 0;
+    }
+
+    /* GET /api/session_events?chat_id=... → 统一 session-first event feed 骨架 */
+    if (strcmp(path, "/api/session_events") == 0) {
+        char chat_id[64] = {0};
+        query_get_value(query, "chat_id", chat_id, sizeof(chat_id));
+        if (!chat_id[0]) {
+            http_send_response(client_fd, "400 Bad Request",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"missing_chat_id\"}");
+            return 0;
+        }
+
+        char *json = build_session_events_json(chat_id);
+        if (!json) {
+            http_send_response(client_fd, "500 Internal Server Error",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"session_events_unavailable\"}");
             return 0;
         }
         http_send_response(client_fd, "200 OK",

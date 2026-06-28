@@ -12,6 +12,7 @@
 #include "turn_decision.h"
 #include "turn_finish.h"
 #include "turn_gate.h"
+#include "turn_context.h"
 #include "turn_io.h"
 #include "turn_pipeline.h"
 #include "turn_prompt.h"
@@ -48,6 +49,67 @@ static const char *find_delegate_snapshot_json(const char *content)
 	return json;
 }
 
+static const char *delegate_child_session_preferred_text(cJSON *agent,
+						      char *buf,
+						      size_t buf_size)
+{
+	cJSON *child = NULL;
+	cJSON *latest = NULL;
+	cJSON *history = NULL;
+	const char *summary = NULL;
+	const char *output = NULL;
+	const char *text = NULL;
+
+	if (!agent) {
+		return NULL;
+	}
+
+	child = cJSON_GetObjectItem(agent, "child_session");
+	latest = child ? cJSON_GetObjectItem(child, "latest_frame") : NULL;
+	if (latest) {
+		text = cJSON_GetStringValue(cJSON_GetObjectItem(latest, "output_preview"));
+		if (text && text[0]) {
+			return text;
+		}
+		text = cJSON_GetStringValue(cJSON_GetObjectItem(latest, "detail"));
+		if (text && text[0]) {
+			return text;
+		}
+	}
+
+	history = child ? cJSON_GetObjectItem(child, "history") : NULL;
+	if (history && cJSON_IsArray(history)) {
+		int size = cJSON_GetArraySize(history);
+		for (int idx = size - 1; idx >= 0; idx--) {
+			cJSON *entry = cJSON_GetArrayItem(history, idx);
+			const char *role = entry
+				? cJSON_GetStringValue(cJSON_GetObjectItem(entry, "role"))
+				: NULL;
+			const char *content = entry
+				? cJSON_GetStringValue(cJSON_GetObjectItem(entry, "content"))
+				: NULL;
+			const char *reasoning = entry
+				? cJSON_GetStringValue(cJSON_GetObjectItem(entry, "reasoning"))
+				: NULL;
+
+			if (role && strcmp(role, "assistant") == 0 && content && content[0]) {
+				return content;
+			}
+			if (reasoning && reasoning[0]) {
+				if (buf && buf_size > 0) {
+					strscpy(buf, reasoning, buf_size);
+					return buf;
+				}
+				return reasoning;
+			}
+		}
+	}
+
+	summary = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "summary"));
+	output = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "output"));
+	return (summary && summary[0]) ? summary : output;
+}
+
 static void append_delegate_agent_summary(char *dst,
 					      size_t dst_size,
 					      cJSON *agent,
@@ -56,12 +118,11 @@ static void append_delegate_agent_summary(char *dst,
 	char clean[640];
 	char rendered[640];
 	char line[896];
+	char preferred[640];
 	const char *description = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "description"));
 	const char *subagent_type = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "subagent_type"));
 	const char *status = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "status"));
-	const char *summary = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "summary"));
-	const char *output = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "output"));
-	const char *text = summary && summary[0] ? summary : output;
+	const char *text = delegate_child_session_preferred_text(agent, preferred, sizeof(preferred));
 
 	if (text && text[0] &&
 	    tool_delegate_parse_result_json_rendered(text, rendered, sizeof(rendered))) {
@@ -102,12 +163,11 @@ static void append_delegate_agent_compact_line(char *dst,
 	char clean[320];
 	char rendered[512];
 	char line[512];
+	char preferred[640];
 	const char *description = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "description"));
 	const char *subagent_type = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "subagent_type"));
 	const char *status = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "status"));
-	const char *summary = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "summary"));
-	const char *output = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "output"));
-	const char *text = summary && summary[0] ? summary : output;
+	const char *text = delegate_child_session_preferred_text(agent, preferred, sizeof(preferred));
 
 	if (text && text[0] &&
 	    tool_delegate_parse_result_json_rendered(text, rendered, sizeof(rendered))) {
@@ -144,9 +204,10 @@ static void collect_delegate_next_files(char *dst,
 	int appended = 0;
 
 	cJSON_ArrayForEach(agent, agents) {
-		const char *summary = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "summary"));
-		const char *output = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "output"));
-		const char *text = output && output[0] ? output : summary;
+		char preferred[640];
+		const char *text = delegate_child_session_preferred_text(agent,
+							 preferred,
+							 sizeof(preferred));
 		const char *marker;
 		const char *cursor;
 
@@ -195,9 +256,10 @@ static void append_delegate_relationship_summary(char *dst,
 
 	cJSON_ArrayForEach(agent, agents) {
 		const char *description = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "description"));
-		const char *summary = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "summary"));
-		const char *output = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "output"));
-		const char *text = output && output[0] ? output : summary;
+		char preferred[640];
+		const char *text = delegate_child_session_preferred_text(agent,
+							 preferred,
+							 sizeof(preferred));
 
 		if ((description && strstr(description, "kernel")) ||
 		    (text && strstr(text, "kernel"))) {
@@ -394,18 +456,42 @@ static bool agent_turn_try_finish_delegate_completion(struct message *msg)
 {
 	char *final_text = NULL;
 	char *reasoning_text = NULL;
+	cJSON *root = NULL;
+	const char *json_text = NULL;
+	const char *coordinator_id = NULL;
+	unsigned long visible_revision = 0;
 
 	if (!msg || strcmp(agent_msg_source_or_default(msg), MSG_SOURCE_DELEGATE) != 0) {
 		return false;
 	}
 
+	json_text = find_delegate_snapshot_json(msg->content);
+	if (json_text) {
+		root = cJSON_Parse(json_text);
+		if (root) {
+			coordinator_id = cJSON_GetStringValue(cJSON_GetObjectItem(root, "coordinator_id"));
+			cJSON *visible_item = cJSON_GetObjectItem(root, "visible_revision");
+			if (cJSON_IsNumber(visible_item) && visible_item->valuedouble > 0) {
+				visible_revision = (unsigned long)visible_item->valuedouble;
+			}
+		}
+	}
+
+	if (msg->chat_id[0] && coordinator_id && coordinator_id[0] && visible_revision > 0) {
+		(void)turn_context_set_delegate_resume_consumed(msg->chat_id,
+								coordinator_id,
+								visible_revision);
+	}
+
 	final_text = build_delegate_completion_reply(msg);
 	if (!final_text || !final_text[0]) {
+		cJSON_Delete(root);
 		free(final_text);
 		return false;
 	}
 
 	agent_turn_finish(msg, &final_text, &reasoning_text, 0, 0, false, false);
+	cJSON_Delete(root);
 	return true;
 }
 

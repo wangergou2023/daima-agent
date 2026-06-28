@@ -178,6 +178,49 @@ bool turn_context_clear_pending_request(const char *chat_id,
     return updated;
 }
 
+bool turn_context_set_delegate_resume_consumed(const char *chat_id,
+                                               const char *coordinator_id,
+                                               unsigned long visible_revision)
+{
+    if (!chat_id || !chat_id[0] || !coordinator_id || !coordinator_id[0] || visible_revision == 0) {
+        return false;
+    }
+
+    bool updated = false;
+    pthread_mutex_lock(&s_snapshots_mutex);
+    for (int i = 0; i < s_count; i++) {
+        if (strcmp(s_snapshots[i].chat_id, chat_id) != 0) {
+            continue;
+        }
+        strscpy(s_snapshots[i].consumed_delegate_coordinator_id,
+                coordinator_id,
+                sizeof(s_snapshots[i].consumed_delegate_coordinator_id));
+        s_snapshots[i].consumed_delegate_visible_revision = visible_revision;
+        updated = true;
+        break;
+    }
+    if (!updated) {
+        struct turn_snapshot snap;
+        memset(&snap, 0, sizeof(snap));
+        strscpy(snap.chat_id, chat_id, sizeof(snap.chat_id));
+        strscpy(snap.consumed_delegate_coordinator_id,
+                coordinator_id,
+                sizeof(snap.consumed_delegate_coordinator_id));
+        snap.consumed_delegate_visible_revision = visible_revision;
+
+        if (s_count >= MAX_SNAPSHOTS) {
+            cJSON_Delete(s_snapshots[0].messages);
+            kfree(s_snapshots[0].system_prompt);
+            memmove(&s_snapshots[0], &s_snapshots[1], (MAX_SNAPSHOTS - 1) * sizeof(struct turn_snapshot));
+            s_count--;
+        }
+        s_snapshots[s_count++] = snap;
+        updated = true;
+    }
+    pthread_mutex_unlock(&s_snapshots_mutex);
+    return updated;
+}
+
 /* 非阻塞检查执行核是否有回复 */
 bool core_has_reply(void)
 {

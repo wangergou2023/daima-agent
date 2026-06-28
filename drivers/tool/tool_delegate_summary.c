@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "delegate/delegate_task_store.h"
+#include "delegate/delegate_session_json.h"
 #include "drivers/tool/tool_delegate_result_json.h"
 #include "text.h"
 
@@ -11,6 +12,21 @@ static bool delegate_task_store_snapshot_quiet(const char *task_id,
                                                delegate_task_record_t *out)
 {
     return delegate_task_store_snapshot(task_id, out) == 0;
+}
+
+static const char *delegate_child_session_preferred_summary_text(const delegate_task_record_t *task_snapshot,
+                                                                 char *scratch,
+                                                                 size_t scratch_size)
+{
+    if (!task_snapshot || !scratch || scratch_size == 0) {
+        return NULL;
+    }
+    scratch[0] = '\0';
+    return delegate_child_session_preferred_visible_text(task_snapshot,
+                                                         scratch,
+                                                         scratch_size)
+               ? scratch
+               : NULL;
 }
 
 void tool_delegate_render_background_coordinator_summary(const delegate_coordinator_record_t *record,
@@ -74,13 +90,18 @@ void tool_delegate_render_background_coordinator_summary(const delegate_coordina
         if (strcmp(agent->status, "done") == 0) {
             delegate_task_record_t task_snapshot;
             char preview[200];
+            char scratch[256];
+            const char *text = NULL;
             memset(&task_snapshot, 0, sizeof(task_snapshot));
             if (delegate_task_store_snapshot_quiet(agent->task_id, &task_snapshot) &&
-                task_snapshot.output[0]) {
-                if (!tool_delegate_parse_result_json_rendered(task_snapshot.output,
+                ((text = delegate_child_session_preferred_summary_text(&task_snapshot,
+                                                                       scratch,
+                                                                       sizeof(scratch))) != NULL) &&
+                text[0]) {
+                if (!tool_delegate_parse_result_json_rendered(text,
                                                               preview,
                                                               sizeof(preview))) {
-                    text_shorten(task_snapshot.output, preview, sizeof(preview), 120);
+                    text_shorten(text, preview, sizeof(preview), 120);
                 }
                 strlcat(summary, " / ", summary_size);
                 strlcat(summary, preview, summary_size);

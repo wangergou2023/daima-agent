@@ -1,6 +1,6 @@
 (function initSubagentStateSelectorsModule(global) {
   const core = global.AgentSubagentStateCore || {};
-  const { trimText, detailKeyForAgent } = core;
+  const { trimText, detailKeyForAgent, deriveVisibleOutputText } = core;
   const ROLE_EMOJI = Object.freeze({
     fast: '⚡',
     explore: '🗺️',
@@ -118,7 +118,7 @@
           const status = trimText(agent?.status);
           return status === 'failed' || status === 'error';
         }).length,
-        effective_output_count: agents.filter((agent) => trimText(agent?.output)).length,
+        effective_output_count: agents.filter((agent) => trimText(deriveVisibleOutputText(agent, agent?.latest_frame))).length,
         agents,
       };
     });
@@ -228,6 +228,22 @@
     const selected = currentSelectedSubagentKey(state);
     if (selected && state?.details?.has?.(selected)) {
       return selected;
+    }
+
+    if (state?.interactiveBlockers instanceof Map && state?.details instanceof Map) {
+      for (const blocker of state.interactiveBlockers.values()) {
+        if (!blocker) continue;
+        const candidates = [
+          trimText(blocker.task_id),
+          trimText(blocker.session_id),
+          trimText(blocker.coordinator_id),
+        ].filter(Boolean);
+        for (const candidate of candidates) {
+          if (state.details.has(candidate)) {
+            return candidate;
+          }
+        }
+      }
     }
 
     const tabs = visibleSubagentTabs(state, 1);
@@ -427,8 +443,9 @@
       summaryText: trimText(detail.session_summary) ||
         trimText(detail.latest_frame?.output_preview) ||
         trimText(detail.latest_frame?.detail) ||
+        trimText(deriveVisibleOutputText(detail, detail.latest_frame)) ||
         (trimText(detail.output) ? '该子任务已产生最终输出' : ''),
-      outputText: trimText(detail.output),
+      outputText: trimText(deriveVisibleOutputText(detail, detail.latest_frame)),
       blockers,
       blockerHistory,
       queueSummary,

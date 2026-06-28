@@ -28,6 +28,8 @@ typedef struct {
     long retry_after_ms;
     bool resume_pending;
     long resume_deferred_at_ms;
+    bool no_reply_admitted;
+    unsigned long admitted_assistant_message_count;
 } delegate_parent_wake_entry_t;
 
 typedef struct {
@@ -55,7 +57,8 @@ static void retain_pending_resume_locked(int idx,
 static void defer_pending_resume_locked(int idx,
                                         const delegate_coordinator_record_t *record,
                                         long retry_after_ms,
-                                        long deferred_at_ms);
+                                        long deferred_at_ms,
+                                        bool no_reply_admitted);
 static void drop_pending_resume_locked(int idx,
                                        const delegate_coordinator_record_t *record);
 static err_t dispatch_coordinator_snapshot(const delegate_coordinator_record_t *record);
@@ -64,6 +67,13 @@ static err_t dispatch_visible_coordinator_update(const delegate_coordinator_reco
 static bool parent_chat_has_recent_activity_locked(const char *chat_id, long now_ms);
 static long parent_chat_last_activity_ms_locked(const char *chat_id);
 static bool parent_chat_has_pending_request(const char *chat_id);
+static bool parent_chat_consumed_delegate_resume(const char *chat_id,
+                                                 const char *coordinator_id,
+                                                 unsigned long visible_revision);
+static unsigned long parent_chat_assistant_message_count(const char *chat_id);
+static bool parent_chat_has_new_assistant_output_since(const char *chat_id,
+                                                       unsigned long baseline_count);
+static bool terminal_resume_can_admit_no_reply(const delegate_coordinator_record_t *record);
 static void render_subagent_visible_output(const char *raw_output,
                                            char *visible_output,
                                            size_t visible_output_size);
@@ -121,6 +131,8 @@ static bool coordinator_has_resume_pending(const delegate_coordinator_record_t *
 static bool should_defer_terminal_parent_resume(const delegate_coordinator_record_t *record,
                                                 long now_ms,
                                                 long resume_deferred_at_ms,
+                                                bool no_reply_admitted,
+                                                unsigned long admitted_assistant_message_count,
                                                 long *retry_after_ms_out,
                                                 bool *drop_resume_out)
 {
@@ -144,11 +156,21 @@ static bool should_defer_terminal_parent_resume(const delegate_coordinator_recor
     }
 
     mutex_lock(&s_wake_mutex);
-    long last_parent_activity_ms = parent_chat_last_activity_ms_locked(record->chat_id);
     requires_reply = coordinator_terminal_resume_requires_reply(record);
     if (!requires_reply &&
-        resume_deferred_at_ms > 0 &&
-        last_parent_activity_ms > resume_deferred_at_ms) {
+        parent_chat_consumed_delegate_resume(record->chat_id,
+                                             record->coordinator_id,
+                                             record->visible_revision)) {
+        if (drop_resume_out) {
+            *drop_resume_out = true;
+        }
+        mutex_unlock(&s_wake_mutex);
+        return true;
+    }
+    if (!requires_reply &&
+        no_reply_admitted &&
+        parent_chat_has_new_assistant_output_since(record->chat_id,
+                                                   admitted_assistant_message_count)) {
         if (drop_resume_out) {
             *drop_resume_out = true;
         }
@@ -156,6 +178,7 @@ static bool should_defer_terminal_parent_resume(const delegate_coordinator_recor
         return true;
     }
     if (parent_chat_has_recent_activity_locked(record->chat_id, now_ms)) {
+        (void)resume_deferred_at_ms;
         if (retry_after_ms_out) {
             *retry_after_ms_out = now_ms + s_parent_activity_window_ms;
         }
@@ -346,6 +369,82 @@ static bool parent_chat_has_pending_request(const char *chat_id)
     return has_pending;
 }
 
+static bool parent_chat_consumed_delegate_resume(const char *chat_id,
+                                                 const char *coordinator_id,
+                                                 unsigned long visible_revision)
+{
+    struct turn_snapshot snap;
+    bool consumed = false;
+
+    if (!chat_id || !chat_id[0] || !coordinator_id || !coordinator_id[0] || visible_revision == 0) {
+        return false;
+    }
+
+    memset(&snap, 0, sizeof(snap));
+    if (!turn_context_load_copy(chat_id, &snap)) {
+        return false;
+    }
+
+    consumed = strcmp(snap.consumed_delegate_coordinator_id, coordinator_id) == 0 &&
+               snap.consumed_delegate_visible_revision >= visible_revision;
+    turn_context_snapshot_cleanup(&snap);
+    return consumed;
+}
+
+static unsigned long count_assistant_messages_in_history(cJSON *messages)
+{
+    cJSON *message;
+    unsigned long count = 0;
+
+    if (!messages || !cJSON_IsArray(messages)) {
+        return 0;
+    }
+
+    cJSON_ArrayForEach(message, messages) {
+        cJSON *role = cJSON_GetObjectItemCaseSensitive(message, "role");
+        cJSON *content = cJSON_GetObjectItemCaseSensitive(message, "content");
+        const char *role_text = cJSON_GetStringValue(role);
+        const char *content_text = cJSON_GetStringValue(content);
+
+        if (!role_text || strcmp(role_text, "assistant") != 0) {
+            continue;
+        }
+        if (content_text && content_text[0]) {
+            count++;
+        }
+    }
+    return count;
+}
+
+static unsigned long parent_chat_assistant_message_count(const char *chat_id)
+{
+    struct turn_snapshot snap;
+    unsigned long count = 0;
+
+    if (!chat_id || !chat_id[0]) {
+        return 0;
+    }
+
+    memset(&snap, 0, sizeof(snap));
+    if (!turn_context_load_copy(chat_id, &snap)) {
+        return 0;
+    }
+    count = count_assistant_messages_in_history(snap.messages);
+    turn_context_snapshot_cleanup(&snap);
+    return count;
+}
+
+static bool parent_chat_has_new_assistant_output_since(const char *chat_id,
+                                                       unsigned long baseline_count)
+{
+    return parent_chat_assistant_message_count(chat_id) > baseline_count;
+}
+
+static bool terminal_resume_can_admit_no_reply(const delegate_coordinator_record_t *record)
+{
+    return record && !coordinator_terminal_resume_requires_reply(record);
+}
+
 static void render_subagent_visible_output(const char *raw_output,
                                            char *visible_output,
                                            size_t visible_output_size)
@@ -361,6 +460,34 @@ static void render_subagent_visible_output(const char *raw_output,
         return;
     }
     text_shorten(raw_output, visible_output, visible_output_size, 220);
+}
+
+static void render_subagent_visible_output_from_task(const delegate_task_record_t *task_snapshot,
+                                                     char *visible_output,
+                                                     size_t visible_output_size)
+{
+    char preferred[1024];
+
+    if (!visible_output || !visible_output_size) {
+        return;
+    }
+    visible_output[0] = '\0';
+    if (!task_snapshot) {
+        return;
+    }
+
+    memset(preferred, 0, sizeof(preferred));
+    if (delegate_child_session_preferred_visible_text(task_snapshot,
+                                                      preferred,
+                                                      sizeof(preferred)) &&
+        preferred[0]) {
+        text_shorten(preferred, visible_output, visible_output_size, 220);
+        return;
+    }
+
+    render_subagent_visible_output(task_snapshot->output,
+                                   visible_output,
+                                   visible_output_size);
 }
 
 static void send_subagent_progress_events(const delegate_coordinator_record_t *record)
@@ -380,9 +507,9 @@ static void send_subagent_progress_events(const delegate_coordinator_record_t *r
         visible_output[0] = '\0';
         if (delegate_task_store_snapshot(agent->task_id, &task_snapshot) == 0) {
             output_text = task_snapshot.output;
-            render_subagent_visible_output(task_snapshot.output,
-                                           visible_output,
-                                           sizeof(visible_output));
+            render_subagent_visible_output_from_task(&task_snapshot,
+                                                     visible_output,
+                                                     sizeof(visible_output));
         }
 
         detail[0] = '\0';
@@ -605,7 +732,8 @@ static void retain_pending_resume_locked(int idx,
 static void defer_pending_resume_locked(int idx,
                                         const delegate_coordinator_record_t *record,
                                         long retry_after_ms,
-                                        long deferred_at_ms)
+                                        long deferred_at_ms,
+                                        bool no_reply_admitted)
 {
     if (idx < 0 || idx >= DELEGATE_PARENT_WAKE_PENDING_MAX ||
         !s_pending[idx].used || !record) {
@@ -616,6 +744,13 @@ static void defer_pending_resume_locked(int idx,
     s_pending[idx].retry_after_ms = retry_after_ms;
     if (s_pending[idx].resume_deferred_at_ms <= 0) {
         s_pending[idx].resume_deferred_at_ms = deferred_at_ms;
+    }
+    if (no_reply_admitted) {
+        s_pending[idx].no_reply_admitted = true;
+        if (s_pending[idx].admitted_assistant_message_count == 0) {
+            s_pending[idx].admitted_assistant_message_count =
+                parent_chat_assistant_message_count(record->chat_id);
+        }
     }
 }
 
@@ -630,6 +765,8 @@ static void drop_pending_resume_locked(int idx,
         s_pending[idx].record = *record;
         s_pending[idx].resume_pending = false;
         s_pending[idx].resume_deferred_at_ms = 0;
+        s_pending[idx].no_reply_admitted = false;
+        s_pending[idx].admitted_assistant_message_count = 0;
     }
     clear_pending_entry(idx);
 }
@@ -653,6 +790,8 @@ static void upsert_pending_locked(const delegate_coordinator_record_t *record)
     s_pending[idx].resume_pending = coordinator_has_resume_pending(record);
     if (!s_pending[idx].resume_pending) {
         s_pending[idx].resume_deferred_at_ms = 0;
+        s_pending[idx].no_reply_admitted = false;
+        s_pending[idx].admitted_assistant_message_count = 0;
     }
 }
 
@@ -780,6 +919,8 @@ static void flush_pending_snapshot(const delegate_parent_wake_entry_t *snapshot)
     bool terminal = false;
     bool resume_pending = false;
     long resume_deferred_at_ms = 0;
+    bool no_reply_admitted = false;
+    unsigned long admitted_assistant_message_count = 0;
     int idx = -1;
 
     if (!snapshot || !snapshot->used || !snapshot->record.coordinator_id[0]) {
@@ -789,6 +930,8 @@ static void flush_pending_snapshot(const delegate_parent_wake_entry_t *snapshot)
     retry_after_ms = snapshot->retry_after_ms;
     resume_pending = snapshot->resume_pending;
     resume_deferred_at_ms = snapshot->resume_deferred_at_ms;
+    no_reply_admitted = snapshot->no_reply_admitted;
+    admitted_assistant_message_count = snapshot->admitted_assistant_message_count;
 
     memset(&latest_record, 0, sizeof(latest_record));
     if (record.coordinator_id[0] &&
@@ -896,6 +1039,8 @@ static void flush_pending_snapshot(const delegate_parent_wake_entry_t *snapshot)
         if (should_defer_terminal_parent_resume(&record,
                                                 now_ms,
                                                 resume_deferred_at_ms,
+                                                no_reply_admitted,
+                                                admitted_assistant_message_count,
                                                 &retry_after_ms,
                                                 &drop_resume)) {
             if (drop_resume) {
@@ -908,7 +1053,11 @@ static void flush_pending_snapshot(const delegate_parent_wake_entry_t *snapshot)
                 return;
             }
             mutex_lock(&s_wake_mutex);
-            defer_pending_resume_locked(idx, &record, retry_after_ms, now_ms);
+            defer_pending_resume_locked(idx,
+                                        &record,
+                                        retry_after_ms,
+                                        now_ms,
+                                        terminal_resume_can_admit_no_reply(&record));
             mutex_unlock(&s_wake_mutex);
             if (retry_after_ms == now_ms + DELEGATE_PARENT_WAKE_RETRY_MS) {
                 pr_info("delegate_parent_wake: deferred parent resume because parent has pending interactive request coordinator=%s chat=%s",

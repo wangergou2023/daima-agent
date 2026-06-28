@@ -5,6 +5,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PID_FILE="${TMPDIR:-/tmp}/daima-agent.pid"
 LOG_FILE="${TMPDIR:-/tmp}/daima-agent-runtime.log"
+AGENT_HOME="${AGENT_HOME:-$HOME/.agent-data}"
+INSTALLED_BIN="$AGENT_HOME/bin/agent"
 
 REBUILD=1
 FOREGROUND=1
@@ -44,6 +46,7 @@ if [[ -f "$PID_FILE" ]]; then
 fi
 
 pkill -f "$ROOT_DIR/build-kbuild/agent" 2>/dev/null || true
+pkill -f "$INSTALLED_BIN" 2>/dev/null || true
 sleep 1
 
 if [[ "$REBUILD" -eq 1 ]]; then

@@ -16,3 +16,6 @@ typedef struct {
 
 cJSON *delegate_child_session_json_build_from_task(const delegate_task_record_t *task_snapshot,
                                                    const delegate_child_session_json_options_t *options);
+bool delegate_child_session_preferred_visible_text(const delegate_task_record_t *task_snapshot,
+                                                   char *buf,
+                                                   size_t buf_size);

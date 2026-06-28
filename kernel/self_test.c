@@ -14,9 +14,12 @@
 #include "drivers/tool/tool_delegate_protocol.h"
 #include "drivers/tool/tool_delegate_dependency.h"
 #include "drivers/tool/tool_delegate_repo_batch.h"
+#include "drivers/tool/tool_delegate_prepare.h"
+#include "drivers/tool/tool_delegate_runtime.h"
 #include "drivers/tool/tool_delegate_response.h"
 #include "drivers/tool/tool_delegate_subagent.h"
 #include "drivers/tool/tool_delegate_dispatch.h"
+#include "drivers/tool/tool_delegate_summary.h"
 #include "delegate/delegate_task_store.h"
 #include "delegate/delegate_session_json.h"
 #include "delegate/delegate_state_json.h"
@@ -31,6 +34,7 @@
 #include "kernel/context/context_build.h"
 #include "kernel/turn/turn_entry.h"
 #include "kernel/turn/turn_exec.h"
+#include "kernel/turn/turn_gate.h"
 #include "kernel/turn/turn_common.h"
 #include "kernel/turn/turn_context.h"
 #include "kernel/turn/turn_interview.h"
@@ -43,12 +47,16 @@
 #include "drivers/tool/tool_runtime.h"
 #include "tool_notify.h"
 #include "paths.h"
+#include "workspace_probe.h"
 #include "arch/host/portability.h"
 #include "cjson.h"
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+#include <sys/wait.h>
 #include <sys/socket.h>
+#include <poll.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -58,21 +66,189 @@
 
 static int tests_run = 0;
 static int tests_pass = 0;
+static self_test_log_probe_t s_self_test_log_probe;
+static bool s_self_test_log_probe_pending;
 
 typedef struct { char name[64]; int ok; } test_result_t;
-static test_result_t s_results[64];
+static test_result_t s_results[256];
 static int s_result_count = 0;
+
+typedef struct {
+    delegate_coordinator_record_t *left;
+    delegate_coordinator_record_t *right;
+} delegate_two_snapshot_wait_t;
+
+typedef struct {
+    delegate_coordinator_record_t *left;
+    delegate_coordinator_record_t *middle;
+    delegate_coordinator_record_t *right;
+} delegate_three_snapshot_wait_t;
+
+typedef struct {
+    char coordinator_id[DELEGATE_COORDINATOR_ID_LEN];
+    delegate_coordinator_record_t *snapshot;
+} delegate_single_snapshot_wait_t;
+
+static bool wait_for_delegate_lifecycle_snapshot(bool (*predicate)(void *ctx),
+                                                 void *ctx,
+                                                 int timeout_ms);
+static bool predicate_delegate_fair_launch(void *ctx);
+static bool predicate_delegate_per_coordinator_cap(void *ctx);
+static bool predicate_delegate_per_parent_cap(void *ctx);
+static bool predicate_delegate_blocked_coordinator_cap(void *ctx);
+static bool predicate_delegate_blocked_parent_cap(void *ctx);
+static bool predicate_delegate_long_prompt_schedulable(void *ctx);
+
+static void build_workspace_opencode_path(char *buf, size_t size, const char *suffix)
+{
+    if (!buf || size == 0) {
+        return;
+    }
+    if (!suffix || !suffix[0]) {
+        snprintf(buf, size, "%s/opencode", path_workspace_dir());
+        return;
+    }
+    snprintf(buf, size, "%s/opencode/%s", path_workspace_dir(), suffix);
+}
+
+static void build_self_test_probe_root(char *buf, size_t size)
+{
+    if (!buf || size == 0) {
+        return;
+    }
+    snprintf(buf, size, "%s/self_test_repo_probes", path_memory_dir());
+}
+
+static void build_workspace_opencode_probe_path(char *buf, size_t size, const char *suffix)
+{
+    char root[PATH_MAX];
+
+    if (!buf || size == 0) {
+        return;
+    }
+    build_self_test_probe_root(root, sizeof(root));
+    if (!suffix || !suffix[0]) {
+        snprintf(buf, size, "%s/opencode_probe", root);
+        return;
+    }
+    snprintf(buf, size, "%s/opencode_probe/%s", root, suffix);
+}
 
 static void report(const char *name, int ok)
 {
     tests_run++;
     if (ok) tests_pass++;
-    if (s_result_count < 16) {
+    if (s_result_count < (int)ARRAY_SIZE(s_results)) {
         strscpy(s_results[s_result_count].name, name, sizeof(s_results[s_result_count].name));
         s_results[s_result_count].ok = ok;
         s_result_count++;
     }
     pr_info("[TEST] %s: %s", ok ? PASS : FAIL, name);
+}
+
+static int self_test_run_process_quiet(const char *program, char *const argv[])
+{
+    if (!program || !argv) {
+        return -1;
+    }
+
+    pid_t pid = fork();
+    if (pid < 0) {
+        return -1;
+    }
+
+    if (pid == 0) {
+        execvp(program, argv);
+        _exit(127);
+    }
+
+    int status = 0;
+    if (waitpid(pid, &status, 0) < 0 || !WIFEXITED(status)) {
+        return -1;
+    }
+    return WEXITSTATUS(status);
+}
+
+static ssize_t self_test_recv_all_http_response(int fd, char *buf, size_t buf_size)
+{
+    size_t off = 0;
+    char *header_end = NULL;
+    size_t target_size = 0;
+    bool first_read = true;
+
+    if (fd < 0 || !buf || buf_size == 0) {
+        return -1;
+    }
+
+    while (off + 1 < buf_size) {
+        ssize_t n;
+
+        if (!first_read) {
+            struct pollfd pfd;
+            int poll_rc;
+
+            memset(&pfd, 0, sizeof(pfd));
+            pfd.fd = fd;
+            pfd.events = POLLIN;
+            poll_rc = poll(&pfd, 1, 50);
+            if (poll_rc <= 0 || !(pfd.revents & POLLIN)) {
+                break;
+            }
+        }
+
+        n = recv(fd, buf + off, buf_size - off - 1, 0);
+        if (n < 0) {
+            return -1;
+        }
+        if (n == 0) {
+            break;
+        }
+        first_read = false;
+        off += (size_t)n;
+        buf[off] = '\0';
+
+        if (!header_end) {
+            header_end = strstr(buf, "\r\n\r\n");
+            if (header_end) {
+                size_t header_size = (size_t)(header_end - buf) + 4;
+                const char *content_length = strstr(buf, "Content-Length:");
+                unsigned long body_len = 0;
+
+                if (content_length) {
+                    content_length += strlen("Content-Length:");
+                    while (*content_length == ' ') {
+                        content_length++;
+                    }
+                    body_len = strtoul(content_length, NULL, 10);
+                }
+                target_size = header_size + (size_t)body_len;
+                if (target_size == 0) {
+                    target_size = header_size;
+                }
+            }
+        }
+
+        if (target_size > 0 && off >= target_size) {
+            break;
+        }
+    }
+
+    buf[off] = '\0';
+    return (ssize_t)off;
+}
+
+void agent_self_test_set_log_probe(const self_test_log_probe_t *probe)
+{
+    if (!probe) {
+        memset(&s_self_test_log_probe, 0, sizeof(s_self_test_log_probe));
+        return;
+    }
+    s_self_test_log_probe = *probe;
+}
+
+void agent_self_test_set_log_probe_pending(bool pending)
+{
+    s_self_test_log_probe_pending = pending;
 }
 
 /* 返回结构化 JSON 结果 */
@@ -91,6 +267,17 @@ char *agent_self_test_results_json(void)
         cJSON_AddItemToArray(items, item);
     }
     cJSON_AddItemToObject(root, "items", items);
+    {
+        cJSON *log_probe = cJSON_CreateObject();
+        cJSON_AddBoolToObject(log_probe, "marker_found", s_self_test_log_probe.marker_found);
+        cJSON_AddNumberToObject(log_probe, "attach_task_hits", s_self_test_log_probe.attach_task_hits);
+        cJSON_AddNumberToObject(log_probe, "launch_candidate_hits", s_self_test_log_probe.launch_candidate_hits);
+        cJSON_AddNumberToObject(log_probe, "restore_queued_hits", s_self_test_log_probe.restore_queued_hits);
+        cJSON_AddBoolToObject(log_probe, "multi_subagent_confirmed",
+                              s_self_test_log_probe.multi_subagent_confirmed);
+        cJSON_AddBoolToObject(log_probe, "pending", s_self_test_log_probe_pending);
+        cJSON_AddItemToObject(root, "log_probe", log_probe);
+    }
 
     char *json = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
@@ -735,6 +922,874 @@ static void test_delegate_background_launch_respects_running_budget(void)
     report("delegate background launch respects running budget", ok);
 }
 
+static void test_delegate_background_launch_keeps_capacity_for_real_batch(void)
+{
+    delegate_coordinator_record_t snapshot;
+    int ok = 1;
+    char app_path[PATH_MAX];
+    char cli_path[PATH_MAX];
+    char session_ui_path[PATH_MAX];
+
+    memset(&snapshot, 0, sizeof(snapshot));
+    delegate_task_store_reset_for_test();
+    build_workspace_opencode_path(app_path, sizeof(app_path), "packages/app");
+    build_workspace_opencode_path(cli_path, sizeof(cli_path), "packages/cli");
+    build_workspace_opencode_path(session_ui_path, sizeof(session_ui_path), "packages/session-ui");
+
+    for (int i = 0; ok && i < 24; i++) {
+        char coordinator_id[32];
+        char task_id[32];
+        char session_id[32];
+        char description[64];
+
+        snprintf(coordinator_id, sizeof(coordinator_id), "dc_hist_%d", i);
+        snprintf(task_id, sizeof(task_id), "dt_hist_%d", i);
+        snprintf(session_id, sizeof(session_id), "delegate_sync_hist_%d", i);
+        snprintf(description, sizeof(description), "historical task %d", i);
+
+        ok = delegate_task_store_start_coordinator(coordinator_id,
+                                                   "chat_hist",
+                                                   "tr_hist",
+                                                   "history-team",
+                                                   "parallel") == 0;
+        if (ok) {
+            ok = delegate_task_store_start(task_id,
+                                           coordinator_id,
+                                           session_id,
+                                           "explore",
+                                           "history",
+                                           description,
+                                           "history prompt",
+                                           "deepseek-v4-pro",
+                                           "/tmp/history",
+                                           "subsystem",
+                                           "history_focus",
+                                           NULL) == 0;
+        }
+        if (ok) {
+            ok = delegate_task_store_attach_task(coordinator_id, task_id) == 0;
+        }
+        if (ok) {
+            ok = delegate_task_store_complete(task_id, "history summary", "", false) == 0;
+        }
+    }
+
+    if (ok) {
+        ok = delegate_task_store_start_coordinator("dc_real_batch",
+                                                   "chat_real_batch",
+                                                   "tr_real_batch",
+                                                   "real-batch-team",
+                                                   "parallel") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_plan("dt_real_app",
+                                      "dc_real_batch",
+                                      "delegate_sync_real_app",
+                                      "explore",
+                                      "app",
+                                      "analyze app",
+                                      "prompt app",
+                                      "deepseek-v4-pro",
+                                      app_path,
+                                      "subsystem",
+                                      "local_overview",
+                                      NULL,
+                                      NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_attach_task("dc_real_batch", "dt_real_app") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_plan("dt_real_cli",
+                                      "dc_real_batch",
+                                      "delegate_sync_real_cli",
+                                      "explore",
+                                      "cli",
+                                      "analyze cli",
+                                      "prompt cli",
+                                      "deepseek-v4-pro",
+                                      cli_path,
+                                      "subsystem",
+                                      "local_overview",
+                                      NULL,
+                                      NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_attach_task("dc_real_batch", "dt_real_cli") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_plan("dt_real_session_ui",
+                                      "dc_real_batch",
+                                      "delegate_sync_real_session_ui",
+                                      "explore",
+                                      "session-ui",
+                                      "analyze session-ui",
+                                      "prompt session-ui",
+                                      "deepseek-v4-pro",
+                                      session_ui_path,
+                                      "subsystem",
+                                      "local_overview",
+                                      NULL,
+                                      NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_attach_task("dc_real_batch", "dt_real_session_ui") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_snapshot_coordinator("dc_real_batch", &snapshot) == 0 &&
+             snapshot.agent_count == 3 &&
+             snapshot.queued_count == 3 &&
+             strcmp(snapshot.status, "queued") == 0;
+    }
+
+    report("delegate background launch keeps capacity for real multi-subagent batch", ok);
+}
+
+static void test_delegate_lifecycle_runtime_launches_across_coordinators_fairly(void)
+{
+    delegate_coordinator_record_t left;
+    delegate_coordinator_record_t right;
+    delegate_two_snapshot_wait_t wait_state;
+    const char *saved = getenv("DELEGATE_BG_MAX_CONCURRENCY");
+    const char *saved_delay = getenv("DELEGATE_BG_TEST_TASK_DELAY_MS");
+    char saved_copy[32];
+    char saved_delay_copy[32];
+    char app_path[PATH_MAX];
+    char cli_path[PATH_MAX];
+    char session_ui_path[PATH_MAX];
+    char core_path[PATH_MAX];
+    int ok = 1;
+
+    memset(&left, 0, sizeof(left));
+    memset(&right, 0, sizeof(right));
+    memset(&wait_state, 0, sizeof(wait_state));
+    memset(saved_copy, 0, sizeof(saved_copy));
+    memset(saved_delay_copy, 0, sizeof(saved_delay_copy));
+    wait_state.left = &left;
+    wait_state.right = &right;
+    build_workspace_opencode_path(app_path, sizeof(app_path), "packages/app");
+    build_workspace_opencode_path(cli_path, sizeof(cli_path), "packages/cli");
+    build_workspace_opencode_path(session_ui_path, sizeof(session_ui_path), "packages/session-ui");
+    build_workspace_opencode_path(core_path, sizeof(core_path), "packages/core");
+    if (saved && saved[0]) {
+        strscpy(saved_copy, saved, sizeof(saved_copy));
+    }
+    if (saved_delay && saved_delay[0]) {
+        strscpy(saved_delay_copy, saved_delay, sizeof(saved_delay_copy));
+    }
+
+    delegate_task_store_reset_for_test();
+    setenv("DELEGATE_BG_MAX_CONCURRENCY", "2", 1);
+    setenv("DELEGATE_BG_TEST_TASK_DELAY_MS", "300", 1);
+
+    ok = delegate_task_store_start_coordinator("dc_fair_a", "chat_fair_a", "tr_fair_a", "fair-a", "parallel") == 0;
+    if (ok) {
+        ok = delegate_task_store_start_coordinator("dc_fair_b", "chat_fair_b", "tr_fair_b", "fair-b", "parallel") == 0;
+    }
+
+    if (ok) {
+        ok = delegate_task_store_plan("dt_fair_app", "dc_fair_a", "delegate_sync_fair_app", "explore",
+                                      "fair-app", "fair app child", "analyze app module", "deepseek-v4-pro",
+                                      app_path, "subsystem", "focus_app", NULL, NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_attach_task("dc_fair_a", "dt_fair_app") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_plan("dt_fair_cli", "dc_fair_a", "delegate_sync_fair_cli", "explore",
+                                      "fair-cli", "fair cli child", "analyze cli module", "deepseek-v4-pro",
+                                      cli_path, "subsystem", "focus_cli", NULL, NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_attach_task("dc_fair_a", "dt_fair_cli") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_plan("dt_fair_session_ui", "dc_fair_b", "delegate_sync_fair_session_ui", "explore",
+                                      "fair-session-ui", "fair session-ui child", "analyze session-ui module", "deepseek-v4-pro",
+                                      session_ui_path, "subsystem", "focus_session_ui", NULL, NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_attach_task("dc_fair_b", "dt_fair_session_ui") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_plan("dt_fair_core", "dc_fair_b", "delegate_sync_fair_core", "explore",
+                                      "fair-core", "fair core child", "analyze core module", "deepseek-v4-pro",
+                                      core_path, "subsystem", "focus_core", NULL, NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_attach_task("dc_fair_b", "dt_fair_core") == 0;
+    }
+    if (ok) {
+        ok = delegate_launch_ready_background_subagents_for_runtime() == 0;
+    }
+    if (ok) {
+        ok = wait_for_delegate_lifecycle_snapshot(predicate_delegate_fair_launch,
+                                                  &wait_state,
+                                                  1000);
+    }
+
+    if (saved_copy[0]) {
+        setenv("DELEGATE_BG_MAX_CONCURRENCY", saved_copy, 1);
+    } else {
+        unsetenv("DELEGATE_BG_MAX_CONCURRENCY");
+    }
+    if (saved_delay_copy[0]) {
+        setenv("DELEGATE_BG_TEST_TASK_DELAY_MS", saved_delay_copy, 1);
+    } else {
+        unsetenv("DELEGATE_BG_TEST_TASK_DELAY_MS");
+    }
+
+    report("delegate lifecycle runtime launches across coordinators fairly", ok);
+}
+
+static void test_delegate_lifecycle_runtime_respects_per_coordinator_cap(void)
+{
+    delegate_coordinator_record_t heavy;
+    delegate_coordinator_record_t light;
+    delegate_two_snapshot_wait_t wait_state;
+    const char *saved_global = getenv("DELEGATE_BG_MAX_CONCURRENCY");
+    const char *saved_per = getenv("DELEGATE_BG_MAX_PER_COORDINATOR");
+    const char *saved_delay = getenv("DELEGATE_BG_TEST_TASK_DELAY_MS");
+    char saved_global_copy[32];
+    char saved_per_copy[32];
+    char saved_delay_copy[32];
+    char app_path[PATH_MAX];
+    char cli_path[PATH_MAX];
+    char session_ui_path[PATH_MAX];
+    char core_path[PATH_MAX];
+    int ok = 1;
+
+    memset(&heavy, 0, sizeof(heavy));
+    memset(&light, 0, sizeof(light));
+    memset(&wait_state, 0, sizeof(wait_state));
+    memset(saved_global_copy, 0, sizeof(saved_global_copy));
+    memset(saved_per_copy, 0, sizeof(saved_per_copy));
+    memset(saved_delay_copy, 0, sizeof(saved_delay_copy));
+    wait_state.left = &heavy;
+    wait_state.right = &light;
+    build_workspace_opencode_path(app_path, sizeof(app_path), "packages/app");
+    build_workspace_opencode_path(cli_path, sizeof(cli_path), "packages/cli");
+    build_workspace_opencode_path(session_ui_path, sizeof(session_ui_path), "packages/session-ui");
+    build_workspace_opencode_path(core_path, sizeof(core_path), "packages/core");
+    if (saved_global && saved_global[0]) {
+        strscpy(saved_global_copy, saved_global, sizeof(saved_global_copy));
+    }
+    if (saved_per && saved_per[0]) {
+        strscpy(saved_per_copy, saved_per, sizeof(saved_per_copy));
+    }
+    if (saved_delay && saved_delay[0]) {
+        strscpy(saved_delay_copy, saved_delay, sizeof(saved_delay_copy));
+    }
+
+    delegate_task_store_reset_for_test();
+    setenv("DELEGATE_BG_MAX_CONCURRENCY", "4", 1);
+    setenv("DELEGATE_BG_MAX_PER_COORDINATOR", "1", 1);
+    setenv("DELEGATE_BG_TEST_TASK_DELAY_MS", "300", 1);
+
+    ok = delegate_task_store_start_coordinator("dc_cap_heavy", "chat_cap_heavy", "tr_cap_heavy", "cap-heavy", "parallel") == 0;
+    if (ok) {
+        ok = delegate_task_store_start_coordinator("dc_cap_light", "chat_cap_light", "tr_cap_light", "cap-light", "parallel") == 0;
+    }
+
+    if (ok) {
+        ok = delegate_task_store_plan("dt_cap_app", "dc_cap_heavy", "delegate_sync_cap_app", "explore",
+                                      "cap-app", "cap heavy app child", "analyze app module", "deepseek-v4-pro",
+                                      app_path, "subsystem", "focus_app", NULL, NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_attach_task("dc_cap_heavy", "dt_cap_app") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_plan("dt_cap_cli", "dc_cap_heavy", "delegate_sync_cap_cli", "explore",
+                                      "cap-cli", "cap heavy cli child", "analyze cli module", "deepseek-v4-pro",
+                                      cli_path, "subsystem", "focus_cli", NULL, NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_attach_task("dc_cap_heavy", "dt_cap_cli") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_plan("dt_cap_session_ui", "dc_cap_heavy", "delegate_sync_cap_session_ui", "explore",
+                                      "cap-session-ui", "cap heavy session-ui child", "analyze session-ui module", "deepseek-v4-pro",
+                                      session_ui_path, "subsystem", "focus_session_ui", NULL, NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_attach_task("dc_cap_heavy", "dt_cap_session_ui") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_plan("dt_cap_core", "dc_cap_light", "delegate_sync_cap_core", "explore",
+                                      "cap-core", "cap light core child", "analyze core module", "deepseek-v4-pro",
+                                      core_path, "subsystem", "focus_core", NULL, NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_attach_task("dc_cap_light", "dt_cap_core") == 0;
+    }
+
+    if (ok) {
+        ok = delegate_launch_ready_background_subagents_for_runtime() == 0;
+    }
+    if (ok) {
+        ok = wait_for_delegate_lifecycle_snapshot(predicate_delegate_per_coordinator_cap,
+                                                  &wait_state,
+                                                  1000);
+    }
+
+    if (saved_global_copy[0]) {
+        setenv("DELEGATE_BG_MAX_CONCURRENCY", saved_global_copy, 1);
+    } else {
+        unsetenv("DELEGATE_BG_MAX_CONCURRENCY");
+    }
+    if (saved_per_copy[0]) {
+        setenv("DELEGATE_BG_MAX_PER_COORDINATOR", saved_per_copy, 1);
+    } else {
+        unsetenv("DELEGATE_BG_MAX_PER_COORDINATOR");
+    }
+    if (saved_delay_copy[0]) {
+        setenv("DELEGATE_BG_TEST_TASK_DELAY_MS", saved_delay_copy, 1);
+    } else {
+        unsetenv("DELEGATE_BG_TEST_TASK_DELAY_MS");
+    }
+
+    report("delegate lifecycle runtime respects per-coordinator cap", ok);
+}
+
+static void test_delegate_lifecycle_runtime_respects_per_parent_cap(void)
+{
+    delegate_coordinator_record_t left;
+    delegate_coordinator_record_t right;
+    delegate_coordinator_record_t other;
+    delegate_three_snapshot_wait_t wait_state;
+    const char *saved_global = getenv("DELEGATE_BG_MAX_CONCURRENCY");
+    const char *saved_parent = getenv("DELEGATE_BG_MAX_PER_PARENT");
+    const char *saved_delay = getenv("DELEGATE_BG_TEST_TASK_DELAY_MS");
+    char saved_global_copy[32];
+    char saved_parent_copy[32];
+    char saved_delay_copy[32];
+    char app_path[PATH_MAX];
+    char cli_path[PATH_MAX];
+    char session_ui_path[PATH_MAX];
+    char core_path[PATH_MAX];
+    char sdk_path[PATH_MAX];
+    int ok = 1;
+
+    memset(&left, 0, sizeof(left));
+    memset(&right, 0, sizeof(right));
+    memset(&other, 0, sizeof(other));
+    memset(&wait_state, 0, sizeof(wait_state));
+    memset(saved_global_copy, 0, sizeof(saved_global_copy));
+    memset(saved_parent_copy, 0, sizeof(saved_parent_copy));
+    memset(saved_delay_copy, 0, sizeof(saved_delay_copy));
+    wait_state.left = &left;
+    wait_state.middle = &right;
+    wait_state.right = &other;
+    build_workspace_opencode_path(app_path, sizeof(app_path), "packages/app");
+    build_workspace_opencode_path(cli_path, sizeof(cli_path), "packages/cli");
+    build_workspace_opencode_path(session_ui_path, sizeof(session_ui_path), "packages/session-ui");
+    build_workspace_opencode_path(core_path, sizeof(core_path), "packages/core");
+    build_workspace_opencode_path(sdk_path, sizeof(sdk_path), "packages/sdk");
+    if (saved_global && saved_global[0]) {
+        strscpy(saved_global_copy, saved_global, sizeof(saved_global_copy));
+    }
+    if (saved_parent && saved_parent[0]) {
+        strscpy(saved_parent_copy, saved_parent, sizeof(saved_parent_copy));
+    }
+    if (saved_delay && saved_delay[0]) {
+        strscpy(saved_delay_copy, saved_delay, sizeof(saved_delay_copy));
+    }
+
+    delegate_task_store_reset_for_test();
+    setenv("DELEGATE_BG_MAX_CONCURRENCY", "4", 1);
+    setenv("DELEGATE_BG_MAX_PER_PARENT", "2", 1);
+    setenv("DELEGATE_BG_TEST_TASK_DELAY_MS", "300", 1);
+
+    ok = delegate_task_store_start_coordinator("dc_parent_a1", "chat_parent_a", "tr_parent_a", "parent-a", "parallel") == 0;
+    if (ok) {
+        ok = delegate_task_store_start_coordinator("dc_parent_a2", "chat_parent_a", "tr_parent_a", "parent-a", "parallel") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_start_coordinator("dc_parent_b1", "chat_parent_b", "tr_parent_b", "parent-b", "parallel") == 0;
+    }
+
+    if (ok) {
+        ok = delegate_task_store_plan("dt_parent_app", "dc_parent_a1", "delegate_sync_parent_app", "explore",
+                                      "parent-app", "parent app child", "analyze app module", "deepseek-v4-pro",
+                                      app_path, "subsystem", "focus_app", NULL, NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_attach_task("dc_parent_a1", "dt_parent_app") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_plan("dt_parent_cli", "dc_parent_a1", "delegate_sync_parent_cli", "explore",
+                                      "parent-cli", "parent cli child", "analyze cli module", "deepseek-v4-pro",
+                                      cli_path, "subsystem", "focus_cli", NULL, NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_attach_task("dc_parent_a1", "dt_parent_cli") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_plan("dt_parent_session_ui", "dc_parent_a2", "delegate_sync_parent_session_ui", "explore",
+                                      "parent-session-ui", "parent session-ui child", "analyze session-ui module", "deepseek-v4-pro",
+                                      session_ui_path, "subsystem", "focus_session_ui", NULL, NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_attach_task("dc_parent_a2", "dt_parent_session_ui") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_plan("dt_parent_core", "dc_parent_a2", "delegate_sync_parent_core", "explore",
+                                      "parent-core", "parent core child", "analyze core module", "deepseek-v4-pro",
+                                      core_path, "subsystem", "focus_core", NULL, NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_attach_task("dc_parent_a2", "dt_parent_core") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_plan("dt_parent_sdk", "dc_parent_b1", "delegate_sync_parent_sdk", "explore",
+                                      "parent-sdk", "parent sdk child", "analyze sdk module", "deepseek-v4-pro",
+                                      sdk_path, "subsystem", "focus_sdk", NULL, NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_attach_task("dc_parent_b1", "dt_parent_sdk") == 0;
+    }
+
+    if (ok) {
+        ok = delegate_launch_ready_background_subagents_for_runtime() == 0;
+    }
+    if (ok) {
+        ok = wait_for_delegate_lifecycle_snapshot(predicate_delegate_per_parent_cap,
+                                                  &wait_state,
+                                                  1000);
+    }
+
+    if (saved_global_copy[0]) {
+        setenv("DELEGATE_BG_MAX_CONCURRENCY", saved_global_copy, 1);
+    } else {
+        unsetenv("DELEGATE_BG_MAX_CONCURRENCY");
+    }
+    if (saved_parent_copy[0]) {
+        setenv("DELEGATE_BG_MAX_PER_PARENT", saved_parent_copy, 1);
+    } else {
+        unsetenv("DELEGATE_BG_MAX_PER_PARENT");
+    }
+    if (saved_delay_copy[0]) {
+        setenv("DELEGATE_BG_TEST_TASK_DELAY_MS", saved_delay_copy, 1);
+    } else {
+        unsetenv("DELEGATE_BG_TEST_TASK_DELAY_MS");
+    }
+
+    report("delegate lifecycle runtime respects per-parent cap", ok);
+}
+
+static void test_delegate_lifecycle_runtime_ignores_blocked_for_coordinator_cap(void)
+{
+    delegate_coordinator_record_t snapshot;
+    const char *saved_global = getenv("DELEGATE_BG_MAX_CONCURRENCY");
+    const char *saved_per = getenv("DELEGATE_BG_MAX_PER_COORDINATOR");
+    const char *saved_delay = getenv("DELEGATE_BG_TEST_TASK_DELAY_MS");
+    char saved_global_copy[32];
+    char saved_per_copy[32];
+    char saved_delay_copy[32];
+    char blocked_path[PATH_MAX];
+    char ready_path[PATH_MAX];
+    int ok = 1;
+
+    memset(&snapshot, 0, sizeof(snapshot));
+    memset(saved_global_copy, 0, sizeof(saved_global_copy));
+    memset(saved_per_copy, 0, sizeof(saved_per_copy));
+    memset(saved_delay_copy, 0, sizeof(saved_delay_copy));
+    build_workspace_opencode_path(blocked_path, sizeof(blocked_path), "packages/docs");
+    build_workspace_opencode_path(ready_path, sizeof(ready_path), "packages/session-ui");
+    if (saved_global && saved_global[0]) {
+        strscpy(saved_global_copy, saved_global, sizeof(saved_global_copy));
+    }
+    if (saved_per && saved_per[0]) {
+        strscpy(saved_per_copy, saved_per, sizeof(saved_per_copy));
+    }
+    if (saved_delay && saved_delay[0]) {
+        strscpy(saved_delay_copy, saved_delay, sizeof(saved_delay_copy));
+    }
+
+    delegate_task_store_reset_for_test();
+    setenv("DELEGATE_BG_MAX_CONCURRENCY", "4", 1);
+    setenv("DELEGATE_BG_MAX_PER_COORDINATOR", "1", 1);
+    setenv("DELEGATE_BG_TEST_TASK_DELAY_MS", "300", 1);
+
+    ok = delegate_task_store_start_coordinator("dc_block_cap", "chat_block_cap", "tr_block_cap", "block-cap", "parallel") == 0;
+    if (ok) {
+        ok = delegate_task_store_plan("dt_block_cap_docs", "dc_block_cap", "delegate_sync_block_cap_docs", "explore",
+                                      "block-cap-docs", "blocked docs child", "analyze docs module", "deepseek-v4-pro",
+                                      blocked_path, "subsystem", "focus_docs", NULL, NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_attach_task("dc_block_cap", "dt_block_cap_docs") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_claim_queued_task("dt_block_cap_docs");
+    }
+    if (ok) {
+        ok = delegate_task_store_mark_blocked("dt_block_cap_docs",
+                                              "permission",
+                                              "sudo password required",
+                                              "sudo password was not provided") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_plan("dt_block_cap_session_ui", "dc_block_cap", "delegate_sync_block_cap_session_ui", "explore",
+                                      "block-cap-session-ui", "ready session-ui child", "analyze session-ui module", "deepseek-v4-pro",
+                                      ready_path, "subsystem", "focus_session_ui", NULL, NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_attach_task("dc_block_cap", "dt_block_cap_session_ui") == 0;
+    }
+
+    if (ok) {
+        ok = delegate_launch_ready_background_subagents_for_runtime() == 0;
+    }
+    if (ok) {
+        ok = wait_for_delegate_lifecycle_snapshot(predicate_delegate_blocked_coordinator_cap,
+                                                  &snapshot,
+                                                  1000);
+    }
+
+    if (saved_global_copy[0]) {
+        setenv("DELEGATE_BG_MAX_CONCURRENCY", saved_global_copy, 1);
+    } else {
+        unsetenv("DELEGATE_BG_MAX_CONCURRENCY");
+    }
+    if (saved_per_copy[0]) {
+        setenv("DELEGATE_BG_MAX_PER_COORDINATOR", saved_per_copy, 1);
+    } else {
+        unsetenv("DELEGATE_BG_MAX_PER_COORDINATOR");
+    }
+    if (saved_delay_copy[0]) {
+        setenv("DELEGATE_BG_TEST_TASK_DELAY_MS", saved_delay_copy, 1);
+    } else {
+        unsetenv("DELEGATE_BG_TEST_TASK_DELAY_MS");
+    }
+
+    report("delegate lifecycle runtime ignores blocked child for coordinator cap", ok);
+}
+
+static void test_delegate_lifecycle_runtime_ignores_blocked_for_parent_cap(void)
+{
+    delegate_coordinator_record_t left;
+    delegate_coordinator_record_t right;
+    delegate_two_snapshot_wait_t wait_state;
+    const char *saved_global = getenv("DELEGATE_BG_MAX_CONCURRENCY");
+    const char *saved_parent = getenv("DELEGATE_BG_MAX_PER_PARENT");
+    const char *saved_delay = getenv("DELEGATE_BG_TEST_TASK_DELAY_MS");
+    char saved_global_copy[32];
+    char saved_parent_copy[32];
+    char saved_delay_copy[32];
+    char blocked_path[PATH_MAX];
+    char ready_path[PATH_MAX];
+    int ok = 1;
+
+    memset(&left, 0, sizeof(left));
+    memset(&right, 0, sizeof(right));
+    memset(&wait_state, 0, sizeof(wait_state));
+    memset(saved_global_copy, 0, sizeof(saved_global_copy));
+    memset(saved_parent_copy, 0, sizeof(saved_parent_copy));
+    memset(saved_delay_copy, 0, sizeof(saved_delay_copy));
+    wait_state.left = &left;
+    wait_state.right = &right;
+    build_workspace_opencode_path(blocked_path, sizeof(blocked_path), "packages/docs");
+    build_workspace_opencode_path(ready_path, sizeof(ready_path), "packages/core");
+    if (saved_global && saved_global[0]) {
+        strscpy(saved_global_copy, saved_global, sizeof(saved_global_copy));
+    }
+    if (saved_parent && saved_parent[0]) {
+        strscpy(saved_parent_copy, saved_parent, sizeof(saved_parent_copy));
+    }
+    if (saved_delay && saved_delay[0]) {
+        strscpy(saved_delay_copy, saved_delay, sizeof(saved_delay_copy));
+    }
+
+    delegate_task_store_reset_for_test();
+    setenv("DELEGATE_BG_MAX_CONCURRENCY", "4", 1);
+    setenv("DELEGATE_BG_MAX_PER_PARENT", "1", 1);
+    setenv("DELEGATE_BG_TEST_TASK_DELAY_MS", "300", 1);
+
+    ok = delegate_task_store_start_coordinator("dc_parent_blocked", "chat_parent_blocked", "tr_parent_blocked", "parent-blocked", "parallel") == 0;
+    if (ok) {
+        ok = delegate_task_store_start_coordinator("dc_parent_ready", "chat_parent_blocked", "tr_parent_blocked", "parent-blocked", "parallel") == 0;
+    }
+
+    if (ok) {
+        ok = delegate_task_store_plan("dt_parent_blocked_docs", "dc_parent_blocked", "delegate_sync_parent_blocked_docs", "explore",
+                                      "parent-blocked-docs", "blocked docs child", "analyze docs module", "deepseek-v4-pro",
+                                      blocked_path, "subsystem", "focus_docs", NULL, NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_attach_task("dc_parent_blocked", "dt_parent_blocked_docs") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_claim_queued_task("dt_parent_blocked_docs");
+    }
+    if (ok) {
+        ok = delegate_task_store_mark_blocked("dt_parent_blocked_docs",
+                                              "question",
+                                              "Need clarification",
+                                              "Need clarification") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_plan("dt_parent_ready_core", "dc_parent_ready", "delegate_sync_parent_ready_core", "explore",
+                                      "parent-ready-core", "ready core child", "analyze core module", "deepseek-v4-pro",
+                                      ready_path, "subsystem", "focus_core", NULL, NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_attach_task("dc_parent_ready", "dt_parent_ready_core") == 0;
+    }
+
+    if (ok) {
+        ok = delegate_launch_ready_background_subagents_for_runtime() == 0;
+    }
+    if (ok) {
+        ok = wait_for_delegate_lifecycle_snapshot(predicate_delegate_blocked_parent_cap,
+                                                  &wait_state,
+                                                  1000);
+    }
+
+    if (saved_global_copy[0]) {
+        setenv("DELEGATE_BG_MAX_CONCURRENCY", saved_global_copy, 1);
+    } else {
+        unsetenv("DELEGATE_BG_MAX_CONCURRENCY");
+    }
+    if (saved_parent_copy[0]) {
+        setenv("DELEGATE_BG_MAX_PER_PARENT", saved_parent_copy, 1);
+    } else {
+        unsetenv("DELEGATE_BG_MAX_PER_PARENT");
+    }
+    if (saved_delay_copy[0]) {
+        setenv("DELEGATE_BG_TEST_TASK_DELAY_MS", saved_delay_copy, 1);
+    } else {
+        unsetenv("DELEGATE_BG_TEST_TASK_DELAY_MS");
+    }
+
+    report("delegate lifecycle runtime ignores blocked child for parent cap", ok);
+}
+
+static void test_delegate_background_launch_does_not_finish_with_queued_children(void)
+{
+    delegate_coordinator_record_t snapshot;
+    int ok = 1;
+    char app_path[PATH_MAX];
+    char cli_path[PATH_MAX];
+    char session_ui_path[PATH_MAX];
+
+    memset(&snapshot, 0, sizeof(snapshot));
+    delegate_task_store_reset_for_test();
+    build_workspace_opencode_path(app_path, sizeof(app_path), "packages/app");
+    build_workspace_opencode_path(cli_path, sizeof(cli_path), "packages/cli");
+    build_workspace_opencode_path(session_ui_path, sizeof(session_ui_path), "packages/session-ui");
+
+    ok = delegate_task_store_start_coordinator("dc_launch_consistency",
+                                               "chat_launch_consistency",
+                                               "tr_launch_consistency",
+                                               "launch-consistency-team",
+                                               "parallel") == 0;
+    if (ok) {
+        ok = delegate_task_store_plan("dt_launch_app",
+                                      "dc_launch_consistency",
+                                      "delegate_sync_launch_app",
+                                      "explore",
+                                      "app",
+                                      "analyze app",
+                                      "prompt app",
+                                      "deepseek-v4-pro",
+                                      app_path,
+                                      "subsystem",
+                                      "local_overview",
+                                      NULL,
+                                      NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_attach_task("dc_launch_consistency", "dt_launch_app") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_plan("dt_launch_cli",
+                                      "dc_launch_consistency",
+                                      "delegate_sync_launch_cli",
+                                      "explore",
+                                      "cli",
+                                      "analyze cli",
+                                      "prompt cli",
+                                      "deepseek-v4-pro",
+                                      cli_path,
+                                      "subsystem",
+                                      "local_overview",
+                                      NULL,
+                                      NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_attach_task("dc_launch_consistency", "dt_launch_cli") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_plan("dt_launch_session_ui",
+                                      "dc_launch_consistency",
+                                      "delegate_sync_launch_session_ui",
+                                      "explore",
+                                      "session-ui",
+                                      "analyze session-ui",
+                                      "prompt session-ui",
+                                      "deepseek-v4-pro",
+                                      session_ui_path,
+                                      "subsystem",
+                                      "local_overview",
+                                      NULL,
+                                      NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_attach_task("dc_launch_consistency", "dt_launch_session_ui") == 0;
+    }
+    if (ok) {
+        ok = tool_delegate_launch_ready_background_subagents("dc_launch_consistency",
+                                                             "chat_launch_consistency") == 0;
+    }
+    if (ok) {
+        usleep(200000);
+        ok = delegate_task_store_snapshot_coordinator("dc_launch_consistency", &snapshot) == 0;
+    }
+    if (ok) {
+        bool has_queued = false;
+        bool inconsistent_done = false;
+
+        for (int i = 0; i < snapshot.agent_count; i++) {
+            if (strcmp(snapshot.agents[i].status, "queued") == 0) {
+                has_queued = true;
+            }
+        }
+        inconsistent_done = strcmp(snapshot.status, "done") == 0 && has_queued;
+        if (inconsistent_done) {
+            pr_warn("  launch consistency diag: coordinator status=%s queued_count=%d running_count=%d completed_count=%d",
+                    snapshot.status,
+                    snapshot.queued_count,
+                    snapshot.running_count,
+                    snapshot.completed_count);
+            for (int i = 0; i < snapshot.agent_count; i++) {
+                pr_warn("  launch consistency agent[%d]: task_id=%s status=%s scope=%s",
+                        i,
+                        snapshot.agents[i].task_id,
+                        snapshot.agents[i].status,
+                        snapshot.agents[i].scope_path);
+            }
+        }
+        ok = !inconsistent_done;
+    }
+
+    report("delegate background launch does not finish with queued children", ok);
+}
+
+static void test_delegate_background_launch_long_prompts_keep_all_children_schedulable(void)
+{
+    delegate_request_t req;
+    char output[4096];
+    delegate_coordinator_record_t snapshot;
+    delegate_single_snapshot_wait_t wait_state;
+    int ok = 1;
+    char long_prompt[2000];
+    char app_path[PATH_MAX];
+    char cli_path[PATH_MAX];
+    char session_ui_path[PATH_MAX];
+
+    memset(&req, 0, sizeof(req));
+    memset(output, 0, sizeof(output));
+    memset(&snapshot, 0, sizeof(snapshot));
+    memset(&wait_state, 0, sizeof(wait_state));
+    memset(long_prompt, 0, sizeof(long_prompt));
+    build_workspace_opencode_path(app_path, sizeof(app_path), "packages/app");
+    build_workspace_opencode_path(cli_path, sizeof(cli_path), "packages/cli");
+    build_workspace_opencode_path(session_ui_path, sizeof(session_ui_path), "packages/session-ui");
+
+    for (size_t i = 0; i + 2 < sizeof(long_prompt); i += 2) {
+        long_prompt[i] = 'A' + (char)((i / 2) % 26);
+        long_prompt[i + 1] = ' ';
+    }
+    long_prompt[1800] = '\0';
+
+    delegate_task_store_reset_for_test();
+
+    req.is_batch = true;
+    req.batch_count = 3;
+    strscpy(req.team_name, "delegate-team", sizeof(req.team_name));
+    strscpy(req.dispatch_mode, "parallel", sizeof(req.dispatch_mode));
+
+    strscpy(req.batch_tasks[0].task_key, "packagesapp", sizeof(req.batch_tasks[0].task_key));
+    strscpy(req.batch_tasks[0].description, "分析 packages/app 模块", sizeof(req.batch_tasks[0].description));
+    strscpy(req.batch_tasks[0].subagent_type, "explore", sizeof(req.batch_tasks[0].subagent_type));
+    strscpy(req.batch_tasks[0].target_path, app_path, sizeof(req.batch_tasks[0].target_path));
+    snprintf(req.batch_tasks[0].prompt, sizeof(req.batch_tasks[0].prompt),
+             "分析 opencode/packages/app 的目录结构、关键模块、入口文件、主要功能。\n\n%s",
+             long_prompt);
+
+    strscpy(req.batch_tasks[1].task_key, "packagescli", sizeof(req.batch_tasks[1].task_key));
+    strscpy(req.batch_tasks[1].description, "分析 packages/cli 模块", sizeof(req.batch_tasks[1].description));
+    strscpy(req.batch_tasks[1].subagent_type, "explore", sizeof(req.batch_tasks[1].subagent_type));
+    strscpy(req.batch_tasks[1].target_path, cli_path, sizeof(req.batch_tasks[1].target_path));
+    snprintf(req.batch_tasks[1].prompt, sizeof(req.batch_tasks[1].prompt),
+             "分析 opencode/packages/cli 的目录结构、关键模块、入口文件、主要功能。\n\n%s",
+             long_prompt);
+
+    strscpy(req.batch_tasks[2].task_key, "packagessession-ui", sizeof(req.batch_tasks[2].task_key));
+    strscpy(req.batch_tasks[2].description, "分析 packages/session-ui 模块", sizeof(req.batch_tasks[2].description));
+    strscpy(req.batch_tasks[2].subagent_type, "explore", sizeof(req.batch_tasks[2].subagent_type));
+    strscpy(req.batch_tasks[2].target_path, session_ui_path, sizeof(req.batch_tasks[2].target_path));
+    snprintf(req.batch_tasks[2].prompt, sizeof(req.batch_tasks[2].prompt),
+             "分析 opencode/packages/session-ui 的目录结构、关键模块、入口文件、主要功能。\n\n%s",
+             long_prompt);
+
+    if (ok) {
+        ok = tool_delegate_run_background_coordinator(&req,
+                                                      "chat_long_prompt_batch",
+                                                      output,
+                                                      sizeof(output)) == 0;
+    }
+    if (ok) {
+        char coordinator_id[DELEGATE_COORDINATOR_ID_LEN];
+        coordinator_id[0] = '\0';
+        cJSON *root = cJSON_Parse(output);
+        cJSON *coord = root ? cJSON_GetObjectItem(root, "coordinator_id") : NULL;
+        const char *coord_id = cJSON_GetStringValue(coord);
+        ok = coord_id && coord_id[0];
+        if (ok) {
+            strscpy(coordinator_id, coord_id, sizeof(coordinator_id));
+            strscpy(wait_state.coordinator_id, coord_id, sizeof(wait_state.coordinator_id));
+            wait_state.snapshot = &snapshot;
+        }
+        cJSON_Delete(root);
+        if (ok) {
+            ok = wait_for_delegate_lifecycle_snapshot(predicate_delegate_long_prompt_schedulable,
+                                                      &wait_state,
+                                                      1000);
+        }
+    }
+    if (ok) {
+        int queued = 0;
+        int running = 0;
+        int done = 0;
+        for (int i = 0; i < snapshot.agent_count; i++) {
+            if (strcmp(snapshot.agents[i].status, "queued") == 0) {
+                queued++;
+            } else if (strcmp(snapshot.agents[i].status, "running") == 0) {
+                running++;
+            } else if (strcmp(snapshot.agents[i].status, "done") == 0) {
+                done++;
+            }
+        }
+        if (queued > 0 && strcmp(snapshot.status, "done") == 0) {
+            pr_warn("  long prompt launch diag: status=%s queued=%d running=%d done=%d",
+                    snapshot.status, queued, running, done);
+            for (int i = 0; i < snapshot.agent_count; i++) {
+                pr_warn("  long prompt launch agent[%d]: task_id=%s status=%s desc=%s",
+                        i,
+                        snapshot.agents[i].task_id,
+                        snapshot.agents[i].status,
+                        snapshot.agents[i].description);
+            }
+        }
+        ok = !(queued > 0 && strcmp(snapshot.status, "done") == 0);
+    }
+
+    report("delegate background launch long prompts keep all children schedulable", ok);
+}
+
 static void test_delegate_task_store_requires_effective_output_for_done(void)
 {
     delegate_task_store_reset_for_test();
@@ -795,6 +1850,59 @@ static void test_delegate_task_store_requires_effective_output_for_done(void)
     }
 
     report("delegate task store requires effective output for done", ok);
+}
+
+static void test_delegate_task_store_plan_fails_when_store_is_full(void)
+{
+    delegate_task_store_reset_for_test();
+    delegate_task_record_t snapshot;
+    memset(&snapshot, 0, sizeof(snapshot));
+
+    int ok = 1;
+    for (int i = 0; i < DELEGATE_TASK_STORE_MAX; i++) {
+        char task_id[32];
+        char session_id[32];
+        snprintf(task_id, sizeof(task_id), "dt_full_%d", i);
+        snprintf(session_id, sizeof(session_id), "delegate_full_%d", i);
+        ok = ok && delegate_task_store_plan(task_id,
+                                            "dc_full",
+                                            session_id,
+                                            "explore",
+                                            "",
+                                            "fill store",
+                                            "fill prompt",
+                                            "model",
+                                            "/tmp/fill",
+                                            "repo_root",
+                                            "structure",
+                                            "",
+                                            NULL) == 0;
+    }
+
+    if (ok) {
+        ok = delegate_task_store_plan("dt_full_overflow",
+                                      "dc_full",
+                                      "delegate_full_overflow",
+                                      "explore",
+                                      "",
+                                      "overflow",
+                                      "overflow prompt",
+                                      "model",
+                                      "/tmp/overflow",
+                                      "repo_root",
+                                      "structure",
+                                      "",
+                                      NULL) == ERR_NO_MEM;
+    }
+    if (ok) {
+        ok = delegate_task_store_snapshot("dt_full_0", &snapshot) == 0 &&
+             strcmp(snapshot.description, "fill store") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_snapshot("dt_full_overflow", &snapshot) == ERR_NOT_FOUND;
+    }
+
+    report("delegate task store plan fails when store is full", ok);
 }
 
 static void test_delegate_task_store_retains_child_session_history(void)
@@ -2530,6 +3638,56 @@ static void test_delegate_child_session_json_renders_result_json_visible_text(vo
     report("delegate child session json renders result json visible text", ok);
 }
 
+static void test_delegate_child_session_preferred_visible_text_prefers_latest_frame_over_stale_history(void)
+{
+    delegate_task_store_reset_for_test();
+    session_store_clear("delegate_sync_child_visible_latest");
+
+    delegate_task_record_t snapshot;
+    char preferred[1024];
+    memset(&snapshot, 0, sizeof(snapshot));
+    memset(preferred, 0, sizeof(preferred));
+
+    int ok = delegate_task_store_start("dt_child_visible_latest",
+                                       "dc_child_visible_latest",
+                                       "delegate_sync_child_visible_latest",
+                                       "explore",
+                                       "child-visible-latest",
+                                       "child visible latest",
+                                       "prompt",
+                                       "deepseek-v4-pro",
+                                       "kernel/tooling",
+                                       "subsystem",
+                                       "coordination",
+                                       NULL) == 0;
+    if (ok) {
+        ok = session_store_append("delegate_sync_child_visible_latest",
+                                  "assistant",
+                                  "{\"text\":\"旧 assistant 文本：这是过时结论。\",\"reasoning\":\"old reasoning\"}") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_complete("dt_child_visible_latest",
+                                          "{\"status\":\"done\",\"summary\":\"最新结论：kernel/tooling 负责 delegate store、projection 与 parent wake。\",\"evidence\":[\"kernel/tooling/delegate/delegate_task_store.c\",\"kernel/tooling/delegate/delegate_parent_wake.c\"],\"risks\":[],\"next_files\":[\"kernel/tooling/delegate/delegate_state_json.c\"]}",
+                                          "",
+                                          false) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_snapshot("dt_child_visible_latest", &snapshot) == 0;
+    }
+    if (ok) {
+        ok = delegate_child_session_preferred_visible_text(&snapshot,
+                                                           preferred,
+                                                           sizeof(preferred)) &&
+             strstr(preferred, "最新结论：kernel/tooling 负责 delegate store、projection 与 parent wake。") != NULL &&
+             strstr(preferred, "旧 assistant 文本：这是过时结论。") == NULL;
+    }
+
+    if (!ok) {
+        pr_info("  child_visible_latest diag: %s", preferred);
+    }
+    report("delegate child session preferred visible text prefers latest frame over stale history", ok);
+}
+
 static void test_delegate_turn_session_persists_full_child_transcript(void)
 {
     session_store_clear("delegate_sync_turn_persist");
@@ -2998,6 +4156,124 @@ static void wait_for_delegate_background_idle_for_test(void)
     pr_warn("delegate background tasks still running at self-test teardown");
 }
 
+static bool wait_for_delegate_lifecycle_snapshot(bool (*predicate)(void *ctx),
+                                                 void *ctx,
+                                                 int timeout_ms)
+{
+    int attempts;
+
+    if (!predicate || timeout_ms <= 0) {
+        return false;
+    }
+
+    attempts = timeout_ms / 20;
+    if (attempts <= 0) {
+        attempts = 1;
+    }
+
+    for (int i = 0; i < attempts; i++) {
+        agent_loop_poll_delegate_coordinators();
+        if (predicate(ctx)) {
+            return true;
+        }
+        usleep(20000);
+    }
+
+    return predicate(ctx);
+}
+
+static bool predicate_delegate_fair_launch(void *ctx)
+{
+    delegate_two_snapshot_wait_t *state = (delegate_two_snapshot_wait_t *)ctx;
+
+    return delegate_task_store_snapshot_coordinator("dc_fair_a", state->left) == 0 &&
+           delegate_task_store_snapshot_coordinator("dc_fair_b", state->right) == 0 &&
+           state->left->running_count == 1 &&
+           state->right->running_count == 1 &&
+           state->left->queued_count == 1 &&
+           state->right->queued_count == 1;
+}
+
+static bool predicate_delegate_per_coordinator_cap(void *ctx)
+{
+    delegate_two_snapshot_wait_t *state = (delegate_two_snapshot_wait_t *)ctx;
+
+    return delegate_task_store_snapshot_coordinator("dc_cap_heavy", state->left) == 0 &&
+           delegate_task_store_snapshot_coordinator("dc_cap_light", state->right) == 0 &&
+           state->left->running_count == 1 &&
+           state->left->queued_count == 2 &&
+           state->right->running_count == 1 &&
+           state->right->queued_count == 0;
+}
+
+static bool predicate_delegate_per_parent_cap(void *ctx)
+{
+    delegate_three_snapshot_wait_t *state = (delegate_three_snapshot_wait_t *)ctx;
+
+    return delegate_task_store_snapshot_coordinator("dc_parent_a1", state->left) == 0 &&
+           delegate_task_store_snapshot_coordinator("dc_parent_a2", state->middle) == 0 &&
+           delegate_task_store_snapshot_coordinator("dc_parent_b1", state->right) == 0 &&
+           state->left->running_count == 1 &&
+           state->middle->running_count == 1 &&
+           state->right->running_count == 1 &&
+           state->left->queued_count == 1 &&
+           state->middle->queued_count == 1 &&
+           state->right->queued_count == 0;
+}
+
+static bool predicate_delegate_blocked_coordinator_cap(void *ctx)
+{
+    delegate_coordinator_record_t *snapshot = (delegate_coordinator_record_t *)ctx;
+
+    return delegate_task_store_snapshot_coordinator("dc_block_cap", snapshot) == 0 &&
+           snapshot->running_count == 1 &&
+           snapshot->blocked_count == 1 &&
+           snapshot->queued_count == 0;
+}
+
+static bool predicate_delegate_blocked_parent_cap(void *ctx)
+{
+    delegate_two_snapshot_wait_t *state = (delegate_two_snapshot_wait_t *)ctx;
+
+    return delegate_task_store_snapshot_coordinator("dc_parent_blocked", state->left) == 0 &&
+           delegate_task_store_snapshot_coordinator("dc_parent_ready", state->right) == 0 &&
+           state->left->blocked_count == 1 &&
+           state->left->running_count == 0 &&
+           state->right->running_count == 1 &&
+           state->right->queued_count == 0;
+}
+
+static bool predicate_delegate_long_prompt_schedulable(void *ctx)
+{
+    delegate_single_snapshot_wait_t *state = (delegate_single_snapshot_wait_t *)ctx;
+    delegate_coordinator_record_t *snapshot;
+    int active_or_done = 0;
+
+    if (!state || !state->coordinator_id[0] || !state->snapshot) {
+        return false;
+    }
+
+    snapshot = state->snapshot;
+    if (delegate_task_store_snapshot_coordinator(state->coordinator_id, snapshot) != 0) {
+        return false;
+    }
+
+    for (int i = 0; i < snapshot->agent_count; i++) {
+        const char *status = snapshot->agents[i].status;
+        if (strcmp(status, "running") == 0 ||
+            strcmp(status, "done") == 0 ||
+            strcmp(status, "error") == 0) {
+            active_or_done++;
+        }
+    }
+
+    if (snapshot->agent_count >= 3 && active_or_done >= 3) {
+        return true;
+    }
+
+    return snapshot->queued_count == 0 && strcmp(snapshot->status, "done") == 0;
+}
+
 static err_t test_status_sender(const char *chat_id, const char *payload)
 {
     s_delegate_wake_test_state.status_calls++;
@@ -3126,6 +4402,10 @@ static err_t test_channel_sender(const char *channel,
 static void test_delegate_parent_wake_waits_for_parent_response(void)
 {
     reset_delegate_wake_test_env();
+    cJSON *status_root = NULL;
+    cJSON *status_agents = NULL;
+    cJSON *status_agent = NULL;
+    cJSON *status_output_root = NULL;
 
     int ok = delegate_task_store_start_coordinator("dc_wake_wait", "chat_wake_wait", "", "", "parallel") == 0;
     if (ok) {
@@ -3162,28 +4442,26 @@ static void test_delegate_parent_wake_waits_for_parent_response(void)
     }
     agent_loop_poll_delegate_coordinators();
     if (ok) {
+        status_root = cJSON_Parse(s_delegate_wake_test_state.last_status_payload);
+        status_agents = status_root ? cJSON_GetObjectItem(status_root, "agents") : NULL;
+        status_agent = status_agents && cJSON_IsArray(status_agents) ? cJSON_GetArrayItem(status_agents, 0) : NULL;
+        status_output_root = cJSON_Parse(s_delegate_wake_test_state.last_output_payload);
+
         ok = s_delegate_wake_test_state.status_calls == 1 &&
              s_delegate_wake_test_state.output_calls == 1 &&
              s_delegate_wake_test_state.subagent_calls >= 1 &&
-             strstr(s_delegate_wake_test_state.last_status_payload, "\"wake_state\":\"dispatched\"") &&
-             strstr(s_delegate_wake_test_state.last_status_payload, "\"coordinator_id\":\"dc_wake_wait\"") &&
-             strstr(s_delegate_wake_test_state.last_status_payload, "\"task_id\":\"dt_wake_wait\"") &&
-             strstr(s_delegate_wake_test_state.last_status_payload, "\"child_session\":{") &&
-             strstr(s_delegate_wake_test_state.last_status_payload, "\"summary\":\"") &&
-             strstr(s_delegate_wake_test_state.last_status_payload, "\"history\":[") &&
-             strstr(s_delegate_wake_test_state.last_status_payload, "\"content\":\"可以继续，但需要先确认。\"") &&
-             strstr(s_delegate_wake_test_state.last_status_payload, "\"reasoning\":\"waiting for user confirmation\"") &&
-             strstr(s_delegate_wake_test_state.last_status_payload, "\"frames\":[") &&
-             strstr(s_delegate_wake_test_state.last_status_payload, "\"commits\":[") &&
-             strstr(s_delegate_wake_test_state.last_status_payload, "\"pending_queue\":{") &&
-             strstr(s_delegate_wake_test_state.last_status_payload, "\"request_type\":\"question_text\"") &&
-             strstr(s_delegate_wake_test_state.last_status_payload, "\"request_id\":\"question_req_wake_wait_1\"") &&
-             strstr(s_delegate_wake_test_state.last_status_payload, "\"prompt\":\"请先确认是否继续当前子任务\"") &&
-             strstr(s_delegate_wake_test_state.last_output_payload, "\"coordinator_id\":\"dc_wake_wait\"");
+             status_root &&
+             status_agent &&
+             status_output_root &&
+             strcmp(cJSON_GetStringValue(cJSON_GetObjectItem(status_root, "wake_state")), "dispatched") == 0 &&
+             strcmp(cJSON_GetStringValue(cJSON_GetObjectItem(status_root, "coordinator_id")), "dc_wake_wait") == 0 &&
+             strcmp(cJSON_GetStringValue(cJSON_GetObjectItem(status_agent, "task_id")), "dt_wake_wait") == 0 &&
+             strcmp(cJSON_GetStringValue(cJSON_GetObjectItem(status_agent, "status")), "blocked") == 0 &&
+             strcmp(cJSON_GetStringValue(cJSON_GetObjectItem(status_output_root, "coordinator_id")), "dc_wake_wait") == 0;
     }
     if (ok) {
         ok = strcmp(s_delegate_wake_test_state.last_subagent_task_id, "dt_wake_wait") == 0 &&
-             strcmp(s_delegate_wake_test_state.last_subagent_status, "running") == 0 &&
+             strcmp(s_delegate_wake_test_state.last_subagent_status, "blocked") == 0 &&
              strstr(s_delegate_wake_test_state.last_nonempty_subagent_detail, "elapsed_ms=");
     }
 
@@ -3205,6 +4483,9 @@ static void test_delegate_parent_wake_waits_for_parent_response(void)
         pr_info("  wake_wait subagent detail: %s", s_delegate_wake_test_state.last_subagent_detail);
         pr_info("  wake_wait subagent detail(nonempty): %s", s_delegate_wake_test_state.last_nonempty_subagent_detail);
     }
+
+    cJSON_Delete(status_root);
+    cJSON_Delete(status_output_root);
 
     report("delegate parent wake waits for parent response", ok);
 }
@@ -3943,6 +5224,15 @@ static void test_delegate_parent_wake_drops_retained_resume_after_parent_activit
     reset_delegate_wake_test_env();
     delegate_parent_wake_set_activity_window_for_test(2000);
 
+    delegate_coordinator_record_t consumed_record;
+    unsigned long consumed_visible_revision = 0;
+    struct turn_snapshot parent_snap;
+    memset(&parent_snap, 0, sizeof(parent_snap));
+    strscpy(parent_snap.chat_id, "chat_wake_resume_consumed", sizeof(parent_snap.chat_id));
+    strscpy(parent_snap.channel, CHAN_WEBSOCKET, sizeof(parent_snap.channel));
+    strscpy(parent_snap.source, "user", sizeof(parent_snap.source));
+    turn_context_save(&parent_snap);
+
     int ok = delegate_task_store_start_coordinator("dc_wake_resume_consumed", "chat_wake_resume_consumed", "", "", "parallel") == 0;
     if (ok) {
         ok = delegate_task_store_start("dt_wake_resume_consumed", "dc_wake_resume_consumed", "delegate_sync_resume_consumed", "explore",
@@ -3972,6 +5262,47 @@ static void test_delegate_parent_wake_drops_retained_resume_after_parent_activit
     if (ok) {
         usleep(500000);
         delegate_parent_wake_record_parent_activity("chat_wake_resume_consumed");
+    }
+
+    memset(&consumed_record, 0, sizeof(consumed_record));
+    if (ok) {
+        ok = delegate_task_store_snapshot_coordinator("dc_wake_resume_consumed",
+                                                      &consumed_record) == 0 &&
+             consumed_record.visible_revision > 0;
+    }
+    if (ok) {
+        consumed_visible_revision = consumed_record.visible_revision;
+    }
+
+    if (ok) {
+        struct message consumed_msg;
+        char consumed_payload[1024];
+        memset(&consumed_msg, 0, sizeof(consumed_msg));
+        strscpy(consumed_msg.channel, CHAN_WEBSOCKET, sizeof(consumed_msg.channel));
+        strscpy(consumed_msg.chat_id, "chat_wake_resume_consumed", sizeof(consumed_msg.chat_id));
+        strscpy(consumed_msg.source, MSG_SOURCE_DELEGATE, sizeof(consumed_msg.source));
+        snprintf(consumed_payload,
+                 sizeof(consumed_payload),
+            "Delegate coordinator completed. Summarize the finished subagent outputs for the user directly.\n\n"
+            "Coordinator snapshot:\n"
+            "{"
+              "\"coordinator_id\":\"dc_wake_resume_consumed\","
+              "\"visible_revision\":%lu,"
+              "\"status\":\"done\","
+              "\"agents\":["
+                "{"
+                  "\"task_id\":\"dt_wake_resume_consumed\","
+                  "\"subagent_type\":\"explore\","
+                  "\"description\":\"wake resume consumed\","
+                  "\"status\":\"done\","
+                  "\"output\":\"resume consumed summary\""
+                "}"
+              "]"
+            "}",
+                 consumed_visible_revision);
+        consumed_msg.content = strdup(consumed_payload);
+        agent_turn_process_new_message(&consumed_msg);
+        drain_outbound_bus_for_test();
     }
 
     struct message resume_msg;
@@ -4014,6 +5345,211 @@ static void test_delegate_parent_wake_drops_retained_resume_after_parent_activit
 
     delegate_parent_wake_set_activity_window_for_test(2000);
     report("delegate parent wake drops retained resume after parent activity", ok);
+}
+
+static void test_delegate_parent_wake_recent_activity_alone_does_not_drop_retained_resume(void)
+{
+    reset_delegate_wake_test_env();
+    delegate_parent_wake_set_activity_window_for_test(2000);
+
+    int ok = delegate_task_store_start_coordinator("dc_wake_resume_activity_only",
+                                                   "chat_wake_resume_activity_only",
+                                                   "",
+                                                   "",
+                                                   "parallel") == 0;
+    if (ok) {
+        ok = delegate_task_store_start("dt_wake_resume_activity_only",
+                                       "dc_wake_resume_activity_only",
+                                       "delegate_sync_resume_activity_only",
+                                       "explore",
+                                       "",
+                                       "wake resume activity only",
+                                       "prompt",
+                                       "deepseek-v4-pro",
+                                       "kernel/tooling",
+                                       "subsystem",
+                                       "coordination",
+                                       NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_attach_task("dc_wake_resume_activity_only",
+                                             "dt_wake_resume_activity_only") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_mark_parent_response_sent("chat_wake_resume_activity_only") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_complete("dt_wake_resume_activity_only",
+                                          "resume activity only summary",
+                                          "",
+                                          false) == 0;
+    }
+    if (ok) {
+        delegate_parent_wake_record_parent_activity("chat_wake_resume_activity_only");
+    }
+
+    agent_loop_poll_delegate_coordinators();
+    if (ok) {
+        ok = delegate_parent_wake_pending_count_for_test() == 1;
+    }
+    if (ok) {
+        usleep(500000);
+        delegate_parent_wake_record_parent_activity("chat_wake_resume_activity_only");
+    }
+
+    struct message resume_msg;
+    memset(&resume_msg, 0, sizeof(resume_msg));
+    usleep(2100000);
+    agent_loop_poll_delegate_coordinators();
+    if (ok) {
+        ok = message_bus_pop_inbound(&resume_msg, 1000) == 0 &&
+             strcmp(resume_msg.channel, CHAN_WEBSOCKET) == 0 &&
+             strcmp(resume_msg.chat_id, "chat_wake_resume_activity_only") == 0 &&
+             strcmp(resume_msg.source, MSG_SOURCE_DELEGATE) == 0 &&
+             resume_msg.content &&
+             strstr(resume_msg.content, "\"coordinator_id\":\"dc_wake_resume_activity_only\"") &&
+             strstr(resume_msg.content, "\"summary\":\"resume activity only summary\"");
+    }
+    free(resume_msg.content);
+    free(resume_msg.reasoning);
+    free(resume_msg.image_path);
+
+    delegate_coordinator_record_t record;
+    memset(&record, 0, sizeof(record));
+    if (ok) {
+        ok = delegate_task_store_snapshot_coordinator("dc_wake_resume_activity_only", &record) == 0 &&
+             record.parent_resume_enqueued &&
+             record.wake_state == DELEGATE_WAKE_COMPLETED &&
+             delegate_parent_wake_pending_count_for_test() == 0;
+    }
+    if (!ok) {
+        pr_info("  wake_resume_activity_only diag: status_calls=%d output_calls=%d done_calls=%d pending=%d",
+                s_delegate_wake_test_state.status_calls,
+                s_delegate_wake_test_state.output_calls,
+                s_delegate_wake_test_state.done_calls,
+                delegate_parent_wake_pending_count_for_test());
+        if (delegate_task_store_snapshot_coordinator("dc_wake_resume_activity_only", &record) == 0) {
+            pr_info("  wake_resume_activity_only state: completion_notified=%d parent_resume_enqueued=%d wake_state=%d visible=%lu sent=%lu",
+                    record.completion_notified ? 1 : 0,
+                    record.parent_resume_enqueued ? 1 : 0,
+                    (int)record.wake_state,
+                    record.visible_revision,
+                    record.last_sent_revision);
+        }
+    }
+
+    delegate_parent_wake_set_activity_window_for_test(2000);
+    report("delegate parent wake recent activity alone does not drop retained resume", ok);
+}
+
+static void test_delegate_parent_wake_drops_retained_resume_after_parent_assistant_output(void)
+{
+    reset_delegate_wake_test_env();
+    delegate_parent_wake_set_activity_window_for_test(2000);
+
+    struct turn_snapshot parent_snap;
+    memset(&parent_snap, 0, sizeof(parent_snap));
+    strscpy(parent_snap.chat_id, "chat_wake_resume_assistant_output", sizeof(parent_snap.chat_id));
+    strscpy(parent_snap.channel, CHAN_WEBSOCKET, sizeof(parent_snap.channel));
+    strscpy(parent_snap.source, "user", sizeof(parent_snap.source));
+    parent_snap.messages = cJSON_CreateArray();
+    turn_context_save(&parent_snap);
+    turn_context_snapshot_cleanup(&parent_snap);
+
+    int ok = delegate_task_store_start_coordinator("dc_wake_resume_assistant_output",
+                                                   "chat_wake_resume_assistant_output",
+                                                   "",
+                                                   "",
+                                                   "parallel") == 0;
+    if (ok) {
+        ok = delegate_task_store_start("dt_wake_resume_assistant_output",
+                                       "dc_wake_resume_assistant_output",
+                                       "delegate_sync_resume_assistant_output",
+                                       "explore",
+                                       "",
+                                       "wake resume assistant output",
+                                       "prompt",
+                                       "deepseek-v4-pro",
+                                       "kernel/tooling",
+                                       "subsystem",
+                                       "coordination",
+                                       NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_attach_task("dc_wake_resume_assistant_output",
+                                             "dt_wake_resume_assistant_output") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_mark_parent_response_sent("chat_wake_resume_assistant_output") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_complete("dt_wake_resume_assistant_output",
+                                          "resume assistant output summary",
+                                          "",
+                                          false) == 0;
+    }
+    if (ok) {
+        delegate_parent_wake_record_parent_activity("chat_wake_resume_assistant_output");
+    }
+
+    agent_loop_poll_delegate_coordinators();
+    if (ok) {
+        ok = delegate_parent_wake_pending_count_for_test() == 1;
+    }
+
+    if (ok) {
+        struct turn_snapshot assistant_snap;
+        memset(&assistant_snap, 0, sizeof(assistant_snap));
+        strscpy(assistant_snap.chat_id, "chat_wake_resume_assistant_output", sizeof(assistant_snap.chat_id));
+        strscpy(assistant_snap.channel, CHAN_WEBSOCKET, sizeof(assistant_snap.channel));
+        strscpy(assistant_snap.source, "user", sizeof(assistant_snap.source));
+        assistant_snap.messages = cJSON_CreateArray();
+        cJSON *assistant_msg = cJSON_CreateObject();
+        cJSON_AddStringToObject(assistant_msg, "role", "assistant");
+        cJSON_AddStringToObject(assistant_msg, "content", "parent already produced visible assistant output");
+        cJSON_AddItemToArray(assistant_snap.messages, assistant_msg);
+        turn_context_save(&assistant_snap);
+        turn_context_snapshot_cleanup(&assistant_snap);
+    }
+
+    struct message resume_msg;
+    memset(&resume_msg, 0, sizeof(resume_msg));
+    usleep(2100000);
+    agent_loop_poll_delegate_coordinators();
+    if (ok) {
+        ok = message_bus_pop_inbound(&resume_msg, 0) != 0;
+    }
+    free(resume_msg.content);
+    free(resume_msg.reasoning);
+    free(resume_msg.image_path);
+
+    delegate_coordinator_record_t record;
+    memset(&record, 0, sizeof(record));
+    if (ok) {
+        ok = delegate_task_store_snapshot_coordinator("dc_wake_resume_assistant_output", &record) == 0 &&
+             record.completion_notified &&
+             !record.parent_resume_enqueued &&
+             record.wake_state == DELEGATE_WAKE_COMPLETED &&
+             delegate_parent_wake_pending_count_for_test() == 0;
+    }
+    if (!ok) {
+        pr_info("  wake_resume_assistant_output diag: status_calls=%d output_calls=%d done_calls=%d pending=%d",
+                s_delegate_wake_test_state.status_calls,
+                s_delegate_wake_test_state.output_calls,
+                s_delegate_wake_test_state.done_calls,
+                delegate_parent_wake_pending_count_for_test());
+        if (delegate_task_store_snapshot_coordinator("dc_wake_resume_assistant_output", &record) == 0) {
+            pr_info("  wake_resume_assistant_output state: completion_notified=%d parent_resume_enqueued=%d wake_state=%d visible=%lu sent=%lu",
+                    record.completion_notified ? 1 : 0,
+                    record.parent_resume_enqueued ? 1 : 0,
+                    (int)record.wake_state,
+                    record.visible_revision,
+                    record.last_sent_revision);
+        }
+    }
+
+    delegate_parent_wake_set_activity_window_for_test(2000);
+    report("delegate parent wake drops retained resume after parent assistant output", ok);
 }
 
 static void test_delegate_parent_wake_retains_failed_resume_after_parent_activity(void)
@@ -4506,7 +6042,7 @@ static void test_delegate_session_state_json_unifies_parent_history_and_subagent
         ok = ws_http_handle_request(fds[0], request, "<html></html>") == 0;
     }
     if (ok) {
-        n = recv(fds[1], response, sizeof(response) - 1, 0);
+        n = self_test_recv_all_http_response(fds[1], response, sizeof(response));
         ok = n > 0;
     }
     if (n > 0) {
@@ -4953,6 +6489,117 @@ static void test_delegate_parent_subagent_state_delta_json_batches_visible_revis
     report("delegate parent subagent state delta json batches visible revision and sessions", ok);
 }
 
+static void test_delegate_parent_subagent_state_delta_json_includes_changed_coordinator_sessions_without_explicit_tasks(void)
+{
+    delegate_task_store_reset_for_test();
+    session_store_clear("delegate_sync_chat_delta_implicit_a");
+    session_store_clear("delegate_sync_chat_delta_implicit_b");
+
+    int ok = delegate_task_store_start_coordinator("dc_chat_delta_implicit",
+                                                   "chat_delta_projection_implicit",
+                                                   "team_run_chat_delta_implicit",
+                                                   "Team Chat Delta Implicit",
+                                                   "parallel") == 0;
+    if (ok) {
+        ok = delegate_task_store_start("dt_chat_delta_implicit_a",
+                                       "dc_chat_delta_implicit",
+                                       "delegate_sync_chat_delta_implicit_a",
+                                       "explore",
+                                       "chat-delta-implicit-a",
+                                       "chat delta implicit task A",
+                                       "prompt A",
+                                       "deepseek-v4-pro",
+                                       "kernel/turn",
+                                       "subsystem",
+                                       "projection",
+                                       NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_start("dt_chat_delta_implicit_b",
+                                       "dc_chat_delta_implicit",
+                                       "delegate_sync_chat_delta_implicit_b",
+                                       "explore",
+                                       "chat-delta-implicit-b",
+                                       "chat delta implicit task B",
+                                       "prompt B",
+                                       "deepseek-v4-pro",
+                                       "kernel/tooling",
+                                       "subsystem",
+                                       "projection",
+                                       NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_attach_task("dc_chat_delta_implicit", "dt_chat_delta_implicit_a") == 0 &&
+             delegate_task_store_attach_task("dc_chat_delta_implicit", "dt_chat_delta_implicit_b") == 0;
+    }
+    if (ok) {
+        ok = session_store_append_ex("delegate_sync_chat_delta_implicit_a",
+                                     "assistant",
+                                     "chat delta implicit A history",
+                                     "delegate_child") == 0 &&
+             session_store_append_ex("delegate_sync_chat_delta_implicit_b",
+                                     "assistant",
+                                     "chat delta implicit B history",
+                                     "delegate_child") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_append_session_step("dt_chat_delta_implicit_a",
+                                                     "tool",
+                                                     "chat delta implicit A step",
+                                                     "chat delta implicit A step") == 0 &&
+             delegate_task_store_append_session_step("dt_chat_delta_implicit_b",
+                                                     "tool",
+                                                     "chat delta implicit B step",
+                                                     "chat delta implicit B step") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_complete("dt_chat_delta_implicit_a", "chat delta implicit summary A", "", false) == 0 &&
+             delegate_task_store_complete("dt_chat_delta_implicit_b", "chat delta implicit summary B", "", false) == 0;
+    }
+
+    delegate_coordinator_record_t snapshot;
+    memset(&snapshot, 0, sizeof(snapshot));
+    if (ok) {
+        ok = delegate_task_store_snapshot_coordinator("dc_chat_delta_implicit", &snapshot) == 0 &&
+             snapshot.visible_revision > 0;
+    }
+
+    char request_json[256];
+    request_json[0] = '\0';
+    if (ok) {
+        snprintf(request_json,
+                 sizeof(request_json),
+                 "{"
+                 "\"chat_id\":\"chat_delta_projection_implicit\","
+                 "\"after_visible_revision\":%lu"
+                 "}",
+                 snapshot.visible_revision - 1);
+    }
+
+    char *json = ok
+        ? delegate_parent_subagent_state_delta_json_build("chat_delta_projection_implicit",
+                                                          snapshot.visible_revision - 1,
+                                                          request_json)
+        : NULL;
+    if (ok) {
+        ok = json &&
+             strstr(json, "\"chat_id\":\"chat_delta_projection_implicit\"") &&
+             strstr(json, "\"changed_count\":1") &&
+             strstr(json, "\"item_count\":2") &&
+             strstr(json, "\"task_id\":\"dt_chat_delta_implicit_a\"") &&
+             strstr(json, "\"task_id\":\"dt_chat_delta_implicit_b\"") &&
+             strstr(json, "\"history_after_seq\":0") &&
+             strstr(json, "\"frame_after_seq\":0") &&
+             strstr(json, "\"commit_after_seq\":0");
+    }
+    if (!ok) {
+        pr_info("  chat_delta_implicit_json diag: %s", json ? json : "(null)");
+    }
+
+    free(json);
+    report("delegate parent subagent state delta json includes changed coordinator sessions without explicit tasks", ok);
+}
+
 static void test_delegate_parent_registry_exposes_wake_lifecycle(void)
 {
     delegate_task_store_reset_for_test();
@@ -5158,6 +6805,216 @@ static void test_delegate_completion_turn_merges_locally(void)
     free(msg.content);
 
     report("delegate completion turn merges locally", ok);
+}
+
+static void test_delegate_completion_turn_prefers_child_session_rendered_summary(void)
+{
+    drain_inbound_bus_for_test();
+
+    struct message msg;
+    memset(&msg, 0, sizeof(msg));
+    strscpy(msg.channel, CHAN_WEBSOCKET, sizeof(msg.channel));
+    strscpy(msg.chat_id, "chat_delegate_child_session_first", sizeof(msg.chat_id));
+    strscpy(msg.source, MSG_SOURCE_DELEGATE, sizeof(msg.source));
+    msg.content = strdup(
+        "Delegate coordinator completed. Summarize the finished subagent outputs for the user directly.\n\n"
+        "Coordinator snapshot:\n"
+        "{"
+          "\"coordinator_id\":\"dc_child_session_first\","
+          "\"status\":\"done\","
+          "\"agents\":["
+            "{"
+              "\"task_id\":\"dt_a\","
+              "\"subagent_type\":\"explore\","
+              "\"description\":\"分析 kernel\","
+              "\"status\":\"done\","
+              "\"summary\":\"旧摘要：只有一句过时文本。\","
+              "\"output\":\"旧输出：只有一句过时文本。\","
+              "\"child_session\":{"
+                "\"latest_frame\":{"
+                  "\"type\":\"subagent_done\","
+                  "\"status\":\"done\","
+                  "\"detail\":\"child done detail\","
+                  "\"output_preview\":\"{\\\"status\\\":\\\"done\\\",\\\"summary\\\":\\\"kernel/turn 负责单回合执行主链，kernel/tooling 负责后台协调与 parent wake。\\\",\\\"evidence\\\":[\\\"kernel/turn/turn_entry.c\\\",\\\"kernel/tooling/delegate/delegate_parent_wake.c\\\"],\\\"risks\\\":[],\\\"next_files\\\":[\\\"kernel/tooling/delegate/delegate_state_json.c\\\"]}\""
+                "},"
+                "\"history\":["
+                  "{"
+                    "\"role\":\"assistant\","
+                    "\"content\":\"{\\\"status\\\":\\\"done\\\",\\\"summary\\\":\\\"kernel/turn 负责单回合执行主链，kernel/tooling 负责后台协调与 parent wake。\\\",\\\"evidence\\\":[\\\"kernel/turn/turn_entry.c\\\",\\\"kernel/tooling/delegate/delegate_parent_wake.c\\\"],\\\"risks\\\":[],\\\"next_files\\\":[\\\"kernel/tooling/delegate/delegate_state_json.c\\\"]}\""
+                  "}"
+                "]"
+              "}"
+            "}"
+          "]"
+        "}");
+
+    agent_turn_process_new_message(&msg);
+
+    struct message out;
+    memset(&out, 0, sizeof(out));
+    int ok = message_bus_pop_outbound(&out, 1000) == 0 &&
+             out.content &&
+             strstr(out.content, "kernel/turn 负责单回合执行主链") &&
+             strstr(out.content, "Evidence:") &&
+             strstr(out.content, "kernel/tooling/delegate/delegate_parent_wake.c") &&
+             strstr(out.content, "Next files:") &&
+             strstr(out.content, "旧摘要：只有一句过时文本。") == NULL &&
+             strstr(out.content, "旧输出：只有一句过时文本。") == NULL;
+    free(out.content);
+    free(out.reasoning);
+    free(out.image_path);
+    free(msg.content);
+
+    report("delegate completion turn prefers child session rendered summary", ok);
+}
+
+static void test_delegate_background_coordinator_summary_prefers_child_session_rendered_text(void)
+{
+    delegate_task_store_reset_for_test();
+
+    delegate_coordinator_record_t record;
+    delegate_task_record_t snapshot;
+    char summary[2048];
+    memset(&record, 0, sizeof(record));
+    memset(&snapshot, 0, sizeof(snapshot));
+    memset(summary, 0, sizeof(summary));
+
+    int ok = delegate_task_store_start("dt_summary_child_first",
+                                       "dc_summary_child_first",
+                                       "delegate_sync_summary_child_first",
+                                       "explore",
+                                       "summary-child-first",
+                                       "分析 kernel/turn",
+                                       "prompt",
+                                       "deepseek-v4-pro",
+                                       "kernel/turn",
+                                       "subsystem",
+                                       "turn_execution",
+                                       NULL) == 0;
+    if (ok) {
+        ok = delegate_task_store_complete("dt_summary_child_first",
+                                          "旧 output：过时摘要。",
+                                          "",
+                                          false) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_append_session_message(
+                 "dt_summary_child_first",
+                 "assistant",
+                 "{\"status\":\"done\",\"summary\":\"kernel/turn 负责单回合执行主链与最终回复生成。\",\"evidence\":[\"kernel/turn/turn_entry.c\"],\"risks\":[],\"next_files\":[\"kernel/turn/turn_pipeline.c\"]}") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_snapshot("dt_summary_child_first", &snapshot) == 0;
+    }
+    if (ok) {
+        record.agent_count = 1;
+        strscpy(record.coordinator_id, "dc_summary_child_first", sizeof(record.coordinator_id));
+        strscpy(record.status, "done", sizeof(record.status));
+        record.completed_count = 1;
+        record.effective_output_count = 1;
+        strscpy(record.agents[0].task_id, snapshot.task_id, sizeof(record.agents[0].task_id));
+        strscpy(record.agents[0].description, snapshot.description, sizeof(record.agents[0].description));
+        strscpy(record.agents[0].subagent_type, snapshot.subagent_type, sizeof(record.agents[0].subagent_type));
+        strscpy(record.agents[0].status, "done", sizeof(record.agents[0].status));
+    }
+    if (ok) {
+        tool_delegate_render_background_coordinator_summary(&record, summary, sizeof(summary));
+        ok = strstr(summary, "kernel/turn 负责单回合执行主链与最终回复生成") != NULL &&
+             strstr(summary, "旧 output：过时摘要。") == NULL &&
+             strstr(summary, "任务摘要：") != NULL;
+    }
+
+    report("delegate background coordinator summary prefers child session rendered text", ok);
+}
+
+static void test_delegate_state_json_agent_summary_prefers_child_session_rendered_text(void)
+{
+    delegate_coordinator_record_t snapshot;
+    char *payload = NULL;
+    int ok;
+
+    delegate_task_store_reset_for_test();
+    session_store_clear("delegate_sync_state_child_first");
+    session_store_clear("chat_state_child_first");
+    memset(&snapshot, 0, sizeof(snapshot));
+
+    ok = delegate_task_store_start_coordinator("dc_state_child_first",
+                                               "chat_state_child_first",
+                                               "tr_state_child_first",
+                                               "state-child-first",
+                                               "parallel") == 0;
+    if (ok) {
+        ok = delegate_task_store_start("dt_state_child_first",
+                                       "dc_state_child_first",
+                                       "delegate_sync_state_child_first",
+                                       "explore",
+                                       "state-child-first",
+                                       "分析 kernel/tooling",
+                                       "prompt",
+                                       "deepseek-v4-pro",
+                                       "kernel/tooling",
+                                       "subsystem",
+                                       "coordination",
+                                       NULL) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_complete("dt_state_child_first",
+                                          "旧 output：快照层不该优先显示这句。",
+                                          "",
+                                          false) == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_append_session_message(
+                 "dt_state_child_first",
+                 "assistant",
+                 "{\"status\":\"done\",\"summary\":\"kernel/tooling 负责 delegate store、projection 与 parent wake 协调。\",\"evidence\":[\"kernel/tooling/delegate/delegate_task_store.c\",\"kernel/tooling/delegate/delegate_parent_wake.c\"],\"risks\":[],\"next_files\":[\"kernel/tooling/delegate/delegate_state_json.c\"]}") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_attach_task("dc_state_child_first", "dt_state_child_first") == 0;
+    }
+    if (ok) {
+        ok = delegate_task_store_snapshot_coordinator("dc_state_child_first", &snapshot) == 0;
+    }
+    if (ok) {
+        payload = delegate_coordinator_snapshot_json_build(&snapshot, false);
+        if (payload) {
+            cJSON *root = cJSON_Parse(payload);
+            cJSON *agents = root ? cJSON_GetObjectItem(root, "agents") : NULL;
+            cJSON *agent0 = agents && cJSON_IsArray(agents) ? cJSON_GetArrayItem(agents, 0) : NULL;
+            const char *summary = agent0 ? cJSON_GetStringValue(cJSON_GetObjectItem(agent0, "summary")) : NULL;
+            const char *output = agent0 ? cJSON_GetStringValue(cJSON_GetObjectItem(agent0, "output")) : NULL;
+            const char *raw_output = agent0 ? cJSON_GetStringValue(cJSON_GetObjectItem(agent0, "raw_output")) : NULL;
+            const char *description = agent0 ? cJSON_GetStringValue(cJSON_GetObjectItem(agent0, "description")) : NULL;
+            ok = root &&
+                 summary &&
+                 description &&
+                 strcmp(description, "分析 kernel/tooling") == 0 &&
+                 strstr(summary, "kernel/tooling 负责 delegate store、projection 与 parent wake 协调。") != NULL &&
+                 output &&
+                 strstr(output, "kernel/tooling 负责 delegate store、projection 与 parent wake 协调。") != NULL &&
+                 strstr(output, "旧 output：快照层不该优先显示这句。") == NULL &&
+                 raw_output &&
+                 strstr(raw_output, "旧 output：快照层不该优先显示这句。") != NULL;
+            if (!root) {
+                const char *err = cJSON_GetErrorPtr();
+                pr_info("  delegate_state_json parse error ptr: %s", err ? err : "<null>");
+            } else if (!ok) {
+                pr_info("  delegate_state_json fields desc=%s", description ? description : "<null>");
+                pr_info("  delegate_state_json fields summary=%s", summary ? summary : "<null>");
+                pr_info("  delegate_state_json fields output=%s", output ? output : "<null>");
+                pr_info("  delegate_state_json fields raw_output=%s", raw_output ? raw_output : "<null>");
+            }
+            cJSON_Delete(root);
+        } else {
+            ok = 0;
+        }
+    }
+    if (!ok) {
+        pr_info("  delegate_state_json child-first diag: %s", payload ? payload : "<null>");
+    }
+
+    free(payload);
+    report("delegate state json agent summary prefers child session rendered text", ok);
 }
 
 static void test_delegate_completion_turn_summarizes_cross_module_relationships(void)
@@ -5912,6 +7769,15 @@ static void test_delegate_empty_input_is_recoverable(void)
 {
     int ok = !agent_tool_protocol_failure_should_stop("delegate_task", "{}", "delegate_task: missing required field 'subagent_type'", ERR_INVALID_ARG);
     report("delegate empty input is recoverable", ok);
+}
+
+static void test_delegate_empty_input_is_recoverable_noise(void)
+{
+    int ok = agent_tool_failure_is_recoverable_noise("delegate_task",
+                                                     "{}",
+                                                     "delegate_task: missing required field 'subagent_type'",
+                                                     ERR_INVALID_ARG);
+    report("delegate empty input is recoverable noise", ok);
 }
 
 static void test_delegate_schema_avoids_anyof(void)
@@ -6814,19 +8680,30 @@ static void test_delegate_task_oh_my_openagent_explicit_scopes_expand_to_batch(v
 static void test_delegate_task_opencode_explicit_scopes_expand_to_batch(void)
 {
     char output[8192];
+    char repo_root[PATH_MAX];
+    char app_path[PATH_MAX];
+    char cli_path[PATH_MAX];
+    char session_ui_path[PATH_MAX];
+    char input[4096];
     memset(output, 0, sizeof(output));
+    memset(input, 0, sizeof(input));
+    build_workspace_opencode_path(repo_root, sizeof(repo_root), NULL);
+    build_workspace_opencode_path(app_path, sizeof(app_path), "packages/app");
+    build_workspace_opencode_path(cli_path, sizeof(cli_path), "packages/cli");
+    build_workspace_opencode_path(session_ui_path, sizeof(session_ui_path), "packages/session-ui");
 
-    const char *input =
-        "{"
-        "\"subagent_type\":\"explore\","
-        "\"description\":\"分析 opencode monorepo 结构和关键模块\","
-        "\"prompt\":\"请分析 /home/wangergou/code/github/opencode 的目录结构和关键模块。"
-        "重点同时安排多个 subagent，分别分析 "
-        "/home/wangergou/code/github/opencode/packages/app、"
-        "/home/wangergou/code/github/opencode/packages/cli、"
-        "/home/wangergou/code/github/opencode/packages/session-ui，"
-        "最后汇总 session-first 相关职责边界。\""
-        "}";
+    snprintf(input,
+             sizeof(input),
+             "{"
+             "\"subagent_type\":\"explore\","
+             "\"description\":\"分析 opencode monorepo 结构和关键模块\","
+             "\"prompt\":\"请分析 opencode monorepo 的目录结构和关键模块。"
+             "重点同时安排多个 subagent，分别分析 "
+             "opencode/packages/app、"
+             "opencode/packages/cli、"
+             "opencode/packages/session-ui，"
+             "最后汇总 session-first 相关职责边界。\""
+             "}");
 
     const struct tool *t = tool_delegate_definition();
     err_t err = t->execute(input, output, sizeof(output));
@@ -6860,6 +8737,24 @@ static void test_delegate_task_opencode_explicit_scopes_expand_to_batch(void)
     }
     cJSON_Delete(root);
     report("delegate task opencode explicit scopes expand to coordinator batch", ok);
+}
+
+static void test_delegate_repo_root_explicit_scopes_override_deep_analysis_gate(void)
+{
+    delegate_request_t req = {0};
+    strscpy(req.subagent_type, "explore", sizeof(req.subagent_type));
+    strscpy(req.description, "分析 opencode monorepo 结构和关键模块", sizeof(req.description));
+    strscpy(req.prompt,
+            "请分析 opencode monorepo 的目录结构和关键模块。"
+            "重点同时安排多个 subagent，分别分析 "
+            "opencode/packages/app、"
+            "opencode/packages/cli、"
+            "opencode/packages/session-ui，"
+            "最后汇总 session-first 相关职责边界。",
+            sizeof(req.prompt));
+
+    int ok = tool_delegate_should_expand_repo_root_overview_batch(&req);
+    report("delegate repo-root explicit scopes override deep analysis gate", ok);
 }
 
 static void test_delegate_dsml_output_filter(void)
@@ -7472,6 +9367,7 @@ static void test_delegate_prepare_single_file_prompt_injects_context(void)
     int ok = tool_delegate_prepare_subagent_prompt(
         "explore",
         "分析 kernel/loop.c",
+        "",
         prompt,
         prepared,
         sizeof(prepared),
@@ -7493,6 +9389,7 @@ static void test_delegate_prepare_single_file_prompt_truncates_context(void)
     int ok = tool_delegate_prepare_subagent_prompt(
         "explore",
         "分析 tool_delegate.c",
+        "",
         prompt,
         prepared,
         sizeof(prepared),
@@ -7514,6 +9411,7 @@ static void test_delegate_prepare_overview_prompt_is_bounded(void)
     int ok = tool_delegate_prepare_subagent_prompt(
         "explore",
         "分析 drivers/tool 目录结构",
+        "/home/wangergou/code/github/daima-agent/drivers/tool",
         prompt,
         prepared,
         sizeof(prepared),
@@ -7522,11 +9420,51 @@ static void test_delegate_prepare_overview_prompt_is_bounded(void)
          !disable_tools &&
          strstr(prepared, "Bounded explore override:") &&
          strstr(prepared, "Do not enumerate every subdirectory or every file.") &&
-         strstr(prepared, "representative coverage, not exhaustive traversal");
+         strstr(prepared, "representative coverage, not exhaustive traversal") &&
+         strstr(prepared, "Never guess fake roots like `/repo`, `/workspace`, `/project`, or `/data/workspace`.") &&
+         strstr(prepared, "terminal.workdir");
     if (!ok) {
         pr_info("  overview prepared prompt: %s", prepared);
     }
     report("delegate overview prompt is rewritten to bounded exploration", ok);
+}
+
+static void test_delegate_batch_child_prompt_injects_target_path_contract(void)
+{
+    delegate_request_t child;
+    memset(&child, 0, sizeof(child));
+    strscpy(child.subagent_type, "explore", sizeof(child.subagent_type));
+    strscpy(child.description, "分析 packages/app 模块", sizeof(child.description));
+    strscpy(child.target_path,
+            "/home/wangergou/.agent-data/spiffs_data/workspace/opencode/packages/app",
+            sizeof(child.target_path));
+    strscpy(child.prompt,
+            "分析 packages/app 的目录结构和关键模块，最后汇总职责边界。",
+            sizeof(child.prompt));
+
+    tool_delegate_normalize_batch_child_request(&child);
+
+    int ok = strstr(child.prompt, "Target: /home/wangergou/.agent-data/spiffs_data/workspace/opencode/packages/app") != NULL &&
+             strstr(child.prompt, "Requested scope: 分析 packages/app 模块") != NULL &&
+             strstr(child.prompt, "Never guess fake roots like `/repo`, `/workspace`, `/project`, or `/data/workspace`.") != NULL &&
+             strstr(child.prompt, "Treat this absolute path as the primary working scope for file exploration.") != NULL;
+    if (!ok) {
+        pr_info("  normalized batch child prompt: %s", child.prompt);
+    }
+    report("delegate batch child prompt injects target path contract", ok);
+}
+
+static void test_delegate_explore_prompt_forbids_fake_repo_roots(void)
+{
+    const char *prompt = tool_delegate_subagent_prompt_prefix(DELEGATE_SUBAGENT_EXPLORE);
+    int ok = prompt &&
+             strstr(prompt, "Do not guess synthetic roots like `/repo`, `/workspace`, `/project`, `/data/workspace`") &&
+             strstr(prompt, "Valid examples: `{\"action\":\"search\",\"path\":\"/absolute/repo/root\"") &&
+             strstr(prompt, "structured `workdir` field instead of `cd ... && ...`");
+    if (!ok) {
+        pr_info("  explore subagent prompt: %s", prompt ? prompt : "(null)");
+    }
+    report("delegate explore prompt forbids fake repo roots", ok);
 }
 
 static void test_turn_interview_appends_answer_into_current_message(void)
@@ -8009,6 +9947,27 @@ static void test_delegate_parent_wake_flush_hides_inline_terminal_resume_gate(vo
     report("delegate parent wake flush hides inline terminal resume gate", ok);
 }
 
+static void test_delegate_parent_wake_file_uses_consumed_resume_gate(void)
+{
+    char source[32768];
+    FILE *f = fopen("/home/wangergou/code/github/daima-agent/kernel/tooling/delegate/delegate_parent_wake.c", "r");
+    int ok = (f != NULL);
+    size_t nread = 0;
+    if (ok) {
+        nread = fread(source, 1, sizeof(source) - 1, f);
+        source[nread] = '\0';
+        fclose(f);
+    }
+    if (ok) {
+        ok = strstr(source, "parent_chat_consumed_delegate_resume(") != NULL &&
+             strstr(source, "turn_context_load_copy(") != NULL;
+    }
+    if (!ok) {
+        pr_info("  delegate parent wake consumed-gate diag: %s", ok ? "" : source);
+    }
+    report("delegate parent wake file uses consumed resume gate", ok);
+}
+
 static void test_delegate_parent_wake_file_owns_resume_pending_derivation(void)
 {
     char source[65536];
@@ -8293,6 +10252,643 @@ static void test_delegate_overview_file_hides_path_resolution_and_local_summary(
     report("delegate overview file hides path resolution and local summary", ok);
 }
 
+static void test_turn_gate_self_test_prompt_checks_workspace_and_log(void)
+{
+    char source[65536];
+    FILE *f = fopen("/home/wangergou/code/github/daima-agent/kernel/turn/turn_gate.c", "r");
+    int ok = (f != NULL);
+    size_t nread = 0;
+
+    if (ok) {
+        nread = fread(source, 1, sizeof(source) - 1, f);
+        source[nread] = '\0';
+        fclose(f);
+    }
+
+    if (ok) {
+        ok = strstr(source, "workspace_probe_prepare_opencode_repo(") != NULL &&
+             strstr(source, "spiffs_data/workspace") != NULL &&
+             strstr(source, "path_memory_dir()") != NULL &&
+             strstr(source, "⚠️ 自检工作区准备失败") != NULL &&
+             strstr(source, "自动 clone `https://github.com/sst/opencode.git` 也失败了") != NULL &&
+             strstr(source, "有效仓库") != NULL &&
+             strstr(source, "自检环境异常") != NULL &&
+             strstr(source, "不要退回去分析整个 workspace") != NULL &&
+             strstr(source, "delegate_store attach_task") != NULL &&
+             strstr(source, "delegate_bg launch candidate") != NULL &&
+             strstr(source, "delegate_bg restore queued child") != NULL &&
+             strstr(source, "packages/app") != NULL &&
+             strstr(source, "packages/cli") != NULL &&
+             strstr(source, "packages/session-ui") != NULL &&
+             strstr(source, "prepare_result.repo_present_before") != NULL &&
+             strstr(source, "prepare_result.repo_ready_after") != NULL &&
+             strstr(source, "const char *analysis_root = prepare_result.repo_path;") != NULL &&
+             strstr(source, "if (!prepare_result.repo_ready_after) {") != NULL &&
+             strstr(source, "不继续分析整个 workspace") != NULL &&
+             strstr(source, "你现在只分析 `~/.agent-data/spiffs_data/workspace/opencode`") != NULL;
+    }
+
+    if (!ok) {
+        pr_info("  turn gate self-test prompt diag: %s", ok ? "" : source);
+    }
+    report("turn gate self-test prompt checks workspace and runtime log", ok);
+}
+
+static void test_turn_gate_self_test_followup_prompt_targets_workspace_opencode_and_log(void)
+{
+    char prompt[4096];
+    const char *analysis_root = "/home/wangergou/.agent-data/spiffs_data/workspace/opencode";
+    const char *runtime_log_path = "/home/wangergou/.agent-data/spiffs_data/memory/agent.log";
+    const char *log_marker = "self_test_marker:test_chat";
+    bool ok;
+
+    memset(prompt, 0, sizeof(prompt));
+    ok = agent_turn_build_self_test_followup_prompt(prompt, sizeof(prompt),
+                                                    analysis_root,
+                                                    runtime_log_path,
+                                                    log_marker);
+    if (ok) {
+        ok = strstr(prompt, "你现在只分析 `~/.agent-data/spiffs_data/workspace/opencode`") != NULL &&
+             strstr(prompt, analysis_root) != NULL &&
+             strstr(prompt, runtime_log_path) != NULL &&
+             strstr(prompt, log_marker) != NULL &&
+             strstr(prompt, "有效仓库") != NULL &&
+             strstr(prompt, "自检环境异常") != NULL &&
+             strstr(prompt, "不要退回去分析整个 workspace") != NULL &&
+             strstr(prompt, "必须同时安排多个 subagent") != NULL &&
+             strstr(prompt, "packages/app") != NULL &&
+             strstr(prompt, "packages/cli") != NULL &&
+             strstr(prompt, "packages/session-ui") != NULL &&
+             strstr(prompt, "delegate_store attach_task") != NULL &&
+             strstr(prompt, "delegate_bg launch candidate") != NULL &&
+             strstr(prompt, "delegate_bg restore queued child") != NULL &&
+             strstr(prompt, "只统计这个 marker 之后的日志") != NULL &&
+             strstr(prompt, "2. 基于日志的多 subagent 运行结论。") != NULL;
+    }
+
+    if (!ok) {
+        pr_info("  turn gate self-test followup prompt diag: %s", prompt);
+    }
+    report("turn gate self-test followup prompt targets workspace opencode and log", ok);
+}
+
+static void test_turn_gate_self_test_workspace_status_reports_repo_prepare_result(void)
+{
+    char msg_existing[1024];
+    char msg_cloned[1024];
+    const char *analysis_root = "/home/wangergou/.agent-data/spiffs_data/workspace/opencode";
+    bool ok;
+
+    memset(msg_existing, 0, sizeof(msg_existing));
+    memset(msg_cloned, 0, sizeof(msg_cloned));
+    ok = agent_turn_build_self_test_workspace_status(msg_existing,
+                                                     sizeof(msg_existing),
+                                                     analysis_root,
+                                                     true,
+                                                     true) &&
+         agent_turn_build_self_test_workspace_status(msg_cloned,
+                                                     sizeof(msg_cloned),
+                                                     analysis_root,
+                                                     false,
+                                                     true);
+    if (ok) {
+        ok = strstr(msg_existing, "自检工作区预检") != NULL &&
+             strstr(msg_existing, "直接复用") != NULL &&
+             strstr(msg_existing, analysis_root) != NULL &&
+             strstr(msg_existing, "多 subagent 分析") != NULL &&
+             strstr(msg_cloned, "已自动 clone 一份 opencode 源码") != NULL &&
+             strstr(msg_cloned, "agent.log") != NULL;
+    }
+
+    if (!ok) {
+        pr_info("  turn gate self-test workspace status diag existing=%s cloned=%s",
+                msg_existing,
+                msg_cloned);
+    }
+    report("turn gate self-test workspace status reports repo prepare result", ok);
+}
+
+static void test_turn_gate_self_test_log_marker_uses_chat_id(void)
+{
+    char marker[256];
+    bool ok;
+
+    memset(marker, 0, sizeof(marker));
+    ok = agent_turn_build_self_test_log_marker(marker, sizeof(marker), "chat_demo");
+    if (ok) {
+        ok = strstr(marker, "self_test_marker:chat_demo:") == marker;
+    }
+    if (!ok) {
+        pr_info("  turn gate self-test log marker diag: %s", marker);
+    }
+    report("turn gate self-test log marker uses chat id", ok);
+}
+
+static void test_turn_gate_self_test_runtime_log_probe_counts_multi_subagents(void)
+{
+    char log_path[PATH_MAX];
+    FILE *f = NULL;
+    self_test_log_probe_t probe;
+    bool ok = true;
+    const char *marker = "self_test_marker:test_probe:1";
+
+    snprintf(log_path, sizeof(log_path), "/tmp/daima-agent-self-test-log-probe.log");
+    f = fopen(log_path, "w");
+    if (!f) {
+        report("turn gate self-test runtime log probe counts multi subagents", 0);
+        return;
+    }
+
+    fputs("before marker should be ignored\n", f);
+    fputs("delegate_store attach_task: coordinator=ignored\n", f);
+    fprintf(f, "%s\n", marker);
+    fputs("delegate_store attach_task: coordinator=dc_probe slot=0 task_id=dt_a\n", f);
+    fputs("delegate_store attach_task: coordinator=dc_probe slot=1 task_id=dt_b\n", f);
+    fputs("delegate_bg launch candidate: coordinator=dc_probe round=0 idx=0 task_id=dt_a\n", f);
+    fputs("delegate_bg launch candidate: coordinator=dc_probe round=0 idx=1 task_id=dt_b\n", f);
+    fputs("delegate_bg restore queued child: task_id=dt_b subagent=explore\n", f);
+    fclose(f);
+
+    memset(&probe, 0, sizeof(probe));
+    ok = agent_turn_probe_self_test_runtime_log(log_path, marker, &probe);
+    if (ok) {
+        ok = probe.marker_found &&
+             probe.attach_task_hits == 2 &&
+             probe.launch_candidate_hits == 2 &&
+             probe.restore_queued_hits == 1 &&
+             probe.multi_subagent_confirmed;
+    }
+    unlink(log_path);
+    if (!ok) {
+        pr_info("  turn gate self-test log probe diag: marker=%d attach=%d launch=%d restore=%d confirmed=%d",
+                probe.marker_found ? 1 : 0,
+                probe.attach_task_hits,
+                probe.launch_candidate_hits,
+                probe.restore_queued_hits,
+                probe.multi_subagent_confirmed ? 1 : 0);
+    }
+    report("turn gate self-test runtime log probe counts multi subagents", ok);
+}
+
+static void test_agent_self_test_results_json_includes_log_probe(void)
+{
+    char *json;
+    bool ok;
+
+    memset(&s_self_test_log_probe, 0, sizeof(s_self_test_log_probe));
+    s_self_test_log_probe_pending = false;
+    s_self_test_log_probe.marker_found = true;
+    s_self_test_log_probe.attach_task_hits = 3;
+    s_self_test_log_probe.launch_candidate_hits = 4;
+    s_self_test_log_probe.restore_queued_hits = 2;
+    s_self_test_log_probe.multi_subagent_confirmed = true;
+
+    json = agent_self_test_results_json();
+    ok = json != NULL &&
+         strstr(json, "\"log_probe\":{") != NULL &&
+         strstr(json, "\"marker_found\":true") != NULL &&
+         strstr(json, "\"attach_task_hits\":3") != NULL &&
+         strstr(json, "\"launch_candidate_hits\":4") != NULL &&
+         strstr(json, "\"restore_queued_hits\":2") != NULL &&
+         strstr(json, "\"pending\":false") != NULL &&
+         strstr(json, "\"multi_subagent_confirmed\":true") != NULL;
+    if (!ok) {
+        pr_info("  self-test results json log probe diag: %s", json ? json : "<null>");
+    }
+    free(json);
+    memset(&s_self_test_log_probe, 0, sizeof(s_self_test_log_probe));
+    s_self_test_log_probe_pending = false;
+    report("agent self-test results json includes log probe", ok);
+}
+
+static void test_turn_gate_self_test_defers_runtime_log_probe_until_followup(void)
+{
+    char source[65536];
+    FILE *f = fopen("/home/wangergou/code/github/daima-agent/kernel/turn/turn_gate.c", "r");
+    int ok = (f != NULL);
+    size_t nread = 0;
+
+    if (ok) {
+        nread = fread(source, 1, sizeof(source) - 1, f);
+        source[nread] = '\0';
+        fclose(f);
+    }
+
+    if (ok) {
+        ok = strstr(source, "agent_self_test_set_log_probe_pending(true);") != NULL &&
+             strstr(source, "agent_turn_probe_self_test_runtime_log(runtime_log_path, log_marker,") == NULL;
+    }
+
+    if (!ok) {
+        pr_info("  turn gate self-test runtime log deferral diag: %s", ok ? "" : source);
+    }
+    report("turn gate self-test defers runtime log probe until followup", ok);
+}
+
+static void test_agent_self_test_preflight_targets_workspace_opencode_only(void)
+{
+    FILE *f = fopen("/home/wangergou/code/github/daima-agent/kernel/self_test.c", "r");
+    int ok = (f != NULL);
+    char *source = NULL;
+    long source_size = 0;
+    size_t nread = 0;
+
+    if (ok) {
+        if (fseek(f, 0, SEEK_END) != 0) {
+            ok = 0;
+        } else {
+            source_size = ftell(f);
+            if (source_size <= 0 || fseek(f, 0, SEEK_SET) != 0) {
+                ok = 0;
+            }
+        }
+    }
+
+    if (ok) {
+        source = malloc((size_t)source_size + 1);
+        ok = source != NULL;
+    }
+
+    if (ok) {
+        nread = fread(source, 1, (size_t)source_size, f);
+        source[nread] = '\0';
+    }
+    if (f) {
+        fclose(f);
+    }
+
+    if (ok) {
+        char *self_test_entry = strstr(source, "int agent_self_test(void)\n{");
+        size_t entry_len = 0;
+
+        if (self_test_entry) {
+            int depth = 0;
+            bool seen_open = false;
+            char *p = self_test_entry;
+
+            while (*p) {
+                if (*p == '{') {
+                    depth++;
+                    seen_open = true;
+                } else if (*p == '}') {
+                    depth--;
+                    if (seen_open && depth == 0) {
+                        entry_len = (size_t)(p - self_test_entry + 1);
+                        break;
+                    }
+                }
+                p++;
+            }
+        }
+
+        ok = self_test_entry != NULL &&
+             entry_len > 0 &&
+             strstr(self_test_entry, "workspace_probe_prepare_opencode_repo(") != NULL;
+        if (ok) {
+            const char *opencode_full_hit =
+                strstr(self_test_entry, "workspace_probe_ensure_repo_clone(\"opencode_full\"");
+            ok = !opencode_full_hit ||
+                 (size_t)(opencode_full_hit - self_test_entry) >= entry_len;
+        }
+        if (ok) {
+            ok = strstr(self_test_entry, "build_workspace_opencode_probe_path(") == NULL;
+        }
+    }
+
+    if (!ok) {
+        pr_info("  agent self-test preflight diag: %s", ok ? "" : source);
+    }
+    free(source);
+    report("agent self-test preflight targets workspace opencode only", ok);
+}
+
+static void test_workspace_probe_prepare_opencode_repo_reports_ready_state(void)
+{
+    workspace_probe_repo_prepare_t prepare_result;
+    bool ok;
+
+    memset(&prepare_result, 0, sizeof(prepare_result));
+    ok = workspace_probe_prepare_opencode_repo(&prepare_result);
+    if (ok) {
+        ok = prepare_result.repo_ready_after &&
+             prepare_result.repo_path[0] != '\0' &&
+             strstr(prepare_result.repo_path, "/workspace/opencode") != NULL;
+    }
+    report("workspace probe prepare opencode repo reports ready state", ok);
+}
+
+static void test_workspace_probe_repo_ready_detects_valid_opencode_clone(void)
+{
+    char repo_path[PATH_MAX];
+    bool ok;
+
+    memset(repo_path, 0, sizeof(repo_path));
+    ok = workspace_probe_repo_ready("opencode", repo_path, sizeof(repo_path));
+    if (ok) {
+        char app_path[PATH_MAX];
+        char cli_path[PATH_MAX];
+        char session_ui_path[PATH_MAX];
+
+        snprintf(app_path, sizeof(app_path), "%s/packages/app", repo_path);
+        snprintf(cli_path, sizeof(cli_path), "%s/packages/cli", repo_path);
+        snprintf(session_ui_path, sizeof(session_ui_path), "%s/packages/session-ui", repo_path);
+        ok = access(app_path, F_OK) == 0 &&
+             access(cli_path, F_OK) == 0 &&
+             access(session_ui_path, F_OK) == 0;
+    }
+    report("workspace probe repo ready detects valid opencode clone", ok);
+}
+
+static void test_workspace_probe_ensure_repo_clone_populates_missing_path(void)
+{
+    char repo_path[PATH_MAX];
+    char package_json_path[PATH_MAX];
+    char packages_path[PATH_MAX];
+    char expected_path[PATH_MAX];
+    char probe_root[PATH_MAX];
+    bool ok;
+
+    build_self_test_probe_root(probe_root, sizeof(probe_root));
+    build_workspace_opencode_probe_path(repo_path, sizeof(repo_path), NULL);
+    snprintf(package_json_path, sizeof(package_json_path), "%s/package.json", repo_path);
+    snprintf(packages_path, sizeof(packages_path), "%s/packages", repo_path);
+
+    {
+        char *mkdir_argv[] = {"mkdir", "-p", probe_root, NULL};
+        char *rm_argv[] = {"rm", "-rf", repo_path, NULL};
+
+        if (self_test_run_process_quiet("mkdir", mkdir_argv) != 0 ||
+            self_test_run_process_quiet("rm", rm_argv) != 0) {
+            report("workspace probe ensure clone populates missing path", 0);
+            return;
+        }
+    }
+
+    memset(repo_path, 0, sizeof(repo_path));
+    build_workspace_opencode_probe_path(expected_path, sizeof(expected_path), NULL);
+    ok = workspace_probe_ensure_repo_clone("opencode_probe",
+                                           "https://github.com/sst/opencode.git",
+                                           repo_path,
+                                           sizeof(repo_path));
+    if (ok) {
+        ok = strcmp(repo_path, expected_path) == 0;
+    }
+    if (ok) {
+        ok = access(package_json_path, F_OK) == 0 &&
+             access(packages_path, F_OK) == 0;
+    }
+    report("workspace probe ensure clone populates missing path", ok);
+}
+
+static void test_workspace_probe_source_uses_remote_clone_without_local_seed(void)
+{
+    FILE *f = fopen("/home/wangergou/code/github/daima-agent/kernel/runtime/workspace_probe.c", "r");
+    int ok = (f != NULL);
+    char *source = NULL;
+    long source_size = 0;
+    size_t nread = 0;
+
+    if (ok) {
+        if (fseek(f, 0, SEEK_END) != 0) {
+            ok = 0;
+        } else {
+            source_size = ftell(f);
+            if (source_size <= 0 || fseek(f, 0, SEEK_SET) != 0) {
+                ok = 0;
+            }
+        }
+    }
+
+    if (ok) {
+        source = malloc((size_t)source_size + 1);
+        ok = source != NULL;
+    }
+
+    if (ok) {
+        nread = fread(source, 1, (size_t)source_size, f);
+        source[nread] = '\0';
+    }
+    if (f) {
+        fclose(f);
+    }
+
+    if (ok) {
+        ok = strstr(source, "\"git\", \"clone\", \"--depth=1\"") != NULL &&
+             strstr(source, "https://github.com/sst/opencode.git") != NULL &&
+             strstr(source, "local seed clone") == NULL &&
+             strstr(source, "try_clone_from_local_seed(") == NULL;
+    }
+
+    if (!ok) {
+        pr_info("  workspace probe remote clone source diag: %s",
+                source ? source : "<null>");
+    }
+    free(source);
+    report("workspace probe source uses remote clone without local seed", ok);
+}
+
+static void test_workspace_probe_reclones_incomplete_repo_dir(void)
+{
+    char repo_path[PATH_MAX];
+    char marker_path[PATH_MAX];
+    char resolved_path[PATH_MAX];
+    char probe_root[PATH_MAX];
+    FILE *f = NULL;
+    bool ok = true;
+
+    build_self_test_probe_root(probe_root, sizeof(probe_root));
+    build_workspace_opencode_probe_path(repo_path, sizeof(repo_path), NULL);
+    snprintf(marker_path, sizeof(marker_path), "%s/STUB_INCOMPLETE_DIR", repo_path);
+
+    {
+        char *mkdir_probe_root_argv[] = {"mkdir", "-p", probe_root, NULL};
+        char *rm_argv[] = {"rm", "-rf", repo_path, NULL};
+        char *mkdir_argv[] = {"mkdir", "-p", repo_path, NULL};
+
+        if (self_test_run_process_quiet("mkdir", mkdir_probe_root_argv) != 0 ||
+            self_test_run_process_quiet("rm", rm_argv) != 0 ||
+            self_test_run_process_quiet("mkdir", mkdir_argv) != 0) {
+            ok = false;
+        }
+    }
+
+    if (ok) {
+        f = fopen(marker_path, "w");
+        if (!f) {
+            ok = false;
+        } else {
+            fputs("stub", f);
+            fclose(f);
+            f = NULL;
+        }
+    }
+
+    if (!ok) {
+        report("workspace probe reclones incomplete repo dir", 0);
+        return;
+    }
+
+    if (ok) {
+        memset(resolved_path, 0, sizeof(resolved_path));
+        ok = workspace_probe_ensure_repo_clone("opencode_probe",
+                                               "https://github.com/sst/opencode.git",
+                                               resolved_path,
+                                               sizeof(resolved_path));
+    }
+    if (ok) {
+        ok = strcmp(resolved_path, repo_path) == 0;
+    }
+    if (ok) {
+        ok = access(marker_path, F_OK) != 0;
+    }
+    if (ok) {
+        f = fopen(resolved_path, "r");
+        if (f) {
+            fclose(f);
+        }
+        ok = access(marker_path, F_OK) != 0;
+    }
+    if (ok) {
+        char packages_path[PATH_MAX];
+        snprintf(packages_path, sizeof(packages_path), "%s/packages", resolved_path);
+        ok = access(packages_path, F_OK) == 0;
+    }
+    report("workspace probe reclones incomplete repo dir", ok);
+}
+
+static void test_workspace_probe_reclones_layout_mismatch_repo_dir(void)
+{
+    char repo_path[PATH_MAX];
+    char packages_path[PATH_MAX];
+    char app_path[PATH_MAX];
+    char cli_path[PATH_MAX];
+    char package_json_path[PATH_MAX];
+    char marker_path[PATH_MAX];
+    char resolved_path[PATH_MAX];
+    char probe_root[PATH_MAX];
+    FILE *f = NULL;
+    bool ok = true;
+
+    build_self_test_probe_root(probe_root, sizeof(probe_root));
+    build_workspace_opencode_probe_path(repo_path, sizeof(repo_path), NULL);
+    snprintf(packages_path, sizeof(packages_path), "%s/packages", repo_path);
+    snprintf(app_path, sizeof(app_path), "%s/packages/app", repo_path);
+    snprintf(cli_path, sizeof(cli_path), "%s/packages/cli", repo_path);
+    snprintf(package_json_path, sizeof(package_json_path), "%s/package.json", repo_path);
+    snprintf(marker_path, sizeof(marker_path), "%s/LAYOUT_MISMATCH_STUB", repo_path);
+
+    {
+        char *mkdir_probe_root_argv[] = {"mkdir", "-p", probe_root, NULL};
+        char *rm_argv[] = {"rm", "-rf", repo_path, NULL};
+        char *mkdir_repo_argv[] = {"mkdir", "-p", repo_path, NULL};
+        char *mkdir_packages_argv[] = {"mkdir", "-p", packages_path, NULL};
+        char *mkdir_app_argv[] = {"mkdir", "-p", app_path, NULL};
+        char *mkdir_cli_argv[] = {"mkdir", "-p", cli_path, NULL};
+
+        if (self_test_run_process_quiet("mkdir", mkdir_probe_root_argv) != 0 ||
+            self_test_run_process_quiet("rm", rm_argv) != 0 ||
+            self_test_run_process_quiet("mkdir", mkdir_repo_argv) != 0 ||
+            self_test_run_process_quiet("mkdir", mkdir_packages_argv) != 0 ||
+            self_test_run_process_quiet("mkdir", mkdir_app_argv) != 0 ||
+            self_test_run_process_quiet("mkdir", mkdir_cli_argv) != 0) {
+            ok = false;
+        }
+    }
+
+    if (ok) {
+        f = fopen(package_json_path, "w");
+        if (!f) {
+            ok = false;
+        } else {
+            fputs("{\"name\":\"stub-opencode\"}\n", f);
+            fclose(f);
+            f = NULL;
+        }
+    }
+
+    if (ok) {
+        f = fopen(marker_path, "w");
+        if (!f) {
+            ok = false;
+        } else {
+            fputs("stub", f);
+            fclose(f);
+            f = NULL;
+        }
+    }
+
+    if (!ok) {
+        report("workspace probe reclones layout mismatch repo dir", 0);
+        return;
+    }
+
+    memset(resolved_path, 0, sizeof(resolved_path));
+    ok = workspace_probe_ensure_repo_clone("opencode_probe",
+                                           "https://github.com/sst/opencode.git",
+                                           resolved_path,
+                                           sizeof(resolved_path));
+    if (ok) {
+        ok = strcmp(resolved_path, repo_path) == 0;
+    }
+    if (ok) {
+        ok = access(marker_path, F_OK) != 0;
+    }
+    if (ok) {
+        char session_ui_path[PATH_MAX];
+        snprintf(session_ui_path, sizeof(session_ui_path), "%s/packages/session-ui",
+                 resolved_path);
+        ok = access(session_ui_path, F_OK) == 0;
+    }
+    report("workspace probe reclones layout mismatch repo dir", ok);
+}
+
+static void test_workspace_probe_prepare_opencode_repo_cleans_legacy_full_clone(void)
+{
+    char legacy_path[PATH_MAX];
+    char marker_path[PATH_MAX];
+    FILE *f = NULL;
+    workspace_probe_repo_prepare_t prepare_result;
+    bool ok = true;
+
+    snprintf(legacy_path, sizeof(legacy_path), "%s/opencode_full", path_workspace_dir());
+    snprintf(marker_path, sizeof(marker_path), "%s/LEGACY_SELF_TEST_STUB", legacy_path);
+
+    {
+        char *mkdir_argv[] = {"mkdir", "-p", legacy_path, NULL};
+        char *rm_argv[] = {"rm", "-rf", legacy_path, NULL};
+
+        if (self_test_run_process_quiet("rm", rm_argv) != 0 ||
+            self_test_run_process_quiet("mkdir", mkdir_argv) != 0) {
+            ok = false;
+        }
+    }
+
+    if (ok) {
+        f = fopen(marker_path, "w");
+        if (!f) {
+            ok = false;
+        } else {
+            fputs("legacy", f);
+            fclose(f);
+            f = NULL;
+        }
+    }
+
+    if (ok) {
+        memset(&prepare_result, 0, sizeof(prepare_result));
+        ok = workspace_probe_prepare_opencode_repo(&prepare_result);
+    }
+    if (ok) {
+        ok = prepare_result.repo_ready_after &&
+             strstr(prepare_result.repo_path, "/workspace/opencode") != NULL;
+    }
+    if (ok) {
+        ok = access(legacy_path, F_OK) != 0;
+    }
+
+    report("workspace probe prepare opencode repo cleans legacy full clone", ok);
+}
+
 /* 测 11: AI 自检日志 — 读自己的 log 文件判断健康状态 */
 static void test_log_self_check(void)
 {
@@ -8389,6 +10985,15 @@ int agent_self_test(void)
     pr_info("  Agent Self-Test — Multi-Core Check");
     pr_info("========================================");
 
+    {
+        workspace_probe_repo_prepare_t prepare_result;
+        memset(&prepare_result, 0, sizeof(prepare_result));
+        if (!workspace_probe_prepare_opencode_repo(&prepare_result)) {
+            pr_warn("self-test preflight: failed to ensure opencode workspace at %s",
+                    prepare_result.repo_path[0] ? prepare_result.repo_path : "<unresolved>");
+        }
+    }
+
     /* 等各核启动 */
     usleep(500000);
 
@@ -8406,6 +11011,7 @@ int agent_self_test(void)
     test_delegate_task_store_done_update_after_parent_response();
     test_delegate_task_store_staged_counts();
     test_delegate_task_store_requires_effective_output_for_done();
+    test_delegate_task_store_plan_fails_when_store_is_full();
     test_delegate_task_store_retains_child_session_history();
     test_delegate_task_store_plan_retains_preflight_tool();
     test_delegate_task_store_records_child_session_step_event();
@@ -8428,6 +11034,7 @@ int agent_self_test(void)
     test_delegate_child_session_json_frames_and_commits_expose_ids();
     test_delegate_child_session_json_frames_and_commits_expose_seq();
     test_delegate_child_session_json_renders_result_json_visible_text();
+    test_delegate_child_session_preferred_visible_text_prefers_latest_frame_over_stale_history();
     test_delegate_turn_session_persists_full_child_transcript();
     test_delegate_child_session_json_does_not_leak_reused_session_history();
     test_sudo_request_routes_delegate_child_to_parent_context();
@@ -8444,6 +11051,8 @@ int agent_self_test(void)
     test_delegate_parent_wake_defers_while_parent_recently_active();
     test_delegate_parent_wake_retains_terminal_resume_after_visible_dispatch();
     test_delegate_parent_wake_drops_retained_resume_after_parent_activity();
+    test_delegate_parent_wake_recent_activity_alone_does_not_drop_retained_resume();
+    test_delegate_parent_wake_drops_retained_resume_after_parent_assistant_output();
     test_delegate_parent_wake_retains_failed_resume_after_parent_activity();
     test_delegate_parent_wake_defers_resume_while_parent_has_pending_request();
     test_delegate_parent_wake_does_not_repeat_same_visible_revision();
@@ -8453,9 +11062,18 @@ int agent_self_test(void)
     test_delegate_subagent_session_delta_json_uses_incremental_projection();
     test_delegate_subagent_session_deltas_json_batches_incremental_projection();
     test_delegate_parent_subagent_state_delta_json_batches_visible_revision_and_sessions();
+    test_delegate_parent_subagent_state_delta_json_includes_changed_coordinator_sessions_without_explicit_tasks();
     test_delegate_parent_registry_exposes_wake_lifecycle();
     test_delegate_stored_directive_shortcut_starts_background_delegate();
     test_delegate_background_launch_respects_running_budget();
+    test_delegate_background_launch_keeps_capacity_for_real_batch();
+    test_delegate_lifecycle_runtime_launches_across_coordinators_fairly();
+    test_delegate_lifecycle_runtime_respects_per_coordinator_cap();
+    test_delegate_lifecycle_runtime_respects_per_parent_cap();
+    test_delegate_lifecycle_runtime_ignores_blocked_for_coordinator_cap();
+    test_delegate_lifecycle_runtime_ignores_blocked_for_parent_cap();
+    test_delegate_background_launch_does_not_finish_with_queued_children();
+    test_delegate_background_launch_long_prompts_keep_all_children_schedulable();
     test_delegate_task_sync_implement();
     test_delegate_task_background_handle();
     test_delegate_task_batch_background_returns_coordinator();
@@ -8470,6 +11088,9 @@ int agent_self_test(void)
     test_tool_guard_detects_non_advertised_tool();
     test_delegate_completion_turn_uses_no_tools();
     test_delegate_completion_turn_merges_locally();
+    test_delegate_completion_turn_prefers_child_session_rendered_summary();
+    test_delegate_background_coordinator_summary_prefers_child_session_rendered_text();
+    test_delegate_state_json_agent_summary_prefers_child_session_rendered_text();
     test_delegate_completion_turn_summarizes_cross_module_relationships();
     test_delegate_completion_turn_summarizes_explicit_scope_boundaries();
     test_delegate_completion_outbound_does_not_rearm_parent_wake();
@@ -8481,7 +11102,23 @@ int agent_self_test(void)
     test_turn_exec_marks_background_delegate_started();
     test_turn_exec_merges_same_turn_broad_discovery_after_background_start();
     test_delegate_empty_input_is_recoverable();
+    test_delegate_empty_input_is_recoverable_noise();
     test_delegate_schema_avoids_anyof();
+    test_turn_gate_self_test_prompt_checks_workspace_and_log();
+    test_turn_gate_self_test_followup_prompt_targets_workspace_opencode_and_log();
+    test_turn_gate_self_test_workspace_status_reports_repo_prepare_result();
+    test_turn_gate_self_test_log_marker_uses_chat_id();
+    test_turn_gate_self_test_runtime_log_probe_counts_multi_subagents();
+    test_turn_gate_self_test_defers_runtime_log_probe_until_followup();
+    test_agent_self_test_results_json_includes_log_probe();
+    test_agent_self_test_preflight_targets_workspace_opencode_only();
+    test_workspace_probe_prepare_opencode_repo_reports_ready_state();
+    test_workspace_probe_prepare_opencode_repo_cleans_legacy_full_clone();
+    test_workspace_probe_repo_ready_detects_valid_opencode_clone();
+    test_workspace_probe_ensure_repo_clone_populates_missing_path();
+    test_workspace_probe_source_uses_remote_clone_without_local_seed();
+    test_workspace_probe_reclones_incomplete_repo_dir();
+    test_workspace_probe_reclones_layout_mismatch_repo_dir();
     test_log_self_check();
     test_discovery_files_rewritten_to_delegate();
     test_discovery_terminal_rewritten_to_delegate();
@@ -8504,6 +11141,7 @@ int agent_self_test(void)
     test_delegate_task_logged_runtime_repo_root_explore_expands_to_batch();
     test_delegate_task_oh_my_openagent_explicit_scopes_expand_to_batch();
     test_delegate_task_opencode_explicit_scopes_expand_to_batch();
+    test_delegate_repo_root_explicit_scopes_override_deep_analysis_gate();
     test_delegate_request_accepts_preflight_tool();
     test_delegate_batch_accepts_child_preflight_tool();
     test_delegate_task_repo_root_target_path_explore_expands_to_batch();
@@ -8541,6 +11179,8 @@ int agent_self_test(void)
     test_delegate_prepare_single_file_prompt_injects_context();
     test_delegate_prepare_single_file_prompt_truncates_context();
     test_delegate_prepare_overview_prompt_is_bounded();
+    test_delegate_batch_child_prompt_injects_target_path_contract();
+    test_delegate_explore_prompt_forbids_fake_repo_roots();
     test_turn_interview_appends_answer_into_current_message();
     test_turn_interview_answer_requests_continue_turn();
     test_turn_interview_answer_stores_delegate_directive();
@@ -8562,6 +11202,7 @@ int agent_self_test(void)
     test_delegate_lifecycle_runtime_entry_hides_inline_candidate_filter();
     test_delegate_parent_wake_file_owns_terminal_resume_gate();
     test_delegate_parent_wake_flush_hides_inline_terminal_resume_gate();
+    test_delegate_parent_wake_file_uses_consumed_resume_gate();
     test_delegate_parent_wake_file_owns_resume_pending_derivation();
     test_delegate_parent_wake_hides_inline_resume_pending_derivation();
     test_delegate_parent_wake_file_owns_resume_state_helpers();

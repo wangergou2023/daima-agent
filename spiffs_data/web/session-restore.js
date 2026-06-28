@@ -5,6 +5,22 @@
     async function fetchSessionHistoryMessages(targetChatId) {
       const requestedChatId = String(targetChatId || '').trim();
       if (!requestedChatId) return null;
+      if (typeof api.fetchSessionHistory === 'function') {
+        try {
+          const providedHistory = await api.fetchSessionHistory(requestedChatId);
+          if (Array.isArray(providedHistory)) {
+            return providedHistory;
+          }
+        } catch (_) {}
+      }
+      if (typeof api.fetchUnifiedSessionState === 'function') {
+        try {
+          const unified = await api.fetchUnifiedSessionState(requestedChatId);
+          if (Array.isArray(unified?.history)) {
+            return unified.history;
+          }
+        } catch (_) {}
+      }
       try {
         const unifiedResp = await api.fetchImpl?.(
           `/api/session_state?chat_id=${encodeURIComponent(requestedChatId)}`,

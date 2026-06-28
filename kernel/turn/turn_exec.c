@@ -996,12 +996,21 @@ cJSON *agent_turn_build_tool_results(const llm_response_t *resp,
                                               ? rt.effective_tool_name
                                               : call->name;
         if (rt.effective_input) tool_input = rt.effective_input;
+        bool recoverable_tool_noise =
+            agent_tool_failure_is_recoverable_noise(effective_tool_name, tool_input, tool_output, tool_err);
 
         log_tool_payload_preview(rt.effective_input ? "after_runtime_patched" : "after_runtime",
                                  msg, effective_tool_name, call->id, tool_input, tool_output, tool_err);
 
         record_turn_side_effects(stats, effective_tool_name, tool_input);
-        agent_tool_feedback_send_activity(msg, effective_tool_name, tool_input, tool_output, tool_err, rt.elapsed_ms);
+        if (!recoverable_tool_noise) {
+            agent_tool_feedback_send_activity(msg, effective_tool_name, tool_input, tool_output, tool_err, rt.elapsed_ms);
+        } else {
+            pr_info("Recoverable tool noise ignored: tool=%s input=%s output=%s",
+                    effective_tool_name ? effective_tool_name : "-",
+                    tool_input ? tool_input : "{}",
+                    tool_output ? tool_output : "");
+        }
         collect_tool_failure_work_item(msg, effective_tool_name, tool_input, tool_output, tool_err);
 
         if (agent_tool_protocol_failure_should_stop(effective_tool_name, tool_input, tool_output, tool_err)) {
@@ -1037,7 +1046,7 @@ cJSON *agent_turn_build_tool_results(const llm_response_t *resp,
 
         if (tool_err == 0)
             pr_info("Tool %s result: %d bytes", effective_tool_name, (int)strlen(tool_output));
-        else {
+        else if (!recoverable_tool_noise) {
             char ip[240], op[240];
             text_shorten(tool_input, ip, sizeof(ip), 220);
             text_shorten(tool_output, op, sizeof(op), 220);

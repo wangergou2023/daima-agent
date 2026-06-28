@@ -1076,7 +1076,54 @@ function emit(data) {
 }
 
 function expect(condition, message) {
-  if (!condition) fail(message);
+  if (!condition) {
+    try {
+      const win = globalThis.__debug_dom?.window;
+      const state = win?.AgentSubagentState;
+      const uiState = win?.agentDebugSubagentUiState;
+      const panel = win?.document?.getElementById('coordinatorPanel');
+      const detailPanel = win?.document?.getElementById('subagentDetailPanel');
+      const selectedKey = state?.currentSelectedSubagentKey?.(uiState || {});
+      const effectiveKey = state?.effectiveSelectedSubagentKey?.(uiState || {});
+      const orderedStates = state?.orderedCoordinatorStates?.(uiState || {}) || [];
+      console.error('DEBUG assertion=', message);
+      console.error('DEBUG panel=', {
+        hidden: panel?.hidden,
+        ariaHidden: panel?.getAttribute?.('aria-hidden'),
+        text: panel?.textContent?.slice?.(0, 300),
+      });
+      console.error('DEBUG detailPanel=', {
+        hidden: detailPanel?.hidden,
+        text: detailPanel?.textContent?.slice?.(0, 300),
+      });
+      console.error('DEBUG selected=', { selectedKey, effectiveKey, detailKeys: uiState?.details ? [...uiState.details.keys()] : [] });
+      console.error('DEBUG orderedCoordinatorIds=', orderedStates.map((item) => item?.coordinator_id));
+      if (uiState?.details?.get) {
+        console.error('DEBUG dt_a=', JSON.stringify(uiState.details.get('dt_a') || null, null, 2));
+        console.error('DEBUG dt_b=', JSON.stringify(uiState.details.get('dt_b') || null, null, 2));
+      }
+    } catch (error) {
+      console.error('DEBUG generic logging failed', error);
+    }
+    if (message.includes('expected detail view-model to expose summary text')) {
+      try {
+        const state = globalThis.__debug_dom?.window?.AgentSubagentState;
+        const uiState = globalThis.__debug_dom?.window?.agentDebugSubagentUiState;
+        const selectedKey = state?.currentSelectedSubagentKey?.(uiState || {});
+        const effectiveKey = state?.effectiveSelectedSubagentKey?.(uiState || {});
+        const detail = effectiveKey ? uiState?.details?.get?.(effectiveKey) : null;
+        const view = state?.selectedSubagentDetailView?.(uiState || {}, 'web_test');
+        console.error('DEBUG selectedKey=', selectedKey);
+        console.error('DEBUG effectiveKey=', effectiveKey);
+        console.error('DEBUG detailKeys=', uiState?.details ? [...uiState.details.keys()] : []);
+        console.error('DEBUG detail=', JSON.stringify(detail, null, 2));
+        console.error('DEBUG view=', JSON.stringify(view, null, 2));
+      } catch (error) {
+        console.error('DEBUG logging failed', error);
+      }
+    }
+    fail(message);
+  }
 }
 
 async function main() {
@@ -1090,6 +1137,7 @@ async function main() {
   expect(!/let pendingSudoRequestId = '';/ .test(appSource), 'expected app.js to stop owning separate pendingSudoRequestId mirror state');
 
   const dom = buildDom();
+  globalThis.__debug_dom = dom;
   const { fetchStub } = bootstrapApp(dom);
   const interactiveControllerApi = dom.window.AgentSubagentInteractiveController;
   expect(interactiveControllerApi && typeof interactiveControllerApi.createInteractiveController === 'function',

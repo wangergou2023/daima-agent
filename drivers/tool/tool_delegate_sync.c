@@ -216,6 +216,7 @@ err_t tool_delegate_run_sync_single_subagent(delegate_subagent_kind_t kind,
 
     tool_delegate_prepare_subagent_prompt(req->subagent_type,
                                           req->description,
+                                          req->target_path,
                                           req->prompt,
                                           prepared_prompt,
                                           sizeof(prepared_prompt),

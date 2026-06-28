@@ -9,6 +9,10 @@
 当前阶段结论先写在前面：
 
 - `daima-agent` 的多 subagent 能力已经越过“能不能调起多个 child”这道坎
+- 以 `opencode` 真实仓库为基准的 runtime probe 现在已经稳定证明：
+  - 一个父任务可以并行拆成多个 child task
+  - child session 会带 `history + frames + commits + cursor/window`
+  - parent wake / websocket / Web detail 面板已经能消费同一批 child session 投影
 - 当前最关键的主线，不再是继续把 Web 页面拆更多文件，也不只是继续堆后台并发
 - 下一阶段应明确走 `session-first` 收敛：
   - child session 要成为一等协议源
@@ -35,6 +39,49 @@
   - 当 task output 缺失时，会回退读取 child session history 中最近的 assistant 可视内容
   - 这修掉了“coordinator 有 child session，但 session_state agent summary 为空”的投影断层
   - 也让 HTTP restore 更接近 `opencode` 的 session-first 读取语义
+- 父级 delegate completion reply 本轮也开始切到 `child_session-first`：
+  - `kernel/turn/turn_entry.c`
+  - 本地汇总在读取单个 agent 文本时，优先顺序已经变成：
+    - `child_session.latest_frame.output_preview`
+    - `child_session.latest_frame.detail`
+    - `child_session.history` 中最近的 assistant content / reasoning
+    - 最后才回退到旧的 `summary/output`
+  - 这意味着父代理给用户的“并行子任务汇总 / 原始子任务摘要”不再优先绑定旧 `task.output`
+  - 新增回归：
+    - `delegate completion turn prefers child session rendered summary`
+- coordinator summary 本轮也一起收口到了同一顺序：
+  - `drivers/tool/tool_delegate_summary.c`
+  - 后台 coordinator 的 `任务摘要` 现在会优先读：
+    - child session 最新 frame 的 `output_preview/detail`
+    - child session `summary`
+    - child session 最近 commit 文本
+    - 最后才回退旧 `task.output`
+  - 这样 parent merge、coordinator snapshot 摘要、child session detail 至少开始围绕同一份 canonical source 收敛
+  - 新增回归：
+    - `delegate background coordinator summary prefers child session rendered text`
+- runtime scheduler 本轮也补上了一层最小公平性：
+  - `drivers/tool/tool_delegate_lifecycle.c`
+  - `drivers/tool/tool_delegate_dispatch.c`
+  - 原来的问题是：
+    - runtime 按 active coordinator 顺序逐个扫
+    - 单个 coordinator 的 launch loop 会持续发车直到预算吃满
+    - 在全局预算较小时，前面的 coordinator 容易长期先抢到名额
+  - 现在 runtime poll 改成：
+    - 每轮每个 coordinator 最多只发一个 ready child
+    - 然后按轮次继续扫描，直到这一轮没有新发车
+  - 这不是完整 scheduler service，但已经把“单轮吃满预算”的明显不公平去掉了
+  - 同时保留了单 coordinator 直接启动路径的原有语义，不去硬改所有现有调用面
+  - 新增回归：
+    - `delegate lifecycle runtime launches across coordinators fairly`
+- `!test` 自检链路也已经改成真实 workspace 语义：
+  - 固定检查 `~/.agent-data/spiffs_data/workspace/opencode`
+  - 缺失时自动 `git clone https://github.com/sst/opencode.git`
+  - 如果目录存在但只是残缺占位目录，会先清掉再重新 clone
+  - clone/恢复完成后，再让 agent 去分析 `opencode`，并回看 `agent.log` 判断 subagent 调度是否真的发生
+- 当前回归状态：
+  - `./build-kbuild/agent --self-test` -> `190/190 passed`
+  - `scripts/dev/check-websocket-reference-opencode.sh` -> 通过
+  - `node scripts/dev/check-subagent-web-ui.js` -> 通过
 
 代码基线以当前仓库为准：
 
@@ -50,6 +97,116 @@
 - `github/opencode/packages/opencode/src/cli/cmd/run/stream.transport.ts`
 - `github/oh-my-openagent/packages/omo-opencode/src/features/background-agent/session-idle-event-handler.ts`
 - `github/oh-my-openagent/packages/omo-opencode/src/features/background-agent/parent-wake-prompt-dispatch.ts`
+
+本轮重新核对后的对标重点：
+
+- `oh-my-openagent`
+  - 强项在 background task completion / parent wake 的“集中式 flush + defer + retry + dedupe”
+  - 尤其强调：
+    - idle 不能过早完成
+    - parent wake 不能因为父会话刚有普通活动就把真正需要回复的 wake 吞掉
+- `opencode`
+  - 强项不只是 footer 上能看到很多 subagent tab
+  - 核心是 `session-first reducer`：
+    - `subagent-data.ts`
+    - `stream.transport.ts`
+  - session / footer / blocker / commit / frames 都围绕同一份 stream/session data 推进
+
+### 0.1 2026-06-28 基于当前代码的架构判定
+
+这轮重新按代码核对后，可以更明确地下结论：
+
+- 后端已经基本形成 4 层，而不是继续挤在 `drivers/tool/tool_delegate.c`
+  - `delegate_task` 入口层
+    - `drivers/tool/tool_delegate.c`
+  - coordinator / task store 层
+    - `kernel/tooling/delegate/delegate_task_store.c`
+  - parent wake / websocket flush 层
+    - `kernel/tooling/delegate/delegate_parent_wake.c`
+  - child session / coordinator snapshot projection 层
+    - `kernel/tooling/delegate/delegate_session_json.c`
+    - `kernel/tooling/delegate/delegate_state_json.c`
+- 前端也已经不再是“只有一个大 `app.js`”
+  - reducer facade
+    - `spiffs_data/web/subagent-state-core.js`
+    - `spiffs_data/web/subagent-state-reducer.js`
+    - `spiffs_data/web/subagent-state-selectors.js`
+    - `spiffs_data/web/subagent-state.js`
+  - runtime / bridge / restore
+    - `spiffs_data/web/subagent-runtime.js`
+    - `spiffs_data/web/subagent-app-bridge.js`
+    - `spiffs_data/web/session-state-runtime.js`
+    - `spiffs_data/web/subagent-transport.js`
+  - app shell / DOM binding
+    - `spiffs_data/web/app.js`
+- 所以当前真正的问题已经不是“有没有拆文件”
+- 真正的问题是这几层之间的 canonical source 还没有像 `opencode` / `oh-my-openagent` 那样彻底统一
+  - 后端仍然存在 `task.output / agent.summary / child_session.history` 多套真相源并存
+  - 前端虽然有 runtime/reducer，但一级交互对象仍偏 `coordinator-first`
+  - parent wake 虽然已有 pending queue + retry + defer，但历史判定仍弱于 `oh-my-openagent`
+
+### 0.2 当前最应该坚持的边界
+
+如果目标是最终“完美支持多 subagent”，下面这些边界后续不要再打回去：
+
+- `drivers/tool/tool_delegate.c`
+  - 只继续承担入口、请求解析、batch/coordinator 启动
+  - 不要再把 session projection、wake 判定、Web snapshot 逻辑塞回这里
+- `kernel/tooling/delegate/delegate_task_store.c`
+  - 只做任务/协调器状态中心
+  - 不要在 store 层直接混入 websocket 发送、副作用恢复、UI 文案
+- `kernel/tooling/delegate/delegate_parent_wake.c`
+  - 只做 changed coordinator flush、defer/retry/dedupe、parent resume admission
+  - 父会话什么时候该被唤醒，后续应继续全部收口到这一层
+- `kernel/tooling/delegate/delegate_session_json.c`
+  - 继续做 child session 的 canonical replay snapshot builder
+  - HTTP snapshot、WebSocket detail、parent merge 都应该越来越依赖这层，而不是反过来读旧 `summary/output`
+- `spiffs_data/web/subagent-runtime.js`
+  - 保持为唯一可变 runtime state 容器
+- `spiffs_data/web/subagent-app-bridge.js`
+  - 保持 selector/dispatch 适配层
+- `spiffs_data/web/app.js`
+  - 继续只做 transport wiring、DOM binding、controller orchestration
+  - 不要再回到“自己再存一份 coordinator/subagent 派生状态”
+
+### 0.3 下一阶段文件级改造顺序
+
+继续往 `oh-my-openagent + opencode` 靠，不应该平均用力，而应该按这个顺序推进：
+
+1. 先做 child session canonical source 收口
+   - 目标：
+     - `child_session` 成为 detail / parent merge / coordinator summary 的唯一主语
+     - `task.output` 退为协议原文或兜底，不再是展示主源
+   - 主文件：
+     - `kernel/tooling/delegate/delegate_session_json.c`
+     - `kernel/tooling/delegate/delegate_state_json.c`
+     - `kernel/turn/turn_entry.c`
+     - `drivers/tool/tool_delegate_summary.c`
+2. 再补 parent wake 的 history-gated admission
+   - 目标：
+     - 对齐 `oh-my-openagent` 的 retained wake / no-reply admit / history-based suppression
+     - 让“父会话有普通活动”和“真正已经消费了 wake”严格区分
+   - 主文件：
+     - `kernel/tooling/delegate/delegate_parent_wake.c`
+     - `kernel/turn/turn_context.c`
+     - `kernel/loop.c`
+3. 再把前端彻底推到 session-first
+   - 目标：
+     - coordinator 退为后台批次视图
+     - subagent session list / detail / blocker 成为一级交互对象
+   - 主文件：
+     - `spiffs_data/web/subagent-state-selectors.js`
+     - `spiffs_data/web/subagent-app-bridge.js`
+     - `spiffs_data/web/subagent-transport.js`
+     - `spiffs_data/web/app.js`
+4. 最后再补复杂并发验证
+   - 目标：
+     - 证明“多 coordinator + reconnect + blocker + staged dependency”组合场景也稳定
+   - 主文件：
+     - `scripts/dev/check-websocket-concurrent-subagents.sh`
+     - `scripts/dev/check-websocket-reconnect-subagent.sh`
+     - `scripts/dev/check-websocket-http-subagent-replay.sh`
+     - `scripts/dev/check-websocket-staged-subagent.sh`
 
 ---
 
@@ -186,6 +343,19 @@
 - 有前端 coordinator 可见面板
 - 支持一批多个子任务并发启动
 - 父会话能在 coordinator 结束后拿到合并结果
+- runtime probe 已能证明多个 child 真并发发车，而不是串行伪并发：
+  - `delegate_store attach_task`
+  - `delegate_bg launch candidate`
+  - `delegate_bg restore queued child`
+  - 在同一个 coordinator 下连续出现，并且 `running_count` 会升到 3
+- 当前 child session 已经不是“只有 done 摘要”：
+  - `history`
+  - `frames`
+  - `commits`
+  - `pending_queue`
+  - `window`
+  - `cursor`
+  都已在 live websocket / HTTP snapshot / Web detail 三条路径上打通
 
 这说明后端生命周期已经从“能跑”进入“有状态机”的阶段。
 
@@ -273,16 +443,86 @@
 
 现在的真实差距收敛为：
 
-- `child_session` 虽然已经具备 `frames + commits + pending_queue`，但仍是“快照模型”，不是 `opencode` 那种持续滚动的完整 session stream
-- `child_session` 虽然已经开始暴露 window metadata 和 seq boundary，让消费者知道当前是完整视图还是哪一段裁剪窗口，但还没有 replay cursor / after-seq / durable event tail 语义
-- reducer 已拆分，但还没有像 `opencode` 那样彻底分成事件适配层、session reducer、footer reducer
-- Web 详情视图仍以 coordinator 为中心，不是完全等价于 `opencode` 的 session-first 交互模型
-- blocker/permission/question 虽然协议打通了，但 richer mixed-blocker 场景仍弱于 `opencode`
-- live 事件与 child session 的“可视文本”虽然已收敛，但 protocol 侧仍是 `raw output + visible_output` 并存模式
+- `child_session` 虽然已经具备 `history + frames + commits + pending_queue + cursor/window`，但本质仍是“快照窗口模型”，还不是 `opencode` 那种持续滚动的完整 session stream service
+- `cursor/window` 已经够前端做恢复和增量判断，但还没有真正实现“按 after-seq/after-revision 持续订阅 durable child stream”
+- reducer / runtime / orchestrator / transport 虽然已经拆层，但 `app.js` 仍然偏厚；还没有像 `opencode` 那样彻底形成 `transport -> reducer -> selector/view` 的长期稳定边界
+- Web 详情视图现在能展示 child session 细节，但交互中心仍然偏 coordinator-first，而不是像 `opencode` 那样真正 session-first
+- blocker/permission/question 虽然协议打通了，但 richer mixed-blocker 场景、跨父子会话 blocker 聚合策略仍弱于 `opencode`
+- live 事件与 child session 的“可视文本”虽然已收敛，但 protocol 侧仍保留 `raw output + visible_output` 并存模式
   - 这符合当前工程现实，也比直接改写 raw `output` 更稳
   - 但如果后续要进一步对齐 `opencode` 的 session stream，最好再明确：
     - 哪些消费者可以读取 raw `output`
     - 哪些消费者只能读取 projection/selectors 派生的 visible text
+- scheduler 目前已经有集中 launch ownership 和全局并发预算，但还没有更成熟的调度策略：
+  - 缺少 per-parent/per-team fairness
+  - 缺少 task priority / backpressure policy
+  - 仍然更像“受控线程发车器”，不是完整的 scheduler service
+
+### 2.3 重新梳理后的核心判断
+
+如果只问“现在是不是已经支持多 subagent”，答案是支持，而且已经能在 `opencode` 真实仓库上稳定跑通。
+
+如果问“离最终可以完美支持多 subagent 还差什么”，最关键的不是再加几个事件名，也不是继续在页面层拆文件，而是下面三件事：
+
+1. `session-first` 再收紧一层
+   - child session 要继续从“窗口快照”升级成更像 durable stream 的协议源
+   - parent 合并、HTTP restore、live websocket、detail panel 都要优先消费这一份协议，而不是继续保留太多 shortcut 旁路
+
+2. `scheduler` 从“可并发发车”升级到“可控编排服务”
+   - 当前已经能并发、能 staged launch、能 budget gate
+   - 下一步该补的是 fairness、quota、backpressure，而不是继续堆 detached thread
+
+3. `Web runtime` 从“已拆层的页面脚本”升级到“真正 session/subagent runtime”
+   - 当前已经具备 runtime/orchestrator/transport/chat-transport 雏形
+   - 但仍需要继续把 `app.js` 变薄，直到它只剩 chat shell wiring
+
+---
+
+## 3. 建议的下一阶段顺序
+
+结合当前代码和参考实现，下一阶段不建议再平均用力，建议按这个顺序推进：
+
+### 阶段 A：收紧 child session 真相源
+
+- 目标：
+  - 让 `child_session` 成为所有 subagent 展示与恢复的唯一 canonical source
+- 具体动作：
+  - 清点还在直接消费 `task.output` / `coordinator.agents[].summary` 的路径
+  - 优先改成：
+    - 子会话终态看 `child_session.latest_frame/history/commits`
+    - 父级摘要由 child session projection 派生
+  - 继续压缩 `local overview` / `dependency merge` 这类 shortcut 对最终展示语义的污染面
+
+### 阶段 B：补 scheduler policy，而不是继续堆线程
+
+- 目标：
+  - 从“能同时跑多个”变成“多 coordinator 并存时也稳定、公平、可解释”
+- 具体动作：
+  - 引入 per-parent / per-coordinator 的并发配额
+  - 在 `delegate_bg launch scan` 上补简单 fairness
+  - 把 budget/launch/restore 的调度诊断沉淀成更明确的 runtime counters / API snapshot
+
+### 阶段 C：Web 彻底 session-first
+
+- 目标：
+  - detail / tabs / blockers / parent wake 面板全部围绕 child session 和 coordinator projection
+- 具体动作：
+  - 继续削薄 `app.js`
+  - 把页面层剩余的 websocket/chat handler 闭包下沉到 runtime/service
+  - 评估是否需要像 `opencode` 一样，把 footer/detail 选择与 blocker 视图完全 reducer/selectors 化
+
+### 阶段 D：补多 subagent 的复杂场景验证
+
+- 目标：
+  - 不只验证“3 个 explore child 并发完成”
+  - 而是覆盖“并发 + blocker + staged dependency + parent wake + refresh restore”
+- 具体动作：
+  - 在 `scripts/dev/` 增加更贴近 `oh-my-openagent + opencode` 协作方式的混合 probe
+  - 至少覆盖：
+    - 多 child 同时 running
+    - 其中一个 child question blocker
+    - 父会话继续活动后 parent wake defer/retry
+    - refresh 后 child session / blocker / selected detail 恢复
 
 补充进展（2026-06-27 本轮新增）：
 
@@ -1055,6 +1295,11 @@
   - 关闭现在只是隐藏当前视图，不会销毁已加载的 `detail / tabs / history / blockers`
   - 后续新的 `coordinator_status / coordinator_output` 到来时，面板会自动重新打开
   - 这让 subagent session/detail 不再只是 coordinator toast 的附属物，而开始具备独立生命周期
+- Web 页面入口和 subagent 状态机之间的边界又收紧了一层：
+  - `app.js` 不再直接处理 coordinator/snapshot 的 reducer 细节
+  - `replaceSnapshot` / `applyCoordinatorPayload` 这类状态写入入口已经继续下沉到 `subagent-app-bridge -> runtime`
+  - 页面入口现在主要负责 wiring controller / transport / bridge，而不是再保存一份 coordinator 推导逻辑
+  - 这更接近 `opencode` 的 `transport -> runtime -> selector -> view/controller` 分层方向
 - interview / permission / question 的端到端回归还不够强
 - 其中 `question_text` 的 websocket 端到端恢复回归已经补上
 - parent 顶层 pending interview 的 HTTP bootstrap restore 也已经补上
@@ -1889,7 +2134,8 @@ websocket 回归脚本稳定性修正：
 - 这说明当前后台调度器确实支持“依赖未满足时保持 queued，ready 子任务先启动”，不是把 batch 一律当 parallel 执行。
 - 新增脚本：
   - `scripts/dev/check-websocket-staged-subagent.sh`
-  - `scripts/dev/websocket-staged-directive.json`
+- 说明：
+  - staged / mixed-blocker directive 已改为脚本运行时通过临时 JSON 生成，不再保留静态 `websocket-*.json` 夹具。
 - 当前这条 staged 回归脚本仍需继续打磨最终探针收尾条件，但 runtime 能力本身已经被真实日志证明。
 
 ---

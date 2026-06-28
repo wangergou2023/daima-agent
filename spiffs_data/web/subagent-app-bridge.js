@@ -56,6 +56,25 @@
       });
     }
 
+    function replaceSnapshot(snapshot, helpers) {
+      const normalizedSnapshot = typeof api.normalizeSnapshot === 'function'
+        ? api.normalizeSnapshot(snapshot)
+        : snapshot;
+      return runtime()?.replaceSnapshot?.(normalizedSnapshot, helpers);
+    }
+
+    function applyCoordinatorPayload(payload, helpers) {
+      const action = api.makeCoordinatorAction?.(payload) || { kind: 'coordinator', payload };
+      dispatch(action);
+      const coordinatorState = typeof api.normalizeCoordinatorPayload === 'function'
+        ? api.normalizeCoordinatorPayload(payload)
+        : payload;
+      if (helpers?.markActive !== false) {
+        api.markCoordinatorActive?.(coordinatorState?.coordinator_id);
+      }
+      return coordinatorState;
+    }
+
     function reduceSubagentUiEvent(action) {
       dispatch(action);
     }
@@ -92,6 +111,7 @@
     }
 
     return {
+      applyCoordinatorPayload,
       currentSelectedSubagentKey,
       currentInteractiveBlocker,
       dispatch,
@@ -99,6 +119,7 @@
       orderedCoordinatorStates,
       orderedSubagentDetails,
       pushSubagentEvent,
+      replaceSnapshot,
       reduceSubagentUiEvent,
       selectSubagentTab,
       selectedSubagentDetailView,
