@@ -123,7 +123,8 @@ static bool delegate_frame_is_lifecycle_prelude(cJSON *frame)
     if (type && strcmp(type, "subagent_start") == 0) {
         return true;
     }
-    if (type && strcmp(type, "subagent_progress") == 0 &&
+    if (type &&
+        (strcmp(type, "subagent_progress") == 0 || strcmp(type, "subagent_step") == 0) &&
         phase && (strcmp(phase, "queued") == 0 || strcmp(phase, "progress") == 0) &&
         status && (strcmp(status, "queued") == 0 || strcmp(status, "running") == 0)) {
         return true;
@@ -179,6 +180,8 @@ bool delegate_child_session_preferred_visible_text(const delegate_task_record_t 
     cJSON *commits = NULL;
     const char *text = NULL;
     char rendered[1024];
+    bool latest_is_lifecycle_prelude = false;
+    bool has_assistant_history = false;
     bool ok = false;
 
     if (!task_snapshot || !buf || buf_size == 0) {
@@ -193,14 +196,15 @@ bool delegate_child_session_preferred_visible_text(const delegate_task_record_t 
 
     latest = cJSON_GetObjectItemCaseSensitive(child, "latest_frame");
     history = cJSON_GetObjectItemCaseSensitive(child, "history");
+    has_assistant_history = delegate_child_session_has_assistant_history(history);
     if (latest) {
+        latest_is_lifecycle_prelude = delegate_frame_is_lifecycle_prelude(latest);
         text = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(latest, "output_preview"));
         if (!text || !text[0]) {
             text = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(latest, "detail"));
         }
         if (text && text[0] &&
-            !(delegate_frame_is_lifecycle_prelude(latest) &&
-              delegate_child_session_has_assistant_history(history))) {
+            !(latest_is_lifecycle_prelude && has_assistant_history)) {
             strscpy(buf,
                     delegate_render_visible_text(text, rendered, sizeof(rendered)),
                     buf_size);
@@ -211,8 +215,8 @@ bool delegate_child_session_preferred_visible_text(const delegate_task_record_t 
 
     text = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(child, "summary"));
     if (text && text[0] &&
-        !(delegate_text_looks_like_lifecycle_prelude(text) &&
-          delegate_child_session_has_assistant_history(history))) {
+        !((latest_is_lifecycle_prelude && has_assistant_history) ||
+          (delegate_text_looks_like_lifecycle_prelude(text) && has_assistant_history))) {
         strscpy(buf,
                 delegate_render_visible_text(text, rendered, sizeof(rendered)),
                 buf_size);

@@ -3,6 +3,25 @@
 嵌入式 AI Agent，基于 Linux 内核风格架构。`C11 + Kbuild`，单二进制。
 
 > 架构文档：[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+>
+> 发布状态：`0.1.0-alpha`
+>
+> Changelog：[CHANGELOG.md](CHANGELOG.md)
+
+当前 alpha 发布范围：
+
+- 真实多 subagent 并发编排
+- Web 端多 subagent 基础展示与详情恢复
+- `session_events` 双游标回放：
+  - `after_seq`
+  - `after_visible_revision`
+- 基于真实 `opencode` 仓库的自检准备与日志探测
+
+当前未承诺：
+
+- 还不是 `opencode sessions.events(after)` 那种单一 durable event stream
+- 还不是最终完成版的多 subagent 架构
+- `parent wake` 语义仍在继续向 `oh-my-openagent` 收敛
 
 常用入口：
 
@@ -24,3 +43,9 @@ macOS 兼容说明：
 - 安装脚本不再依赖 GNU `install -D`
 - host 运行时不再硬编码依赖 Linux 的 `/proc/self/exe` 与 `/proc/meminfo`
 - 当前仓库内验证已在 Linux 上完成；如在 macOS 首次运行，优先使用 `./run.sh --background` 与 `./install.sh` 验证启动链路
+
+alpha 发布前最小验收命令：
+
+- `make -j4`
+- `node scripts/dev/check-subagent-web-ui.js`
+- `./build-kbuild/agent --self-test`

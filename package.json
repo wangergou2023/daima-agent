@@ -1,6 +1,6 @@
 {
   "name": "daima-agent",
-  "version": "1.0.0",
+  "version": "0.1.0-alpha",
   "description": "嵌入式 AI Agent，基于 Linux 内核风格架构。`C11 + Kbuild`，单二进制。",
   "main": "index.js",
   "directories": {

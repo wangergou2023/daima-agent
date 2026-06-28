@@ -132,9 +132,20 @@
 
   function visibleSubagentTabs(state, limit = 8) {
     const details = state?.details instanceof Map ? [...state.details.values()] : [];
-    return details
-      .map((detail) => ({
-        key: trimText(detail?.key),
+    const interactiveBlockers = state?.interactiveBlockers instanceof Map ? state.interactiveBlockers : null;
+    const tabs = details
+      .map((detail) => {
+        const key = trimText(detail?.key) || detailKeyForAgent(detail);
+        const hasInteractiveBlocker = !!(
+          key &&
+          interactiveBlockers &&
+          (interactiveBlockers.has(trimText(detail?.task_id)) ||
+            interactiveBlockers.has(trimText(detail?.session_id)) ||
+            interactiveBlockers.has(trimText(detail?.coordinator_id)))
+        );
+        const hasBlocker = hasInteractiveBlocker || !!(trimText(detail?.blocker_kind) || trimText(detail?.status) === 'blocked');
+        return {
+        key,
         coordinator_id: trimText(detail?.coordinator_id),
         session_id: trimText(detail?.session_id),
         task_id: trimText(detail?.task_id),
@@ -142,11 +153,54 @@
         description: trimText(detail?.subagent_type),
         status: trimText(detail?.status) || 'running',
         blocker_kind: trimText(detail?.blocker_kind),
+        hasBlocker,
         last_updated_at: Number(detail?.latest_frame?.ts) || 0,
-      }))
+      };
+      })
       .filter((tab) => tab.key)
-      .sort((left, right) => (Number(right?.last_updated_at) || 0) - (Number(left?.last_updated_at) || 0))
-      .slice(0, limit);
+      .sort((left, right) => {
+        const leftSelected = trimText(left?.key) === currentSelectedSubagentKey(state) ? 1 : 0;
+        const rightSelected = trimText(right?.key) === currentSelectedSubagentKey(state) ? 1 : 0;
+        if (leftSelected !== rightSelected) return rightSelected - leftSelected;
+
+        const leftBlocked = left?.hasBlocker ? 1 : 0;
+        const rightBlocked = right?.hasBlocker ? 1 : 0;
+        if (leftBlocked !== rightBlocked) return rightBlocked - leftBlocked;
+
+        const leftStatus = trimText(left?.status);
+        const rightStatus = trimText(right?.status);
+        const leftActive = (leftStatus === 'running' || leftStatus === 'queued' || leftStatus === 'waiting') ? 1 : 0;
+        const rightActive = (rightStatus === 'running' || rightStatus === 'queued' || rightStatus === 'waiting') ? 1 : 0;
+        if (leftActive !== rightActive) return rightActive - leftActive;
+
+        return (Number(right?.last_updated_at) || 0) - (Number(left?.last_updated_at) || 0);
+      });
+
+    const capped = tabs.slice(0, limit);
+    const selectedKey = currentSelectedSubagentKey(state);
+    if (!selectedKey || capped.some((tab) => tab.key === selectedKey)) {
+      if (capped.some((tab) => tab.hasBlocker)) {
+        return capped;
+      }
+    } else {
+      const selectedTab = tabs.find((tab) => tab.key === selectedKey);
+      if (selectedTab) {
+        if (limit <= 0) {
+          return [selectedTab];
+        }
+        return [selectedTab].concat(capped.filter((tab) => tab.key !== selectedKey).slice(0, Math.max(0, limit - 1)));
+      }
+    }
+
+    const blockedTab = tabs.find((tab) => tab.hasBlocker && !capped.some((entry) => entry.key === tab.key));
+    if (!blockedTab) {
+      return capped;
+    }
+
+    if (limit <= 0) {
+      return [blockedTab];
+    }
+    return [blockedTab].concat(capped.filter((tab) => tab.key !== blockedTab.key).slice(0, Math.max(0, limit - 1)));
   }
 
   function orderedSubagentDetails(state) {
@@ -159,6 +213,12 @@
       const leftBlocked = trimText(left?.blocker_kind) || trimText(left?.status) === 'blocked' ? 1 : 0;
       const rightBlocked = trimText(right?.blocker_kind) || trimText(right?.status) === 'blocked' ? 1 : 0;
       if (leftBlocked !== rightBlocked) return rightBlocked - leftBlocked;
+
+      const leftStatus = trimText(left?.status);
+      const rightStatus = trimText(right?.status);
+      const leftActive = (leftStatus === 'running' || leftStatus === 'queued' || leftStatus === 'waiting') ? 1 : 0;
+      const rightActive = (rightStatus === 'running' || rightStatus === 'queued' || rightStatus === 'waiting') ? 1 : 0;
+      if (leftActive !== rightActive) return rightActive - leftActive;
 
       const leftTs = Number(left?.latest_frame?.ts) || 0;
       const rightTs = Number(right?.latest_frame?.ts) || 0;
@@ -230,19 +290,14 @@
       return selected;
     }
 
-    if (state?.interactiveBlockers instanceof Map && state?.details instanceof Map) {
-      for (const blocker of state.interactiveBlockers.values()) {
-        if (!blocker) continue;
-        const candidates = [
-          trimText(blocker.task_id),
-          trimText(blocker.session_id),
-          trimText(blocker.coordinator_id),
-        ].filter(Boolean);
-        for (const candidate of candidates) {
-          if (state.details.has(candidate)) {
-            return candidate;
-          }
-        }
+    const orderedDetails = orderedSubagentDetails(state);
+    for (const detail of orderedDetails) {
+      if (!detail) continue;
+      const detailKey = trimText(detail?.key) || detailKeyForAgent(detail);
+      const blocked = trimText(detail?.blocker_kind) || trimText(detail?.status) === 'blocked';
+      if (!blocked) continue;
+      if (blockerForDetail(state, detail, '')) {
+        return detailKey;
       }
     }
 
@@ -293,6 +348,14 @@
     const selected = selectedDetail ? blockerForDetail(state, selectedDetail, chatId) : null;
     if (selected) {
       return selected;
+    }
+
+    const orderedDetails = orderedSubagentDetails(state);
+    for (const detail of orderedDetails) {
+      const blocker = blockerForDetail(state, detail, chatId);
+      if (blocker) {
+        return blocker;
+      }
     }
 
     if (!(state?.interactiveBlockers instanceof Map)) {

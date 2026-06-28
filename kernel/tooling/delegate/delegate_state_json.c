@@ -831,7 +831,9 @@ char *delegate_parent_subagent_state_json_build(const char *chat_id)
     cJSON *coordinators = NULL;
     cJSON *interactive = NULL;
     cJSON *interactive_blockers = NULL;
+    cJSON *replay_cursor = NULL;
     bool has_turn_snapshot = false;
+    unsigned long max_visible_revision = 0;
 
     if (!chat_id || !chat_id[0]) {
         return NULL;
@@ -852,11 +854,13 @@ char *delegate_parent_subagent_state_json_build(const char *chat_id)
     coordinators = cJSON_CreateArray();
     interactive = cJSON_CreateObject();
     interactive_blockers = cJSON_CreateArray();
-    if (!root || !coordinators || !interactive || !interactive_blockers) {
+    replay_cursor = cJSON_CreateObject();
+    if (!root || !coordinators || !interactive || !interactive_blockers || !replay_cursor) {
         cJSON_Delete(root);
         cJSON_Delete(coordinators);
         cJSON_Delete(interactive);
         cJSON_Delete(interactive_blockers);
+        cJSON_Delete(replay_cursor);
         turn_context_snapshot_cleanup(&turn_snapshot);
         return NULL;
     }
@@ -880,6 +884,9 @@ char *delegate_parent_subagent_state_json_build(const char *chat_id)
         memset(&snapshot, 0, sizeof(snapshot));
         if (delegate_task_store_snapshot_coordinator(summary->coordinator_id, &snapshot) != 0) {
             continue;
+        }
+        if (snapshot.visible_revision > max_visible_revision) {
+            max_visible_revision = snapshot.visible_revision;
         }
 
         coord = cJSON_CreateObject();
@@ -966,7 +973,14 @@ char *delegate_parent_subagent_state_json_build(const char *chat_id)
         cJSON_AddItemToArray(coordinators, coord);
     }
 
+    cJSON_AddNumberToObject(root, "visible_revision", (double)max_visible_revision);
+    cJSON_AddNumberToObject(replay_cursor, "after_visible_revision", 0.0);
+    cJSON_AddNumberToObject(replay_cursor, "visible_revision", (double)max_visible_revision);
+    cJSON_AddItemToObject(root, "replay_cursor", replay_cursor);
+    replay_cursor = NULL;
+
     char *json = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
+    cJSON_Delete(replay_cursor);
     return json;
 }

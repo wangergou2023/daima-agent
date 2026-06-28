@@ -9,6 +9,7 @@
 #include "drivers/tool/tool_delegate.h"
 #include "drivers/tool/tool_delegate_protocol.h"
 #include "drivers/tool/tool_delegate_result_json.h"
+#include "delegate/delegate_session_json.h"
 #include "turn_decision.h"
 #include "turn_finish.h"
 #include "turn_gate.h"
@@ -49,35 +50,101 @@ static const char *find_delegate_snapshot_json(const char *content)
 	return json;
 }
 
-static const char *delegate_child_session_preferred_text(cJSON *agent,
-						      char *buf,
-						      size_t buf_size)
+#define DELEGATE_COMPLETION_TEXT_BUF 2048
+#define DELEGATE_COMPLETION_RENDERED_BUF 2048
+#define DELEGATE_COMPLETION_CLEAN_BUF 2048
+#define DELEGATE_COMPLETION_LINE_BUF 2304
+
+static bool delegate_child_session_has_assistant_history(cJSON *history)
 {
-	cJSON *child = NULL;
+	if (!history || !cJSON_IsArray(history)) {
+		return false;
+	}
+
+	for (int idx = cJSON_GetArraySize(history) - 1; idx >= 0; idx--) {
+		cJSON *entry = cJSON_GetArrayItem(history, idx);
+		const char *role = entry
+			? cJSON_GetStringValue(cJSON_GetObjectItem(entry, "role"))
+			: NULL;
+		const char *content = entry
+			? cJSON_GetStringValue(cJSON_GetObjectItem(entry, "content"))
+			: NULL;
+		if (role && strcmp(role, "assistant") == 0 && content && content[0]) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static bool delegate_frame_is_lifecycle_prelude(cJSON *frame)
+{
+	const char *type = NULL;
+	const char *phase = NULL;
+	const char *status = NULL;
+
+	if (!frame || !cJSON_IsObject(frame)) {
+		return false;
+	}
+
+	type = cJSON_GetStringValue(cJSON_GetObjectItem(frame, "type"));
+	phase = cJSON_GetStringValue(cJSON_GetObjectItem(frame, "phase"));
+	status = cJSON_GetStringValue(cJSON_GetObjectItem(frame, "status"));
+	if (type && strcmp(type, "subagent_start") == 0) {
+		return true;
+	}
+	if (type &&
+	    (strcmp(type, "subagent_progress") == 0 || strcmp(type, "subagent_step") == 0) &&
+	    phase && (strcmp(phase, "queued") == 0 || strcmp(phase, "progress") == 0) &&
+	    status && (strcmp(status, "queued") == 0 || strcmp(status, "running") == 0)) {
+		return true;
+	}
+	return false;
+}
+
+static const char *delegate_render_visible_text(const char *text,
+						    char *buf,
+						    size_t buf_size)
+{
+	if (!text || !text[0]) {
+		return NULL;
+	}
+	if (buf && buf_size > 0 &&
+	    tool_delegate_parse_result_json_rendered(text, buf, buf_size)) {
+		return buf;
+	}
+	return text;
+}
+
+static const char *delegate_inline_child_session_preferred_text(cJSON *child,
+								char *buf,
+								size_t buf_size)
+{
 	cJSON *latest = NULL;
 	cJSON *history = NULL;
-	const char *summary = NULL;
-	const char *output = NULL;
+	cJSON *commits = NULL;
 	const char *text = NULL;
 
-	if (!agent) {
+	if (!child || !cJSON_IsObject(child)) {
 		return NULL;
 	}
 
-	child = cJSON_GetObjectItem(agent, "child_session");
-	latest = child ? cJSON_GetObjectItem(child, "latest_frame") : NULL;
+	latest = cJSON_GetObjectItem(child, "latest_frame");
+	history = cJSON_GetObjectItem(child, "history");
 	if (latest) {
+		bool lifecycle_prelude = delegate_frame_is_lifecycle_prelude(latest);
+
 		text = cJSON_GetStringValue(cJSON_GetObjectItem(latest, "output_preview"));
-		if (text && text[0]) {
-			return text;
+		if ((!text || !text[0]) && !lifecycle_prelude) {
+			text = cJSON_GetStringValue(cJSON_GetObjectItem(latest, "detail"));
 		}
-		text = cJSON_GetStringValue(cJSON_GetObjectItem(latest, "detail"));
-		if (text && text[0]) {
-			return text;
+		if (text && text[0] &&
+		    !(lifecycle_prelude &&
+		      delegate_child_session_has_assistant_history(history))) {
+			return delegate_render_visible_text(text, buf, buf_size);
 		}
 	}
 
-	history = child ? cJSON_GetObjectItem(child, "history") : NULL;
 	if (history && cJSON_IsArray(history)) {
 		int size = cJSON_GetArraySize(history);
 		for (int idx = size - 1; idx >= 0; idx--) {
@@ -93,7 +160,7 @@ static const char *delegate_child_session_preferred_text(cJSON *agent,
 				: NULL;
 
 			if (role && strcmp(role, "assistant") == 0 && content && content[0]) {
-				return content;
+				return delegate_render_visible_text(content, buf, buf_size);
 			}
 			if (reasoning && reasoning[0]) {
 				if (buf && buf_size > 0) {
@@ -105,9 +172,64 @@ static const char *delegate_child_session_preferred_text(cJSON *agent,
 		}
 	}
 
+	commits = cJSON_GetObjectItem(child, "commits");
+	if (commits && cJSON_IsArray(commits)) {
+		int size = cJSON_GetArraySize(commits);
+		for (int idx = size - 1; idx >= 0; idx--) {
+			cJSON *entry = cJSON_GetArrayItem(commits, idx);
+			const char *commit_text = entry
+				? cJSON_GetStringValue(cJSON_GetObjectItem(entry, "text"))
+				: NULL;
+			if (commit_text && commit_text[0]) {
+				return delegate_render_visible_text(commit_text, buf, buf_size);
+			}
+		}
+	}
+
+	text = cJSON_GetStringValue(cJSON_GetObjectItem(child, "summary"));
+	if (text && text[0]) {
+		return delegate_render_visible_text(text, buf, buf_size);
+	}
+
+	return NULL;
+}
+
+static const char *delegate_child_session_preferred_text(cJSON *agent,
+						      char *buf,
+						      size_t buf_size)
+{
+	delegate_task_record_t snapshot;
+	cJSON *child = NULL;
+	const char *summary = NULL;
+	const char *output = NULL;
+	const char *text = NULL;
+
+	if (!agent) {
+		return NULL;
+	}
+
+	memset(&snapshot, 0, sizeof(snapshot));
 	summary = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "summary"));
 	output = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "output"));
-	return (summary && summary[0]) ? summary : output;
+	child = cJSON_GetObjectItem(agent, "child_session");
+	text = delegate_inline_child_session_preferred_text(child, buf, buf_size);
+	if (text && text[0]) {
+		return text;
+	}
+
+	if (buf && buf_size > 0) {
+		const char *task_id = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "task_id"));
+		if (task_id && task_id[0] &&
+		    delegate_task_store_snapshot(task_id, &snapshot) == 0 &&
+		    delegate_child_session_preferred_visible_text(&snapshot, buf, buf_size)) {
+			return buf;
+		}
+	}
+
+	if (summary && summary[0]) {
+		return delegate_render_visible_text(summary, buf, buf_size);
+	}
+	return delegate_render_visible_text(output, buf, buf_size);
 }
 
 static void append_delegate_agent_summary(char *dst,
@@ -115,10 +237,10 @@ static void append_delegate_agent_summary(char *dst,
 					      cJSON *agent,
 					      int index)
 {
-	char clean[640];
-	char rendered[640];
-	char line[896];
-	char preferred[640];
+	char clean[DELEGATE_COMPLETION_CLEAN_BUF];
+	char rendered[DELEGATE_COMPLETION_RENDERED_BUF];
+	char line[DELEGATE_COMPLETION_LINE_BUF];
+	char preferred[DELEGATE_COMPLETION_TEXT_BUF];
 	const char *description = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "description"));
 	const char *subagent_type = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "subagent_type"));
 	const char *status = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "status"));
@@ -160,10 +282,10 @@ static void append_delegate_agent_compact_line(char *dst,
 					       cJSON *agent,
 					       int index)
 {
-	char clean[320];
-	char rendered[512];
-	char line[512];
-	char preferred[640];
+	char clean[DELEGATE_COMPLETION_CLEAN_BUF];
+	char rendered[DELEGATE_COMPLETION_RENDERED_BUF];
+	char line[DELEGATE_COMPLETION_LINE_BUF];
+	char preferred[DELEGATE_COMPLETION_TEXT_BUF];
 	const char *description = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "description"));
 	const char *subagent_type = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "subagent_type"));
 	const char *status = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "status"));
@@ -204,7 +326,7 @@ static void collect_delegate_next_files(char *dst,
 	int appended = 0;
 
 	cJSON_ArrayForEach(agent, agents) {
-		char preferred[640];
+		char preferred[DELEGATE_COMPLETION_TEXT_BUF];
 		const char *text = delegate_child_session_preferred_text(agent,
 							 preferred,
 							 sizeof(preferred));
@@ -256,7 +378,7 @@ static void append_delegate_relationship_summary(char *dst,
 
 	cJSON_ArrayForEach(agent, agents) {
 		const char *description = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "description"));
-		char preferred[640];
+		char preferred[DELEGATE_COMPLETION_TEXT_BUF];
 		const char *text = delegate_child_session_preferred_text(agent,
 							 preferred,
 							 sizeof(preferred));

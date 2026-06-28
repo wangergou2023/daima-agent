@@ -28,7 +28,7 @@
     buildInteractiveBlocker,
     normalizeInteractiveSnapshot,
   } = core;
-  const { interactiveBlockerKey, selectedSubagentDetail } = selectors;
+  const { interactiveBlockerKey, selectedSubagentDetail, orderedSubagentDetails } = selectors;
 
   function cursorVisibleRevision(payload) {
     return Number(payload?.replay_cursor?.visible_revision) ||
@@ -38,6 +38,22 @@
 
   function cursorAfterVisibleRevision(payload) {
     return Number(payload?.replay_cursor?.after_visible_revision) || 0;
+  }
+
+  function mergeLiveCursor(state, payload) {
+    const currentVisibleRevision = Number(state?.liveCursor?.visibleRevision) || 0;
+    const currentAfterVisibleRevision = Number(state?.liveCursor?.afterVisibleRevision) || 0;
+    const nextVisibleRevision = cursorVisibleRevision(payload);
+    const nextAfterVisibleRevision = cursorAfterVisibleRevision(payload);
+    if (nextVisibleRevision <= 0 && nextAfterVisibleRevision <= 0) {
+      return false;
+    }
+    state.liveCursor = {
+      ...(state.liveCursor || {}),
+      visibleRevision: Math.max(currentVisibleRevision, nextVisibleRevision),
+      afterVisibleRevision: Math.max(currentAfterVisibleRevision, nextAfterVisibleRevision),
+    };
+    return true;
   }
 
   function reduceSubagentUiEvent(state, action, helpers) {
@@ -55,19 +71,15 @@
       return nextState;
     }
 
+    if (action.kind === 'cursor') {
+      mergeLiveCursor(nextState, action.payload || {});
+      return nextState;
+    }
+
     if (action.kind === 'subagent_event') {
       const payload = action.payload || {};
       const payloadVisibleRevision = cursorVisibleRevision(payload);
-      if (payloadVisibleRevision > (Number(nextState?.liveCursor?.visibleRevision) || 0)) {
-        nextState.liveCursor = {
-          ...(nextState.liveCursor || {}),
-          visibleRevision: payloadVisibleRevision,
-          afterVisibleRevision: Math.max(
-            Number(nextState?.liveCursor?.afterVisibleRevision) || 0,
-            cursorAfterVisibleRevision(payload),
-          ),
-        };
-      }
+      mergeLiveCursor(nextState, payload);
       const key = action.key || subagentEventKey(payload);
       if (!key) return nextState;
       if (action.entry) {
@@ -146,16 +158,7 @@
       const payload = action.payload || {};
       const agent = payload.agent && typeof payload.agent === 'object' ? payload.agent : null;
       const payloadVisibleRevision = cursorVisibleRevision(payload);
-      if (payloadVisibleRevision > (Number(nextState?.liveCursor?.visibleRevision) || 0)) {
-        nextState.liveCursor = {
-          ...(nextState.liveCursor || {}),
-          visibleRevision: payloadVisibleRevision,
-          afterVisibleRevision: Math.max(
-            Number(nextState?.liveCursor?.afterVisibleRevision) || 0,
-            cursorAfterVisibleRevision(payload),
-          ),
-        };
-      }
+      mergeLiveCursor(nextState, payload);
       const key = trimText(payload?.task_id) || trimText(payload?.session_id) ||
         trimText(agent?.task_id) || trimText(agent?.session_id);
       if (!key || !agent) return nextState;
@@ -404,16 +407,7 @@
     if (action.kind === 'coordinator') {
       const next = helpers.normalizeCoordinatorPayload(action.payload);
       if (!next.coordinator_id) return nextState;
-      if (cursorVisibleRevision(next) > (Number(nextState?.liveCursor?.visibleRevision) || 0)) {
-        nextState.liveCursor = {
-          ...(nextState.liveCursor || {}),
-          visibleRevision: cursorVisibleRevision(next),
-          afterVisibleRevision: Math.max(
-            Number(nextState?.liveCursor?.afterVisibleRevision) || 0,
-            cursorAfterVisibleRevision(next),
-          ),
-        };
-      }
+      mergeLiveCursor(nextState, next);
       const previous = nextState.coordinators.get(next.coordinator_id);
       const runtimeVisibleRevision = Number(nextState?.liveCursor?.visibleRevision) || 0;
       const staleCoordinatorRevision = previous &&
@@ -702,10 +696,17 @@
         }
       }
       if (!nextState.selectedTabKey) {
-        const firstAgent = next.agents[0];
-        const firstKey = detailKeyForAgent(firstAgent);
-        if (firstKey) {
-          nextState.selectedTabKey = firstKey;
+        const orderedDetails = orderedSubagentDetails(nextState);
+        const preferredDetail = orderedDetails[0];
+        const preferredKey = trimText(preferredDetail?.key) || detailKeyForAgent(preferredDetail);
+        if (preferredKey) {
+          nextState.selectedTabKey = preferredKey;
+        } else {
+          const firstAgent = next.agents[0];
+          const firstKey = detailKeyForAgent(firstAgent);
+          if (firstKey) {
+            nextState.selectedTabKey = firstKey;
+          }
         }
       }
     }

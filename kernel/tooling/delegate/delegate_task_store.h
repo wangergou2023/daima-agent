@@ -336,4 +336,5 @@ err_t delegate_task_store_find_parent_route_by_session(const char *session_id,
                                                        delegate_parent_route_view_t *out);
 int delegate_task_store_running_count(void);
 int delegate_task_store_running_count_for_parent(const char *chat_id);
+int delegate_task_store_pending_coordinator_count(void);
 void delegate_task_store_reset_for_test(void);

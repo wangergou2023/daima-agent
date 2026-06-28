@@ -65,6 +65,15 @@
       return state;
     }
 
+    function applyCursorPayload(payload) {
+      if (!payload || typeof payload !== 'object') {
+        return null;
+      }
+      api.dispatch?.({ kind: 'cursor', payload });
+      renderAll();
+      return payload;
+    }
+
     function applySessionPayload(payload, helpers) {
       const action = typeof api.makeSubagentSessionAction === 'function'
         ? api.makeSubagentSessionAction(payload, helpers)
@@ -82,6 +91,7 @@
       dismissInteractiveRequest,
       applySnapshot,
       applyCoordinatorPayload,
+      applyCursorPayload,
       applySessionPayload,
     };
   }

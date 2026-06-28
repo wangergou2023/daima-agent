@@ -56,6 +56,14 @@
       });
     }
 
+    function applyCursorPayload(payload) {
+      if (!payload || typeof payload !== 'object') {
+        return null;
+      }
+      dispatch({ kind: 'cursor', payload });
+      return payload;
+    }
+
     function replaceSnapshot(snapshot, helpers) {
       const normalizedSnapshot = typeof api.normalizeSnapshot === 'function'
         ? api.normalizeSnapshot(snapshot)
@@ -112,6 +120,7 @@
 
     return {
       applyCoordinatorPayload,
+      applyCursorPayload,
       currentSelectedSubagentKey,
       currentInteractiveBlocker,
       dispatch,

@@ -7,6 +7,13 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define TURN_CONTEXT_CONSUMED_DELEGATE_MAX 8
+
+struct turn_consumed_delegate_resume {
+    char coordinator_id[32];
+    unsigned long visible_revision;
+};
+
 struct turn_snapshot {
     char chat_id[64];
     char channel[16];
@@ -30,6 +37,7 @@ struct turn_snapshot {
     /* 最近一次已被父链消费的 delegate resume 水位 */
     char consumed_delegate_coordinator_id[32];
     unsigned long consumed_delegate_visible_revision;
+    struct turn_consumed_delegate_resume consumed_delegate_resumes[TURN_CONTEXT_CONSUMED_DELEGATE_MAX];
 
 };
 
@@ -49,6 +57,9 @@ bool turn_context_clear_pending_request(const char *chat_id,
                                         const char *request_type,
                                         const char *request_id);
 bool turn_context_set_delegate_resume_consumed(const char *chat_id,
+                                               const char *coordinator_id,
+                                               unsigned long visible_revision);
+bool turn_context_has_delegate_resume_consumed(const char *chat_id,
                                                const char *coordinator_id,
                                                unsigned long visible_revision);
 

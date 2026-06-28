@@ -490,6 +490,13 @@
           });
         }
 
+        api.applyCursorPayload?.({
+          replay_cursor: {
+            after_visible_revision: Number(data?.after_visible_revision) || 0,
+            visible_revision: Number(data?.max_visible_revision) || 0,
+          },
+        });
+
         return {
           chatId: nextChatId,
           status: 'ok',
@@ -629,6 +636,10 @@
         if (shouldApplySnapshot(snapshot, snapshotGuardState, chatId)) {
           api.applySnapshot?.(snapshot, { chatId, interactiveUiConfig: options?.interactiveUiConfig });
         }
+      }
+      api.applyCursorPayload?.(data);
+      if (snapshot && typeof snapshot === 'object') {
+        api.applyCursorPayload?.(snapshot);
       }
       for (const event of events) {
         if (!event || typeof event !== 'object') {

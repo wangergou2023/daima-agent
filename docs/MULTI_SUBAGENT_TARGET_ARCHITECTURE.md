@@ -137,6 +137,21 @@
 
 这也是当前 `daima-agent` 里 `delegate_parent_wake.c` 已经最接近，但还没完全追平的部分。
 
+当前 `daima-agent` 的实际基线要单独说明：
+
+- 已经落地的是：
+  - `pending wake queue`
+  - `recent activity defer`
+  - `pending interactive request defer`
+  - `consumed_delegate_visible_revision` 驱动的显式 consumed watermark
+- 还没有真正落地的是：
+  - 像 `oh-my-openagent` 那样，先以 no-reply 方式把 wake deposit 到 parent history，再由后续 parent session 历史证明这次 admitted wake 已被消费
+
+因此当前实现应坚持一个约束：
+
+- 在没有真实 no-reply deposit 协议之前，retained resume 只能由显式 consumed watermark 丢弃
+- 不能再靠“parent 好像有过 assistant 输出”这种弱信号误删 retained resume
+
 ### 2.2 `opencode` 的强项
 
 核心参考：
@@ -191,11 +206,21 @@
 - `visible_revision`
 - child session cursor/window
 - `subagent_state_delta` / `subagent_state_deltas`
+- `session_events?after_seq=...&after_visible_revision=...`
+
+并且这一轮已经通过 fresh self-test 确认：
+
+- history event replay 可以按 `after_seq` 过滤
+- subagent/coordinator event replay 可以按 `after_visible_revision` 过滤
+- 当 subagent 根 `visible_revision <= after_visible_revision` 时，`session_events` 会抑制：
+  - `coordinator_snapshot`
+  - `subagent_session`
+  - `subagent_snapshot`
 
 但本质仍偏 snapshot-window：
 
-- 更像“当前截一段最近窗口”
-- 还不是 `opencode sessions.events(after)` 那种 durable replay stream
+- 更像“统一 session-first 返回面 + 双游标回放”
+- 还不是 `opencode sessions.events(after)` 那种单一 durable replay stream
 
 这会限制：
 
@@ -223,7 +248,7 @@
 
 ### 3.4 当前已经补上的 session-first 边界
 
-这轮代码基线下，有三个之前容易串状态的边界已经收紧：
+这轮代码基线下，有四个之前容易串状态的边界已经收紧：
 
 1. history-only fetch 与 snapshot restore 已分离
 
@@ -271,6 +296,46 @@
 - interactive 状态
 
 这避免了跨 chat 污染，符合 `opencode` 那种 session-first 浏览模型：切到哪个 session，就以哪个 session 的快照和 replay 为准。
+
+4. chat-delta recovery 现在会显式推进 runtime replay cursor
+
+- `spiffs_data/web/subagent-transport.js`
+- `spiffs_data/web/subagent-state-reducer.js`
+- `scripts/dev/check-subagent-state-reducer.js`
+
+之前 `loadChatDelta()` 虽然会把：
+
+- changed coordinators
+- changed child sessions
+
+重新 apply 到 runtime，但 chat 级别返回的：
+
+- `after_visible_revision`
+- `max_visible_revision`
+
+并不会单独落进前端 runtime cursor。
+
+这会带来一个很隐蔽的问题：
+
+- detail/coordinator 看起来已经恢复了
+- 但 `liveCursor.afterVisibleRevision` 仍可能停在旧值
+- 下次 reconnect / recovery 又会从旧 revision 继续请求
+
+现在前端已经增加显式 `cursor` action：
+
+- chat-delta recovery 完成后，会把根 `replay_cursor` 直接 apply 到 runtime
+- reducer 用 `max(current, incoming)` 方式合并 cursor
+- 即使 `visible_revision` 没变，只要 `after_visible_revision` 前进，也会保留下来
+
+这一步仍然不是完整的 durable event stream，但它至少把“chat 级 replay cursor”从隐式副产物，推进成了显式状态。
+
+更准确地说，当前中间态已经是：
+
+- 后端统一返回 `history + events + subagent + replay_cursor`
+- `replay_cursor` 现在明确拆成两个回放域：
+  - history `after_seq`
+  - subagent `after_visible_revision`
+- 这比继续伪装一个假的全局 event seq 更诚实，也更接近最终往 `opencode` durable stream 收敛的路径
 
 ---
 
@@ -327,7 +392,8 @@
 - 是否 defer
 - 是否 retry
 - 是否 dedupe
-- 是否 no-reply admit
+- 当前版本是否应保留 retained resume，必须只看显式 consumed watermark
+- 后续若引入真正 no-reply admit，必须连同 parent history deposit 协议一起落地，不能只加局部状态字段
 - 是否因 parent recent activity 暂缓
 - 是否因 parent 已消费这次 wake 而丢弃 retained resume
 
@@ -427,7 +493,8 @@
 
 验收标准：
 
-- retained resume 在 busy parent / no-reply / failed-reply-required 场景下行为稳定一致
+- retained resume 在 busy parent / consumed-watermark / failed-reply-required 场景下行为稳定一致
+- 在没有真实 parent-history no-reply deposit 协议前，不再保留伪 no-reply admitted 局部状态字段
 
 ### 阶段 C：把前端彻底推到 session-first
 
@@ -451,6 +518,9 @@
 
 目标：
 
+- 保留当前已经成立的双游标 replay 语义：
+  - history `after_seq`
+  - subagent `after_visible_revision`
 - 让 restore/reconnect 更接近 `sessions.events(after)` 的消费方式
 - 继续把 `payload fetch`、`history-only fetch`、`snapshot replay`、`delta recovery` 明确拆成独立边界
 
@@ -463,7 +533,7 @@
 
 验收标准：
 
-- reconnect / refresh / incremental delta 使用统一 cursor 语义，而不是多套“猜测式补偿”
+- reconnect / refresh / incremental delta 先使用明确的双游标语义，再逐步收敛 toward durable stream
 - history reconcile 不会再对 live subagent state 产生副作用
 - 显式 session switch 与被动 live recovery 的 snapshot apply 语义清晰分离
 

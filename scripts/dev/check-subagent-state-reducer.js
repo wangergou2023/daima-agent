@@ -71,6 +71,32 @@ const stateApi = loadStateModules();
 
 let state = stateApi.core.createEmptySubagentUiState();
 
+state = reduce(stateApi, state, {
+  kind: 'cursor',
+  payload: {
+    replay_cursor: {
+      visible_revision: 5,
+      after_visible_revision: 5,
+    },
+  },
+});
+
+expect(state.liveCursor.visibleRevision === 5, 'cursor action should seed visible revision');
+expect(state.liveCursor.afterVisibleRevision === 5, 'cursor action should seed after visible revision');
+
+state = reduce(stateApi, state, {
+  kind: 'cursor',
+  payload: {
+    replay_cursor: {
+      visible_revision: 5,
+      after_visible_revision: 9,
+    },
+  },
+});
+
+expect(state.liveCursor.visibleRevision === 5, 'cursor action should not regress visible revision');
+expect(state.liveCursor.afterVisibleRevision === 9, 'cursor action should advance after visible revision without newer visible revision');
+
 state = reduce(stateApi, state, makeSubagentEvent({
   type: 'subagent_blocked',
   chat_id: 'web_test',
@@ -378,6 +404,173 @@ expect(!String(detail.pending_request?.prompt || '').includes('stale coordinator
 expect(
   Array.isArray(detail.timeline) && !detail.timeline.some((item) => String(item?.detail || '').includes('stale coordinator blocked frame')),
   'expected stale coordinator snapshot not to replace newer timeline with stale blocked frame',
+);
+
+const blockerPriorityState = stateApi.core.createEmptySubagentUiState();
+blockerPriorityState.details.set('old_blocked', {
+  key: 'old_blocked',
+  task_id: 'old_blocked',
+  session_id: 'sess_old',
+  coordinator_id: 'dc_blockers',
+  task: 'older blocked task',
+  subagent_type: 'explore',
+  status: 'blocked',
+  blocker_kind: 'permission',
+  latest_frame: { ts: 1 },
+});
+blockerPriorityState.details.set('new_blocked', {
+  key: 'new_blocked',
+  task_id: 'new_blocked',
+  session_id: 'sess_new',
+  coordinator_id: 'dc_blockers',
+  task: 'newer blocked task',
+  subagent_type: 'explore',
+  status: 'blocked',
+  blocker_kind: 'permission',
+  latest_frame: { ts: 100 },
+});
+blockerPriorityState.interactiveBlockers.set('old_blocked', {
+  task_id: 'old_blocked',
+  session_id: 'sess_old',
+  coordinator_id: 'dc_blockers',
+  chat_id: 'web_test',
+  blocker_kind: 'permission',
+  prompt: 'older blocker prompt',
+});
+blockerPriorityState.interactiveBlockers.set('new_blocked', {
+  task_id: 'new_blocked',
+  session_id: 'sess_new',
+  coordinator_id: 'dc_blockers',
+  chat_id: 'web_test',
+  blocker_kind: 'permission',
+  prompt: 'newer blocker prompt',
+});
+
+expect(
+  stateApi.selectors.effectiveSelectedSubagentKey(blockerPriorityState) === 'new_blocked',
+  'expected effective selected subagent key to prefer the newest blocked child session over older blocker insertion order',
+);
+expect(
+  stateApi.selectors.currentInteractiveBlocker(blockerPriorityState, 'web_test')?.task_id === 'new_blocked',
+  'expected current interactive blocker to follow the newest blocked child session rather than oldest map entry',
+);
+
+const activityPriorityState = stateApi.core.createEmptySubagentUiState();
+activityPriorityState.details.set('done_recent', {
+  key: 'done_recent',
+  task_id: 'done_recent',
+  session_id: 'sess_done_recent',
+  coordinator_id: 'dc_activity',
+  task: 'recent done task',
+  subagent_type: 'explore',
+  status: 'done',
+  latest_frame: { ts: 200 },
+});
+activityPriorityState.details.set('running_older', {
+  key: 'running_older',
+  task_id: 'running_older',
+  session_id: 'sess_running_older',
+  coordinator_id: 'dc_activity',
+  task: 'older running task',
+  subagent_type: 'explore',
+  status: 'running',
+  latest_frame: { ts: 50 },
+});
+const orderedActivityKeys = stateApi.selectors.orderedSubagentDetails(activityPriorityState).map((detail) => detail.key);
+expect(
+  orderedActivityKeys[0] === 'running_older',
+  `expected ordered subagent details to prioritize active child sessions over recently completed ones, got: ${orderedActivityKeys.join(',')}`,
+);
+
+let coordinatorSelectionState = stateApi.core.createEmptySubagentUiState();
+coordinatorSelectionState = reduce(stateApi, coordinatorSelectionState, {
+  kind: 'coordinator',
+  payload: {
+    coordinator_id: 'dc_select_default',
+    team_run_id: 'tr_select_default',
+    team_name: 'selection-team',
+    dispatch_mode: 'parallel',
+    chat_id: 'web_test',
+    status: 'running',
+    agent_count: 2,
+    completed_count: 1,
+    queued_count: 0,
+    running_count: 1,
+    visible_revision: 1,
+    completion_notified: false,
+    parent_response_sent: true,
+    wake_state: 'dispatched',
+    agents: [
+      {
+        name: 'recent done task',
+        task_id: 'done_recent_first',
+        session_id: 'sess_done_recent_first',
+        subagent_type: 'explore',
+        description: 'recent done task',
+        status: 'done',
+        model: 'deepseek-v4-pro',
+        output: 'done summary',
+        child_session: {
+          summary: 'done summary',
+          history: [{ role: 'assistant', content: 'done history' }],
+          frames: [{
+            type: 'subagent_done',
+            phase: 'done',
+            status: 'done',
+            task: 'recent done task',
+            detail: 'done detail',
+            output_preview: 'done summary',
+            ts: 200,
+          }],
+          commits: [{
+            kind: 'result',
+            phase: 'done',
+            status: 'done',
+            label: 'recent done task',
+            text: 'done summary',
+            ts: 200,
+          }],
+          pending_queue: { permissions: [], questions: [] },
+        },
+      },
+      {
+        name: 'older running task',
+        task_id: 'running_older_second',
+        session_id: 'sess_running_older_second',
+        subagent_type: 'explore',
+        description: 'older running task',
+        status: 'running',
+        model: 'deepseek-v4-pro',
+        output: '',
+        child_session: {
+          summary: 'running summary',
+          history: [{ role: 'assistant', content: 'running history' }],
+          frames: [{
+            type: 'subagent_progress',
+            phase: 'progress',
+            status: 'running',
+            task: 'older running task',
+            detail: 'running detail',
+            output_preview: '',
+            ts: 50,
+          }],
+          commits: [{
+            kind: 'progress',
+            phase: 'running',
+            status: 'running',
+            label: 'older running task',
+            text: 'running detail',
+            ts: 50,
+          }],
+          pending_queue: { permissions: [], questions: [] },
+        },
+      },
+    ],
+  },
+});
+expect(
+  coordinatorSelectionState.selectedTabKey === 'running_older_second',
+  `expected coordinator snapshot with no prior selection to default to the most relevant child session, got: ${coordinatorSelectionState.selectedTabKey}`,
 );
 
 console.log('state-reducer-check ok');

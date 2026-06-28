@@ -51,3 +51,14 @@ err_t delegate_lifecycle_poll_runtime(void)
     delegate_parent_wake_poll();
     return err;
 }
+
+bool delegate_lifecycle_runtime_is_idle(void)
+{
+    if (delegate_task_store_pending_coordinator_count() > 0) {
+        return false;
+    }
+    if (!delegate_parent_wake_is_idle()) {
+        return false;
+    }
+    return true;
+}

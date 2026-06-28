@@ -33,6 +33,11 @@ const SUBAGENT_UI_ORCHESTRATOR_JS_PATH = `${ROOT}/spiffs_data/web/subagent-ui-or
 const SUBAGENT_TRANSPORT_JS_PATH = `${ROOT}/spiffs_data/web/subagent-transport.js`;
 const SUBAGENT_CHAT_TRANSPORT_JS_PATH = `${ROOT}/spiffs_data/web/subagent-chat-transport.js`;
 const SUBAGENT_BOOTSTRAP_JS_PATH = `${ROOT}/spiffs_data/web/subagent-bootstrap.js`;
+const SUBAGENT_SHELL_JS_PATH = `${ROOT}/spiffs_data/web/subagent-shell.js`;
+const SELF_TEST_REPORT_VIEW_JS_PATH = `${ROOT}/spiffs_data/web/self-test-report-view.js`;
+const AGENT_STATE_PRESENTER_JS_PATH = `${ROOT}/spiffs_data/web/agent-state-presenter.js`;
+const CONNECTION_STATE_PRESENTER_JS_PATH = `${ROOT}/spiffs_data/web/connection-state-presenter.js`;
+const RECONNECT_CONTROLLER_JS_PATH = `${ROOT}/spiffs_data/web/reconnect-controller.js`;
 const APP_JS_PATH = `${ROOT}/spiffs_data/web/app.js`;
 
 function fail(message) {
@@ -48,6 +53,11 @@ function makeHistoryEntries(prefix, count) {
     content: `${prefix} history ${String(index).padStart(2, '0')}`,
     ...(index % 2 === 0 ? { reasoning: `${prefix} reasoning ${String(index).padStart(2, '0')}` } : {}),
   }));
+}
+
+function latestSelfTestReportText(document) {
+  const reports = [...document.querySelectorAll('.self-test-report')];
+  return reports.length ? (reports[reports.length - 1].textContent || '') : '';
 }
 
 function buildDom() {
@@ -1011,6 +1021,16 @@ function bootstrapApp(dom) {
   vm.runInContext(subagentChatTransportJs, context);
   const subagentBootstrapJs = fs.readFileSync(SUBAGENT_BOOTSTRAP_JS_PATH, 'utf8');
   vm.runInContext(subagentBootstrapJs, context);
+  const subagentShellJs = fs.readFileSync(SUBAGENT_SHELL_JS_PATH, 'utf8');
+  vm.runInContext(subagentShellJs, context);
+  const selfTestReportViewJs = fs.readFileSync(SELF_TEST_REPORT_VIEW_JS_PATH, 'utf8');
+  vm.runInContext(selfTestReportViewJs, context);
+  const agentStatePresenterJs = fs.readFileSync(AGENT_STATE_PRESENTER_JS_PATH, 'utf8');
+  vm.runInContext(agentStatePresenterJs, context);
+  const connectionStatePresenterJs = fs.readFileSync(CONNECTION_STATE_PRESENTER_JS_PATH, 'utf8');
+  vm.runInContext(connectionStatePresenterJs, context);
+  const reconnectControllerJs = fs.readFileSync(RECONNECT_CONTROLLER_JS_PATH, 'utf8');
+  vm.runInContext(reconnectControllerJs, context);
   const appJs = fs.readFileSync(APP_JS_PATH, 'utf8');
   vm.runInContext(appJs, context);
   return { fetchStub };
@@ -1053,6 +1073,11 @@ function bootstrapAppWithOverrides(dom, overrides = {}) {
     SUBAGENT_TRANSPORT_JS_PATH,
     SUBAGENT_CHAT_TRANSPORT_JS_PATH,
     SUBAGENT_BOOTSTRAP_JS_PATH,
+    SUBAGENT_SHELL_JS_PATH,
+    SELF_TEST_REPORT_VIEW_JS_PATH,
+    AGENT_STATE_PRESENTER_JS_PATH,
+    CONNECTION_STATE_PRESENTER_JS_PATH,
+    RECONNECT_CONTROLLER_JS_PATH,
     APP_JS_PATH,
   ];
   for (const path of scriptPaths) {
@@ -1088,6 +1113,24 @@ async function main() {
   expect(!/const orderedStates = \[\.\.\.coordinatorStates\.values\(\)\]\.sort/.test(appSource), 'expected app.js to stop owning coordinator ordering logic');
   expect(!/if \(!currentSelectedSubagentKey\(\)\)/.test(appSource), 'expected app.js to stop owning selected-subagent fallback logic');
   expect(!/let pendingSudoRequestId = '';/ .test(appSource), 'expected app.js to stop owning separate pendingSudoRequestId mirror state');
+  expect(!/function ensureSessionRestore\(/.test(appSource), 'expected app.js to stop owning session restore bootstrap');
+  expect(!/async function fetchSessionHistoryMessages\(/.test(appSource), 'expected app.js to stop owning session history bridge');
+  expect(!/async function restoreSessionViewState\(/.test(appSource), 'expected app.js to stop owning restoreSessionViewState bridge');
+  expect(!/async function reconcileCurrentSessionHistory\(/.test(appSource), 'expected app.js to stop owning reconcileCurrentSessionHistory bridge');
+  expect(!/function scheduleCurrentSessionHistoryReconcile\(/.test(appSource), 'expected app.js to stop owning scheduleCurrentSessionHistoryReconcile bridge');
+  expect(!/async function loadSubagentStateSnapshot\(/.test(appSource), 'expected app.js to stop owning loadSubagentStateSnapshot bridge');
+  expect(!/function replaceSubagentStateSnapshot\(/.test(appSource), 'expected app.js to stop owning replaceSubagentStateSnapshot bridge');
+  expect(!/function coordinatorPanelState\(/.test(appSource), 'expected app.js to stop owning coordinatorPanelState bridge');
+  expect(!/function updateAgentIntent\(/.test(appSource), 'expected app.js to stop owning updateAgentIntent bridge');
+  expect(!/function updateAgentRole\(/.test(appSource), 'expected app.js to stop owning updateAgentRole bridge');
+  expect(!/function clearAgentState\(/.test(appSource), 'expected app.js to stop owning clearAgentState bridge');
+  expect(!/function handleAgentStateMessage\(/.test(appSource), 'expected app.js to stop owning handleAgentStateMessage bridge');
+  expect(!/function setStatus\(/.test(appSource), 'expected app.js to stop owning setStatus bridge');
+  expect(!/function showReconnectToast\(/.test(appSource), 'expected app.js to stop owning showReconnectToast bridge');
+  expect(!/function hideReconnectToast\(/.test(appSource), 'expected app.js to stop owning hideReconnectToast bridge');
+  expect(!/async function handleReconnect\(/.test(appSource), 'expected app.js to stop owning handleReconnect bridge');
+  expect(!/function renderCoordinatorAgent\(/.test(appSource), 'expected app.js to stop owning renderCoordinatorAgent bridge');
+  expect(!/function renderSelfTestReport\(/.test(appSource), 'expected app.js to stop owning renderSelfTestReport bridge');
 
   const dom = buildDom();
   const { fetchStub } = bootstrapApp(dom);
@@ -2220,6 +2263,130 @@ async function main() {
   const uiState = dom.window.agentDebugSubagentUiState;
   const selectedDetailView = state?.selectedSubagentDetailView?.(uiState || {}, 'web_test');
   expect(!!selectedDetailView, 'expected selected detail view-model to be exposed');
+  const coordinatorOnlyState = {
+    selectedTabKey: '',
+    interactiveBlockers: new Map(),
+    details: new Map(),
+    coordinators: new Map([
+      ['dc_coord_only', {
+        coordinator_id: 'dc_coord_only',
+        chat_id: 'web_test',
+        status: 'running',
+        agents: [
+          {
+            task_id: 'dt_coord_only',
+            session_id: 'delegate_sync_coord_only',
+            subagent_type: 'explore',
+            description: '仅有 coordinator 摘要',
+            status: 'running',
+          },
+        ],
+      }],
+    ]),
+  };
+  expect(
+    state?.effectiveSelectedSubagentKey?.(coordinatorOnlyState) === '',
+    'expected session-first selection to stay empty when no real child detail/session exists',
+  );
+  expect(
+    state?.selectedSubagentDetailView?.(coordinatorOnlyState, 'web_test') === null,
+    'expected session-first detail view to stay null for coordinator-only snapshots',
+  );
+  const tabRetentionState = dom.window.AgentSubagentStateCore?.createEmptySubagentUiState?.() || {
+    selectedTabKey: '',
+    interactiveBlockers: new Map(),
+    details: new Map(),
+    coordinators: new Map(),
+  };
+  tabRetentionState.selectedTabKey = 'detail-selected-old';
+  for (let index = 0; index < 10; index += 1) {
+    const key = index === 0 ? 'detail-selected-old' : `detail-hot-${index}`;
+    const ts = index === 0 ? 1 : 100 + index;
+    tabRetentionState.details.set(key, {
+      key,
+      task_id: key,
+      session_id: `sess-${key}`,
+      coordinator_id: 'dc_tabs',
+      task: key,
+      subagent_type: 'explore',
+      status: 'running',
+      latest_frame: { ts },
+    });
+  }
+  const retainedTabs = state?.visibleSubagentTabs?.(tabRetentionState, 8) || [];
+  expect(
+    retainedTabs.some((tab) => tab.key === 'detail-selected-old'),
+    'expected session-first visible tabs to retain the currently selected child session even when it is not in the newest top-N',
+  );
+  const retainedDetailPanel = state?.detailPanelViewModel?.(tabRetentionState, 'web_test', { detailLimit: 8 }) || {};
+  expect(
+    (retainedDetailPanel.orderedDetails || []).some((detail) => detail.key === 'detail-selected-old'),
+    'expected session-first detail rail to retain the currently selected child session even when it is not in the newest top-N',
+  );
+  const blockerRetentionState = dom.window.AgentSubagentStateCore?.createEmptySubagentUiState?.() || {
+    selectedTabKey: '',
+    interactiveBlockers: new Map(),
+    details: new Map(),
+    coordinators: new Map(),
+  };
+  blockerRetentionState.interactiveBlockers.set('detail-blocked-old', {
+    task_id: 'detail-blocked-old',
+    session_id: 'sess-detail-blocked-old',
+    chat_id: 'web_test',
+    blocker_kind: 'permission',
+    prompt: 'Need approval for blocked older session',
+  });
+  for (let index = 0; index < 10; index += 1) {
+    const key = index === 0 ? 'detail-blocked-old' : `detail-fresh-${index}`;
+    const ts = index === 0 ? 1 : 100 + index;
+    blockerRetentionState.details.set(key, {
+      key,
+      task_id: key,
+      session_id: `sess-${key}`,
+      coordinator_id: 'dc_tabs',
+      task: key,
+      subagent_type: 'explore',
+      status: index === 0 ? 'blocked' : 'running',
+      blocker_kind: index === 0 ? 'permission' : '',
+      latest_frame: { ts },
+    });
+  }
+  const blockerTabs = state?.visibleSubagentTabs?.(blockerRetentionState, 8) || [];
+  expect(
+    blockerTabs.some((tab) => tab.key === 'detail-blocked-old'),
+    'expected session-first visible tabs to retain an older child session that still has a pending blocker',
+  );
+  const activityPriorityState = dom.window.AgentSubagentStateCore?.createEmptySubagentUiState?.() || {
+    selectedTabKey: '',
+    interactiveBlockers: new Map(),
+    details: new Map(),
+    coordinators: new Map(),
+  };
+  activityPriorityState.details.set('detail-done-recent', {
+    key: 'detail-done-recent',
+    task_id: 'detail-done-recent',
+    session_id: 'sess-detail-done-recent',
+    coordinator_id: 'dc_tabs',
+    task: 'detail-done-recent',
+    subagent_type: 'explore',
+    status: 'done',
+    latest_frame: { ts: 200 },
+  });
+  activityPriorityState.details.set('detail-running-older', {
+    key: 'detail-running-older',
+    task_id: 'detail-running-older',
+    session_id: 'sess-detail-running-older',
+    coordinator_id: 'dc_tabs',
+    task: 'detail-running-older',
+    subagent_type: 'explore',
+    status: 'running',
+    latest_frame: { ts: 50 },
+  });
+  const activityTabs = state?.visibleSubagentTabs?.(activityPriorityState, 8) || [];
+  expect(
+    activityTabs[0]?.key === 'detail-running-older',
+    `expected session-first visible tabs to prioritize active child sessions over recently completed ones, got: ${(activityTabs || []).map((tab) => tab.key).join(',')}`,
+  );
   const selectedKey = state.currentSelectedSubagentKey(uiState || {});
   if (selectedKey) {
     const detail = uiState?.details?.get?.(selectedKey);
@@ -2632,6 +2799,11 @@ async function main() {
               ],
               subagent: {
                 chat_id: 'web_session_first',
+                visible_revision: 9,
+                replay_cursor: {
+                  after_visible_revision: 0,
+                  visible_revision: 9,
+                },
                 coordinators: [
                   {
                     coordinator_id: 'dc_session_first',
@@ -2702,6 +2874,11 @@ async function main() {
     'expected unified transport restore to replay typed subagent_session events into runtime state',
   );
   expect(
+    Number(unifiedReplayState.liveCursor.visibleRevision) === 9 &&
+      Number(unifiedReplayState.liveCursor.afterVisibleRevision) === 0,
+    'expected unified transport restore to apply top-level subagent replay cursor from session_events',
+  );
+  expect(
     Array.isArray(unifiedTransportRestore?.history) &&
       unifiedTransportRestore.history[0]?.content === 'session-first history' &&
       unifiedTransportRestore?.restoredHistory === true &&
@@ -2717,7 +2894,7 @@ async function main() {
   const baselineLegacySnapshotFetches = sessionFirstFetchStub.requests.filter((url) =>
     String(url).includes('/api/subagent_state?chat_id=web_test')
   ).length;
-  await domSessionFirst.window.eval('loadSubagentStateSnapshot("web_test")');
+  await domSessionFirst.window.eval('ensureSessionStateRuntime()?.loadSubagentStateSnapshot?.("web_test")');
   await new Promise((resolve) => setTimeout(resolve, 80));
   const nextSessionEventsFetches = sessionFirstFetchStub.requests.filter((url) =>
     String(url).includes('/api/session_events?chat_id=web_test')
@@ -2727,7 +2904,7 @@ async function main() {
   ).length;
   expect(
     nextSessionEventsFetches > baselineSessionEventsFetches,
-    'expected app-level loadSubagentStateSnapshot to prefer unified /api/session_events',
+    'expected session runtime loadSubagentStateSnapshot to prefer unified /api/session_events',
   );
   expect(
     nextLegacySnapshotFetches === baselineLegacySnapshotFetches,
@@ -2793,6 +2970,96 @@ async function main() {
   expect(
     !document.getElementById('interactiveModal')?.classList?.contains('show'),
     'expected empty subagent snapshot response to clear pending interactive modal state',
+  );
+
+  const selfTestRenderer = dom.window.AgentSelfTestReportView?.renderSelfTestReport;
+  expect(typeof selfTestRenderer === 'function', 'expected self-test report renderer to be present');
+  selfTestRenderer({
+    type: 'self_test_result',
+    total: 3,
+    passed: 3,
+    items: [{ name: 'baseline', ok: true }],
+    log_probe: {
+      pending: true,
+      marker_found: false,
+      multi_subagent_confirmed: false,
+      attach_task_hits: 0,
+      launch_candidate_hits: 0,
+      restore_queued_hits: 0,
+    },
+  }, { messagesEl: document.getElementById('messages') });
+  expect(
+    latestSelfTestReportText(document).includes('等待 agent 完成 opencode 分析后回看日志'),
+    'expected self-test report to explain pending runtime log follow-up',
+  );
+
+  selfTestRenderer({
+    type: 'self_test_result',
+    total: 3,
+    passed: 2,
+    items: [{ name: 'baseline', ok: true }],
+    log_probe: {
+      pending: false,
+      marker_found: false,
+      multi_subagent_confirmed: false,
+      attach_task_hits: 0,
+      launch_candidate_hits: 0,
+      restore_queued_hits: 0,
+    },
+  }, { messagesEl: document.getElementById('messages') });
+  expect(
+    latestSelfTestReportText(document).includes('未命中本次自检日志 marker'),
+    'expected self-test report to explain missing runtime log marker',
+  );
+
+  selfTestRenderer({
+    type: 'self_test_result',
+    total: 3,
+    passed: 2,
+    items: [{ name: 'baseline', ok: true }],
+    log_probe: {
+      pending: false,
+      marker_found: true,
+      multi_subagent_confirmed: false,
+      attach_task_hits: 1,
+      launch_candidate_hits: 0,
+      restore_queued_hits: 0,
+    },
+  }, { messagesEl: document.getElementById('messages') });
+  const incompleteProbeText = latestSelfTestReportText(document);
+  expect(
+    incompleteProbeText.includes('marker: hit'),
+    'expected self-test report to show marker hit state when runtime probe matched this self-test follow-up',
+  );
+  expect(
+    incompleteProbeText.includes('证据还不完整'),
+    'expected self-test report to explain incomplete runtime multi-subagent evidence after marker hit',
+  );
+
+  selfTestRenderer({
+    type: 'self_test_result',
+    total: 3,
+    passed: 3,
+    items: [{ name: 'baseline', ok: true }],
+    log_probe: {
+      pending: false,
+      marker_found: true,
+      multi_subagent_confirmed: true,
+      attach_task_hits: 3,
+      launch_candidate_hits: 4,
+      restore_queued_hits: 2,
+    },
+  }, { messagesEl: document.getElementById('messages') });
+  const confirmedReportText = latestSelfTestReportText(document);
+  expect(
+    confirmedReportText.includes('已确认多 subagent 调度'),
+    'expected self-test report to explain confirmed multi-subagent runtime evidence',
+  );
+  expect(
+    confirmedReportText.includes('attach_task: 3') &&
+      confirmedReportText.includes('launch candidate: 4') &&
+      confirmedReportText.includes('restore queued: 2'),
+    'expected self-test report to render detailed runtime log probe counters',
   );
 
   console.log('ui-check ok: multi-subagent tabs/detail/timeline/blocker rendered as expected');

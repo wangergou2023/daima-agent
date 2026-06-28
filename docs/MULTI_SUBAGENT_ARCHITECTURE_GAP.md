@@ -79,8 +79,11 @@
   - 如果目录存在但只是残缺占位目录，会先清掉再重新 clone
   - clone/恢复完成后，再让 agent 去分析 `opencode`，并回看 `agent.log` 判断 subagent 调度是否真的发生
 - 当前回归状态：
-  - `./build-kbuild/agent --self-test` -> `190/190 passed`
-  - `scripts/dev/check-websocket-reference-opencode.sh` -> 通过
+  - `make -j4` -> 通过
+  - fresh `./build-kbuild/agent --self-test` 已确认关键回归：
+    - `delegate session state json unifies parent history and subagents`
+    - `delegate session events json supports after_seq replay`
+    - `delegate session events json filters subagent events after visible revision`
   - `node scripts/dev/check-subagent-web-ui.js` -> 通过
 
 代码基线以当前仓库为准：
@@ -111,6 +114,28 @@
     - `subagent-data.ts`
     - `stream.transport.ts`
   - session / footer / blocker / commit / frames 都围绕同一份 stream/session data 推进
+
+### 0.1 2026-06-28 replay 语义的最新判定
+
+这一轮代码和 fresh self-test 重新核对后，`daima-agent` 当前的 replay 语义应明确描述为：
+
+- 已经形成 `session-first` 的统一返回面：
+  - `history`
+  - `events`
+  - `subagent`
+  - `replay_cursor`
+- 但 replay cursor 目前仍然是**双游标**，不是单一 durable event stream：
+  - parent history 走 `after_seq`
+  - subagent/coordinator 投影走 `after_visible_revision`
+- 这不是措辞区别，而是当前实现的真实边界：
+  - fresh self-test 已确认 `after_seq` 回放成立
+  - fresh self-test 也已确认当 `visible_revision <= after_visible_revision` 时，`session_events` 会抑制 `coordinator_snapshot / subagent_session / subagent_snapshot`
+  - 但 history `seq` 空间和 subagent `visible_revision` 空间仍未统一成 `opencode sessions.events(after)` 那种单一 durable stream
+
+因此，当前最准确的对标说法应该是：
+
+- `daima-agent` 已经补到了“统一 session-first 负载 + 显式双游标 replay”
+- 还没有补到“单一 durable event log 驱动 reducer”的最终形态
 
 ### 0.1 2026-06-28 基于当前代码的架构判定
 
@@ -638,6 +663,36 @@
   - `dismissInteractiveRequest(request, helpers)`
 - 对应地，`app.js` 不再自己展开以下组合流程：
   - snapshot hydrate -> restore interactive blocker -> rerender panels
+
+补充进展（2026-06-28，本轮继续收敛 session-first 选择语义）：
+
+- `subagent-state-selectors.js` 这几轮已经不再允许 session rail / detail rail / blocker 选择各走各的旧顺序
+  - 现在已经明确收口的规则包括：
+    - `visibleSubagentTabs()`
+      - `selected > blocker > active(running/queued/waiting) > recency`
+      - 较旧但仍带 pending blocker 的 child session 不会被更新更快的新 session 挤出可见 rail
+    - `orderedSubagentDetails()`
+      - `selected > blocker > active(running/queued/waiting) > recency`
+      - 仍在运行的 child session 会压过刚完成但更新时间更近的旧结果
+    - `effectiveSelectedSubagentKey()`
+      - 不再按 `interactiveBlockers` 的 `Map` 插入顺序挑 blocker session
+      - 会优先选择当前排序里最该处理的 blocked child session
+    - `currentInteractiveBlocker()`
+      - 也不再直接吃 `interactiveBlockers.values()`
+      - 会优先跟随当前最相关的 child session，而不是最早插入的 blocker 记录
+- reducer 默认选中逻辑也继续去 coordinator-first：
+  - `subagent-state-reducer.js`
+  - 在第一次收到 coordinator snapshot 且尚无显式 `selectedTabKey` 时：
+    - 不再直接退回 `next.agents[0]`
+    - 现在会优先取 `orderedSubagentDetails(nextState)[0]`
+  - 这一步虽然小，但很关键：
+    - 它把“payload 里第一个 agent”从默认焦点语义里移除
+    - 默认焦点开始真正服从 session-first selector，而不是 coordinator payload 顺序
+- 这些规则合起来，已经让 Web 侧进一步摆脱了两类旧问题：
+  - `Map` 插入顺序决定当前该看哪个 blocker
+  - coordinator payload 顺序决定当前默认选中哪个 child session
+- 这也是当前对齐 `opencode` 最重要的微观收敛之一：
+  - 当前最活跃、最阻塞、最该处理的 child session，开始稳定压过“谁先插入”“谁排第一”这种偶然顺序
   - coordinator payload dispatch -> mark active -> rerender panels
   - interactive dismiss actions -> clear controller -> rerender detail
 - 当前 Web 结构开始形成更清晰的三层：
@@ -1102,6 +1157,27 @@
     - selector 产出 view-model
     - view 模块负责 DOM 投影
     - `app.js` 负责 wiring
+- 2026-06-28 本轮继续把 `app.js` 里几类 thin bridge 往 runtime/view 收口：
+  - 页面层已移除这些命名 bridge：
+    - `ensureSessionRestore(...)`
+    - `fetchSessionHistoryMessages(...)`
+    - `restoreSessionViewState(...)`
+    - `reconcileCurrentSessionHistory(...)`
+    - `scheduleCurrentSessionHistoryReconcile(...)`
+    - `loadSubagentStateSnapshot(...)`
+    - `replaceSubagentStateSnapshot(...)`
+    - `renderCoordinatorAgent(...)`
+    - `renderSelfTestReport(...)`
+  - 对应 owner 现在更集中到：
+    - `session-state-runtime.js`
+    - `subagent-shell.js`
+    - `self-test-report-view.js`
+  - 这几步虽然没有直接把 Web 变成完整的 `opencode` session-first 浏览器，但已经持续缩小了 `app.js` 的职责：
+    - `app.js` 更像 bootstrap / DOM wiring / chat shell
+    - session restore、snapshot hydrate、自检展示、coordinator agent 视图都开始由更明确的模块接管
+  - 新增的前端架构守卫也已经把这些边界固定住：
+    - `node scripts/dev/check-subagent-web-ui.js`
+    - 会直接拒绝这些桥接函数重新回流到 `app.js`
 - 2026-06-27 本轮继续把一组 coordinator 展示辅助语义从页面层收进 selector facade：
   - 现在这些函数不再由 `app.js` 本地定义：
     - `resolveAgentRole(...)`

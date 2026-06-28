@@ -427,3 +427,27 @@ int delegate_task_store_running_count_for_parent(const char *chat_id)
     mutex_unlock(&s_delegate_mutex);
     return running;
 }
+
+int delegate_task_store_pending_coordinator_count(void)
+{
+    int pending = 0;
+
+    ensure_store_init();
+    mutex_lock(&s_delegate_mutex);
+    for (int i = 0; i < DELEGATE_COORDINATOR_STORE_MAX; i++) {
+        delegate_coordinator_record_t *coordinator = &s_coordinators[i];
+        if (!coordinator->coordinator_id[0]) {
+            continue;
+        }
+        refresh_coordinator_if_needed_locked(coordinator);
+        if (coordinator->queued_count > 0 || coordinator->running_count > 0) {
+            pending++;
+            continue;
+        }
+        if (coordinator->completion_notified && !coordinator->parent_resume_enqueued) {
+            pending++;
+        }
+    }
+    mutex_unlock(&s_delegate_mutex);
+    return pending;
+}

@@ -143,6 +143,18 @@ const {
   hideCoordinatorPanel: hideCoordinatorPanelView,
 } = window.AgentSubagentCoordinatorView || {};
 const {
+  renderSelfTestReport: renderSelfTestReportView,
+} = window.AgentSelfTestReportView || {};
+const {
+  createAgentStatePresenter,
+} = window.AgentStatePresenter || {};
+const {
+  createConnectionStatePresenter,
+} = window.AgentConnectionStatePresenter || {};
+const {
+  createReconnectController,
+} = window.AgentReconnectController || {};
+const {
   createCoordinatorPanelController,
 } = window.AgentSubagentCoordinatorController || {};
 const {
@@ -172,6 +184,9 @@ const {
 const {
   createSubagentBootstrap,
 } = window.AgentSubagentBootstrap || {};
+const {
+  createSubagentShell,
+} = window.AgentSubagentShell || {};
 
 const RECONNECT_SESSION_KEY = 'agent_last_session';
 let storageWarningLogged = false;
@@ -232,8 +247,6 @@ let lastMessageSeq = 0;
 let currentAgentRole = '';
 let currentAgentModel = '';
 let coordinatorPanelController = null;
-let reconnectToastTimer = null;
-let subagentEventAdapter = null;
 let interactiveController = null;
 let subagentRuntime = null;
 let sessionRestore = null;
@@ -242,8 +255,10 @@ let subagentUiOrchestrator = null;
 let subagentTransport = null;
 let subagentChatTransport = null;
 let subagentBootstrap = null;
-let subagentAppBridge = null;
-let subagentPanelController = null;
+let subagentShell = null;
+let agentStatePresenter = null;
+let connectionStatePresenter = null;
+let reconnectController = null;
 
 function setLastMessageSeq(nextSeq) {
   lastMessageSeq = Number(nextSeq) || 0;
@@ -337,7 +352,7 @@ function ensureSessionStateRuntime() {
     interactiveUiConfig,
     ensureSubagentTransport,
     applySubagentSnapshot(snapshot, options) {
-      return ensureSubagentPanelController()?.replaceSnapshot?.(snapshot, {
+      return ensureSubagentShell()?.ensurePanelController?.()?.replaceSnapshot?.(snapshot, {
         chatId: chatId,
         interactiveUiConfig,
         ...(options && typeof options === 'object' ? options : {}),
@@ -347,7 +362,9 @@ function ensureSessionStateRuntime() {
     renderSessions,
     saveReconnectSession,
     refreshContextStats,
-    showReconnectToast,
+    showReconnectToast(chatIdToRestore, messageCount) {
+      ensureConnectionStatePresenter()?.showReconnectToast?.(chatIdToRestore, messageCount);
+    },
     setSelectedSessionId(nextChatId) {
       selectedSessionId = nextChatId;
     },
@@ -367,35 +384,6 @@ function ensureSessionStateRuntime() {
   return sessionStateRuntime;
 }
 
-function ensureSessionRestore() {
-  if (sessionRestore) {
-    return sessionRestore;
-  }
-  sessionRestore = ensureSessionStateRuntime()?.ensureSessionRestore?.() || null;
-  return sessionRestore;
-}
-
-async function fetchSessionHistoryMessages(targetChatId) {
-  return ensureSessionStateRuntime()?.fetchSessionHistoryMessages?.(targetChatId) || null;
-}
-
-async function restoreSessionViewState(targetChatId = chatId, options = {}) {
-  return ensureSessionStateRuntime()?.restoreSessionViewState?.(targetChatId, options) || {
-    history: [],
-    restoredHistory: false,
-    restoredSubagent: false,
-    stale: false,
-  };
-}
-
-async function reconcileCurrentSessionHistory(targetChatId = chatId, options = {}) {
-  return ensureSessionStateRuntime()?.reconcileCurrentSessionHistory?.(targetChatId, options) || false;
-}
-
-function scheduleCurrentSessionHistoryReconcile(targetChatId = chatId, options = {}) {
-  ensureSessionStateRuntime()?.scheduleCurrentSessionHistoryReconcile?.(targetChatId, options);
-}
-
 function ensureSubagentBootstrap() {
   if (subagentBootstrap || !createSubagentBootstrap) {
     return subagentBootstrap;
@@ -408,17 +396,23 @@ function ensureSubagentBootstrap() {
     createEmptySubagentUiState,
     reduceSubagentUiEvent: reduceSubagentUiEventCore,
     reduceSubagentUiEventInPlace(action) {
-      reduceSubagentUiEvent(action);
+      ensureSubagentShell()?.reduceSubagentUiEvent?.(action);
     },
     hydrateStateFromSnapshot,
     makeHydrateInput,
-    currentInteractiveBlocker,
+    currentInteractiveBlocker() {
+      return ensureSubagentShell()?.currentInteractiveBlocker?.(chatId) || null;
+    },
     makeInteractiveControllerState,
     ensureInteractiveController,
-    renderSubagentDetailPanel,
-    renderCoordinatorPanelFromState,
+    renderSubagentDetailPanel() {
+      ensureSubagentShell()?.renderSubagentDetailPanel?.();
+    },
+    renderCoordinatorPanelFromState() {
+      ensureSubagentShell()?.renderCoordinatorPanelFromState?.();
+    },
     makeCoordinatorAction,
-    makeSubagentSessionAction: ensureSubagentEventAdapter()?.makeSubagentSessionAction,
+    makeSubagentSessionAction: ensureSubagentShell()?.ensureEventAdapter?.()?.makeSubagentSessionAction,
     normalizeCoordinatorPayload,
     makeInteractiveDismissActions,
     ensureCoordinatorPanelController,
@@ -433,14 +427,27 @@ function ensureSubagentBootstrap() {
       return messages.childElementCount;
     },
     isStopRequested,
-    setStatus,
-    clearAgentState,
+    setStatus(nextOnlineState) {
+      ensureConnectionStatePresenter()?.setStatus?.(nextOnlineState);
+    },
+    clearAgentState() {
+      ensureAgentStatePresenter()?.clearAgentState?.();
+    },
     onSocketOpenForPet,
     saveReconnectSession,
-    loadSubagentStateSnapshot,
+    loadSubagentStateSnapshot(targetChatId = chatId) {
+      return ensureSessionStateRuntime()?.loadSubagentStateSnapshot?.(targetChatId) || {
+        chatId: String(targetChatId || '').trim(),
+        status: 'error',
+      };
+    },
     refreshContextStats,
-    showReconnectToast,
-    hideReconnectToast,
+    showReconnectToast(chatIdToRestore, messageCount) {
+      ensureConnectionStatePresenter()?.showReconnectToast?.(chatIdToRestore, messageCount);
+    },
+    hideReconnectToast() {
+      ensureConnectionStatePresenter()?.hideReconnectToast?.();
+    },
     syncSendState,
     setAssistantIdle() {
       pendingAssistantResponse = false;
@@ -465,9 +472,15 @@ function ensureSubagentBootstrap() {
       if (!text) return;
       appendNode(makeMessageNode('assistant', text));
     },
-    scheduleCurrentSessionHistoryReconcile,
-    handleAgentStateMessage,
-    handleSelfTestResult: renderSelfTestReport,
+    scheduleCurrentSessionHistoryReconcile(targetChatId = chatId, options = {}) {
+      ensureSessionStateRuntime()?.scheduleCurrentSessionHistoryReconcile?.(targetChatId, options);
+    },
+    handleAgentStateMessage(data) {
+      ensureAgentStatePresenter()?.handleAgentStateMessage?.(data);
+    },
+    handleSelfTestResult(data) {
+      renderSelfTestReportView?.(data, { messagesEl: messages });
+    },
     sendPing() {
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'ping', ts: Date.now(), chat_id: chatId }));
@@ -484,7 +497,9 @@ function ensureSubagentBootstrap() {
       saveReconnectSession();
     },
     parseIncomingPayload: parseSubagentIncomingPayload,
-    ensureSubagentEventAdapter,
+    ensureSubagentEventAdapter() {
+      return ensureSubagentShell()?.ensureEventAdapter?.() || null;
+    },
     isSubagentPayload,
     fetchImpl: fetch.bind(window),
   });
@@ -521,6 +536,173 @@ function ensureSubagentTransport() {
   }
   subagentTransport = ensureSubagentBootstrap()?.ensureTransport?.() || null;
   return subagentTransport;
+}
+
+function ensureSubagentShell() {
+  if (subagentShell || !createSubagentShell) {
+    return subagentShell;
+  }
+  subagentShell = createSubagentShell({
+    createSubagentAppBridge,
+    createSubagentPanelController,
+    createSubagentEventAdapter,
+    ensureSubagentRuntime,
+    ensureSubagentUiOrchestrator,
+    ensureSessionStateRuntime,
+    ensureCoordinatorPanelController,
+    ensureInteractiveController,
+    getChatId() {
+      return chatId;
+    },
+    currentSelectedSubagentKeySelector: currentSelectedSubagentKeyFromState,
+    currentInteractiveBlockerSelector: currentInteractiveBlockerFromState,
+    effectiveSelectedSubagentKeySelector: effectiveSelectedSubagentKeyFromState,
+    orderedCoordinatorStatesSelector: orderedCoordinatorStatesFromState,
+    orderedSubagentDetailsSelector: orderedSubagentDetailsFromState,
+    selectedSubagentDetailViewSelector: selectedSubagentDetailViewFromState,
+    subagentSummarySelector: subagentSummaryFromState,
+    visibleSubagentTabsSelector: visibleSubagentTabsFromState,
+    subagentEventsForAgentSelector: subagentEventsForAgentFromState,
+    normalizeSnapshot: normalizeSubagentSnapshot,
+    normalizeCoordinatorPayload,
+    makeSubagentEventAction,
+    makeCoordinatorAction,
+    subagentEventKey,
+    interactiveBlockerKey,
+    formatSubagentEvent,
+    trimText,
+    panelEl: subagentDetailPanel,
+    titleEl: subagentDetailTitle,
+    metaEl: subagentDetailMeta,
+    blockersEl: subagentDetailBlockers,
+    framesEl: subagentDetailFrames,
+    outputEl: subagentDetailOutput,
+    detailPanelEl: subagentDetailPanel,
+    sessionRailEl: subagentSessionRail,
+    detailTabsEl: subagentDetailTabs,
+    coordinatorPanelEl: coordinatorPanel,
+    coordinatorAgentsEl: coordinatorAgents,
+    coordinatorPanelState() {
+      return ensureCoordinatorPanelController()?.state?.() || { visible: false, dismissed: false };
+    },
+    renderSubagentDetailPanelView,
+    renderCoordinatorPanelView,
+    hideCoordinatorPanelView,
+    renderCoordinatorAgent(agent, maxElapsed) {
+      if (!renderCoordinatorAgentView) return document.createElement('div');
+      return renderCoordinatorAgentView(agent, maxElapsed, {
+        formatElapsed: formatElapsedFromState || (() => ''),
+        resolveAgentRole: resolveAgentRoleFromState || (() => ''),
+        roleEmoji: ROLE_EMOJI,
+        currentSelectedDetailKey: ensureSubagentShell()?.effectiveSelectedSubagentKey?.() || '',
+        detailKeyForAgent,
+        coordinatorAgentHint: coordinatorAgentHintFromState || (() => ''),
+        clipText,
+        subagentFocusLabel: subagentFocusLabelFromState || ((value) => String(value || '')),
+        subagentEventsForAgent(agentState) {
+          return ensureSubagentShell()?.subagentEventsForAgent?.(agentState) || [];
+        },
+        onSelectDetail(detailKey) {
+          ensureSubagentShell()?.selectSubagentTab?.(detailKey);
+          ensureSubagentShell()?.renderCoordinatorPanelFromState?.();
+        },
+      });
+    },
+    coordinatorSummaryText: coordinatorSummaryTextFromState || (() => ''),
+    detailPanelViewModelSelector: detailPanelViewModelFromState,
+    coordinatorPanelViewModelSelector: coordinatorPanelViewModelFromState,
+    makeReasoningNode,
+    renderAssistantMarkdown,
+    interactiveUiConfig,
+    addSystemNote,
+    handlePetToolMessage() {
+      if (petController) {
+        petController.handleToolMessage();
+      }
+    },
+    clearPendingReasoningCard() {
+      pendingReasoningCard = null;
+    },
+    setAssistantIdle() {
+      pendingAssistantResponse = false;
+      stopRequested = false;
+    },
+    appendAssistantMessage(text) {
+      if (!text) return;
+      appendNode(makeMessageNode('assistant', text));
+    },
+    syncSendState,
+    summarizeCoordinatorCompletion,
+  });
+  return subagentShell;
+}
+
+function ensureAgentStatePresenter() {
+  if (agentStatePresenter || !createAgentStatePresenter) {
+    return agentStatePresenter;
+  }
+  agentStatePresenter = createAgentStatePresenter({
+    agentStateRow,
+    agentIntentTag,
+    agentRoleTag,
+    intentConfig: INTENT_CONFIG,
+    roleLabels: ROLE_LABELS,
+    setCurrentAgentRole(nextRole) {
+      currentAgentRole = String(nextRole || '');
+    },
+    setCurrentAgentModel(nextModel) {
+      currentAgentModel = String(nextModel || '');
+    },
+    resetSubagentState() {
+      ensureSubagentShell()?.resetSubagentState?.();
+    },
+  });
+  return agentStatePresenter;
+}
+
+function ensureConnectionStatePresenter() {
+  if (connectionStatePresenter || !createConnectionStatePresenter) {
+    return connectionStatePresenter;
+  }
+  connectionStatePresenter = createConnectionStatePresenter({
+    statusEl,
+    dotEl: dot,
+    reconnectToastEl: reconnectToast,
+    reconnectToastTextEl: reconnectToastText,
+    reconnectToastActionEl: reconnectToastAction,
+    getLastConnectionErrorText() {
+      return lastConnectionErrorText;
+    },
+    setConnectionState(nextState) {
+      connectionState = nextState;
+    },
+    setIsConnected(nextValue) {
+      isConnected = nextValue === true;
+    },
+    syncSendState,
+  });
+  return connectionStatePresenter;
+}
+
+function ensureReconnectController() {
+  if (reconnectController || !createReconnectController) {
+    return reconnectController;
+  }
+  reconnectController = createReconnectController({
+    getChatId() {
+      return chatId;
+    },
+    hideReconnectToast() {
+      ensureConnectionStatePresenter()?.hideReconnectToast?.();
+    },
+    setLastMessageSeq(nextSeq) {
+      lastMessageSeq = Number(nextSeq) || 0;
+    },
+    restoreSessionViewState(targetChatId, options) {
+      return ensureSessionStateRuntime()?.restoreSessionViewState?.(targetChatId, options);
+    },
+  });
+  return reconnectController;
 }
 
 Object.defineProperty(window, 'agentDebugSubagentUiState', {
@@ -690,7 +872,7 @@ async function switchSession(nextChatId) {
   lastMessageSeq = 0;
   saveReconnectSession();
   renderSessions();
-  await restoreSessionViewState(chatId, {
+  await ensureSessionStateRuntime()?.restoreSessionViewState?.(chatId, {
     requireCurrentChat: true,
     applyHistory: true,
     renderEmptyHistory: true,
@@ -715,7 +897,7 @@ async function deleteSession(targetChatId) {
     lastMessageSeq = 0;
     saveReconnectSession();
     renderHistoryMessages([]);
-    replaceSubagentStateSnapshot({ coordinators: [] });
+    ensureSubagentShell()?.replaceSubagentStateSnapshot?.({ coordinators: [] });
   }
   renderSessions();
 
@@ -739,7 +921,7 @@ function startNewSession() {
   lastMessageSeq = 0;
   saveReconnectSession();
   renderHistoryMessages([]);
-  replaceSubagentStateSnapshot({ coordinators: [] });
+  ensureSubagentShell()?.replaceSubagentStateSnapshot?.({ coordinators: [] });
   renderSessions();
   refreshContextStats();
 }
@@ -1537,79 +1719,6 @@ function clipText(value, limit = 240) {
   return text.length > limit ? `${text.slice(0, limit - 3)}...` : text;
 }
 
-function ensureSubagentAppBridge() {
-  if (subagentAppBridge || !createSubagentAppBridge) {
-    return subagentAppBridge;
-  }
-  subagentAppBridge = createSubagentAppBridge({
-    ensureSubagentRuntime,
-    currentSelectedSubagentKeySelector: currentSelectedSubagentKeyFromState,
-    currentInteractiveBlockerSelector: currentInteractiveBlockerFromState,
-    effectiveSelectedSubagentKeySelector: effectiveSelectedSubagentKeyFromState,
-    orderedCoordinatorStatesSelector: orderedCoordinatorStatesFromState,
-    orderedSubagentDetailsSelector: orderedSubagentDetailsFromState,
-    selectedSubagentDetailViewSelector: selectedSubagentDetailViewFromState,
-    subagentSummarySelector: subagentSummaryFromState,
-    visibleSubagentTabsSelector: visibleSubagentTabsFromState,
-    subagentEventsForAgentSelector: subagentEventsForAgentFromState,
-    normalizeSnapshot: normalizeSubagentSnapshot,
-    normalizeCoordinatorPayload,
-    makeSubagentEventAction,
-    makeCoordinatorAction,
-    subagentEventKey,
-    formatSubagentEvent,
-    markCoordinatorActive(coordinatorId) {
-      ensureCoordinatorPanelController()?.markActive?.(coordinatorId);
-    },
-    trimText,
-  });
-  return subagentAppBridge;
-}
-
-function currentSelectedSubagentKey() {
-  return ensureSubagentAppBridge()?.currentSelectedSubagentKey?.() || '';
-}
-
-function effectiveSelectedSubagentKey() {
-  return ensureSubagentAppBridge()?.effectiveSelectedSubagentKey?.() || '';
-}
-
-function orderedCoordinatorStates() {
-  return ensureSubagentAppBridge()?.orderedCoordinatorStates?.() || [];
-}
-
-function orderedSubagentDetails() {
-  return ensureSubagentAppBridge()?.orderedSubagentDetails?.() || [];
-}
-
-function subagentSummary() {
-  return ensureSubagentAppBridge()?.subagentSummary?.() || { total: 0, blocked: 0, running: 0, done: 0, failed: 0 };
-}
-
-function visibleSubagentTabs() {
-  return ensureSubagentAppBridge()?.visibleSubagentTabs?.(8) || [];
-}
-
-function subagentEventsForAgent(agent) {
-  return ensureSubagentAppBridge()?.subagentEventsForAgent?.(agent) || [];
-}
-
-function pushSubagentEvent(data) {
-  ensureSubagentAppBridge()?.pushSubagentEvent?.(data);
-}
-
-function reduceSubagentUiEvent(action) {
-  ensureSubagentAppBridge()?.reduceSubagentUiEvent?.(action);
-}
-
-function selectSubagentTab(detailKey) {
-  ensureSubagentAppBridge()?.selectSubagentTab?.(detailKey);
-}
-
-function selectedSubagentDetailView() {
-  return ensureSubagentAppBridge()?.selectedSubagentDetailView?.(chatId) || null;
-}
-
 function summarizeCoordinatorCompletion(payload) {
   const coordinator = payload?.coordinator || payload || {};
   const agents = Array.isArray(coordinator.agents) ? coordinator.agents : [];
@@ -1688,137 +1797,11 @@ function ensureCoordinatorPanelController() {
     agentsEl: coordinatorAgents,
     renderCoordinatorPanel: renderCoordinatorPanelView,
     hideCoordinatorPanel: hideCoordinatorPanelView,
-    syncDockState: syncSubagentDetailDockState,
+    syncDockState() {
+      ensureSubagentShell()?.syncSubagentDetailDockState?.();
+    },
   });
   return coordinatorPanelController;
-}
-
-function coordinatorPanelState() {
-  return ensureCoordinatorPanelController()?.state?.() || { visible: false, dismissed: false };
-}
-
-function ensureSubagentPanelController() {
-  if (subagentPanelController || !createSubagentPanelController) {
-    return subagentPanelController;
-  }
-  subagentPanelController = createSubagentPanelController({
-    panelEl: subagentDetailPanel,
-    titleEl: subagentDetailTitle,
-    metaEl: subagentDetailMeta,
-    blockersEl: subagentDetailBlockers,
-    framesEl: subagentDetailFrames,
-    outputEl: subagentDetailOutput,
-    detailPanelEl: subagentDetailPanel,
-    sessionRailEl: subagentSessionRail,
-    detailTabsEl: subagentDetailTabs,
-    coordinatorPanelEl: coordinatorPanel,
-    coordinatorAgentsEl: coordinatorAgents,
-    ensureCoordinatorPanelController,
-    coordinatorPanelState,
-    ensureSubagentUiOrchestrator,
-    renderSubagentDetailPanelView,
-    renderCoordinatorPanelView,
-    hideCoordinatorPanelView,
-    renderCoordinatorAgent,
-    coordinatorSummaryText: coordinatorSummaryTextFromState || (() => ''),
-    makeReasoningNode,
-    renderAssistantMarkdown,
-    subagentSummary,
-    orderedCoordinatorStates,
-    onSelectDetail(detailKey) {
-      selectSubagentTab(detailKey);
-      ensureSubagentPanelController()?.renderCoordinatorPanel?.();
-    },
-    selectDetailPanelView() {
-      return detailPanelViewModelFromState
-        ? (ensureSubagentRuntime()?.select?.(detailPanelViewModelFromState, chatId, { detailLimit: 8 }) || null)
-        : {
-          detailView: selectedSubagentDetailView(),
-          visibleTabs: visibleSubagentTabs(),
-          orderedDetails: orderedSubagentDetails().slice(0, 8),
-          selectedKey: effectiveSelectedSubagentKey(),
-        };
-    },
-    selectCoordinatorPanelView(panelState) {
-      return coordinatorPanelViewModelFromState
-        ? (ensureSubagentRuntime()?.select?.(coordinatorPanelViewModelFromState, panelState) || null)
-        : {
-          orderedStates: orderedCoordinatorStates(),
-          detailStates: orderedSubagentDetails(),
-          summary: subagentSummary(),
-          coordinatorDismissed: panelState.dismissed === true,
-          coordinatorVisible: panelState.visible === true,
-        };
-    },
-    replaceSnapshotFallback(snapshot, helpers) {
-      ensureSubagentAppBridge()?.replaceSnapshot?.(snapshot, {
-        chatId: helpers?.chatId || chatId,
-        interactiveUiConfig: helpers?.interactiveUiConfig || interactiveUiConfig,
-      });
-    },
-    applyCoordinatorPayloadFallback(payload) {
-      ensureSubagentAppBridge()?.applyCoordinatorPayload?.(payload, { markActive: true });
-    },
-  });
-  return subagentPanelController;
-}
-
-function currentInteractiveBlocker() {
-  return ensureSubagentAppBridge()?.currentInteractiveBlocker?.(chatId) || null;
-}
-
-function closeInteractivePrompt() {
-  const activeRequest = ensureInteractiveController()?.currentRequest?.() || null;
-  if (!activeRequest) {
-    ensureInteractiveController()?.clear();
-    ensureSubagentPanelController()?.renderDetailPanel?.();
-    return;
-  }
-  ensureSubagentPanelController()?.dismissInteractiveRequest?.(activeRequest, {
-    now: () => Date.now(),
-    interactiveBlockerKey,
-    subagentEventKey,
-    formatEventText: formatSubagentEvent,
-  });
-}
-
-function ensureSubagentEventAdapter() {
-  if (subagentEventAdapter || !createSubagentEventAdapter) {
-    return subagentEventAdapter;
-  }
-  subagentEventAdapter = createSubagentEventAdapter({
-    getChatId: () => chatId,
-    setInteractiveControllerState(next) {
-      ensureInteractiveController()?.apply(next);
-    },
-    reduceSubagentUiEvent,
-    addSystemNote,
-    renderCoordinatorPanel() {
-      ensureSubagentPanelController()?.renderCoordinatorPanel?.();
-    },
-    handlePetToolMessage() {
-      if (petController) {
-        petController.handleToolMessage();
-      }
-    },
-    pushSubagentEvent,
-    clearPendingReasoningCard() {
-      pendingReasoningCard = null;
-    },
-    updateCoordinatorStatus,
-    handleCoordinatorOutput,
-    setAssistantIdle() {
-      pendingAssistantResponse = false;
-      stopRequested = false;
-    },
-    appendAssistantMessage(text) {
-      if (!text) return;
-      appendNode(makeMessageNode('assistant', text));
-    },
-    syncSendState,
-    summarizeCoordinatorCompletion,
-  });
-  return subagentEventAdapter;
 }
 
 function submitInteractivePrompt(cancelled) {
@@ -1827,29 +1810,7 @@ function submitInteractivePrompt(cancelled) {
   const payload = controller?.buildReplyPayload?.(makeInteractiveReplyPayload, chatId, !!cancelled) || null;
   if (!payload) return;
   ws.send(JSON.stringify(payload));
-  closeInteractivePrompt();
-}
-
-function setStatus(online) {
-  const nextState = online === true
-    ? 'connected'
-    : online === false
-      ? 'disconnected'
-      : (String(online || '').trim() || 'connecting');
-  connectionState = nextState;
-  isConnected = nextState === 'connected';
-  if (nextState === 'connected') {
-    statusEl.textContent = '已连接';
-  } else if (nextState === 'disconnected') {
-    statusEl.textContent = lastConnectionErrorText
-      ? `未连接 · ${lastConnectionErrorText}`
-      : '未连接';
-  } else {
-    statusEl.textContent = '连接中';
-  }
-  dot.classList.toggle('on', nextState === 'connected');
-  dot.classList.toggle('connecting', nextState === 'connecting');
-  syncSendState();
+  ensureSubagentShell()?.closeInteractivePrompt?.();
 }
 
 function ensureSocketConnection() {
@@ -1858,7 +1819,7 @@ function ensureSocketConnection() {
   const lifecycle = transport?.lifecycle || {};
   const socketUrl = `${proto}://${location.host}/ws?chat_id=${encodeURIComponent(chatId)}`;
   lastConnectionErrorText = '';
-  setStatus('connecting');
+  ensureConnectionStatePresenter()?.setStatus?.('connecting');
   ws = transport?.connectSocket
     ? transport.connectSocket(socketUrl, lifecycle)
     : new WebSocket(socketUrl);
@@ -2011,149 +1972,18 @@ interactiveInput.addEventListener('keydown', (e) => {
 });
 
 if (coordinatorClose) {
-  coordinatorClose.addEventListener('click', () => closeCoordinatorPanel());
+  coordinatorClose.addEventListener('click', () => ensureSubagentShell()?.closeCoordinatorPanel?.());
 }
 
 if (coordinatorToggleBtn) {
-  coordinatorToggleBtn.addEventListener('click', () => toggleCoordinatorPanel());
+  coordinatorToggleBtn.addEventListener('click', () => ensureSubagentShell()?.toggleCoordinatorPanel?.());
 }
 
 if (reconnectToastAction) {
-  reconnectToastAction.addEventListener('click', () => handleReconnect());
+  reconnectToastAction.addEventListener('click', () => ensureReconnectController()?.handleReconnect?.());
 }
 
 window.addEventListener('beforeunload', () => saveReconnectSession());
-
-function updateAgentIntent(intent) {
-  if (!agentIntentTag || !agentStateRow) return;
-  const config = INTENT_CONFIG[intent];
-  if (!config) {
-    agentIntentTag.hidden = true;
-    agentIntentTag.setAttribute('aria-hidden', 'true');
-    return;
-  }
-  agentIntentTag.className = `agent-tag ${config.cssClass}`;
-  agentIntentTag.querySelector('.agent-tag-icon').textContent = config.icon;
-  agentIntentTag.querySelector('.agent-tag-label').textContent = config.label;
-  agentIntentTag.hidden = false;
-  agentIntentTag.removeAttribute('aria-hidden');
-}
-
-function updateAgentRole(role) {
-  if (!agentRoleTag || !agentStateRow) return;
-  const label = ROLE_LABELS[String(role).toLowerCase()];
-  if (!label) {
-    agentRoleTag.hidden = true;
-    agentRoleTag.setAttribute('aria-hidden', 'true');
-    return;
-  }
-  agentRoleTag.className = 'agent-tag role-tag role-active';
-  agentRoleTag.querySelector('.agent-tag-label').textContent = label;
-  agentRoleTag.hidden = false;
-  agentRoleTag.removeAttribute('aria-hidden');
-}
-
-function clearAgentState() {
-  currentAgentRole = '';
-  currentAgentModel = '';
-  ensureCoordinatorPanelController()?.reset();
-  ensureSubagentRuntime()?.reset?.();
-  if (agentIntentTag) {
-    agentIntentTag.hidden = true;
-    agentIntentTag.setAttribute('aria-hidden', 'true');
-  }
-  if (agentRoleTag) {
-    agentRoleTag.hidden = true;
-    agentRoleTag.setAttribute('aria-hidden', 'true');
-  }
-  const controller = ensureInteractiveController();
-  if (controller) {
-    controller.clear();
-  }
-  ensureSubagentPanelController()?.renderCoordinatorPanel?.();
-}
-
-function replaceSubagentStateSnapshot(snapshot) {
-  return ensureSessionStateRuntime()?.replaceSubagentStateSnapshot?.(snapshot) ||
-    ensureSubagentPanelController()?.replaceSnapshot?.(snapshot, {
-      chatId,
-      interactiveUiConfig,
-    });
-}
-
-async function loadSubagentStateSnapshot(targetChatId = chatId) {
-  return ensureSessionStateRuntime()?.loadSubagentStateSnapshot?.(targetChatId) || {
-    chatId: String(targetChatId || '').trim(),
-    status: 'error',
-  };
-}
-
-function handleAgentStateMessage(data) {
-  if (!data) return;
-  if (data.intent !== undefined) updateAgentIntent(data.intent);
-  if (data.role !== undefined) {
-    currentAgentRole = data.role || '';
-    updateAgentRole(data.role);
-  }
-  if (data.model !== undefined) {
-    currentAgentModel = data.model || '';
-  }
-}
-
-function renderCoordinatorAgent(agent, maxElapsed) {
-  if (!renderCoordinatorAgentView) return document.createElement('div');
-  return renderCoordinatorAgentView(agent, maxElapsed, {
-    formatElapsed: formatElapsedFromState || (() => ''),
-    resolveAgentRole: resolveAgentRoleFromState || (() => ''),
-    roleEmoji: ROLE_EMOJI,
-    currentSelectedDetailKey: effectiveSelectedSubagentKey(),
-    detailKeyForAgent,
-    coordinatorAgentHint: coordinatorAgentHintFromState || (() => ''),
-    clipText,
-    subagentFocusLabel: subagentFocusLabelFromState || ((value) => String(value || '')),
-    subagentEventsForAgent,
-    onSelectDetail(detailKey) {
-      selectSubagentTab(detailKey);
-      renderCoordinatorPanelFromState();
-    },
-  });
-}
-
-function renderSubagentDetailPanel() {
-  ensureSubagentPanelController()?.renderDetailPanel?.();
-}
-
-function syncSubagentDetailDockState() {
-  ensureSubagentPanelController()?.syncDockState?.();
-}
-
-function renderCoordinatorPanelFromState() {
-  ensureSubagentPanelController()?.renderCoordinatorPanel?.();
-}
-
-function handleCoordinatorOutput(payload) {
-  ensureSubagentPanelController()?.applyCoordinatorPayload?.(payload, { markActive: true });
-}
-
-function updateCoordinatorStatus(payload) {
-  ensureSubagentPanelController()?.applyCoordinatorPayload?.(payload, { markActive: true });
-}
-
-function hideCoordinatorPanel() {
-  ensureSubagentPanelController()?.hideCoordinatorPanel?.();
-}
-
-function closeCoordinatorPanel() {
-  ensureSubagentPanelController()?.closeCoordinatorPanel?.();
-}
-
-function openCoordinatorPanel() {
-  ensureSubagentPanelController()?.openCoordinatorPanel?.();
-}
-
-function toggleCoordinatorPanel() {
-  ensureSubagentPanelController()?.toggleCoordinatorPanel?.();
-}
 
 function saveReconnectSession() {
   try {
@@ -2166,68 +1996,13 @@ function saveReconnectSession() {
   } catch (_) {}
 }
 
-function showReconnectToast(chatIdToRestore, messageCount) {
-  if (!reconnectToast || !reconnectToastText) return;
-
-  if (messageCount > 0) {
-    reconnectToastText.textContent = `检测到之前的会话 (${messageCount} 条消息)`;
-    reconnectToastAction.hidden = false;
-  } else {
-    reconnectToastText.textContent = '正在恢复会话连接...';
-    reconnectToastAction.hidden = true;
-  }
-
-  reconnectToast.hidden = false;
-  reconnectToast.removeAttribute('aria-hidden');
-  reconnectToast.classList.remove('hiding');
-
-  if (reconnectToastTimer) clearTimeout(reconnectToastTimer);
-  reconnectToastTimer = setTimeout(() => hideReconnectToast(), 6000);
-}
-
-function hideReconnectToast() {
-  if (!reconnectToast) return;
-  if (reconnectToast.hidden) return;
-  reconnectToast.classList.add('hiding');
-  if (reconnectToastTimer) {
-    clearTimeout(reconnectToastTimer);
-    reconnectToastTimer = null;
-  }
-  const onEnd = () => {
-    reconnectToast.removeEventListener('transitionend', onEnd);
-    reconnectToast.hidden = true;
-    reconnectToast.setAttribute('aria-hidden', 'true');
-    reconnectToast.classList.remove('hiding');
-  };
-  reconnectToast.addEventListener('transitionend', onEnd);
-  setTimeout(() => {
-    if (reconnectToast.hidden) return;
-    reconnectToast.removeEventListener('transitionend', onEnd);
-    onEnd();
-  }, 400);
-}
-
-async function handleReconnect() {
-  hideReconnectToast();
-  lastMessageSeq = 0;
-  await restoreSessionViewState(chatId, {
-    requireCurrentChat: true,
-    applyHistory: true,
-    renderEmptyHistory: false,
-    renderSessions: true,
-    saveReconnect: true,
-    refreshContextStats: true,
-    restoreSubagent: true,
-  });
-}
-
 async function initApp() {
   await refreshUiConfig();
   activePetPackageId = resolveInitialPetPackageId(uiConfig);
   renderPetChooser(activePetPackageId);
   attachPetController();
 
-  setStatus('connecting');
+  ensureConnectionStatePresenter()?.setStatus?.('connecting');
   applyTheme(storedTheme);
   autoResize();
   refreshContextStats();
@@ -2244,7 +2019,7 @@ async function initApp() {
         setActiveChatId(saved.chat_id);
         selectedSessionId = saved.chat_id;
         lastMessageSeq = Number(saved.last_seq) || 0;
-        await restoreSessionViewState(chatId, {
+        await ensureSessionStateRuntime()?.restoreSessionViewState?.(chatId, {
           requireCurrentChat: true,
           applyHistory: true,
           renderEmptyHistory: false,
@@ -2267,57 +2042,8 @@ window.addEventListener('error', (event) => {
   if (!message) return;
   lastConnectionErrorText = message;
   if (connectionState !== 'connected') {
-    setStatus(false);
+    ensureConnectionStatePresenter()?.setStatus?.(false);
   }
 });
-
-function renderSelfTestReport(data) {
-  const pct = data.passed * 100 / data.total;
-  const color = pct === 100 ? '#22c55e' : pct >= 80 ? '#f59e0b' : '#ef4444';
-  const probe = data && typeof data.log_probe === 'object' ? data.log_probe : null;
-
-  let itemsHtml = '';
-  (data.items || []).forEach(function(item) {
-    const icon = item.ok ? '✅' : '❌';
-    const cls = item.ok ? 'pass' : 'fail';
-    itemsHtml += '<div class="st-item '+cls+'"><span class="st-icon">'+icon+'</span><span class="st-name">'+item.name+'</span></div>';
-  });
-
-  let probeHtml = '';
-  if (probe) {
-    let verdict = '日志证据不足';
-    if (probe.pending) verdict = '已安排本轮日志分析，等待 agent 完成 opencode 分析后回看日志';
-    else if (probe.multi_subagent_confirmed) verdict = '已确认多 subagent 调度';
-    else if (!probe.marker_found) verdict = '未命中本次自检日志 marker';
-    probeHtml =
-      '<div class="st-items">' +
-      '<div class="st-item '+((probe.pending || probe.multi_subagent_confirmed) ? 'pass' : 'fail')+'">' +
-      '<span class="st-icon">'+(probe.pending ? '⏳' : (probe.multi_subagent_confirmed ? '🧭' : '⚠️'))+'</span>' +
-      '<span class="st-name">'+verdict+'</span>' +
-      '</div>' +
-      '<div class="st-item">' +
-      '<span class="st-icon">•</span>' +
-      '<span class="st-name">attach_task: '+(Number(probe.attach_task_hits) || 0)+'，launch candidate: '+(Number(probe.launch_candidate_hits) || 0)+'，restore queued: '+(Number(probe.restore_queued_hits) || 0)+'</span>' +
-      '</div>' +
-      '</div>';
-  }
-
-  const html =
-    '<div class="self-test-report">' +
-    '<div class="st-header">' +
-    '<span class="st-title">🔍 自检报告</span>' +
-    '<span class="st-score" style="color:'+color+'">'+data.passed+'/'+data.total+' 通过</span>' +
-    '</div>' +
-    '<div class="st-bar"><div class="st-bar-fill" style="width:'+pct+'%;background:'+color+'"></div></div>' +
-    probeHtml +
-    '<div class="st-items">'+itemsHtml+'</div>' +
-    '</div>';
-
-  const div = document.createElement('div');
-  div.className = 'message system';
-  div.innerHTML = html;
-  messages.appendChild(div);
-  messages.scrollTop = messages.scrollHeight;
-}
 
 initApp();

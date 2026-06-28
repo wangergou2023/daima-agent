@@ -14,6 +14,105 @@ static struct turn_snapshot s_snapshots[MAX_SNAPSHOTS];
 static int s_count = 0;
 static pthread_mutex_t s_snapshots_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+static void turn_context_sync_legacy_consumed_slot(struct turn_snapshot *snap)
+{
+    if (!snap) {
+        return;
+    }
+
+    if (snap->consumed_delegate_coordinator_id[0] &&
+        snap->consumed_delegate_visible_revision > 0) {
+        strscpy(snap->consumed_delegate_resumes[0].coordinator_id,
+                snap->consumed_delegate_coordinator_id,
+                sizeof(snap->consumed_delegate_resumes[0].coordinator_id));
+        snap->consumed_delegate_resumes[0].visible_revision =
+            snap->consumed_delegate_visible_revision;
+    } else if (snap->consumed_delegate_resumes[0].coordinator_id[0] &&
+               snap->consumed_delegate_resumes[0].visible_revision > 0) {
+        strscpy(snap->consumed_delegate_coordinator_id,
+                snap->consumed_delegate_resumes[0].coordinator_id,
+                sizeof(snap->consumed_delegate_coordinator_id));
+        snap->consumed_delegate_visible_revision =
+            snap->consumed_delegate_resumes[0].visible_revision;
+    }
+}
+
+static void turn_context_record_consumed_delegate_resume(struct turn_snapshot *snap,
+                                                         const char *coordinator_id,
+                                                         unsigned long visible_revision)
+{
+    int slot = -1;
+
+    if (!snap || !coordinator_id || !coordinator_id[0] || visible_revision == 0) {
+        return;
+    }
+
+    for (int i = 0; i < TURN_CONTEXT_CONSUMED_DELEGATE_MAX; i++) {
+        if (strcmp(snap->consumed_delegate_resumes[i].coordinator_id, coordinator_id) == 0) {
+            slot = i;
+            break;
+        }
+        if (slot < 0 && !snap->consumed_delegate_resumes[i].coordinator_id[0]) {
+            slot = i;
+        }
+    }
+    if (slot < 0) {
+        memmove(&snap->consumed_delegate_resumes[1],
+                &snap->consumed_delegate_resumes[0],
+                (TURN_CONTEXT_CONSUMED_DELEGATE_MAX - 1) *
+                    sizeof(snap->consumed_delegate_resumes[0]));
+        slot = 0;
+        memset(&snap->consumed_delegate_resumes[slot], 0,
+               sizeof(snap->consumed_delegate_resumes[slot]));
+    }
+
+    strscpy(snap->consumed_delegate_resumes[slot].coordinator_id,
+            coordinator_id,
+            sizeof(snap->consumed_delegate_resumes[slot].coordinator_id));
+    if (visible_revision > snap->consumed_delegate_resumes[slot].visible_revision) {
+        snap->consumed_delegate_resumes[slot].visible_revision = visible_revision;
+    }
+
+    if (slot != 0) {
+        struct turn_consumed_delegate_resume entry = snap->consumed_delegate_resumes[slot];
+        memmove(&snap->consumed_delegate_resumes[1],
+                &snap->consumed_delegate_resumes[0],
+                slot * sizeof(snap->consumed_delegate_resumes[0]));
+        snap->consumed_delegate_resumes[0] = entry;
+    }
+
+    strscpy(snap->consumed_delegate_coordinator_id,
+            snap->consumed_delegate_resumes[0].coordinator_id,
+            sizeof(snap->consumed_delegate_coordinator_id));
+    snap->consumed_delegate_visible_revision =
+        snap->consumed_delegate_resumes[0].visible_revision;
+}
+
+static bool turn_context_has_consumed_delegate_resume_in_snapshot(
+    const struct turn_snapshot *snap,
+    const char *coordinator_id,
+    unsigned long visible_revision)
+{
+    if (!snap || !coordinator_id || !coordinator_id[0] || visible_revision == 0) {
+        return false;
+    }
+
+    for (int i = 0; i < TURN_CONTEXT_CONSUMED_DELEGATE_MAX; i++) {
+        if (!snap->consumed_delegate_resumes[i].coordinator_id[0]) {
+            continue;
+        }
+        if (strcmp(snap->consumed_delegate_resumes[i].coordinator_id, coordinator_id) != 0) {
+            continue;
+        }
+        if (snap->consumed_delegate_resumes[i].visible_revision >= visible_revision) {
+            return true;
+        }
+    }
+
+    return strcmp(snap->consumed_delegate_coordinator_id, coordinator_id) == 0 &&
+           snap->consumed_delegate_visible_revision >= visible_revision;
+}
+
 void turn_context_save(const struct turn_snapshot *snap)
 {
     if (!snap || !snap->chat_id[0]) return;
@@ -30,6 +129,7 @@ void turn_context_save(const struct turn_snapshot *snap)
             s_snapshots[i] = *snap;
             s_snapshots[i].messages = snap->messages ? cJSON_Duplicate(snap->messages, 1) : NULL;
             s_snapshots[i].system_prompt = snap->system_prompt ? strdup(snap->system_prompt) : NULL;
+            turn_context_sync_legacy_consumed_slot(&s_snapshots[i]);
             pthread_mutex_unlock(&s_snapshots_mutex);
             return;
         }
@@ -47,6 +147,7 @@ void turn_context_save(const struct turn_snapshot *snap)
     s_snapshots[s_count] = *snap;
     s_snapshots[s_count].messages = snap->messages ? cJSON_Duplicate(snap->messages, 1) : NULL;
     s_snapshots[s_count].system_prompt = snap->system_prompt ? strdup(snap->system_prompt) : NULL;
+    turn_context_sync_legacy_consumed_slot(&s_snapshots[s_count]);
     s_count++;
     pthread_mutex_unlock(&s_snapshots_mutex);
 }
@@ -192,10 +293,9 @@ bool turn_context_set_delegate_resume_consumed(const char *chat_id,
         if (strcmp(s_snapshots[i].chat_id, chat_id) != 0) {
             continue;
         }
-        strscpy(s_snapshots[i].consumed_delegate_coordinator_id,
-                coordinator_id,
-                sizeof(s_snapshots[i].consumed_delegate_coordinator_id));
-        s_snapshots[i].consumed_delegate_visible_revision = visible_revision;
+        turn_context_record_consumed_delegate_resume(&s_snapshots[i],
+                                                     coordinator_id,
+                                                     visible_revision);
         updated = true;
         break;
     }
@@ -203,10 +303,9 @@ bool turn_context_set_delegate_resume_consumed(const char *chat_id,
         struct turn_snapshot snap;
         memset(&snap, 0, sizeof(snap));
         strscpy(snap.chat_id, chat_id, sizeof(snap.chat_id));
-        strscpy(snap.consumed_delegate_coordinator_id,
-                coordinator_id,
-                sizeof(snap.consumed_delegate_coordinator_id));
-        snap.consumed_delegate_visible_revision = visible_revision;
+        turn_context_record_consumed_delegate_resume(&snap,
+                                                     coordinator_id,
+                                                     visible_revision);
 
         if (s_count >= MAX_SNAPSHOTS) {
             cJSON_Delete(s_snapshots[0].messages);
@@ -219,6 +318,30 @@ bool turn_context_set_delegate_resume_consumed(const char *chat_id,
     }
     pthread_mutex_unlock(&s_snapshots_mutex);
     return updated;
+}
+
+bool turn_context_has_delegate_resume_consumed(const char *chat_id,
+                                               const char *coordinator_id,
+                                               unsigned long visible_revision)
+{
+    bool consumed = false;
+
+    if (!chat_id || !chat_id[0] || !coordinator_id || !coordinator_id[0] || visible_revision == 0) {
+        return false;
+    }
+
+    pthread_mutex_lock(&s_snapshots_mutex);
+    for (int i = 0; i < s_count; i++) {
+        if (strcmp(s_snapshots[i].chat_id, chat_id) != 0) {
+            continue;
+        }
+        consumed = turn_context_has_consumed_delegate_resume_in_snapshot(&s_snapshots[i],
+                                                                         coordinator_id,
+                                                                         visible_revision);
+        break;
+    }
+    pthread_mutex_unlock(&s_snapshots_mutex);
+    return consumed;
 }
 
 /* 非阻塞检查执行核是否有回复 */

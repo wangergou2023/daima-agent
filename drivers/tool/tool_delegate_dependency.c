@@ -5,6 +5,7 @@
 
 #include "cjson.h"
 #include "delegate/delegate_task_store.h"
+#include "delegate/delegate_session_json.h"
 #include "drivers/tool/tool_delegate_protocol.h"
 #include "linux/kernel.h"
 #include "text.h"
@@ -301,16 +302,29 @@ bool tool_delegate_append_dependency_results_context(const char *coordinator_id,
             const delegate_coordinator_agent_view_t *agent = &snapshot.agents[i];
             delegate_task_record_t task_snapshot;
             char clipped[768];
+            char preferred[1024];
+            const char *source_text = NULL;
 
             if (strcmp(agent->task_key, key) != 0 || strcmp(agent->status, "done") != 0) {
                 continue;
             }
             memset(&task_snapshot, 0, sizeof(task_snapshot));
-            if (!delegate_task_store_snapshot_quiet(agent->task_id, &task_snapshot) ||
-                !task_snapshot.output[0]) {
+            memset(preferred, 0, sizeof(preferred));
+            if (!delegate_task_store_snapshot_quiet(agent->task_id, &task_snapshot)) {
                 break;
             }
-            tool_delegate_sanitize_summary_text_copy(clipped, sizeof(clipped), task_snapshot.output);
+            if (delegate_child_session_preferred_visible_text(&task_snapshot,
+                                                              preferred,
+                                                              sizeof(preferred)) &&
+                preferred[0]) {
+                source_text = preferred;
+            } else if (task_snapshot.output[0]) {
+                source_text = task_snapshot.output;
+            }
+            if (!source_text || !source_text[0]) {
+                break;
+            }
+            tool_delegate_sanitize_summary_text_copy(clipped, sizeof(clipped), source_text);
             if (!clipped[0]) {
                 break;
             }

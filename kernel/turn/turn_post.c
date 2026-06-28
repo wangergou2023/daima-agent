@@ -15,6 +15,7 @@
 #include "turn_dispatch.h"
 #include "cjson.h"
 #include "drivers/platform/platform.h"
+#include "runtime.h"
 #include "linux/kernel.h"
 #include "os.h"
 #if SKILL_SCOPED_TOOLS_ENABLED
@@ -109,7 +110,9 @@ void agent_turn_run_post_actions(struct message *msg,
 	}
 	if (turn_err == 0 && msg && msg->chat_id[0]) {
 		delegate_turn_directive_clear(msg->chat_id);
-		dispatch_compress_context(msg->chat_id);
+		if (!runtime_is_self_test_mode()) {
+			dispatch_compress_context(msg->chat_id);
+		}
 	}
 
 	char free_mem_buf[32];
