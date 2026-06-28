@@ -44,7 +44,7 @@ static struct tool s_delegate_task = {
         "\"description\":{\"type\":\"string\",\"description\":\"Short task title\"},"
         "\"prompt\":{\"type\":\"string\",\"description\":\"Full delegated task prompt\"},"
         "\"preflight_tool\":{\"type\":\"object\",\"additionalProperties\":false,\"description\":\"Optional forced tool call executed before the delegated LLM turn begins.\",\"properties\":{\"tool_name\":{\"type\":\"string\",\"description\":\"Tool name to execute, for example terminal\"},\"input\":{\"type\":\"object\",\"description\":\"JSON tool input object for the forced tool call\"},\"continue_on_error\":{\"type\":\"boolean\",\"description\":\"Whether the child should continue even if the preflight tool blocks or fails\"}},\"required\":[\"tool_name\",\"input\"]},"
-        "\"target_path\":{\"type\":\"string\",\"description\":\"Structured primary repo/file boundary for delegated exploration. For repo overview requests, set this to the repo root instead of relying only on prompt text.\"},"
+        "\"target_path\":{\"type\":\"string\",\"description\":\"Structured primary repo/file boundary for delegated exploration or execution. Set this whenever the task should stay inside a specific path scope.\"},"
         "\"subagent_type\":{\"type\":\"string\",\"enum\":[\"explore\",\"librarian\",\"oracle\",\"implement\"],\"description\":\"One of explore, librarian, oracle, implement\"},"
         "\"run_in_background\":{\"type\":\"boolean\",\"description\":\"true starts a background subagent and returns task_id\"},"
         "\"task_id\":{\"type\":\"string\",\"description\":\"Poll an existing background delegated task\"},"

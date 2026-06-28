@@ -352,15 +352,7 @@ bool tool_delegate_try_render_local_dependency_merge(const delegate_request_t *r
 {
     char deps[DELEGATE_RESULT_JSON_MAX];
     char safe_prompt[1024];
-    char scan_turn[768];
-    char scan_tooling[768];
-    char scan_turn_full[768];
-    char scan_tooling_full[768];
-    char boundary_a[384];
-    char boundary_b[384];
     char final_summary[1024];
-    const char *turn_prefix = "Dependency result [scan-turn]";
-    const char *tooling_prefix = "Dependency result [scan-tooling]";
 
     if (!req || !summary || summary_size == 0 ||
         !coordinator_id || !coordinator_id[0] ||
@@ -379,83 +371,15 @@ bool tool_delegate_try_render_local_dependency_merge(const delegate_request_t *r
 
     tool_delegate_sanitize_summary_text_copy(safe_prompt, sizeof(safe_prompt), req->prompt);
     strip_delegate_prompt_scaffolding_inplace(safe_prompt);
-    scan_turn[0] = '\0';
-    scan_tooling[0] = '\0';
-    scan_turn_full[0] = '\0';
-    scan_tooling_full[0] = '\0';
-    boundary_a[0] = '\0';
-    boundary_b[0] = '\0';
     final_summary[0] = '\0';
 
-    {
-        const char *hit = strstr(deps, turn_prefix);
-        if (hit) {
-            hit += strlen(turn_prefix);
-            while (*hit == ' ' || *hit == ':' || *hit == '\n') {
-                hit++;
-            }
-            append_clipped_text(scan_turn_full, sizeof(scan_turn_full), hit, 720);
-            append_clipped_text(scan_turn, sizeof(scan_turn), hit, 720);
-        }
-    }
-    {
-        const char *hit = strstr(deps, tooling_prefix);
-        if (hit) {
-            hit += strlen(tooling_prefix);
-            while (*hit == ' ' || *hit == ':' || *hit == '\n') {
-                hit++;
-            }
-            append_clipped_text(scan_tooling_full, sizeof(scan_tooling_full), hit, 720);
-            append_clipped_text(scan_tooling, sizeof(scan_tooling), hit, 720);
-        }
-    }
-
-    if (scan_turn[0]) {
-        const char *evidence = strstr(scan_turn, "\n\nEvidence:");
-        if (evidence) {
-            * (char *) evidence = '\0';
-        }
-        strscpy(boundary_a,
-                "`kernel/turn` 负责单回合执行主链、回合决策与最终回复生成。",
-                sizeof(boundary_a));
-        if (strstr(scan_turn, "tool-call") != NULL) {
-            strlcat(boundary_a, " 重点继续核对 tool-call 循环、执行调度和回合恢复。", sizeof(boundary_a));
-        }
-    }
-
-    if (scan_tooling[0]) {
-        const char *evidence = strstr(scan_tooling, "\n\nEvidence:");
-        if (evidence) {
-            * (char *) evidence = '\0';
-        }
-        strscpy(boundary_b,
-                "`kernel/tooling` 负责工具治理、后台协调、parent wake 和执行期验证。",
-                sizeof(boundary_b));
-        if (strstr(scan_tooling, "parent wake") != NULL || strstr(scan_tooling, "delegate") != NULL) {
-            strlcat(boundary_b, " 重点继续核对 delegate store、wake flush 和 runtime launch 边界。", sizeof(boundary_b));
-        }
-    }
-
-    strscpy(final_summary, "职责边界：", sizeof(final_summary));
-    if (boundary_a[0]) {
-        strlcat(final_summary, boundary_a, sizeof(final_summary));
-    }
-    if (boundary_a[0] && boundary_b[0]) {
-        strlcat(final_summary, " ", sizeof(final_summary));
-    }
-    if (boundary_b[0]) {
-        strlcat(final_summary, boundary_b, sizeof(final_summary));
-    }
+    strscpy(final_summary, "依赖子任务合并结果：以下结论只基于已完成依赖任务返回的证据。", sizeof(final_summary));
     if (safe_prompt[0]) {
-        strlcat(final_summary, "\n\n调用关系：", sizeof(final_summary));
-        strlcat(final_summary,
-                "`kernel/turn` 编排当前回合并决定何时进入 delegated child；`kernel/tooling` 提供跨回合协调、后台状态推进和 parent resume 能力。",
-                sizeof(final_summary));
+        strlcat(final_summary, "\n\n任务目标：", sizeof(final_summary));
+        append_clipped_text(final_summary, sizeof(final_summary), safe_prompt, 600);
     }
-    if (!boundary_a[0] && !boundary_b[0]) {
-        strlcat(final_summary, "\n\n补充证据：", sizeof(final_summary));
-        append_clipped_text(final_summary, sizeof(final_summary), deps, 1400);
-    }
+    strlcat(final_summary, "\n\n合并依据：", sizeof(final_summary));
+    append_clipped_text(final_summary, sizeof(final_summary), deps, 1200);
 
     cJSON *root = cJSON_CreateObject();
     cJSON *evidence = cJSON_CreateArray();
@@ -474,16 +398,11 @@ bool tool_delegate_try_render_local_dependency_merge(const delegate_request_t *r
     cJSON_AddItemToObject(root, "risks", risks);
     cJSON_AddItemToObject(root, "next_files", next_files);
 
-    collect_evidence_lines(evidence, scan_turn_full);
-    collect_evidence_lines(evidence, scan_tooling_full);
+    collect_evidence_lines(evidence, deps);
     if (cJSON_GetArraySize(evidence) <= 0) {
-        append_dependency_default_evidence(evidence, scan_turn_full, scan_tooling_full);
+        append_dependency_default_evidence(evidence, deps, "");
     }
-    append_json_array_unique(next_files, "kernel/turn/turn_entry.c");
-    append_json_array_unique(next_files, "kernel/turn/turn_exec.c");
-    append_json_array_unique(next_files, "kernel/tooling/delegate/delegate_parent_wake.c");
-    append_json_array_unique(next_files, "kernel/tooling/delegate/delegate_task_store.c");
-    append_json_array_unique(risks, "delegate store、wake flush 和 runtime launch 的边界还需要结合真实 coordinator replay 再核对一次。");
+    append_json_array_unique(risks, "当前结果来自依赖子任务的局部输出；如果后续要继续收敛实现入口或改造顺序，还需要补更多目标路径证据。");
 
     json = cJSON_PrintUnformatted(root);
     if (!json) {

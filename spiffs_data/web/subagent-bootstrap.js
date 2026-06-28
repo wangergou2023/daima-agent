@@ -132,7 +132,6 @@
         commitPendingReasoningCard: api.commitPendingReasoningCard,
         appendAssistantMessage: api.appendAssistantMessage,
         handleAgentStateMessage: api.handleAgentStateMessage,
-        handleSelfTestResult: api.handleSelfTestResult,
         startPingLoop() {
           ensureTransport()?.startPingLoop?.(() => {
             api.sendPing?.();

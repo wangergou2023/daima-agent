@@ -84,12 +84,93 @@ int find_coordinator_index(const char *coordinator_id)
     return -1;
 }
 
+static bool coordinator_chat_is_subagent_session(const char *chat_id)
+{
+    return chat_id &&
+           chat_id[0] &&
+           strncmp(chat_id, "delegate_sync_", 14) == 0;
+}
+
+static bool task_record_is_terminal_locked(const delegate_task_record_t *record)
+{
+    return record &&
+           record->task_id[0] &&
+           (record->status == DELEGATE_TASK_DONE ||
+            record->status == DELEGATE_TASK_FAILED);
+}
+
+static bool coordinator_slot_reusable_locked(delegate_coordinator_record_t *coordinator)
+{
+    if (!coordinator || !coordinator->coordinator_id[0]) {
+        return false;
+    }
+
+    refresh_coordinator_locked(coordinator);
+    if (coordinator->queued_count > 0 || coordinator->running_count > 0) {
+        return false;
+    }
+    if (strcmp(coordinator->status, "done") != 0 &&
+        strcmp(coordinator->status, "failed") != 0) {
+        return false;
+    }
+    if (!coordinator->completion_notified) {
+        return false;
+    }
+    if (coordinator->wake_state == DELEGATE_WAKE_PENDING ||
+        coordinator->wake_state == DELEGATE_WAKE_DISPATCHED) {
+        return false;
+    }
+    if (coordinator->parent_response_sent) {
+        return true;
+    }
+    if (coordinator->parent_resume_enqueued) {
+        return true;
+    }
+    if (!coordinator->chat_id[0] || coordinator_chat_is_subagent_session(coordinator->chat_id)) {
+        return true;
+    }
+    return false;
+}
+
+static void clear_coordinator_slot_locked(int idx)
+{
+    delegate_coordinator_record_t snapshot;
+
+    if (idx < 0 || idx >= DELEGATE_COORDINATOR_STORE_MAX ||
+        !s_coordinators[idx].coordinator_id[0]) {
+        return;
+    }
+
+    snapshot = s_coordinators[idx];
+    for (int i = 0; i < snapshot.agent_count; i++) {
+        int task_idx = find_record_index(snapshot.agents[i].task_id);
+        if (task_idx < 0) {
+            continue;
+        }
+        if (!task_record_is_terminal_locked(&s_records[task_idx])) {
+            continue;
+        }
+        clear_record(&s_records[task_idx]);
+    }
+    memset(&s_coordinators[idx], 0, sizeof(s_coordinators[idx]));
+}
+
 int allocate_coordinator_index(void)
 {
     for (int i = 0; i < DELEGATE_COORDINATOR_STORE_MAX; i++) {
         if (!s_coordinators[i].coordinator_id[0]) {
             return i;
         }
+    }
+    for (int i = 0; i < DELEGATE_COORDINATOR_STORE_MAX; i++) {
+        if (!coordinator_slot_reusable_locked(&s_coordinators[i])) {
+            continue;
+        }
+        pr_info("delegate_store reclaim coordinator slot=%d coordinator=%s",
+                i,
+                s_coordinators[i].coordinator_id);
+        clear_coordinator_slot_locked(i);
+        return i;
     }
     return -1;
 }
@@ -145,6 +226,21 @@ bool text_has_effective_output(const char *text)
         return false;
     }
     if (strcmp(text, "delegate protocol failure") == 0) {
+        return false;
+    }
+    if (strncmp(text, "错误：", strlen("错误：")) == 0) {
+        return false;
+    }
+    if (strncmp(text, "Error:", strlen("Error:")) == 0) {
+        return false;
+    }
+    if (strstr(text, "只支持读取普通文本文件") != NULL) {
+        return false;
+    }
+    if (strstr(text, "No such file or directory") != NULL) {
+        return false;
+    }
+    if (strstr(text, "is a directory") != NULL) {
         return false;
     }
     if (strstr(text, "\"error\":\"sudo_password_cancelled\"") != NULL) {

@@ -295,6 +295,9 @@ bool tool_delegate_try_fast_local_json(const char *subagent_type,
     if (tool_delegate_text_has_dsml_markup(clean) || tool_delegate_text_has_transcript_markup_public(clean)) {
         return false;
     }
+    if (tool_delegate_text_looks_like_path_dump(clean)) {
+        return false;
+    }
 
     tool_delegate_build_safe_output_text(clean, "", true, false, safe, sizeof(safe));
     if (!safe[0] || !tool_delegate_safe_text_is_directly_usable(safe)) {

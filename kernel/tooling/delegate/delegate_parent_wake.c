@@ -10,6 +10,7 @@
 #include <time.h>
 
 #include "cjson.h"
+#include "drivers/channel/gateway/ws_client.h"
 #include "drivers/channel/gateway/ws_server.h"
 #include "drivers/tool/tool_delegate_result_json.h"
 #include "bus.h"
@@ -69,6 +70,7 @@ static bool parent_chat_consumed_delegate_resume(const char *chat_id,
 static void render_subagent_visible_output(const char *raw_output,
                                            char *visible_output,
                                            size_t visible_output_size);
+static void replay_visible_coordinator(const delegate_coordinator_record_t *record);
 
 static long monotonic_ms_now(void)
 {
@@ -92,6 +94,12 @@ static bool coordinator_chat_is_web_visible(const char *chat_id)
     return chat_id &&
            chat_id[0] &&
            strncmp(chat_id, "delegate_sync_", 14) != 0;
+}
+
+static bool coordinator_chat_has_live_ws_client(const char *chat_id)
+{
+    return coordinator_chat_is_web_visible(chat_id) &&
+           ws_client_session_has_chat_id(chat_id);
 }
 
 static bool coordinator_is_terminal(const delegate_coordinator_record_t *record)
@@ -737,6 +745,29 @@ static void finish_terminal_missing_parent_client(const delegate_coordinator_rec
     mutex_unlock(&s_wake_mutex);
 }
 
+static err_t complete_terminal_via_parent_resume(const delegate_coordinator_record_t *record)
+{
+    if (!record || !coordinator_is_terminal(record)) {
+        return ERR_INVALID_ARG;
+    }
+
+    if (!record->completion_notified) {
+        delegate_task_store_mark_completion_notified(record->coordinator_id);
+    }
+
+    err_t err = enqueue_parent_resume_message(record);
+    if (err != 0) {
+        return err;
+    }
+
+    delegate_task_store_mark_parent_resume_enqueued(record->coordinator_id);
+    delegate_task_store_mark_wake_completed(record->coordinator_id);
+    pr_info("delegate_parent_wake: parent resume enqueued without live websocket delivery coordinator=%s chat=%s",
+            record->coordinator_id,
+            record->chat_id);
+    return 0;
+}
+
 static err_t dispatch_coordinator_snapshot(const delegate_coordinator_record_t *record)
 {
     char *snapshot_json;
@@ -858,6 +889,19 @@ static void flush_pending_snapshot(const delegate_parent_wake_entry_t *snapshot)
         return;
     }
 
+    if (!coordinator_chat_has_live_ws_client(record.chat_id) &&
+        !terminal &&
+        !resume_pending) {
+        delegate_task_store_mark_wake_completed(record.coordinator_id);
+        pr_info("delegate_parent_wake: skip live dispatch without websocket client coordinator=%s chat=%s",
+                record.coordinator_id,
+                record.chat_id);
+        mutex_lock(&s_wake_mutex);
+        clear_pending_entry(idx);
+        mutex_unlock(&s_wake_mutex);
+        return;
+    }
+
     if (!resume_pending) {
         delegate_task_store_mark_wake_dispatched(record.coordinator_id);
         memset(&latest_record, 0, sizeof(latest_record));
@@ -871,15 +915,33 @@ static void flush_pending_snapshot(const delegate_parent_wake_entry_t *snapshot)
 
         if (err == ERR_NOT_FOUND) {
             if (terminal) {
-                finish_terminal_missing_parent_client(&record, idx);
-                return;
+                err = complete_terminal_via_parent_resume(&record);
+                if (err == 0) {
+                    mutex_lock(&s_wake_mutex);
+                    clear_pending_entry(idx);
+                    mutex_unlock(&s_wake_mutex);
+                    return;
+                }
             }
+            delegate_task_store_mark_wake_completed(record.coordinator_id);
+            pr_info("delegate_parent_wake: no live websocket client for coordinator=%s chat=%s, rely on session snapshot/reconnect recovery",
+                    record.coordinator_id,
+                    record.chat_id);
             mutex_lock(&s_wake_mutex);
-            retry_pending_entry(idx, err);
+            clear_pending_entry(idx);
             mutex_unlock(&s_wake_mutex);
             return;
         }
         if (err != 0) {
+            if (terminal) {
+                err_t resume_err = complete_terminal_via_parent_resume(&record);
+                if (resume_err == 0) {
+                    mutex_lock(&s_wake_mutex);
+                    clear_pending_entry(idx);
+                    mutex_unlock(&s_wake_mutex);
+                    return;
+                }
+            }
             mutex_lock(&s_wake_mutex);
             retry_pending_entry(idx, err);
             mutex_unlock(&s_wake_mutex);
@@ -896,10 +958,22 @@ static void flush_pending_snapshot(const delegate_parent_wake_entry_t *snapshot)
             }
             err = dispatch_terminal_completion(&record);
             if (err == ERR_NOT_FOUND) {
-                finish_terminal_missing_parent_client(&record, idx);
-                return;
+                err = complete_terminal_via_parent_resume(&record);
+                if (err == 0) {
+                    mutex_lock(&s_wake_mutex);
+                    clear_pending_entry(idx);
+                    mutex_unlock(&s_wake_mutex);
+                    return;
+                }
             }
             if (err != 0) {
+                err_t resume_err = complete_terminal_via_parent_resume(&record);
+                if (resume_err == 0) {
+                    mutex_lock(&s_wake_mutex);
+                    clear_pending_entry(idx);
+                    mutex_unlock(&s_wake_mutex);
+                    return;
+                }
                 mutex_lock(&s_wake_mutex);
                 retry_pending_entry(idx, err);
                 mutex_unlock(&s_wake_mutex);
@@ -993,6 +1067,52 @@ void delegate_parent_wake_poll(void)
     mutex_unlock(&s_wake_mutex);
     for (int i = 0; i < DELEGATE_PARENT_WAKE_PENDING_MAX; i++) {
         flush_pending_snapshot(&snapshot[i]);
+    }
+}
+
+static void replay_visible_coordinator(const delegate_coordinator_record_t *record)
+{
+    if (!record || !record->chat_id[0]) {
+        return;
+    }
+    if (!coordinator_chat_is_web_visible(record->chat_id)) {
+        return;
+    }
+    if (!coordinator_chat_has_live_ws_client(record->chat_id)) {
+        return;
+    }
+
+    (void)dispatch_visible_coordinator_update(record);
+    if (coordinator_is_terminal(record) && record->completion_notified) {
+        (void)dispatch_terminal_completion(record);
+    }
+}
+
+void delegate_parent_wake_replay_chat(const char *chat_id)
+{
+    delegate_parent_registry_view_t parent_view;
+
+    if (!chat_id || !chat_id[0]) {
+        return;
+    }
+
+    memset(&parent_view, 0, sizeof(parent_view));
+    if (delegate_task_store_snapshot_parent(chat_id, &parent_view) != 0) {
+        return;
+    }
+
+    for (int i = 0; i < parent_view.coordinator_count; i++) {
+        delegate_coordinator_record_t snapshot;
+        const delegate_parent_coordinator_list_item_t *summary = &parent_view.coordinators[i];
+
+        if (!summary->coordinator_id[0]) {
+            continue;
+        }
+        memset(&snapshot, 0, sizeof(snapshot));
+        if (delegate_task_store_snapshot_coordinator(summary->coordinator_id, &snapshot) != 0) {
+            continue;
+        }
+        replay_visible_coordinator(&snapshot);
     }
 }
 

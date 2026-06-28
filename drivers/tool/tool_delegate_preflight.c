@@ -30,10 +30,6 @@ err_t tool_delegate_execute_preflight_tool(const delegate_request_t *req,
     char tool_output[4096];
     char rendered_summary[2048];
     err_t err;
-    cJSON *assistant_msg;
-    cJSON *content_arr;
-    cJSON *block;
-
     if (out_blocked) {
         *out_blocked = false;
     }
@@ -54,24 +50,6 @@ err_t tool_delegate_execute_preflight_tool(const delegate_request_t *req,
     rendered_summary[0] = '\0';
 
     err = tool_runtime_execute_call(&call, msg, tool_output, sizeof(tool_output), &rt);
-    if (tool_output[0]) {
-        assistant_msg = cJSON_CreateObject();
-        content_arr = cJSON_CreateArray();
-        block = cJSON_CreateObject();
-        if (assistant_msg && content_arr && block) {
-            cJSON_AddStringToObject(assistant_msg, "role", "assistant");
-            cJSON_AddStringToObject(block, "type", "tool_result");
-            cJSON_AddStringToObject(block, "tool_name", call.name);
-            cJSON_AddStringToObject(block, "content", tool_output);
-            cJSON_AddItemToArray(content_arr, block);
-            cJSON_AddItemToObject(assistant_msg, "content", content_arr);
-            cJSON_AddItemToArray(messages, assistant_msg);
-        } else {
-            cJSON_Delete(assistant_msg);
-            cJSON_Delete(content_arr);
-            cJSON_Delete(block);
-        }
-    }
 
     if (tool_delegate_try_fast_local_json(subagent_type,
                                           description,

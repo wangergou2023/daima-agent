@@ -84,8 +84,9 @@ if not web_cfg.get("default_pet_package_id") or web_cfg.get("default_pet_package
 
 common_cfg = merged.setdefault("common", {})
 default_common = defaults.get("common", {})
-if not common_cfg.get("terminal_security_level"):
-    common_cfg["terminal_security_level"] = default_common.get("terminal_security_level", "plan")
+if (not common_cfg.get("terminal_security_level") or
+        common_cfg.get("terminal_security_level") == "plan"):
+    common_cfg["terminal_security_level"] = default_common.get("terminal_security_level", "build")
 
 vector_cfg = merged.setdefault("vector", {})
 if "enabled" not in vector_cfg:

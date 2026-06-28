@@ -10,6 +10,7 @@
 #include "drivers/tool/tool_runtime.h"
 #include "drivers/tool/tool_delegate.h"
 #include "drivers/tool/tool_delegate_protocol.h"
+#include "drivers/tool/tool_delegate_repo_batch.h"
 #include "drivers/tool/tool_invocation_context.h"
 #include "drivers/tool/tool_terminal_exec.h"
 #include "work_item.h"
@@ -46,11 +47,6 @@ typedef struct {
     int primary_index;
     files_batch_member_t members[MAX_TOOL_CALLS];
 } files_discovery_batch_group_t;
-
-typedef struct {
-    int count;
-    char paths[MAX_TOOL_CALLS][512];
-} explicit_multi_scope_group_t;
 
 cJSON *agent_turn_build_assistant_content(const llm_response_t *resp)
 {
@@ -229,12 +225,16 @@ static bool collect_delegate_batch_group(const llm_response_t *resp,
 
 static bool collect_files_discovery_batch_group(const llm_response_t *resp,
                                                 const struct message *msg,
+                                                const explicit_multi_scope_group_t *explicit_scope_group,
                                                 files_discovery_batch_group_t *out)
 {
     if (!resp || !msg || !out) {
         return false;
     }
-    if (!tool_invocation_context_message_requests_multi_subagents(msg)) {
+    if (!tool_invocation_context_message_prefers_parallel_subagents(msg)) {
+        return false;
+    }
+    if (!explicit_scope_group || explicit_scope_group->count < 2) {
         return false;
     }
 
@@ -287,317 +287,41 @@ static char *build_delegate_batch_input(const delegate_batch_group_t *group)
     return json;
 }
 
-static const char *basename_after_last_slash(const char *path)
+static char *build_files_discovery_delegate_batch_input(const files_discovery_batch_group_t *group,
+                                                        const struct message *msg)
 {
-    const char *slash = path ? strrchr(path, '/') : NULL;
-    return (slash && slash[1]) ? slash + 1 : path;
-}
+    char paths[MAX_TOOL_CALLS][512];
 
-static char *build_files_discovery_delegate_batch_input(const files_discovery_batch_group_t *group)
-{
     if (!group || group->count < 2) {
-        return NULL;
-    }
-
-    cJSON *root = cJSON_CreateObject();
-    cJSON *tasks = cJSON_CreateArray();
-    if (!root || !tasks) {
-        cJSON_Delete(root);
-        cJSON_Delete(tasks);
         return NULL;
     }
 
     for (int i = 0; i < group->count; i++) {
         const files_batch_member_t *member = &group->members[i];
-        const char *leaf = basename_after_last_slash(member->path);
-        char description[96];
-        char prompt[1024];
-        snprintf(description, sizeof(description), "分析 %s 模块结构", leaf && leaf[0] ? leaf : member->path);
-        snprintf(prompt, sizeof(prompt),
-                 "分析 %s 的目录结构和关键模块。"
-                 "只做代表性覆盖，不要穷举。"
-                 "先总结直接子目录和主要职责，再读取少量代表性文件说明入口、主链和下一步应关注的文件。",
-                 member->path);
-
-        cJSON *item = cJSON_CreateObject();
-        if (!item) {
-            continue;
-        }
-        cJSON_AddStringToObject(item, "subagent_type", "explore");
-        cJSON_AddStringToObject(item, "description", description);
-        cJSON_AddStringToObject(item, "prompt", prompt);
-        cJSON_AddStringToObject(item, "target_path", member->path);
-        cJSON_AddItemToArray(tasks, item);
+        strscpy(paths[i], member->path, sizeof(paths[i]));
     }
-
-    cJSON_AddItemToObject(root, "tasks", tasks);
-    char *json = cJSON_PrintUnformatted(root);
-    cJSON_Delete(root);
-    return json;
-}
-
-static bool explicit_scope_exists(const explicit_multi_scope_group_t *group, const char *path)
-{
-    if (!group || !path || !path[0]) {
-        return false;
-    }
-    for (int i = 0; i < group->count; i++) {
-        if (strcmp(group->paths[i], path) == 0) {
-            return true;
-        }
-    }
-    return false;
-}
-
-static void explicit_scope_add(explicit_multi_scope_group_t *group, const char *path)
-{
-    if (!group || !path || !path[0] || group->count >= MAX_TOOL_CALLS) {
-        return;
-    }
-    if (explicit_scope_exists(group, path)) {
-        return;
-    }
-    strscpy(group->paths[group->count++], path, sizeof(group->paths[0]));
-}
-
-static bool explicit_scope_is_separator(char ch)
-{
-    return ch == '\0' || ch == ' ' || ch == '\n' || ch == '\t' ||
-           ch == ',' || ch == ':' || ch == ';' || ch == ')' ||
-           ch == '(' || ch == '"' ||
-           ch == '\'' || ch == '`';
-}
-
-static bool explicit_scope_is_token_char(char ch)
-{
-    return (ch >= 'a' && ch <= 'z') ||
-           (ch >= 'A' && ch <= 'Z') ||
-           (ch >= '0' && ch <= '9') ||
-           ch == '_' || ch == '-' || ch == '/';
-}
-
-static void trim_scope_token(char *token)
-{
-    size_t len;
-
-    if (!token || !token[0]) {
-        return;
-    }
-
-    while (*token == '`' || *token == '"' || *token == '\'' ||
-           *token == '(') {
-        memmove(token, token + 1, strlen(token));
-    }
-
-    len = strlen(token);
-    while (len > 0) {
-        char ch = token[len - 1];
-        if (ch != '/' && !explicit_scope_is_separator(ch)) {
-            break;
-        }
-        token[--len] = '\0';
-    }
-}
-
-static bool explicit_scope_path_exists(const char *path)
-{
-    struct stat st;
-    return path && path[0] && stat(path, &st) == 0 && S_ISDIR(st.st_mode);
-}
-
-static void extract_first_absolute_repo_path(const char *content, char *root, size_t root_size)
-{
-    const char *start;
-
-    if (!root || root_size == 0) {
-        return;
-    }
-    root[0] = '\0';
-    if (!content || !content[0]) {
-        return;
-    }
-
-    start = strchr(content, '/');
-    while (start) {
-        const char *end = start;
-        while (*end && !explicit_scope_is_separator(*end)) {
-            end++;
-        }
-        if ((size_t)(end - start) > 1 && (size_t)(end - start) < root_size) {
-            memcpy(root, start, (size_t)(end - start));
-            root[end - start] = '\0';
-            trim_scope_token(root);
-            if (root[0] && explicit_scope_path_exists(root)) {
-                return;
-            }
-        }
-        start = strchr(end, '/');
-    }
-    root[0] = '\0';
-}
-
-static void maybe_add_relative_scope_from_keyword(const char *content,
-                                                  const char *root,
-                                                  explicit_multi_scope_group_t *out,
-                                                  const char *needle)
-{
-    const char *pos = content;
-
-    if (!content || !root || !root[0] || !out || !needle || !needle[0]) {
-        return;
-    }
-
-    while ((pos = strstr(pos, needle)) != NULL) {
-        char before = (pos == content) ? '\0' : pos[-1];
-        char after = pos[strlen(needle)];
-        char path[512];
-
-        if ((before == '/' && pos > content) || before == '_' || before == '-') {
-            pos += strlen(needle);
-            continue;
-        }
-        if (explicit_scope_is_token_char(before) && before != '/') {
-            pos += strlen(needle);
-            continue;
-        }
-        if (explicit_scope_is_token_char(after) && after != '/') {
-            pos += strlen(needle);
-            continue;
-        }
-        if (!strchr(needle, '/') && after == '/') {
-            pos += strlen(needle);
-            continue;
-        }
-
-        snprintf(path, sizeof(path), "%s/%s", root, needle);
-        trim_scope_token(path);
-        if (explicit_scope_path_exists(path)) {
-            explicit_scope_add(out, path);
-        }
-        pos += strlen(needle);
-    }
-}
-
-static void extract_relative_scope_paths(const char *content,
-                                         const char *root,
-                                         explicit_multi_scope_group_t *out)
-{
-    const char *relative_markers[] = {
-        "kernel/turn",
-        "kernel/tooling",
-        "kernel/context",
-        "kernel/router",
-        "kernel/turning",
-        "kernel",
-        "drivers/tool",
-        "drivers/llm",
-        "drivers/channel",
-        "drivers",
-        "docs",
-    };
-
-    if (!content || !root || !root[0] || !out) {
-        return;
-    }
-
-    for (size_t i = 0; i < sizeof(relative_markers) / sizeof(relative_markers[0]); i++) {
-        maybe_add_relative_scope_from_keyword(content, root, out, relative_markers[i]);
-    }
-}
-
-static void extract_absolute_scope_paths(const char *content,
-                                         const char *repo_root,
-                                         explicit_multi_scope_group_t *out)
-{
-    const char *start = content;
-
-    if (!content || !out) {
-        return;
-    }
-
-    while ((start = strchr(start, '/')) != NULL) {
-        const char *end = start;
-        char path[512];
-
-        while (*end && !explicit_scope_is_separator(*end)) {
-            end++;
-        }
-        if ((size_t)(end - start) <= 1 || (size_t)(end - start) >= sizeof(path)) {
-            start = end;
-            continue;
-        }
-
-        memcpy(path, start, (size_t)(end - start));
-        path[end - start] = '\0';
-        trim_scope_token(path);
-        if (strchr(path + 1, '/') &&
-            explicit_scope_path_exists(path) &&
-            (!repo_root || !repo_root[0] || strcmp(path, repo_root) != 0)) {
-            explicit_scope_add(out, path);
-        }
-        start = end;
-    }
+    return tool_delegate_build_scoped_delegate_batch_json_for_paths(msg ? msg->content : "",
+                                                                    paths[0],
+                                                                    paths,
+                                                                    group->count);
 }
 
 static bool collect_explicit_multi_scope_paths(const struct message *msg,
                                                explicit_multi_scope_group_t *out)
 {
-    const char *content;
-    char root[512];
-
-    if (!msg || !out) {
-        return false;
-    }
-    if (!tool_invocation_context_message_requests_multi_subagents(msg)) {
-        return false;
-    }
-
-    memset(out, 0, sizeof(*out));
-    content = msg->content ? msg->content : "";
-
-    extract_first_absolute_repo_path(content, root, sizeof(root));
-    extract_absolute_scope_paths(content, root, out);
-    extract_relative_scope_paths(content, root, out);
-
-    return out->count >= 2;
+    return msg && out &&
+           tool_invocation_context_message_prefers_parallel_subagents(msg) &&
+           tool_delegate_collect_explicit_multi_scope_paths_from_message(msg, out) &&
+           out->count >= 2;
 }
 
-static char *build_explicit_multi_scope_delegate_batch_input(const explicit_multi_scope_group_t *group)
+static char *build_user_prompt_scoped_delegate_batch_input(const explicit_multi_scope_group_t *group,
+                                                           const struct message *msg)
 {
-    cJSON *root = cJSON_CreateObject();
-    cJSON *tasks = cJSON_CreateArray();
-    if (!group || group->count < 2 || !root || !tasks) {
-        cJSON_Delete(root);
-        cJSON_Delete(tasks);
+    if (!group || group->count < 2 || !msg) {
         return NULL;
     }
-
-    for (int i = 0; i < group->count; i++) {
-        const char *path = group->paths[i];
-        const char *leaf = basename_after_last_slash(path);
-        char description[96];
-        char prompt[1024];
-        cJSON *item = cJSON_CreateObject();
-        if (!item) {
-            continue;
-        }
-        snprintf(description, sizeof(description), "分析 %s 目录结构", leaf && leaf[0] ? leaf : path);
-        snprintf(prompt, sizeof(prompt),
-                 "分析 %s 的目录结构和关键模块。"
-                 "只做代表性覆盖，不要穷举。"
-                 "总结直接子目录、核心文件、主要职责，以及下一步值得继续看的文件。",
-                 path);
-        cJSON_AddStringToObject(item, "subagent_type", "explore");
-        cJSON_AddStringToObject(item, "description", description);
-        cJSON_AddStringToObject(item, "prompt", prompt);
-        cJSON_AddStringToObject(item, "target_path", path);
-        cJSON_AddItemToArray(tasks, item);
-    }
-
-    cJSON_AddItemToObject(root, "tasks", tasks);
-    char *json = cJSON_PrintUnformatted(root);
-    cJSON_Delete(root);
-    return json;
+    return tool_delegate_build_user_prompt_scoped_delegate_batch_json(msg);
 }
 
 static char *extract_coordinator_id_from_output(const char *tool_output)
@@ -723,14 +447,6 @@ static bool should_merge_into_existing_background_delegate(const turn_exec_stats
         return patched_tool_name && strcmp(patched_tool_name, "delegate_task") == 0;
     }
 
-    if (strcmp(call->name, "terminal") == 0) {
-        cJSON *root = cJSON_Parse(call->input ? call->input : "{}");
-        const char *command = root ? cJSON_GetStringValue(cJSON_GetObjectItem(root, "command")) : NULL;
-        bool should_delegate = tool_invocation_context_terminal_command_looks_broad_discovery(command, msg);
-        cJSON_Delete(root);
-        return should_delegate;
-    }
-
     return false;
 }
 
@@ -776,16 +492,19 @@ cJSON *agent_turn_build_tool_results(const llm_response_t *resp,
     cJSON *content = cJSON_CreateArray();
     delegate_batch_group_t batch_group;
     bool has_delegate_batch = collect_delegate_batch_group(resp, &batch_group);
+    explicit_multi_scope_group_t explicit_scope_group;
+    bool has_explicit_scope_group = collect_explicit_multi_scope_paths(msg, &explicit_scope_group);
     files_discovery_batch_group_t files_batch_group;
-    bool has_files_discovery_batch = collect_files_discovery_batch_group(resp, msg, &files_batch_group);
+    bool has_files_discovery_batch = collect_files_discovery_batch_group(resp,
+                                                                         msg,
+                                                                         has_explicit_scope_group ? &explicit_scope_group : NULL,
+                                                                         &files_batch_group);
     char *batch_output = NULL;
     char *batch_coordinator_id = NULL;
     char *sync_delegate_tool_output = NULL;
     char sync_delegate_primary_tool_id[64] = {0};
     err_t batch_err = 0;
     bool batch_executed = false;
-    explicit_multi_scope_group_t explicit_scope_group;
-    bool has_explicit_scope_group = collect_explicit_multi_scope_paths(msg, &explicit_scope_group);
 
     for (int i = 0; i < resp->call_count; i++) {
         const llm_tool_call_t *call = &resp->calls[i];
@@ -818,7 +537,7 @@ cJSON *agent_turn_build_tool_results(const llm_response_t *resp,
             strcmp(call->name, "files") == 0 &&
             !has_files_discovery_batch &&
             !has_delegate_batch) {
-            char *batch_input = build_explicit_multi_scope_delegate_batch_input(&explicit_scope_group);
+            char *batch_input = build_user_prompt_scoped_delegate_batch_input(&explicit_scope_group, msg);
             llm_tool_call_t merged_call;
             memset(&merged_call, 0, sizeof(merged_call));
             strscpy(merged_call.id, call->id, sizeof(merged_call.id));
@@ -853,11 +572,9 @@ cJSON *agent_turn_build_tool_results(const llm_response_t *resp,
 
         if (has_files_discovery_batch && strcmp(call->name, "files") == 0) {
             bool is_batch_member = false;
-            const files_batch_member_t *member = NULL;
             for (int j = 0; j < files_batch_group.count; j++) {
                 if (files_batch_group.members[j].call_index == i) {
                     is_batch_member = true;
-                    member = &files_batch_group.members[j];
                     break;
                 }
             }
@@ -870,7 +587,7 @@ cJSON *agent_turn_build_tool_results(const llm_response_t *resp,
                 continue;
             }
             if (is_batch_member && i == files_batch_group.primary_index) {
-                char *batch_input = build_files_discovery_delegate_batch_input(&files_batch_group);
+                char *batch_input = build_files_discovery_delegate_batch_input(&files_batch_group, msg);
                 llm_tool_call_t merged_call;
                 memset(&merged_call, 0, sizeof(merged_call));
                 strscpy(merged_call.id, call->id, sizeof(merged_call.id));

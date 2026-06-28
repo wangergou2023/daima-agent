@@ -140,7 +140,11 @@ err_t agent_turn_build_prompt(const struct message *msg,
 		strscpy(prompt_prefix, system_prompt, sizeof(prompt_prefix));
 	}
 
-	context_build_system_prompt_for_channel(msg->channel, system_prompt, system_prompt_size);
+	context_build_system_prompt_for_channel_and_mode(
+		msg->channel,
+		strncmp(msg->chat_id, "delegate_sync_", 14) == 0,
+		system_prompt,
+		system_prompt_size);
 	if (IS_ENABLED(CONFIG_RULES_INJECTION_ENABLED)) {
 		char rules_buf[8192];
 		if (rules_injection_load(rules_buf, sizeof(rules_buf)) == 0 && rules_buf[0]) {

@@ -38,7 +38,9 @@
     if (key === 'llm_adapter') return 'llm adapter';
     if (key === 'execution_kernel') return 'execution kernel';
     if (key === 'adapter_layer') return 'adapter layer';
-    if (key === 'repo_overview') return 'repo overview';
+    if (key === 'repo_overview') return 'root scope';
+    if (key === 'root_scope') return 'root scope';
+    if (key === 'scoped_structure_analysis') return 'scoped structure analysis';
     if (key === 'local_overview') return 'local overview';
     if (key === 'file_analysis') return 'file analysis';
     return key.replace(/_/g, ' ');

@@ -143,9 +143,6 @@ const {
   hideCoordinatorPanel: hideCoordinatorPanelView,
 } = window.AgentSubagentCoordinatorView || {};
 const {
-  renderSelfTestReport: renderSelfTestReportView,
-} = window.AgentSelfTestReportView || {};
-const {
   createAgentStatePresenter,
 } = window.AgentStatePresenter || {};
 const {
@@ -478,9 +475,6 @@ function ensureSubagentBootstrap() {
     handleAgentStateMessage(data) {
       ensureAgentStatePresenter()?.handleAgentStateMessage?.(data);
     },
-    handleSelfTestResult(data) {
-      renderSelfTestReportView?.(data, { messagesEl: messages });
-    },
     sendPing() {
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'ping', ts: Date.now(), chat_id: chatId }));
@@ -632,7 +626,6 @@ function ensureSubagentShell() {
       appendNode(makeMessageNode('assistant', text));
     },
     syncSendState,
-    summarizeCoordinatorCompletion,
   });
   return subagentShell;
 }
@@ -1717,27 +1710,6 @@ function clipText(value, limit = 240) {
   const text = trimText(value).replace(/\s+/g, ' ');
   if (!text) return '';
   return text.length > limit ? `${text.slice(0, limit - 3)}...` : text;
-}
-
-function summarizeCoordinatorCompletion(payload) {
-  const coordinator = payload?.coordinator || payload || {};
-  const agents = Array.isArray(coordinator.agents) ? coordinator.agents : [];
-  const status = String(coordinator.status || '').trim() || 'done';
-  const header = `后台任务 ${status === 'failed' ? '已结束（存在失败）' : '已完成'}：${coordinator.coordinator_id || 'unknown'}`;
-  if (!agents.length) return header;
-
-  const lines = [header, ''];
-  for (const agent of agents) {
-    const title = String(agent.description || agent.subagent_type || 'subagent').trim();
-    const agentStatus = String(agent.status || '').trim() || 'unknown';
-    lines.push(`- ${title} [${agentStatus}]`);
-    const output = String(agent.output || '').trim();
-    if (output) {
-      const compact = output.replace(/\s+/g, ' ').slice(0, 240);
-      lines.push(`  ${compact}${output.length > 240 ? '...' : ''}`);
-    }
-  }
-  return lines.join('\n');
 }
 
 function addMessage(role, text) {

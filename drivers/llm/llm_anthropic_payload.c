@@ -78,6 +78,27 @@ static cJSON *duplicate_tools_anthropic(const char *tools_json)
 	return tools;
 }
 
+static cJSON *build_text_content_blocks(const char *text)
+{
+	cJSON *blocks = cJSON_CreateArray();
+	cJSON *block;
+
+	if (!blocks) {
+		return NULL;
+	}
+
+	block = cJSON_CreateObject();
+	if (!block) {
+		cJSON_Delete(blocks);
+		return NULL;
+	}
+
+	cJSON_AddStringToObject(block, "type", "text");
+	cJSON_AddStringToObject(block, "text", text ? text : "");
+	cJSON_AddItemToArray(blocks, block);
+	return blocks;
+}
+
 /**
  * 将内部消息数组转换为 Anthropic Messages 格式。
  *
@@ -118,8 +139,14 @@ static cJSON *convert_messages_anthropic(cJSON *messages)
 
 		/* 简单字符串 content：包装为单元素块数组 [{"type":"text","text":"..."}] */
 		if (cJSON_IsString(content)) {
+			cJSON *blocks;
 			sanitize_utf8(content->valuestring);
-			cJSON_AddStringToObject(m, "content", content->valuestring);
+			blocks = build_text_content_blocks(content->valuestring);
+			if (!blocks) {
+				cJSON_Delete(m);
+				continue;
+			}
+			cJSON_AddItemToObject(m, "content", blocks);
 			cJSON_AddItemToArray(out, m);
 			continue;
 		}
@@ -152,6 +179,28 @@ static cJSON *convert_messages_anthropic(cJSON *messages)
 			    strcmp(btype->valuestring, "tool_use") == 0 ||
 			    strcmp(btype->valuestring, "tool_result") == 0) {
 				cJSON *dup = cJSON_Duplicate(block, 1);
+				if (dup && strcmp(btype->valuestring, "tool_result") == 0) {
+					cJSON *tool_use_id = cJSON_GetObjectItemCaseSensitive(dup, "tool_use_id");
+					cJSON *result_content = cJSON_GetObjectItemCaseSensitive(dup, "content");
+					if (!tool_use_id || !cJSON_IsString(tool_use_id) ||
+					    !tool_use_id->valuestring || !tool_use_id->valuestring[0] ||
+					    !result_content || !cJSON_IsString(result_content)) {
+						cJSON_Delete(dup);
+						dup = NULL;
+					}
+				}
+				if (dup && strcmp(btype->valuestring, "tool_use") == 0) {
+					cJSON *id = cJSON_GetObjectItemCaseSensitive(dup, "id");
+					cJSON *name = cJSON_GetObjectItemCaseSensitive(dup, "name");
+					cJSON *input = cJSON_GetObjectItemCaseSensitive(dup, "input");
+					if (!id || !cJSON_IsString(id) || !id->valuestring || !id->valuestring[0] ||
+					    !name || !cJSON_IsString(name) || !name->valuestring || !name->valuestring[0]) {
+						cJSON_Delete(dup);
+						dup = NULL;
+					} else if (!input) {
+						cJSON_AddItemToObject(dup, "input", cJSON_CreateObject());
+					}
+				}
 				/* reasoning 块：需要转换为 Anthropic 的 thinking 类型。
 				 * 提取文本后替换 type 为 "thinking"，重命名字段 text → thinking */
 				if (dup && (strcmp(btype->valuestring, "reasoning") == 0 ||
@@ -181,6 +230,12 @@ static cJSON *convert_messages_anthropic(cJSON *messages)
 					cJSON_AddItemToArray(blocks, dup);
 				}
 			}
+		}
+
+		if (cJSON_GetArraySize(blocks) == 0) {
+			cJSON_Delete(blocks);
+			cJSON_Delete(m);
+			continue;
 		}
 
 		cJSON_AddItemToObject(m, "content", blocks);
@@ -331,9 +386,17 @@ cJSON *llm_anthropic_build_image_body(const char *system_prompt,
 	/* 纯文本 user 消息（存根实现，图片参数未使用） */
 	cJSON *messages = cJSON_CreateArray();
 	cJSON *msg = cJSON_CreateObject();
+	cJSON *content_blocks = NULL;
 	if (messages && msg) {
 		cJSON_AddStringToObject(msg, "role", "user");
-		cJSON_AddStringToObject(msg, "content", user_text ? user_text : "");
+		content_blocks = build_text_content_blocks(user_text ? user_text : "");
+		if (!content_blocks) {
+			cJSON_Delete(messages);
+			cJSON_Delete(msg);
+			cJSON_Delete(body);
+			return NULL;
+		}
+		cJSON_AddItemToObject(msg, "content", content_blocks);
 		cJSON_AddItemToArray(messages, msg);
 		cJSON_AddItemToObject(body, "messages", messages);
 	} else {

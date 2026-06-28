@@ -111,6 +111,7 @@ bool tool_delegate_finalize_result_json(const char *subagent_type,
              "- evidence/risks/next_files must be arrays of strings.\n"
              "- If the text is only a prelude like 'let me read the file first', set status to \"blocked\" and explain that protocol failed.\n"
              "- If the text is tool-result transcript content (for example FILE:/SEARCH:/LINES: blocks), synthesize actual findings from that evidence instead of complaining about the transcript format.\n"
+             "- If the text is mostly a path dump or directory listing without explained responsibilities, do not mark it done; either synthesize real structure findings or mark it blocked.\n"
              "- Preserve exact file paths and symbol names when present.\n"
              "- Keep summary compact and evidence high-signal.\n"
              "\n"

@@ -79,6 +79,55 @@ static int s_server_port = 1234;      /* 监听端口（从 config.json 读取�
 /* RFC 6455 定义的 WebSocket 魔术字符串 GUID */
 static const char *WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
+static void extract_ws_chat_id_from_request(const char *req, char *out, size_t out_size)
+{
+    const char *line_end;
+    const char *path_start;
+    const char *query;
+    const char *chat;
+    size_t len;
+
+    if (!out || out_size == 0) {
+        return;
+    }
+    out[0] = '\0';
+    if (!req) {
+        return;
+    }
+
+    line_end = strstr(req, "\r\n");
+    if (!line_end) {
+        line_end = strchr(req, '\n');
+    }
+    if (!line_end) {
+        return;
+    }
+
+    path_start = strchr(req, ' ');
+    if (!path_start || path_start >= line_end) {
+        return;
+    }
+    path_start++;
+    query = memchr(path_start, '?', (size_t)(line_end - path_start));
+    if (!query) {
+        return;
+    }
+    chat = strstr(query + 1, "chat_id=");
+    if (!chat || chat >= line_end) {
+        return;
+    }
+    chat += strlen("chat_id=");
+    len = strcspn(chat, "& \r\n");
+    if (len == 0) {
+        return;
+    }
+    if (len >= out_size) {
+        len = out_size - 1;
+    }
+    memcpy(out, chat, len);
+    out[len] = '\0';
+}
+
 /* OpenSSL Base64 编码封装。 */
 static void base64_encode(const unsigned char *in, size_t in_len, char *out, size_t out_len)
 {
@@ -164,7 +213,7 @@ static int ws_handshake_from_request(int client_fd, const char *req)
  *          0=HTTP（fd 已在路由中关闭），
  *         -1=错误
  */
-static int handle_http_or_ws(int client_fd)
+static int handle_http_or_ws(int client_fd, char *chat_id, size_t chat_id_size)
 {
     char req[4096];
     ssize_t n = recv(client_fd, req, sizeof(req) - 1, 0);
@@ -173,6 +222,7 @@ static int handle_http_or_ws(int client_fd)
 
     if (strcasestr(req, "Upgrade: websocket")
         || strcasestr(req, "Sec-WebSocket-Key:")) {
+        extract_ws_chat_id_from_request(req, chat_id, chat_id_size);
         if (ws_handshake_from_request(client_fd, req) == 0) return 1;
         return -1;
     }
@@ -208,13 +258,18 @@ static void *ws_server_loop(void *arg)
             if (FD_ISSET(s_server_fd, &readfds)) {
                 struct sockaddr_in addr;
                 socklen_t len = sizeof(addr);
-            int client_fd = accept(s_server_fd, (struct sockaddr *)&addr, &len);
-            if (client_fd >= 0) {
-                configure_client_socket(client_fd);
-                int rc = handle_http_or_ws(client_fd);
-                if (rc == 1) {
-                    if (!ws_client_session_add(client_fd)) close(client_fd);
-                } else {
+                int client_fd = accept(s_server_fd, (struct sockaddr *)&addr, &len);
+                if (client_fd >= 0) {
+                    char chat_id[WS_CLIENT_CHAT_ID_LEN] = {0};
+                    configure_client_socket(client_fd);
+                    int rc = handle_http_or_ws(client_fd, chat_id, sizeof(chat_id));
+                    if (rc == 1) {
+                        if (!ws_client_session_add(client_fd)) {
+                            close(client_fd);
+                        } else if (chat_id[0]) {
+                            ws_client_session_bind_chat_id(client_fd, chat_id);
+                        }
+                    } else {
                         close(client_fd);
                     }
                 }

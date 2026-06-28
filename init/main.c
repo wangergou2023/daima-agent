@@ -36,22 +36,6 @@
 #include "drivers/voice/voice_wake.h"
 #include "linux/slab.h"
 
-int agent_self_test(void);
-char *agent_self_test_results_json(void);
-
-static bool argv_has_flag(int argc, char **argv, const char *flag)
-{
-    if (!argv || !flag || !flag[0]) {
-        return false;
-    }
-    for (int i = 1; i < argc; i++) {
-        if (argv[i] && strcmp(argv[i], flag) == 0) {
-            return true;
-        }
-    }
-    return false;
-}
-
 /**
  * 从运行时配置解析当前时区。
  * @return 时区字符串（如 "Asia/Shanghai"）。
@@ -75,9 +59,7 @@ static const char *resolve_runtime_timezone(void)
 int main(int argc, char **argv)
 {
     (void)argc;
-
-    bool self_test_only = argv_has_flag(argc, argv, "--self-test");
-    runtime_set_self_test_mode(self_test_only);
+    (void)argv;
 
 #ifdef BUILD_FOR_MIPS
     /* MIPS 平台：每次启动自动注册 systemd 服务（rootfs 只读，需运行时链接） */
@@ -112,15 +94,6 @@ int main(int argc, char **argv)
     BUG_ON(tool_builtin_bus_init() != 0);
     BUG_ON(tool_custom_load_default() < 0);
     BUG_ON(agent_loop_init() != 0);
-
-    if (self_test_only) {
-        int ok = agent_self_test();
-        char *json = agent_self_test_results_json();
-        if (json) {
-            dprintf(STDOUT_FILENO, "%s\n", json);
-        }
-        _exit(ok);
-    }
 
     /* 阶段 4a: 启动通道路由（飞书/Vector/WebSocket） */
     BUG_ON(channel_router_start() != 0);

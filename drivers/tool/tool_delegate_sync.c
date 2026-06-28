@@ -7,7 +7,6 @@
 #include "drivers/llm/llm_proxy.h"
 #include "drivers/tool/tool_bus_view.h"
 #include "drivers/tool/tool_delegate_dependency.h"
-#include "drivers/tool/tool_delegate_local_overview.h"
 #include "drivers/tool/tool_delegate_overview.h"
 #include "drivers/tool/tool_delegate_preflight.h"
 #include "drivers/tool/tool_delegate_protocol.h"
@@ -39,9 +38,38 @@ static int sync_subagent_tool_budget(delegate_subagent_kind_t kind, const delega
         return 0;
     }
     if (tool_delegate_request_is_bounded_explore_overview(req)) {
-        return 3;
+        return 4;
     }
     return 0;
+}
+
+static bool delegate_request_needs_scope_listing_preflight(delegate_subagent_kind_t kind,
+                                                           const delegate_request_t *req)
+{
+    if (kind != DELEGATE_SUBAGENT_EXPLORE || !req) {
+        return false;
+    }
+    if (req->preflight_tool.tool_name[0]) {
+        return false;
+    }
+    if (!req->target_path[0] || !tool_delegate_file_is_directory(req->target_path)) {
+        return false;
+    }
+    return true;
+}
+
+static void fill_scope_listing_preflight(delegate_request_t *dst, const delegate_request_t *src)
+{
+    if (!dst || !src) {
+        return;
+    }
+    memcpy(dst, src, sizeof(*dst));
+    strscpy(dst->preflight_tool.tool_name, "files", sizeof(dst->preflight_tool.tool_name));
+    snprintf(dst->preflight_tool.input_json,
+             sizeof(dst->preflight_tool.input_json),
+             "{\"action\":\"list\",\"path\":\"%s\"}",
+             src->target_path);
+    dst->preflight_tool.continue_on_error = true;
 }
 
 static void persist_delegate_shortcut_session(const char *session_id,
@@ -61,7 +89,6 @@ err_t tool_delegate_run_sync_single_subagent(delegate_subagent_kind_t kind,
                                              char *output,
                                              size_t output_size)
 {
-    char local_overview_summary[DELEGATE_RESULT_JSON_MAX];
     char dependency_summary[DELEGATE_RESULT_JSON_MAX];
     char visible_output[DELEGATE_RESULT_JSON_MAX];
     char prepared_prompt[READ_FILE_MAX_CHARS + 4096];
@@ -86,70 +113,6 @@ err_t tool_delegate_run_sync_single_subagent(delegate_subagent_kind_t kind,
             req->subagent_type[0] ? req->subagent_type : "-",
             req->preflight_tool.tool_name[0] ? req->preflight_tool.tool_name : "-",
             req->preflight_tool.continue_on_error ? 1 : 0);
-
-    if (kind == DELEGATE_SUBAGENT_EXPLORE &&
-        !req->preflight_tool.tool_name[0] &&
-        tool_delegate_try_local_repo_overview(req,
-                                              local_overview_summary,
-                                              sizeof(local_overview_summary))) {
-        persist_delegate_shortcut_session(session_id && session_id[0] ? session_id : "",
-                                          req->prompt[0] ? req->prompt : req->description,
-                                          local_overview_summary,
-                                          "local repo overview shortcut");
-        if (task_id && task_id[0]) {
-            delegate_task_store_append_session_step(task_id,
-                                                    "tool",
-                                                    "local repo overview shortcut",
-                                                    local_overview_summary);
-        }
-        if (parent_chat_id && parent_chat_id[0]) {
-            ws_server_send_subagent_event(parent_chat_id,
-                                          "subagent_start",
-                                          task_id,
-                                          session_id,
-                                          coordinator_id,
-                                          0,
-                                          req->subagent_type,
-                                          "running",
-                                          req->description,
-                                          "local_overview",
-                                          local_overview_summary,
-                                          tool_delegate_visible_output_or_fallback(local_overview_summary,
-                                                                                   visible_output,
-                                                                                   sizeof(visible_output)),
-                                          "",
-                                          scope_path,
-                                          scope_kind,
-                                          analysis_focus,
-                                          "",
-                                          "",
-                                          "task");
-            ws_server_send_subagent_event(parent_chat_id,
-                                          "subagent_done",
-                                          task_id,
-                                          session_id,
-                                          coordinator_id,
-                                          0,
-                                          req->subagent_type,
-                                          "done",
-                                          req->description,
-                                          "local_overview",
-                                          local_overview_summary,
-                                          tool_delegate_visible_output_or_fallback(local_overview_summary,
-                                                                                   visible_output,
-                                                                                   sizeof(visible_output)),
-                                          "",
-                                          scope_path,
-                                          scope_kind,
-                                          analysis_focus,
-                                          "",
-                                          "",
-                                          "task");
-        }
-        return tool_delegate_write_json_response(output, output_size, NULL, session_id, "done", "sync_final",
-                                                 req->subagent_type, req->description,
-                                                 tool_delegate_subagent_model_for_kind(kind), local_overview_summary);
-    }
 
     if (tool_delegate_try_render_local_dependency_merge(req,
                                                         coordinator_id,
@@ -243,7 +206,9 @@ err_t tool_delegate_run_sync_single_subagent(delegate_subagent_kind_t kind,
     }
     append_user_message(messages, prepared_prompt);
 
-    const char *tools_json = disable_tools ? NULL : tool_bus_tools_json_for_channel("websocket");
+    const char *tools_json = disable_tools
+        ? NULL
+        : tool_bus_tools_json_for_channel_without_delegate("websocket");
     struct message msg;
     memset(&msg, 0, sizeof(msg));
     strscpy(msg.channel, "websocket", sizeof(msg.channel));
@@ -252,7 +217,7 @@ err_t tool_delegate_run_sync_single_subagent(delegate_subagent_kind_t kind,
     } else {
         snprintf(msg.chat_id, sizeof(msg.chat_id), "delegate_sync_%d", tool_delegate_next_seq());
     }
-    strscpy(msg.source, "internal", sizeof(msg.source));
+    strscpy(msg.source, MSG_SOURCE_DELEGATE, sizeof(msg.source));
     msg.content = prepared_prompt[0] ? strdup(prepared_prompt) : strdup(req->description);
     if (!msg.content) {
         cJSON_Delete(messages);
@@ -289,7 +254,14 @@ err_t tool_delegate_run_sync_single_subagent(delegate_subagent_kind_t kind,
                                       "task");
     }
 
-    err_t preflight_err = tool_delegate_execute_preflight_tool(req,
+    delegate_request_t scoped_req_storage;
+    const delegate_request_t *effective_req = req;
+    if (delegate_request_needs_scope_listing_preflight(kind, req)) {
+        fill_scope_listing_preflight(&scoped_req_storage, req);
+        effective_req = &scoped_req_storage;
+    }
+
+    err_t preflight_err = tool_delegate_execute_preflight_tool(effective_req,
                                                                &msg,
                                                                messages,
                                                                task_id,
@@ -304,13 +276,13 @@ err_t tool_delegate_run_sync_single_subagent(delegate_subagent_kind_t kind,
                                                                preflight_summary,
                                                                sizeof(preflight_summary),
                                                                &preflight_blocked);
-    if (preflight_err != 0 && !req->preflight_tool.continue_on_error) {
+    if (preflight_err != 0 && !effective_req->preflight_tool.continue_on_error) {
         cJSON_Delete(messages);
         kfree(msg.content);
         snprintf(output, output_size, "delegate_task: preflight tool failed: %s", err_name(preflight_err));
         return preflight_err;
     }
-    if (preflight_blocked && !req->preflight_tool.continue_on_error) {
+    if (preflight_blocked && !effective_req->preflight_tool.continue_on_error) {
         cJSON_Delete(messages);
         kfree(msg.content);
         return tool_delegate_write_json_response(output, output_size, NULL, msg.chat_id, "blocked", "sync_final",

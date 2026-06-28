@@ -5,16 +5,11 @@
 #include "drivers/channel/vector/vector_channel.h"
 #include "drivers/channel/gateway/ws_server.h"
 #include "drivers/voice/voice_channel.h"
-#include "runtime.h"
 
 static int feishu_channel_probe(struct device *dev)
 {
     (void)dev;
     pr_info("channel: probing feishu");
-    if (runtime_is_self_test_mode()) {
-        pr_info("channel: self-test mode, skip feishu startup");
-        return 0;
-    }
     if (feishu_bot_init() != 0) return -1;
     return feishu_bot_start();
 }
@@ -23,10 +18,6 @@ static int vector_channel_probe(struct device *dev)
 {
     (void)dev;
     pr_info("channel: probing vector");
-    if (runtime_is_self_test_mode()) {
-        pr_info("channel: self-test mode, skip vector startup");
-        return 0;
-    }
     return vector_channel_init();
 }
 

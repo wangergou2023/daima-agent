@@ -227,6 +227,13 @@ static cJSON *convert_messages_openai(const char *system_prompt, cJSON *messages
 			}
 
 			sanitize_utf8(text_buf);
+			if ((!text_buf || !text_buf[0]) && !tool_calls &&
+			    !(add_reasoning_content && reasoning_buf && reasoning_buf[0])) {
+				cJSON_Delete(m);
+				kfree(text_buf);
+				kfree(reasoning_buf);
+				continue;
+			}
 			cJSON_AddStringToObject(m, "content", text_buf ? text_buf : "");
 			if (tool_calls) {
 				cJSON_AddItemToObject(m, "tool_calls", tool_calls);

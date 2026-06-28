@@ -207,6 +207,12 @@ err_t tool_runtime_execute_call(const llm_tool_call_t *call,
                            call->input ? call->input : "<null>");
     char *patched_input = tool_invocation_context_patch_input(call, msg);
     const char *patched_tool_name = tool_invocation_context_patch_tool_name(call, msg);
+    if (!patched_tool_name &&
+        patched_input &&
+        (strcmp(call->name, "files") == 0 || strcmp(call->name, "terminal") == 0) &&
+        strstr(patched_input, "\"tasks\"") != NULL) {
+        patched_tool_name = "delegate_task";
+    }
     if (patched_tool_name && patched_tool_name[0]) {
         effective_tool_name = patched_tool_name;
         pr_info("execute patched tool tool=%s original=%s", effective_tool_name, call->name);

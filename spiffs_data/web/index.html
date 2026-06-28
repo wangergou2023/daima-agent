@@ -59,7 +59,10 @@
           if (btn) {
             btn.addEventListener('click', function() {
               var input = document.getElementById('input');
-              if (input) { input.value = '!test'; input.dispatchEvent(new Event('input', {bubbles:true})); }
+              if (input) {
+                input.value = '!test';
+                input.dispatchEvent(new Event('input', {bubbles:true}));
+              }
               var send = document.getElementById('sendBtn');
               if (send) send.click();
             });
@@ -211,6 +214,9 @@
   <script src="/subagent-chat-transport.js"></script>
   <script src="/subagent-bootstrap.js"></script>
   <script src="/subagent-shell.js"></script>
+  <script src="/agent-state-presenter.js"></script>
+  <script src="/connection-state-presenter.js"></script>
+  <script src="/reconnect-controller.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

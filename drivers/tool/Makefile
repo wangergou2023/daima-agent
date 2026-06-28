@@ -14,7 +14,6 @@ obj-y += tool_delegate_dependency.o
 obj-y += tool_delegate_background.o
 obj-y += tool_delegate_dispatch.o
 obj-y += tool_delegate_finalize.o
-obj-y += tool_delegate_local_overview.o
 obj-y += tool_delegate_lifecycle.o
 obj-y += tool_delegate_overview.o
 obj-y += tool_delegate_path_resolve.o

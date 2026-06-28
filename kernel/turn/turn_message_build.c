@@ -64,7 +64,7 @@ static char *build_current_turn_content(const struct message *msg)
 			"This is a delegate completion event, not a new user message.\n"
 			"Event source: delegate\n"
 			"A coordinator batch of subagents has completed. You must summarize directly from the provided coordinator outputs.\n"
-			"Do not restart the same delegation, do not repeat the same broad discovery, and do not ignore completed agent outputs.\n"
+			"Do not restart the same delegation, do not ignore completed agent outputs, and do not discard already-finished child evidence.\n"
 			"If the coordinator already contains enough evidence, produce the merged answer for the user now.\n\n"
 			"Delegate payload: %s";
 		size_t need = snprintf(NULL, 0, fmt, content) + 1;

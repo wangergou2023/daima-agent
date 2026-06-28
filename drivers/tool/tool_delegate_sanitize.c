@@ -17,6 +17,31 @@ static bool text_has_any_keyword(const char *text, const char *const *keywords, 
     return false;
 }
 
+static bool line_looks_like_pathish(const char *line)
+{
+    size_t len = 0;
+    int slash_count = 0;
+
+    if (!line) {
+        return false;
+    }
+    while (line[len] && line[len] != '\n' && len < 512) {
+        if (line[len] == '/') {
+            slash_count++;
+        }
+        len++;
+    }
+    if (len < 2) {
+        return false;
+    }
+    if (strncmp(line, "/home/", 6) == 0 ||
+        strncmp(line, "/Users/", 7) == 0 ||
+        strncmp(line, "./", 2) == 0) {
+        return true;
+    }
+    return slash_count >= 3;
+}
+
 static void trim_trailing_ascii_space(char *text)
 {
     if (!text) {
@@ -135,6 +160,44 @@ bool tool_delegate_text_has_transcript_markup_public(const char *text)
     return tool_delegate_text_has_transcript_markup(text);
 }
 
+bool tool_delegate_text_looks_like_path_dump(const char *text)
+{
+    const char *cursor = text;
+    int pathish_lines = 0;
+    int nonempty_lines = 0;
+
+    if (!text || !text[0]) {
+        return false;
+    }
+    if (strstr(text, "Evidence:") || strstr(text, "Risks:") || strstr(text, "Next files:")) {
+        return false;
+    }
+    if (strstr(text, "职责") || strstr(text, "模块") || strstr(text, "入口") ||
+        strstr(text, "architecture") || strstr(text, "responsib") || strstr(text, "entrypoint")) {
+        return false;
+    }
+
+    while (cursor && *cursor) {
+        while (*cursor == '\n' || *cursor == '\r') {
+            cursor++;
+        }
+        if (!*cursor) {
+            break;
+        }
+        nonempty_lines++;
+        if (line_looks_like_pathish(cursor)) {
+            pathish_lines++;
+        }
+        cursor = strchr(cursor, '\n');
+        if (!cursor) {
+            break;
+        }
+        cursor++;
+    }
+
+    return nonempty_lines >= 2 && pathish_lines >= nonempty_lines - 1;
+}
+
 void tool_delegate_sanitize_summary_text_inplace(char *text)
 {
     if (!text || !text[0]) {
@@ -175,6 +238,9 @@ bool tool_delegate_safe_text_is_directly_usable(const char *text)
     }
     if (tool_delegate_text_has_dsml_markup(text) ||
         tool_delegate_text_has_transcript_markup(text)) {
+        return false;
+    }
+    if (tool_delegate_text_looks_like_path_dump(text)) {
         return false;
     }
     return true;

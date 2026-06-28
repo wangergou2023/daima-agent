@@ -53,12 +53,20 @@ typedef struct {
     pthread_mutex_t write_mutex;
 } ws_client_t;
 
+typedef struct {
+    bool active;
+    char chat_id[WS_CLIENT_CHAT_ID_LEN];
+    char response[65536];
+} ws_pending_entry_t;
+
 static ws_client_t s_clients[WS_MAX_CLIENTS];
 static LIST_HEAD(s_client_list);
 static pthread_mutex_t s_clients_mutex = PTHREAD_MUTEX_INITIALIZER;
-static char s_pending_response[65536];
-static bool s_has_pending = false;
+static ws_pending_entry_t s_pending_entries[WS_MAX_CLIENTS];
 static pthread_mutex_t s_pending_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+static void remove_client(int fd);
+static ws_client_t *find_client_by_chat_id(const char *chat_id);
 
 static int recv_all(int fd, void *buf, size_t len)
 {
@@ -177,41 +185,98 @@ static void ws_send_json_text(int fd, cJSON *obj)
     kfree(text);
 }
 
-void ws_pending_save(const char *response_text)
+static ws_pending_entry_t *find_pending_entry(const char *chat_id)
 {
-    if (!response_text || !response_text[0]) {
+    if (!chat_id || !chat_id[0]) {
+        return NULL;
+    }
+    for (int i = 0; i < WS_MAX_CLIENTS; i++) {
+        if (s_pending_entries[i].active &&
+            strcmp(s_pending_entries[i].chat_id, chat_id) == 0) {
+            return &s_pending_entries[i];
+        }
+    }
+    return NULL;
+}
+
+static ws_pending_entry_t *alloc_pending_entry(const char *chat_id)
+{
+    int free_slot = -1;
+    int evict_slot = 0;
+
+    if (!chat_id || !chat_id[0]) {
+        return NULL;
+    }
+    for (int i = 0; i < WS_MAX_CLIENTS; i++) {
+        if (!s_pending_entries[i].active) {
+            free_slot = i;
+            break;
+        }
+    }
+    if (free_slot >= 0) {
+        s_pending_entries[free_slot].active = true;
+        strscpy(s_pending_entries[free_slot].chat_id, chat_id, sizeof(s_pending_entries[free_slot].chat_id));
+        s_pending_entries[free_slot].response[0] = '\0';
+        return &s_pending_entries[free_slot];
+    }
+    s_pending_entries[evict_slot].active = true;
+    strscpy(s_pending_entries[evict_slot].chat_id, chat_id, sizeof(s_pending_entries[evict_slot].chat_id));
+    s_pending_entries[evict_slot].response[0] = '\0';
+    return &s_pending_entries[evict_slot];
+}
+
+void ws_pending_save(const char *chat_id, const char *response_text)
+{
+    ws_pending_entry_t *entry = NULL;
+
+    if (!chat_id || !chat_id[0] || !response_text || !response_text[0]) {
         return;
     }
 
     pthread_mutex_lock(&s_pending_mutex);
-    strscpy(s_pending_response, response_text, sizeof(s_pending_response));
-    s_has_pending = true;
-    pthread_mutex_unlock(&s_pending_mutex);
-}
-
-const char *ws_pending_pop(void)
-{
-    const char *response = NULL;
-
-    pthread_mutex_lock(&s_pending_mutex);
-    if (s_has_pending) {
-        s_has_pending = false;
-        response = s_pending_response[0] ? s_pending_response : NULL;
+    entry = find_pending_entry(chat_id);
+    if (!entry) {
+        entry = alloc_pending_entry(chat_id);
     }
-    pthread_mutex_unlock(&s_pending_mutex);
-    return response;
-}
-
-static void ws_pending_restore(void)
-{
-    pthread_mutex_lock(&s_pending_mutex);
-    if (s_pending_response[0]) {
-        s_has_pending = true;
+    if (entry) {
+        strscpy(entry->response, response_text, sizeof(entry->response));
     }
     pthread_mutex_unlock(&s_pending_mutex);
 }
 
-static int ws_send_pending_response(int fd, const char *chat_id, const char *response_text)
+static bool ws_pending_take_copy(const char *chat_id, char *out, size_t out_size)
+{
+    ws_pending_entry_t *entry = NULL;
+
+    if (!chat_id || !chat_id[0] || !out || out_size == 0) {
+        return false;
+    }
+
+    pthread_mutex_lock(&s_pending_mutex);
+    entry = find_pending_entry(chat_id);
+    if (!entry || !entry->response[0]) {
+        pthread_mutex_unlock(&s_pending_mutex);
+        return false;
+    }
+    strscpy(out, entry->response, out_size);
+    entry->active = false;
+    entry->chat_id[0] = '\0';
+    entry->response[0] = '\0';
+    pthread_mutex_unlock(&s_pending_mutex);
+    return true;
+}
+
+static void ws_pending_restore_copy(const char *chat_id, const char *response_text)
+{
+    if (!chat_id || !chat_id[0] || !response_text || !response_text[0]) {
+        return;
+    }
+    ws_pending_save(chat_id, response_text);
+}
+
+static int ws_send_pending_response(ws_client_t *client,
+                                    const char *chat_id,
+                                    const char *response_text)
 {
     if (!response_text || !response_text[0]) {
         return 0;
@@ -229,9 +294,44 @@ static int ws_send_pending_response(int fd, const char *chat_id, const char *res
     if (!text) {
         return -1;
     }
-    int ret = ws_send_text(fd, text);
+    int ret = ws_send_text_for_client(client, text);
     kfree(text);
     return ret;
+}
+
+static void ws_try_deliver_pending_for_chat_id(ws_client_t *client, const char *chat_id)
+{
+    char pending[65536];
+
+    if (!client || !chat_id || !chat_id[0]) {
+        return;
+    }
+    if (!ws_pending_take_copy(chat_id, pending, sizeof(pending))) {
+        return;
+    }
+    if (ws_send_pending_response(client, chat_id, pending) != 0) {
+        ws_pending_restore_copy(chat_id, pending);
+        remove_client(client->fd);
+        return;
+    }
+    pr_info("Delivered pending response to %s", chat_id);
+}
+
+void ws_client_session_try_deliver_pending(const char *chat_id)
+{
+    ws_client_t *client = NULL;
+
+    if (!chat_id || !chat_id[0]) {
+        return;
+    }
+
+    pthread_mutex_lock(&s_clients_mutex);
+    client = find_client_by_chat_id(chat_id);
+    pthread_mutex_unlock(&s_clients_mutex);
+    if (!client) {
+        return;
+    }
+    ws_try_deliver_pending_for_chat_id(client, chat_id);
 }
 
 static void ws_send_upload_error(int fd, const char *chat_id, const char *error)
@@ -370,6 +470,20 @@ static ws_client_t *find_client_by_chat_id(const char *chat_id)
     return NULL;
 }
 
+bool ws_client_session_has_chat_id(const char *chat_id)
+{
+    bool found;
+
+    if (!chat_id || !chat_id[0]) {
+        return false;
+    }
+
+    pthread_mutex_lock(&s_clients_mutex);
+    found = find_client_by_chat_id(chat_id) != NULL;
+    pthread_mutex_unlock(&s_clients_mutex);
+    return found;
+}
+
 static void ws_client_detach(ws_client_t *client)
 {
     if (!client || !client->active) return;
@@ -456,9 +570,37 @@ static const char *resolve_client_chat_id(ws_client_t *client, cJSON *root, int 
         drop_duplicate_chat_id(chat_id, fd);
         if (client) {
             strscpy(client->chat_id, chat_id, sizeof(client->chat_id));
+            ws_try_deliver_pending_for_chat_id(client, chat_id);
         }
     }
     return chat_id;
+}
+
+bool ws_client_session_bind_chat_id(int fd, const char *chat_id)
+{
+    bool ok = false;
+    ws_client_t *client = NULL;
+    char bound_chat_id[WS_CLIENT_CHAT_ID_LEN];
+
+    if (!chat_id || !chat_id[0]) {
+        return false;
+    }
+
+    strscpy(bound_chat_id, chat_id, sizeof(bound_chat_id));
+    drop_duplicate_chat_id(bound_chat_id, fd);
+
+    pthread_mutex_lock(&s_clients_mutex);
+    client = find_client_by_fd(fd);
+    if (client) {
+        strscpy(client->chat_id, bound_chat_id, sizeof(client->chat_id));
+        ok = true;
+    }
+    pthread_mutex_unlock(&s_clients_mutex);
+
+    if (ok && client) {
+        ws_try_deliver_pending_for_chat_id(client, bound_chat_id);
+    }
+    return ok;
 }
 
 static err_t ws_client_session_send_json_with_mode(const char *chat_id, cJSON *obj, bool quiet_not_found)
@@ -556,15 +698,6 @@ bool ws_client_session_add(int fd)
         pthread_mutex_unlock(&s_clients_mutex);
         pr_info("Client connected: %s (fd=%d)", chat_id, fd);
 
-        const char *pending = ws_pending_pop();
-        if (pending) {
-            if (ws_send_pending_response(fd, chat_id, pending) != 0) {
-                ws_pending_restore();
-                remove_client(fd);
-                return true;
-            }
-            pr_info("Delivered pending response to %s", chat_id);
-        }
         return true;
     }
 
@@ -583,6 +716,17 @@ bool ws_client_chat_id_roundtrip_for_test(const char *chat_id)
     strscpy(client.chat_id, chat_id, sizeof(client.chat_id));
     return strcmp(client.chat_id, chat_id) == 0;
 }
+
+void *ws_client_find_session_for_test(int fd)
+{
+    void *client = NULL;
+
+    pthread_mutex_lock(&s_clients_mutex);
+    client = find_client_by_fd(fd);
+    pthread_mutex_unlock(&s_clients_mutex);
+    return client;
+}
+
 static bool ws_read_frame_header(int fd, unsigned char *out_opcode, uint64_t *out_len, bool *out_masked, unsigned char *out_mask)
 {
     unsigned char hdr[2];
@@ -892,6 +1036,13 @@ static void ws_dispatch_text_frame(int fd, ws_client_t *client, const char *payl
         ws_handle_upload_request(fd, client, root);
     } else if (strcmp(type_str, "message") == 0) {
         ws_handle_chat_message(fd, client, root);
+    } else if (strcmp(type_str, "session_sync") == 0) {
+        const char *chat_id = resolve_client_chat_id(client, root, fd);
+        if (chat_id && chat_id[0]) {
+            delegate_parent_wake_record_parent_activity(chat_id);
+            delegate_parent_wake_replay_chat(chat_id);
+            ws_client_session_try_deliver_pending(chat_id);
+        }
     } else if (strcmp(type_str, "stop") == 0) {
         ws_handle_stop(fd, client, root);
     } else if (strcmp(type_str, PET_WS_TYPE_ACTION) == 0) {
@@ -958,11 +1109,10 @@ void ws_client_session_init(void)
         INIT_LIST_HEAD(&s_clients[i].list);
         s_clients[i].fd = -1;
         pthread_mutex_init(&s_clients[i].write_mutex, NULL);
+        s_pending_entries[i].active = false;
+        s_pending_entries[i].chat_id[0] = '\0';
+        s_pending_entries[i].response[0] = '\0';
     }
-    pthread_mutex_lock(&s_pending_mutex);
-    s_pending_response[0] = '\0';
-    s_has_pending = false;
-    pthread_mutex_unlock(&s_pending_mutex);
 }
 
 int ws_client_session_update_fdset(fd_set *readfds, int maxfd)

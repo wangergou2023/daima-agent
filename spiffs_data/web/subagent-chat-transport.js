@@ -5,6 +5,17 @@
     function handleSessionSync(data) {
       const chatId = api.getChatId?.();
       if (data?.chat_id !== chatId || !Array.isArray(data.messages)) {
+        api.restoreSessionViewState?.(chatId, {
+          requireCurrentChat: true,
+          applyHistory: true,
+          renderEmptyHistory: false,
+          renderSessions: true,
+          saveReconnect: true,
+          refreshContextStats: true,
+          restoreSubagent: true,
+        });
+        api.scheduleCurrentSessionHistoryReconcile?.(chatId);
+        api.loadSubagentStateSnapshot?.(chatId);
         api.saveReconnectSession?.();
         return;
       }
@@ -88,7 +99,6 @@
         handleSessionSync,
         handleUploadDone,
         handleUploadError,
-        handleSelfTestResult: api.handleSelfTestResult,
         handleStopped,
         handleToolMessage,
         handlePetResponse,
@@ -105,15 +115,26 @@
           api.clearAgentState?.();
           api.onSocketOpenForPet?.();
           const lastSeq = Number(api.getLastMessageSeq?.()) || 0;
-          if (lastSeq > 0 && socket?.send) {
+          if (chatId && socket?.send) {
             socket.send(JSON.stringify({
               type: 'session_sync',
               chat_id: chatId,
               last_seq: lastSeq,
             }));
-            api.showReconnectToast?.(chatId, api.getMessageCount?.() || 0);
+            if (lastSeq > 0 || (Number(api.getMessageCount?.()) || 0) > 0) {
+              api.showReconnectToast?.(chatId, api.getMessageCount?.() || 0);
+            }
           }
           api.saveReconnectSession?.();
+          api.restoreSessionViewState?.(chatId, {
+            requireCurrentChat: true,
+            applyHistory: true,
+            renderEmptyHistory: false,
+            renderSessions: true,
+            saveReconnect: true,
+            refreshContextStats: true,
+            restoreSubagent: true,
+          });
           api.loadSubagentStateSnapshot?.(chatId);
           api.refreshContextStats?.();
           api.startPingLoop?.();

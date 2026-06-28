@@ -28,6 +28,7 @@ err_t delegate_parent_wake_init(void);
 void delegate_parent_wake_poll(void);
 bool delegate_parent_wake_is_idle(void);
 void delegate_parent_wake_record_parent_activity(const char *chat_id);
+void delegate_parent_wake_replay_chat(const char *chat_id);
 void delegate_parent_wake_reset_for_test(void);
 void delegate_parent_wake_set_sender_overrides_for_test(delegate_parent_wake_sender_fn_t status_sender,
                                                         delegate_parent_wake_sender_fn_t output_sender,

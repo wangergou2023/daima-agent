@@ -167,6 +167,19 @@ static bool delegate_text_looks_like_lifecycle_prelude(const char *text)
            strcmp(text, "queued") == 0;
 }
 
+static bool delegate_is_compaction_summary_text(const char *text)
+{
+    return text &&
+           strncmp(text, "[上下文压缩摘要]", strlen("[上下文压缩摘要]")) == 0;
+}
+
+static bool delegate_text_is_preferred_final_text(const char *text)
+{
+    return text && text[0] &&
+           !delegate_text_looks_like_lifecycle_prelude(text) &&
+           !delegate_is_compaction_summary_text(text);
+}
+
 bool delegate_child_session_preferred_visible_text(const delegate_task_record_t *task_snapshot,
                                                    char *buf,
                                                    size_t buf_size)
@@ -197,33 +210,6 @@ bool delegate_child_session_preferred_visible_text(const delegate_task_record_t 
     latest = cJSON_GetObjectItemCaseSensitive(child, "latest_frame");
     history = cJSON_GetObjectItemCaseSensitive(child, "history");
     has_assistant_history = delegate_child_session_has_assistant_history(history);
-    if (latest) {
-        latest_is_lifecycle_prelude = delegate_frame_is_lifecycle_prelude(latest);
-        text = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(latest, "output_preview"));
-        if (!text || !text[0]) {
-            text = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(latest, "detail"));
-        }
-        if (text && text[0] &&
-            !(latest_is_lifecycle_prelude && has_assistant_history)) {
-            strscpy(buf,
-                    delegate_render_visible_text(text, rendered, sizeof(rendered)),
-                    buf_size);
-            ok = buf[0] != '\0';
-            goto out;
-        }
-    }
-
-    text = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(child, "summary"));
-    if (text && text[0] &&
-        !((latest_is_lifecycle_prelude && has_assistant_history) ||
-          (delegate_text_looks_like_lifecycle_prelude(text) && has_assistant_history))) {
-        strscpy(buf,
-                delegate_render_visible_text(text, rendered, sizeof(rendered)),
-                buf_size);
-        ok = buf[0] != '\0';
-        goto out;
-    }
-
     if (history && cJSON_IsArray(history)) {
         int size = cJSON_GetArraySize(history);
         for (int idx = size - 1; idx >= 0; idx--) {
@@ -234,7 +220,8 @@ bool delegate_child_session_preferred_visible_text(const delegate_task_record_t 
             const char *content = entry
                 ? cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(entry, "content"))
                 : NULL;
-            if (role && strcmp(role, "assistant") == 0 && content && content[0]) {
+            if (role && strcmp(role, "assistant") == 0 &&
+                delegate_text_is_preferred_final_text(content)) {
                 strscpy(buf,
                         delegate_render_visible_text(content, rendered, sizeof(rendered)),
                         buf_size);
@@ -242,6 +229,44 @@ bool delegate_child_session_preferred_visible_text(const delegate_task_record_t 
                 goto out;
             }
         }
+    }
+
+    if (task_snapshot->output[0] &&
+        delegate_text_is_preferred_final_text(task_snapshot->output)) {
+        strscpy(buf,
+                delegate_render_visible_text(task_snapshot->output,
+                                             rendered,
+                                             sizeof(rendered)),
+                buf_size);
+        ok = buf[0] != '\0';
+        goto out;
+    }
+
+    if (latest) {
+        latest_is_lifecycle_prelude = delegate_frame_is_lifecycle_prelude(latest);
+        text = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(latest, "output_preview"));
+        if (!delegate_text_is_preferred_final_text(text)) {
+            text = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(latest, "detail"));
+        }
+        if (delegate_text_is_preferred_final_text(text) &&
+            !(latest_is_lifecycle_prelude && has_assistant_history)) {
+            strscpy(buf,
+                    delegate_render_visible_text(text, rendered, sizeof(rendered)),
+                    buf_size);
+            ok = buf[0] != '\0';
+            goto out;
+        }
+    }
+
+    text = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(child, "summary"));
+    if (delegate_text_is_preferred_final_text(text) &&
+        !((latest_is_lifecycle_prelude && has_assistant_history) ||
+          (delegate_text_looks_like_lifecycle_prelude(text) && has_assistant_history))) {
+        strscpy(buf,
+                delegate_render_visible_text(text, rendered, sizeof(rendered)),
+                buf_size);
+        ok = buf[0] != '\0';
+        goto out;
     }
 
     commits = cJSON_GetObjectItemCaseSensitive(child, "commits");
@@ -274,12 +299,6 @@ bool delegate_child_session_preferred_visible_text(const delegate_task_record_t 
 out:
     cJSON_Delete(child);
     return ok;
-}
-
-static bool delegate_is_compaction_summary_text(const char *text)
-{
-    return text &&
-           strncmp(text, "[上下文压缩摘要]", strlen("[上下文压缩摘要]")) == 0;
 }
 
 static void delegate_history_make_id(char *buf,

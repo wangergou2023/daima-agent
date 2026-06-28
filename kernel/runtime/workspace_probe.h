@@ -26,16 +26,7 @@ typedef struct {
 	char stack[256];
 } workspace_probe_result_t;
 
-typedef struct {
-	bool repo_present_before;
-	bool repo_ready_after;
-	char repo_path[BUF_LARGE];
-} workspace_probe_repo_prepare_t;
-
 bool workspace_probe_collect(workspace_probe_result_t *result);
 bool workspace_probe_repo_ready(const char *repo_name, char *repo_path, size_t repo_path_size);
 bool workspace_probe_ensure_repo_clone(const char *repo_name, const char *clone_url,
 				       char *repo_path, size_t repo_path_size);
-bool workspace_probe_opencode_repo_ready(char *repo_path, size_t repo_path_size);
-bool workspace_probe_ensure_opencode_repo(char *repo_path, size_t repo_path_size);
-bool workspace_probe_prepare_opencode_repo(workspace_probe_repo_prepare_t *result);

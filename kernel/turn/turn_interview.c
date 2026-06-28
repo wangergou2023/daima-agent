@@ -120,9 +120,9 @@ static char *build_structured_delegate_batch_directive(const struct message *msg
 		return NULL;
 	}
 	strscpy(req.target_path, repo_root, sizeof(req.target_path));
-	strscpy(req.description, "repo overview", sizeof(req.description));
+	strscpy(req.description, "parallel delegated analysis", sizeof(req.description));
 	strscpy(req.prompt, msg->content, sizeof(req.prompt));
-	return tool_delegate_build_repo_root_overview_batch_json(&req, true);
+	return tool_delegate_build_parallel_scope_batch_json(&req, true);
 }
 
 static void maybe_store_delegate_turn_directive(const struct message *msg,
@@ -190,7 +190,7 @@ err_t agent_turn_try_interview(struct message *msg,
 		msg->content ? msg->content : "");
 	if (msg->intent != INTENT_IMPLEMENT) {
 		pr_info("InterviewGate skip: chat=%s reason=intent_not_implement", msg->chat_id);
-		return ERR_FAIL;
+		return 0;
 	}
 
 	prometheus_state_t p_state;
@@ -199,7 +199,7 @@ err_t agent_turn_try_interview(struct message *msg,
 		pr_info("InterviewGate skip: chat=%s reason=needs_interview_false questions=%.200s",
 			msg->chat_id,
 			p_state.questions);
-		return ERR_FAIL;
+		return 0;
 	}
 	pr_info("InterviewGate trigger: chat=%s channel=%s questions=%.200s",
 		msg->chat_id,

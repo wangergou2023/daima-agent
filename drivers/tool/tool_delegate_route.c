@@ -72,10 +72,10 @@ err_t tool_delegate_execute(const char *input_json,
         return continue_background_subagent(&req, output, output_size);
     }
 
-    if (tool_delegate_should_expand_repo_root_overview_batch(&req)) {
-        tool_delegate_fill_repo_root_overview_batch_request(&req, &batch_req);
+    if (tool_delegate_should_expand_parallel_scope_batch(&req)) {
+        tool_delegate_fill_parallel_scope_batch_request(&req, &batch_req);
         if (batch_req.is_batch && batch_req.batch_count > 0) {
-            pr_info("delegate repo-root overview expanded to batch: description=%s tasks=%d",
+            pr_info("delegate parallel scope batch expanded: description=%s tasks=%d",
                     req.description[0] ? req.description : "-",
                     batch_req.batch_count);
             return tool_delegate_run_background_coordinator(&batch_req, parent_chat_id, output, output_size);

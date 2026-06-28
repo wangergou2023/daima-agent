@@ -12,16 +12,17 @@
 #include "delegate/delegate_session_json.h"
 #include "turn_decision.h"
 #include "turn_finish.h"
-#include "turn_gate.h"
 #include "turn_context.h"
 #include "turn_io.h"
 #include "turn_pipeline.h"
 #include "turn_prompt.h"
 #include "turn_prepare.h"
 #include "drivers/tool/tool_bus_view.h"
+#include "drivers/tool/tool_invocation_context.h"
 #include "bus.h"
 #include "turn_common.h"
 #include "linux/printk.h"
+#include "text.h"
 
 static void agent_turn_finish_prepare_error(struct message *msg, err_t err)
 {
@@ -75,6 +76,63 @@ static bool delegate_child_session_has_assistant_history(cJSON *history)
 	}
 
 	return false;
+}
+
+static bool delegate_text_looks_like_lifecycle_prelude(const char *text)
+{
+	if (!text || !text[0]) {
+		return false;
+	}
+
+	return strstr(text, "· started") != NULL ||
+	       strstr(text, "· running") != NULL ||
+	       strcmp(text, "queued") == 0;
+}
+
+static bool delegate_is_compaction_summary_text(const char *text)
+{
+	return text &&
+	       strncmp(text, "[上下文压缩摘要]", strlen("[上下文压缩摘要]")) == 0;
+}
+
+static bool delegate_text_is_preferred_final_text(const char *text)
+{
+	return text && text[0] &&
+	       !delegate_text_looks_like_lifecycle_prelude(text) &&
+	       !delegate_is_compaction_summary_text(text);
+}
+
+static void delegate_trim_copy(char *dst, size_t dst_size, const char *src)
+{
+	size_t len = 0;
+	size_t start = 0;
+	size_t end = 0;
+
+	if (!dst || dst_size == 0) {
+		return;
+	}
+	dst[0] = '\0';
+	if (!src || !src[0]) {
+		return;
+	}
+
+	strscpy(dst, src, dst_size);
+	len = strlen(dst);
+	while (start < len &&
+	       (dst[start] == ' ' || dst[start] == '\t' ||
+		dst[start] == '\n' || dst[start] == '\r')) {
+		start++;
+	}
+	end = len;
+	while (end > start &&
+	       (dst[end - 1] == ' ' || dst[end - 1] == '\t' ||
+		dst[end - 1] == '\n' || dst[end - 1] == '\r')) {
+		end--;
+	}
+	if (start > 0) {
+		memmove(dst, dst + start, end - start);
+	}
+	dst[end - start] = '\0';
 }
 
 static bool delegate_frame_is_lifecycle_prelude(cJSON *frame)
@@ -131,20 +189,6 @@ static const char *delegate_inline_child_session_preferred_text(cJSON *child,
 
 	latest = cJSON_GetObjectItem(child, "latest_frame");
 	history = cJSON_GetObjectItem(child, "history");
-	if (latest) {
-		bool lifecycle_prelude = delegate_frame_is_lifecycle_prelude(latest);
-
-		text = cJSON_GetStringValue(cJSON_GetObjectItem(latest, "output_preview"));
-		if ((!text || !text[0]) && !lifecycle_prelude) {
-			text = cJSON_GetStringValue(cJSON_GetObjectItem(latest, "detail"));
-		}
-		if (text && text[0] &&
-		    !(lifecycle_prelude &&
-		      delegate_child_session_has_assistant_history(history))) {
-			return delegate_render_visible_text(text, buf, buf_size);
-		}
-	}
-
 	if (history && cJSON_IsArray(history)) {
 		int size = cJSON_GetArraySize(history);
 		for (int idx = size - 1; idx >= 0; idx--) {
@@ -159,16 +203,31 @@ static const char *delegate_inline_child_session_preferred_text(cJSON *child,
 				? cJSON_GetStringValue(cJSON_GetObjectItem(entry, "reasoning"))
 				: NULL;
 
-			if (role && strcmp(role, "assistant") == 0 && content && content[0]) {
+			if (role && strcmp(role, "assistant") == 0 &&
+			    delegate_text_is_preferred_final_text(content)) {
 				return delegate_render_visible_text(content, buf, buf_size);
 			}
-			if (reasoning && reasoning[0]) {
+			if (delegate_text_is_preferred_final_text(reasoning)) {
 				if (buf && buf_size > 0) {
 					strscpy(buf, reasoning, buf_size);
 					return buf;
 				}
 				return reasoning;
 			}
+		}
+	}
+
+	if (latest) {
+		bool lifecycle_prelude = delegate_frame_is_lifecycle_prelude(latest);
+
+		text = cJSON_GetStringValue(cJSON_GetObjectItem(latest, "output_preview"));
+		if (!delegate_text_is_preferred_final_text(text) && !lifecycle_prelude) {
+			text = cJSON_GetStringValue(cJSON_GetObjectItem(latest, "detail"));
+		}
+		if (delegate_text_is_preferred_final_text(text) &&
+		    !(lifecycle_prelude &&
+		      delegate_child_session_has_assistant_history(history))) {
+			return delegate_render_visible_text(text, buf, buf_size);
 		}
 	}
 
@@ -187,7 +246,7 @@ static const char *delegate_inline_child_session_preferred_text(cJSON *child,
 	}
 
 	text = cJSON_GetStringValue(cJSON_GetObjectItem(child, "summary"));
-	if (text && text[0]) {
+	if (delegate_text_is_preferred_final_text(text)) {
 		return delegate_render_visible_text(text, buf, buf_size);
 	}
 
@@ -230,6 +289,43 @@ static const char *delegate_child_session_preferred_text(cJSON *agent,
 		return delegate_render_visible_text(summary, buf, buf_size);
 	}
 	return delegate_render_visible_text(output, buf, buf_size);
+}
+
+static void delegate_extract_summary_lead(const char *text,
+					      char *lead,
+					      size_t lead_size)
+{
+	const char *p = text;
+	size_t n = 0;
+
+	if (!lead || lead_size == 0) {
+		return;
+	}
+	lead[0] = '\0';
+	if (!text || !text[0]) {
+		return;
+	}
+
+	while (*p == '\n' || *p == '\r' || *p == ' ' || *p == '\t' ||
+	       *p == '-' || *p == '*' || *p == '1' || *p == '2' || *p == '3' ||
+	       *p == '4' || *p == '5' || *p == '6' || *p == '7' || *p == '8' ||
+	       *p == '9' || *p == '.' || *p == ':') {
+		p++;
+	}
+
+	while (*p && n + 1 < lead_size) {
+		if (*p == '\n' || *p == '\r') {
+			break;
+		}
+		lead[n++] = *p++;
+		if (n >= 220 &&
+		    (*p == '.' || *p == '!' || *p == '?' || *p == ';')) {
+			lead[n++] = *p++;
+			break;
+		}
+	}
+	lead[n] = '\0';
+	delegate_trim_copy(lead, lead_size, lead);
 }
 
 static void append_delegate_agent_summary(char *dst,
@@ -283,6 +379,8 @@ static void append_delegate_agent_compact_line(char *dst,
 					       int index)
 {
 	char clean[DELEGATE_COMPLETION_CLEAN_BUF];
+	char lead[320];
+	char preview[320];
 	char rendered[DELEGATE_COMPLETION_RENDERED_BUF];
 	char line[DELEGATE_COMPLETION_LINE_BUF];
 	char preferred[DELEGATE_COMPLETION_TEXT_BUF];
@@ -300,6 +398,15 @@ static void append_delegate_agent_compact_line(char *dst,
 	if (text && text[0]) {
 		tool_delegate_sanitize_summary_text_copy(clean, sizeof(clean), text);
 	}
+	preview[0] = '\0';
+	if (clean[0]) {
+		delegate_extract_summary_lead(clean, lead, sizeof(lead));
+		if (lead[0]) {
+			text_shorten(lead, preview, sizeof(preview), 220);
+		} else {
+			text_shorten(clean, preview, sizeof(preview), 220);
+		}
+	}
 
 	snprintf(line, sizeof(line), "- %d. %s",
 		 index + 1,
@@ -311,126 +418,20 @@ static void append_delegate_agent_compact_line(char *dst,
 		snprintf(line, sizeof(line), " [%s]", status);
 		strlcat(dst, line, dst_size);
 	}
-	if (clean[0]) {
+	if (preview[0]) {
 		strlcat(dst, "：", dst_size);
-		strlcat(dst, clean, dst_size);
+		strlcat(dst, preview, dst_size);
 	}
 	strlcat(dst, "\n", dst_size);
 }
 
-static void collect_delegate_next_files(char *dst,
-					size_t dst_size,
-					cJSON *agents)
+static bool append_delegate_observed_scope_summary(char *dst,
+						   size_t dst_size,
+						   cJSON *agents)
 {
 	cJSON *agent = NULL;
-	int appended = 0;
-
-	cJSON_ArrayForEach(agent, agents) {
-		char preferred[DELEGATE_COMPLETION_TEXT_BUF];
-		const char *text = delegate_child_session_preferred_text(agent,
-							 preferred,
-							 sizeof(preferred));
-		const char *marker;
-		const char *cursor;
-
-		if (!text || !text[0]) {
-			continue;
-		}
-		marker = strstr(text, "建议继续看：");
-		if (!marker) {
-			continue;
-		}
-		cursor = marker + strlen("建议继续看：");
-		while (*cursor == ' ' || *cursor == '\n' || *cursor == '\r' || *cursor == '\t') {
-			cursor++;
-		}
-		if (!*cursor) {
-			continue;
-		}
-		if (appended == 0) {
-			strlcat(dst, "\n建议继续看：\n", dst_size);
-		}
-		strlcat(dst, "- ", dst_size);
-		while (*cursor && *cursor != '\n' && *cursor != '\r') {
-			char ch[2] = {*cursor++, '\0'};
-			strlcat(dst, ch, dst_size);
-		}
-		strlcat(dst, "\n", dst_size);
-		appended++;
-		if (appended >= 3) {
-			break;
-		}
-	}
-}
-
-static void append_delegate_relationship_summary(char *dst,
-						 size_t dst_size,
-						 cJSON *agents)
-{
-	cJSON *agent = NULL;
-	bool saw_kernel = false;
-	bool saw_tool = false;
-	bool saw_llm = false;
-
-	if (!dst || dst_size == 0 || !agents || !cJSON_IsArray(agents)) {
-		return;
-	}
-
-	cJSON_ArrayForEach(agent, agents) {
-		const char *description = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "description"));
-		char preferred[DELEGATE_COMPLETION_TEXT_BUF];
-		const char *text = delegate_child_session_preferred_text(agent,
-							 preferred,
-							 sizeof(preferred));
-
-		if ((description && strstr(description, "kernel")) ||
-		    (text && strstr(text, "kernel"))) {
-			saw_kernel = true;
-		}
-		if ((description && (strstr(description, "tool") || strstr(description, "drivers/tool"))) ||
-		    (text && (strstr(text, "drivers/tool") || strstr(text, "delegate_task") || strstr(text, "工具协议")))) {
-			saw_tool = true;
-		}
-		if ((description && (strstr(description, "llm") || strstr(description, "drivers/llm"))) ||
-		    (text && (strstr(text, "drivers/llm") || strstr(text, "provider") || strstr(text, "模型回退")))) {
-			saw_llm = true;
-		}
-	}
-
-	if (!(saw_kernel || saw_tool || saw_llm)) {
-		return;
-	}
-
-	strlcat(dst, "模块关系：", dst_size);
-	if (saw_kernel && saw_tool && saw_llm) {
-		strlcat(dst,
-			"`kernel` 是执行内核和主链调度中心，`drivers/tool` 承担工具协议与委托执行适配，`drivers/llm` 承担模型/provider 适配；整体关系是 kernel 通过 tool/llm 两层驱动外部能力。",
-			dst_size);
-	} else if (saw_kernel && saw_tool) {
-		strlcat(dst,
-			"`kernel` 负责主执行链，`drivers/tool` 负责把工具能力接到主链上，两者是内核与外部工具之间的调用边界。",
-			dst_size);
-	} else if (saw_kernel && saw_llm) {
-		strlcat(dst,
-			"`kernel` 负责主执行链，`drivers/llm` 提供统一的大模型调用适配，两者是执行内核与模型层之间的边界。",
-			dst_size);
-	} else if (saw_tool && saw_llm) {
-		strlcat(dst,
-			"`drivers/tool` 负责工具侧适配，`drivers/llm` 负责模型侧适配，两者共同为上层执行链提供外部能力入口。",
-			dst_size);
-	}
-	strlcat(dst, "\n\n", dst_size);
-}
-
-static bool append_delegate_structured_boundary_summary(char *dst,
-							size_t dst_size,
-							cJSON *agents)
-{
-	cJSON *agent = NULL;
-	bool saw_turn = false;
-	bool saw_tooling = false;
-	bool saw_tool = false;
-	bool saw_llm = false;
+	char scopes[8][160];
+	int scope_count = 0;
 
 	if (!dst || dst_size == 0 || !agents || !cJSON_IsArray(agents)) {
 		return false;
@@ -438,58 +439,38 @@ static bool append_delegate_structured_boundary_summary(char *dst,
 
 	cJSON_ArrayForEach(agent, agents) {
 		const char *scope_path = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "scope_path"));
-		const char *analysis_focus = cJSON_GetStringValue(cJSON_GetObjectItem(agent, "analysis_focus"));
+		bool seen = false;
 
-		if ((scope_path && strstr(scope_path, "kernel/turn")) ||
-		    (analysis_focus && strstr(analysis_focus, "turn_execution"))) {
-			saw_turn = true;
+		if (!scope_path || !scope_path[0]) {
+			continue;
 		}
-		if ((scope_path && strstr(scope_path, "kernel/tooling")) ||
-		    (analysis_focus && strstr(analysis_focus, "coordination"))) {
-			saw_tooling = true;
+		for (int i = 0; i < scope_count; i++) {
+			if (strcmp(scopes[i], scope_path) == 0) {
+				seen = true;
+				break;
+			}
 		}
-		if ((scope_path && strstr(scope_path, "drivers/tool")) ||
-		    (analysis_focus && strstr(analysis_focus, "tool_runtime"))) {
-			saw_tool = true;
+		if (seen || scope_count >= ARRAY_SIZE(scopes)) {
+			continue;
 		}
-		if ((scope_path && strstr(scope_path, "drivers/llm")) ||
-		    (analysis_focus && strstr(analysis_focus, "llm_adapter"))) {
-			saw_llm = true;
-		}
+		strscpy(scopes[scope_count++], scope_path, sizeof(scopes[0]));
 	}
 
-	if (!(saw_turn || saw_tooling || saw_tool || saw_llm)) {
+	if (scope_count == 0) {
 		return false;
 	}
 
-	strlcat(dst, "职责边界：", dst_size);
-	if (saw_turn && saw_tooling && saw_tool) {
-		strlcat(dst,
-			"`kernel/turn` 负责单回合执行主链和最终回复生成，`kernel/tooling` 负责后台协调、唤醒、工具治理与验证，`drivers/tool` 负责工具协议和运行时适配；调用方向应当是 turn 编排主链，tooling 管状态，tool 驱动外部工具能力。",
-			dst_size);
-		if (saw_llm) {
-			strlcat(dst,
-				" `drivers/llm` 则平行承担模型/provider 适配，为主链提供统一模型出口。",
-				dst_size);
+	strlcat(dst, "覆盖范围：", dst_size);
+	for (int i = 0; i < scope_count; i++) {
+		if (i > 0) {
+			strlcat(dst, "、", dst_size);
 		}
-	} else if (saw_turn && saw_tooling) {
-		strlcat(dst,
-			"`kernel/turn` 负责单回合执行主链、回合决策与最终回复生成，`kernel/tooling` 负责工具治理、后台协调、parent wake 和执行期验证；两者的边界应该是 turn 编排当前回合，tooling 提供回合外或跨回合的协调与治理能力，而不是反过来由 tooling 侵入主回复生成。",
-			dst_size);
-	} else if (saw_turn && saw_tool) {
-		strlcat(dst,
-			"`kernel/turn` 负责主链编排，`drivers/tool` 负责工具适配，二者边界是执行链与外部工具运行时之间的接口。",
-			dst_size);
-	} else if (saw_tooling && saw_tool) {
-		strlcat(dst,
-			"`kernel/tooling` 更偏协调与治理层，`drivers/tool` 更偏执行适配层，前者不应吞掉后者的运行时职责。",
-			dst_size);
-	} else if (saw_llm) {
-		strlcat(dst,
-			"`drivers/llm` 负责模型/provider 适配，与工具侧链路平行，为上层执行链提供统一模型出口。",
-			dst_size);
+		strlcat(dst, "`", dst_size);
+		strlcat(dst, scopes[i], dst_size);
+		strlcat(dst, "`", dst_size);
 	}
-	strlcat(dst, "\n\n", dst_size);
+	strlcat(dst, "。\n\n",
+		dst_size);
 	return true;
 }
 
@@ -520,14 +501,14 @@ static char *build_delegate_completion_reply(const struct message *msg)
 	}
 
 	agent_count = cJSON_GetArraySize(agents);
-	reply = calloc(1, 8192);
+	reply = calloc(1, 16384);
 	if (!reply) {
 		cJSON_Delete(root);
 		return NULL;
 	}
 
 	snprintf(reply,
-		 8192,
+		 16384,
 		 "并行子任务汇总\n\n");
 
 	cJSON *agent = NULL;
@@ -544,26 +525,22 @@ static char *build_delegate_completion_reply(const struct message *msg)
 
 	char line[256];
 	snprintf(line, sizeof(line),
-		 "状态：共 %d 个子任务，已完成 %d 个，未完成 %d 个。\n\n关键发现：\n",
+		 "状态：共 %d 个子任务，已完成 %d 个，未完成 %d 个。\n\n子任务结论：\n",
 		 agent_count, done_count, other_count);
-	strlcat(reply, line, 8192);
+	strlcat(reply, line, 16384);
 
 	index = 0;
 	cJSON_ArrayForEach(agent, agents) {
-		append_delegate_agent_compact_line(reply, 8192, agent, index++);
+		append_delegate_agent_compact_line(reply, 16384, agent, index++);
 	}
 
-	strlcat(reply, "\n", 8192);
-	if (!append_delegate_structured_boundary_summary(reply, 8192, agents)) {
-		append_delegate_relationship_summary(reply, 8192, agents);
-	}
+	strlcat(reply, "\n", 16384);
+	append_delegate_observed_scope_summary(reply, 16384, agents);
 
-	collect_delegate_next_files(reply, 8192, agents);
-
-	strlcat(reply, "\n原始子任务摘要：\n\n", 8192);
+	strlcat(reply, "详细子任务结果：\n\n", 16384);
 	index = 0;
 	cJSON_ArrayForEach(agent, agents) {
-		append_delegate_agent_summary(reply, 8192, agent, index++);
+		append_delegate_agent_summary(reply, 16384, agent, index++);
 	}
 
 	if (reply[0] == '\0') {
@@ -617,14 +594,53 @@ static bool agent_turn_try_finish_delegate_completion(struct message *msg)
 	return true;
 }
 
+static bool message_explicitly_disallows_multi_subagents(const struct message *msg)
+{
+	const char *content;
+
+	if (!msg || !msg->content) {
+		return false;
+	}
+
+	content = msg->content;
+	return strstr(content, "不要并行") != NULL ||
+	       strstr(content, "不用并行") != NULL ||
+	       strstr(content, "不要安排多个subagent") != NULL ||
+	       strstr(content, "不要安排多个 subagent") != NULL ||
+	       strstr(content, "不要多个subagent") != NULL ||
+	       strstr(content, "不要多个 subagent") != NULL ||
+	       strstr(content, "不要多个子代理") != NULL ||
+	       strstr(content, "不要拆分") != NULL ||
+	       strstr(content, "do not parallel") != NULL ||
+	       strstr(content, "do not use multiple subagents") != NULL ||
+	       strstr(content, "don't use multiple subagents") != NULL;
+}
+
+static bool turn_should_expose_delegate_tool(const struct message *msg)
+{
+	if (!msg) {
+		return false;
+	}
+	if (strcmp(agent_msg_source_or_default(msg), MSG_SOURCE_DELEGATE) == 0) {
+		return false;
+	}
+	if (message_explicitly_disallows_multi_subagents(msg)) {
+		return false;
+	}
+	if (tool_invocation_context_message_should_offer_delegate_tool(msg)) {
+		return true;
+	}
+	return false;
+}
+
 static void agent_turn_run_from_prepared(struct message *msg,
 					 agent_turn_io_t *io,
 					 const agent_turn_decision_t *decision)
 {
 	const char *tools_json =
-		strcmp(agent_msg_source_or_default(msg), MSG_SOURCE_DELEGATE) == 0
-			? NULL
-			: tool_bus_tools_json_for_channel(msg->channel);
+		turn_should_expose_delegate_tool(msg)
+			? tool_bus_tools_json_for_channel(msg->channel)
+			: tool_bus_tools_json_for_channel_without_delegate(msg->channel);
 	const char *model_override =
 		agent_turn_resolve_model(msg, decision->active_role);
 
@@ -634,11 +650,9 @@ static void agent_turn_run_from_prepared(struct message *msg,
 
 void agent_turn_process_new_message(struct message *msg)
 {
-	if (agent_turn_handle_self_test_command(msg)) {
-		return;
-	}
-
-	if (agent_turn_validate_inbound_message(msg) != 0) {
+	if (agent_msg_is_internal_control(msg)) {
+		pr_info("Dropping internal control %s:%s", msg->channel, msg->chat_id);
+		agent_cleanup_inbound_msg(msg);
 		return;
 	}
 

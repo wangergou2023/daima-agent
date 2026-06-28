@@ -20,7 +20,18 @@ static bool extract_single_absolute_path_token(const char *prompt, char *path, s
 
     const char *start = strstr(prompt, "/");
     while (start) {
+        unsigned char prev = (start > prompt) ? (unsigned char)start[-1] : '\0';
         const char *end = start;
+
+        if (start > prompt &&
+            (prev == '~' ||
+             isalnum(prev) ||
+             prev == '_' ||
+             prev == '-' ||
+             prev == '.')) {
+            start = strstr(start + 1, "/");
+            continue;
+        }
         while (*end) {
             unsigned char ch = (unsigned char)*end;
             if (isspace(ch) || ch == '`' || ch == '"' || ch == '\'' ||
@@ -147,7 +158,9 @@ static bool resolve_existing_path_with_fuzzy_components(const char *input, char 
     return access(resolved, F_OK) == 0;
 }
 
-static bool workspace_repo_root_from_prompt(const char *text, char *path, size_t path_size)
+bool tool_delegate_workspace_repo_root_from_prompt(const char *text,
+                                                   char *path,
+                                                   size_t path_size)
 {
     DIR *dir;
     struct dirent *entry;
@@ -319,7 +332,7 @@ bool tool_delegate_resolve_repo_root(const delegate_request_t *req, char *path, 
         return true;
     }
     text = req->prompt[0] ? req->prompt : req->description;
-    if (workspace_repo_root_from_prompt(text, path, path_size)) {
+    if (tool_delegate_workspace_repo_root_from_prompt(text, path, path_size)) {
         return true;
     }
     if (tool_delegate_extract_single_absolute_repo_path(text, path, path_size)) {

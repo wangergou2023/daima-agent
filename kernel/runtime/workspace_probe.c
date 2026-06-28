@@ -183,25 +183,6 @@ static bool remove_repo_path_recursive(const char *repo_path)
 	return run_process_quiet("rm", rm_argv) == 0;
 }
 
-static void cleanup_legacy_opencode_full_clone(void)
-{
-	char legacy_path[1200];
-
-	if (snprintf(legacy_path, sizeof(legacy_path), "%s/opencode_full",
-		     path_workspace_dir()) >= (int)sizeof(legacy_path)) {
-		return;
-	}
-	if (!file_exists(legacy_path)) {
-		return;
-	}
-	if (!remove_repo_path_recursive(legacy_path)) {
-		pr_warn("workspace_probe: failed to remove legacy self-test repo path=%s",
-			legacy_path);
-		return;
-	}
-	pr_info("workspace_probe: removed legacy self-test repo path=%s", legacy_path);
-}
-
 static bool build_repo_path(const char *repo_name, char *repo_path, size_t repo_path_size)
 {
 	const char *root_dir = NULL;
@@ -467,35 +448,4 @@ bool workspace_probe_ensure_repo_clone(const char *repo_name, const char *clone_
 	}
 
 	return false;
-}
-
-bool workspace_probe_opencode_repo_ready(char *repo_path, size_t repo_path_size)
-{
-	return workspace_probe_repo_ready("opencode", repo_path, repo_path_size);
-}
-
-bool workspace_probe_ensure_opencode_repo(char *repo_path, size_t repo_path_size)
-{
-	return workspace_probe_ensure_repo_clone("opencode",
-						 "https://github.com/sst/opencode.git",
-						 repo_path,
-						 repo_path_size);
-}
-
-bool workspace_probe_prepare_opencode_repo(workspace_probe_repo_prepare_t *result)
-{
-	if (!result) {
-		return false;
-	}
-
-	cleanup_legacy_opencode_full_clone();
-	memset(result, 0, sizeof(*result));
-	result->repo_present_before = workspace_probe_opencode_repo_ready(
-		result->repo_path, sizeof(result->repo_path));
-	result->repo_ready_after = result->repo_present_before;
-	if (!result->repo_ready_after) {
-		result->repo_ready_after = workspace_probe_ensure_opencode_repo(
-			result->repo_path, sizeof(result->repo_path));
-	}
-	return result->repo_ready_after;
 }

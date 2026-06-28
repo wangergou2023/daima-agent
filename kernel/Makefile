@@ -3,7 +3,6 @@ obj-y += intent.o roles.o router.o
 obj-y += interview.o learning.o ralph.o
 obj-y += executor_core.o
 obj-y += memory_core.o
-obj-y += self_test.o
 obj-y += interactive.o rules.o
 obj-y += work_item.o workqueue.o
 obj-y += time/

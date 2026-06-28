@@ -1,7 +1,7 @@
 {
     "common": {
         "timezone": "UTC",
-        "terminal_security_level": "plan",
+        "terminal_security_level": "build",
         "context_limit_tokens": 0,
         "session_max_msgs": 96,
         "compress_trigger_msgs": 12,

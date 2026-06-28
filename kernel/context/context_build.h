@@ -3,6 +3,7 @@
 #pragma once
 
 #include "err.h"
+#include <stdbool.h>
 #include <stddef.h>
 
 /**
@@ -13,6 +14,10 @@
  * @param size  缓冲区大小
  */
 err_t context_build_system_prompt_for_channel(const char *channel, char *buf, size_t size);
+err_t context_build_system_prompt_for_channel_and_mode(const char *channel,
+                                                       bool delegate_child_mode,
+                                                       char *buf,
+                                                       size_t size);
 
 err_t context_build_system_prompt(char *buf, size_t size);
 

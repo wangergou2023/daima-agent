@@ -8,6 +8,9 @@
 bool tool_delegate_extract_single_absolute_repo_path(const char *prompt,
                                                      char *path,
                                                      size_t path_size);
+bool tool_delegate_workspace_repo_root_from_prompt(const char *text,
+                                                   char *path,
+                                                   size_t path_size);
 bool tool_delegate_extract_repo_scoped_path(const char *text,
                                             const char *repo_root,
                                             char *path,

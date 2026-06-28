@@ -103,6 +103,19 @@ static bool text_looks_like_deep_architecture_analysis(const char *prompt, const
            text_contains_any(description, deep_keywords, ARRAY_SIZE(deep_keywords));
 }
 
+static bool text_requires_cross_module_role_analysis(const char *prompt, const char *description)
+{
+    static const char *const role_keywords[] = {
+        "整体工作流", "整体流程", "全局流程", "主链路", "主链", "协作关系", "交互关系",
+        "上下游", "在整体中的角色", "在整体工作流里的角色", "不要只看目录名",
+        "how it fits", "overall workflow", "global flow", "main workflow",
+        "role in the system", "role in the workflow", "interaction", "upstream", "downstream"
+    };
+
+    return text_contains_any(prompt, role_keywords, ARRAY_SIZE(role_keywords)) ||
+           text_contains_any(description, role_keywords, ARRAY_SIZE(role_keywords));
+}
+
 static bool prompt_looks_like_repo_overview(const char *prompt, const char *description)
 {
     static const char *const overview_keywords[] = {
@@ -140,24 +153,30 @@ static void build_bounded_explore_prompt(const char *description,
         has_path = tool_delegate_extract_single_absolute_repo_path(prompt, path, sizeof(path));
     }
     snprintf(prepared_prompt, prepared_prompt_size,
-             "Bounded explore override:\n"
-             "Target: %s\n"
-             "Requested scope: %s\n"
+             "Scoped explore task:\n"
+             "Target path: %s\n"
+             "Task label: %s\n"
+             "Original request: %s\n"
              "\n"
              "Do this:\n"
-             "1. List the target directory once.\n"
-             "2. Summarize immediate children and the few most important areas.\n"
-             "3. Read only a few representative files to identify responsibilities, entrypoints, and next files to inspect.\n"
+             "1. Start from the exact target path above, not from workspace or sibling roots.\n"
+             "2. Collect only the minimum directory/file evidence needed to answer the original request.\n"
+             "3. Explain responsibilities, key modules, and how this scope fits the larger workflow when relevant.\n"
              "\n"
              "Rules:\n"
+             "- Do not derive extra target paths from task labels, session ids, coordinator ids, or repo nicknames.\n"
              "- Do not enumerate every subdirectory or every file.\n"
              "- Treat '完整结构' / '所有子目录' / '关键文件全量列表' as representative coverage, not exhaustive traversal.\n"
-             "- Prefer 1 top-level listing, 2-4 focused searches/listings, and only a few reads.\n"
+             "- Hard budget: at most 1 top-level listing, 2 focused follow-up listings/searches, and 2 targeted reads.\n"
+             "- If you already identified the entrypoint family and representative module paths, stop and synthesize findings immediately.\n"
+             "- Do not descend into more sibling directories just to get more examples once the role boundary is already clear.\n"
+             "- Prefer reading README / package manifest / main entry file over repeatedly listing nested directories.\n"
              "- Ignore build artifacts like .o unless explicitly requested.\n"
-             "- Stop once structure, major responsibilities, and next files are clear.\n"
-             "- Final answer must contain concrete findings, not a narration of further exploration.\n",
+             "- Stop once the answer is supported by concrete evidence.\n"
+             "- Final answer must contain findings, not a narration of further exploration.\n",
              has_path ? path : "(unknown path)",
-             description && description[0] ? description : (prompt ? prompt : ""));
+             description && description[0] ? description : "(no task label)",
+             prompt && prompt[0] ? prompt : (description && description[0] ? description : ""));
 }
 
 static void append_repo_root_guidance(const char *prompt,
@@ -369,8 +388,6 @@ bool tool_delegate_prepare_subagent_prompt(const char *subagent_type,
 bool tool_delegate_request_is_bounded_explore_overview(const delegate_request_t *req)
 {
     static const char *const broad_keywords[] = {
-        "bounded exploration request",
-        "broad discovery",
         "目录结构", "完整结构", "代码组织", "仓库结构", "项目结构",
         "所有子目录", "所有目录", "目录树", "完整目录树",
         "关键文件", "关键模块", "关键模块关系", "模块关系",
@@ -405,6 +422,24 @@ bool tool_delegate_request_is_bounded_explore_overview(const delegate_request_t 
         return false;
     }
     return true;
+}
+
+bool tool_delegate_request_requires_deeper_explore_analysis(const delegate_request_t *req)
+{
+    if (!req) {
+        return false;
+    }
+    if (strcmp(req->subagent_type, "explore") != 0) {
+        return false;
+    }
+
+    if (text_looks_like_deep_architecture_analysis(req->prompt, req->description)) {
+        return true;
+    }
+    if (text_requires_cross_module_role_analysis(req->prompt, req->description)) {
+        return true;
+    }
+    return false;
 }
 
 bool tool_delegate_overview_request_preserves_repo_root(const char *prompt, const char *description)

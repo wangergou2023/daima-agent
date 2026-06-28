@@ -60,14 +60,18 @@ err_t channel_runtime_dispatch_outbound(const struct message *msg)
         return ERR_INVALID_ARG;
     }
     err_t err = channel_runtime_send_text(msg->channel, msg->chat_id, msg->content, msg->reasoning);
-    if (err == 0 &&
-        strcmp(msg->channel, CHAN_WEBSOCKET) == 0 &&
+    if (strcmp(msg->channel, CHAN_WEBSOCKET) == 0 &&
         strcmp(agent_msg_source_or_default(msg), MSG_SOURCE_DELEGATE) != 0) {
+        if (err == 0) {
+            delegate_parent_wake_record_parent_activity(msg->chat_id);
+        }
+        /* Parent resume gating should follow persisted parent replies, not only
+         * live websocket delivery. A reconnecting client can still recover the
+         * reply from session history. */
         delegate_task_store_mark_parent_response_sent(msg->chat_id);
-        delegate_parent_wake_record_parent_activity(msg->chat_id);
     }
     if (err != 0 && strcmp(msg->channel, CHAN_WEBSOCKET) == 0) {
-        ws_pending_save(msg->content);
+        ws_pending_save(msg->chat_id, msg->content);
     }
     return err;
 }

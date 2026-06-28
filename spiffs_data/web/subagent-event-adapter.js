@@ -336,7 +336,6 @@
         api.handleCoordinatorOutput?.(payload);
       }
       api.setAssistantIdle?.();
-      api.appendAssistantMessage?.(api.summarizeCoordinatorCompletion?.(payload) || '');
       api.syncSendState?.();
       return true;
     }

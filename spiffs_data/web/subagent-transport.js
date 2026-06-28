@@ -62,10 +62,6 @@
         context?.handleUploadError?.(data);
         return { handled: true, data };
       }
-      if (data.type === 'self_test_result') {
-        context?.handleSelfTestResult?.(data);
-        return { handled: true, data };
-      }
       if (data.type === 'stopped') {
         context?.handleStopped?.(data);
         return { handled: true, data };
