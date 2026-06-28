@@ -11,6 +11,7 @@
 #include "delegate/delegate_turn_directive.h"
 #include "todo.h"
 #include "turn_common.h"
+#include "turn_gate.h"
 #include "turn_dispatch.h"
 #include "cjson.h"
 #include "drivers/platform/platform.h"
@@ -77,6 +78,10 @@ void agent_turn_run_post_actions(struct message *msg,
 				 err_t turn_err,
 				 bool cancelled)
 {
+	if (msg && msg->chat_id[0]) {
+		agent_turn_finalize_self_test_followup(msg);
+	}
+
 	agent_cleanup_inbound_msg(msg);
 
 #if SKILL_SCOPED_TOOLS_ENABLED

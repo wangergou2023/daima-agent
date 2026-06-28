@@ -4248,6 +4248,7 @@ static bool predicate_delegate_long_prompt_schedulable(void *ctx)
     delegate_single_snapshot_wait_t *state = (delegate_single_snapshot_wait_t *)ctx;
     delegate_coordinator_record_t *snapshot;
     int active_or_done = 0;
+    int aggregate_active_or_done = 0;
 
     if (!state || !state->coordinator_id[0] || !state->snapshot) {
         return false;
@@ -4262,12 +4263,18 @@ static bool predicate_delegate_long_prompt_schedulable(void *ctx)
         const char *status = snapshot->agents[i].status;
         if (strcmp(status, "running") == 0 ||
             strcmp(status, "done") == 0 ||
-            strcmp(status, "error") == 0) {
+            strcmp(status, "error") == 0 ||
+            strcmp(status, "failed") == 0) {
             active_or_done++;
         }
     }
 
-    if (snapshot->agent_count >= 3 && active_or_done >= 3) {
+    aggregate_active_or_done = snapshot->running_count +
+                               snapshot->completed_count +
+                               snapshot->failed_count;
+
+    if (snapshot->agent_count >= 3 &&
+        (active_or_done >= 3 || aggregate_active_or_done >= 3)) {
         return true;
     }
 

@@ -698,6 +698,7 @@ async function switchSession(nextChatId) {
     saveReconnect: true,
     refreshContextStats: true,
     restoreSubagent: true,
+    forceApplySnapshot: true,
   });
 }
 

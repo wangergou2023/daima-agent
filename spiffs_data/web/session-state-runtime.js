@@ -116,7 +116,14 @@
         async fetchSessionHistory(targetChatId) {
           const requestedChatId = String(targetChatId || '').trim();
           const transport = api.ensureSubagentTransport?.();
-          if (!requestedChatId || !transport?.loadUnifiedSessionState) {
+          if (!requestedChatId) {
+            return null;
+          }
+          if (transport?.fetchUnifiedSessionHistory) {
+            const result = await transport.fetchUnifiedSessionHistory(requestedChatId);
+            return Array.isArray(result?.history) ? result.history : null;
+          }
+          if (!transport?.loadUnifiedSessionState) {
             return null;
           }
           const result = await transport.loadUnifiedSessionState(requestedChatId, {

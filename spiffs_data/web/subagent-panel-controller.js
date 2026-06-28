@@ -129,7 +129,34 @@
         return;
       }
       controller.open?.();
-      renderCoordinatorPanel();
+      renderDetailPanel();
+      const panelView = typeof api.selectCoordinatorPanelView === 'function'
+        ? api.selectCoordinatorPanelView(controller.state?.() || { visible: true, dismissed: false })
+        : null;
+      const resolvedPanelView = panelView || {
+        orderedStates: api.orderedCoordinatorStates?.() || [],
+        detailStates: [],
+        summary: api.subagentSummary?.() || { total: 0, blocked: 0, running: 0, done: 0, failed: 0 },
+        coordinatorDismissed: false,
+        coordinatorVisible: true,
+      };
+      const orderedStates = resolvedPanelView.orderedStates || [];
+      if (!orderedStates.length) {
+        hideCoordinatorPanel();
+        return;
+      }
+      const next = api.renderCoordinatorPanelView?.({
+        panelEl: api.coordinatorPanelEl,
+        agentsEl: api.coordinatorAgentsEl,
+        orderedStates,
+        detailStates: resolvedPanelView.detailStates || [],
+        summary: resolvedPanelView.summary || api.subagentSummary?.() || { total: 0, blocked: 0, running: 0, done: 0, failed: 0 },
+        coordinatorDismissed: false,
+        coordinatorVisible: true,
+        renderCoordinatorAgent: api.renderCoordinatorAgent,
+        coordinatorSummaryText: api.coordinatorSummaryText,
+      }) || { coordinatorVisible: true };
+      controller.render(next?.coordinatorVisible !== false);
     }
 
     function toggleCoordinatorPanel() {

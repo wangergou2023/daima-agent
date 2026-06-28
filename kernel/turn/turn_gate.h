@@ -29,4 +29,8 @@ bool agent_turn_build_self_test_workspace_status(char *buf, size_t size,
 						 const char *analysis_root,
 						 bool repo_present_before,
 						 bool repo_ready_after);
+void agent_turn_register_self_test_followup(const char *chat_id,
+					    const char *runtime_log_path,
+					    const char *log_marker);
+bool agent_turn_finalize_self_test_followup(const struct message *msg);
 err_t agent_turn_validate_inbound_message(struct message *msg);

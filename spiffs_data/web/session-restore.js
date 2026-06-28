@@ -63,9 +63,13 @@
       const shouldSaveReconnect = opts.saveReconnect !== false;
       const shouldRefreshStats = opts.refreshContextStats === true;
       const shouldShowReconnectToast = opts.showReconnectToast === true;
+      const forceApplySnapshot = opts.forceApplySnapshot === true;
 
       if (typeof api.restoreSessionState === 'function') {
-        const restored = await api.restoreSessionState(requestedChatId, opts);
+        const restored = await api.restoreSessionState(requestedChatId, {
+          ...opts,
+          forceApplySnapshot,
+        });
         const restoredHistory = Array.isArray(restored?.history) ? restored.history : null;
         const stale = restored?.stale === true;
         if (stale || (requireCurrentChat && api.isCurrentChatId?.(requestedChatId) !== true)) {

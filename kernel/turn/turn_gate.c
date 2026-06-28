@@ -19,6 +19,17 @@ char *agent_self_test_results_json(void);
 void agent_self_test_set_log_probe(const self_test_log_probe_t *probe);
 void agent_self_test_set_log_probe_pending(bool pending);
 
+#define SELF_TEST_FOLLOWUP_SLOTS 8
+
+typedef struct {
+	bool active;
+	char chat_id[128];
+	char runtime_log_path[PATH_MAX];
+	char log_marker[256];
+} self_test_followup_slot_t;
+
+static self_test_followup_slot_t s_self_test_followups[SELF_TEST_FOLLOWUP_SLOTS];
+
 static void append_prompt_text(char *buf, size_t size, int *off, const char *text)
 {
 	int written;
@@ -205,6 +216,89 @@ bool agent_turn_build_self_test_workspace_status(char *buf, size_t size,
 	return buf[0] != '\0';
 }
 
+static self_test_followup_slot_t *find_self_test_followup_slot(const char *chat_id)
+{
+	int free_idx = -1;
+
+	if (!chat_id || !chat_id[0]) {
+		return NULL;
+	}
+
+	for (int i = 0; i < SELF_TEST_FOLLOWUP_SLOTS; i++) {
+		if (s_self_test_followups[i].active &&
+		    strcmp(s_self_test_followups[i].chat_id, chat_id) == 0) {
+			return &s_self_test_followups[i];
+		}
+		if (!s_self_test_followups[i].active && free_idx < 0) {
+			free_idx = i;
+		}
+	}
+
+	if (free_idx >= 0) {
+		return &s_self_test_followups[free_idx];
+	}
+	return &s_self_test_followups[0];
+}
+
+void agent_turn_register_self_test_followup(const char *chat_id,
+					    const char *runtime_log_path,
+					    const char *log_marker)
+{
+	self_test_followup_slot_t *slot =
+		find_self_test_followup_slot(chat_id);
+
+	if (!slot || !runtime_log_path || !runtime_log_path[0] ||
+	    !log_marker || !log_marker[0]) {
+		return;
+	}
+
+	memset(slot, 0, sizeof(*slot));
+	slot->active = true;
+	strscpy(slot->chat_id, chat_id, sizeof(slot->chat_id));
+	strscpy(slot->runtime_log_path, runtime_log_path,
+		sizeof(slot->runtime_log_path));
+	strscpy(slot->log_marker, log_marker, sizeof(slot->log_marker));
+}
+
+bool agent_turn_finalize_self_test_followup(const struct message *msg)
+{
+	self_test_followup_slot_t *slot;
+	self_test_log_probe_t probe;
+	struct message reply;
+	char *json;
+
+	if (!msg || !agent_msg_is_internal_control(msg) || !msg->chat_id[0]) {
+		return false;
+	}
+
+	slot = find_self_test_followup_slot(msg->chat_id);
+	if (!slot || !slot->active) {
+		return false;
+	}
+
+	memset(&probe, 0, sizeof(probe));
+	if (!agent_turn_probe_self_test_runtime_log(slot->runtime_log_path,
+						    slot->log_marker,
+						    &probe)) {
+		memset(&probe, 0, sizeof(probe));
+	}
+	agent_self_test_set_log_probe(&probe);
+	agent_self_test_set_log_probe_pending(false);
+	slot->active = false;
+
+	json = agent_self_test_results_json();
+	if (!json) {
+		return true;
+	}
+
+	memset(&reply, 0, sizeof(reply));
+	strscpy(reply.channel, msg->channel, sizeof(reply.channel));
+	strscpy(reply.chat_id, msg->chat_id, sizeof(reply.chat_id));
+	reply.content = json;
+	message_bus_push_outbound(&reply);
+	return true;
+}
+
 bool agent_turn_handle_self_test_command(struct message *msg)
 {
 	if (!msg->content || strncmp(msg->content, "!test", 5) != 0) {
@@ -226,6 +320,9 @@ bool agent_turn_handle_self_test_command(struct message *msg)
 	pr_info("%s", log_marker);
 	agent_self_test_set_log_probe(NULL);
 	agent_self_test_set_log_probe_pending(true);
+	agent_turn_register_self_test_followup(msg->chat_id,
+					       runtime_log_path,
+					       log_marker);
 	pr_info("self-test workspace probe: opencode present=%s ready=%s path=%s",
 		prepare_result.repo_present_before ? "yes" : "no",
 		prepare_result.repo_ready_after ? "yes" : "no",

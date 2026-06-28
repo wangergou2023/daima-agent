@@ -448,6 +448,7 @@
             childSessionRevision,
             Number(nextState?.liveCursor?.visibleRevision) || 0,
           );
+          const incomingCoordinatorRevision = Number(next.visible_revision) || 0;
           const previousEffectiveOutput = trimText(
             deriveVisibleOutputText(previousDetail, previousDetail.latest_frame)
           );
@@ -455,9 +456,19 @@
             isTerminalStatus(trimText(previousDetail?.latest_frame?.status)) ||
             trimText(previousDetail?.latest_frame?.phase) === 'done' ||
             trimText(previousDetail?.latest_frame?.phase) === 'failed';
+          const previousStatusForPreservation = previousHadTerminalResult
+            ? 'done'
+            : previousDetail.status;
           const staleChildSession = childSessionIsOlderThanDetail(previousDetail, childSession) ||
             (incomingFreshnessRevision > 0 && previousDetailFreshnessRevision > incomingFreshnessRevision);
-          const preserveNewerDetail = shouldPreserveNewerDetail(previousDetail, agent.status, childSession, previousDetail.status);
+          const staleByDetailRevision = incomingCoordinatorRevision > 0 &&
+            previousDetailFreshnessRevision > incomingCoordinatorRevision;
+          const preserveNewerDetail = shouldPreserveNewerDetail(
+            previousDetail,
+            agent.status,
+            childSession,
+            previousStatusForPreservation,
+          );
           const incomingLooksBlockedOrIncomplete = !!(
             !agentOutput &&
             (
@@ -477,7 +488,7 @@
             incomingLooksBlockedOrIncomplete
           );
           const staleByCompletedSummaryRegression = !!(
-            isTerminalStatus(previousDetail.status) &&
+            previousHadTerminalResult &&
             !isTerminalStatus(trimText(agent.status)) &&
             previousEffectiveOutput &&
             !trimText(agent.output) &&
@@ -493,6 +504,13 @@
           );
           const freezeChildSession = preserveNewerDetail ||
             staleChildSession ||
+            staleByDetailRevision ||
+            staleCoordinatorRevision ||
+            staleByRuntimeCursor ||
+            staleByCompletedSummaryRegression ||
+            staleByEffectiveOutputRegression;
+          const preserveExistingVisibleState = preserveNewerDetail ||
+            staleByDetailRevision ||
             staleCoordinatorRevision ||
             staleByRuntimeCursor ||
             staleByCompletedSummaryRegression ||
@@ -573,8 +591,7 @@
             team_run_id: next.team_run_id || previousDetail.team_run_id || '',
             subagent_type: agent.subagent_type || previousDetail.subagent_type || '',
             task: agent.name || previousDetail.task || '',
-            status: (staleCoordinatorRevision || staleByEffectiveOutputRegression)
-              || staleByRuntimeCursor
+            status: preserveExistingVisibleState
               ? (previousDetail.status || mergedStatus)
               : mergedStatus,
             model: agent.model || previousDetail.model || '',
@@ -585,30 +602,32 @@
             elapsed_ms: Number(agent.elapsed_ms) || previousDetail.elapsed_ms || 0,
             output: preserveNewerDetail && !agentOutput
               ? (previousDetail.output || '')
-              : ((staleCoordinatorRevision || staleByRuntimeCursor || staleByCompletedSummaryRegression || staleByEffectiveOutputRegression)
+              : ((staleByDetailRevision || staleCoordinatorRevision || staleByRuntimeCursor || staleByCompletedSummaryRegression || staleByEffectiveOutputRegression)
                 ? (previousDetail.output || '')
                 : (childVisibleOutput || previousDetail.output || '')),
             target_files: agent.target_files || previousDetail.target_files || '',
             write_approved: agent.write_approved || previousDetail.write_approved || false,
             blocker_kind: preserveNewerDetail
               ? (shouldClearMergedBlocker ? '' : (previousDetail.blocker_kind || ''))
-              : ((staleCoordinatorRevision || staleByRuntimeCursor || staleByCompletedSummaryRegression || staleByEffectiveOutputRegression)
+              : (preserveExistingVisibleState
                 ? (previousDetail.blocker_kind || '')
                 : (shouldClearMergedBlocker ? '' : (mergedBlockerKind || previousDetail.blocker_kind || ''))),
             blocker_text: preserveNewerDetail
               ? (shouldClearMergedBlocker ? '' : (previousDetail.blocker_text || ''))
-              : ((staleCoordinatorRevision || staleByRuntimeCursor || staleByCompletedSummaryRegression || staleByEffectiveOutputRegression)
+              : (preserveExistingVisibleState
                 ? (previousDetail.blocker_text || '')
                 : (shouldClearMergedBlocker ? '' : (mergedBlockerText || previousDetail.blocker_text || ''))),
             blocker_scope: preserveNewerDetail
               ? (shouldClearMergedBlocker ? '' : (previousDetail.blocker_scope || ''))
-              : ((staleCoordinatorRevision || staleByRuntimeCursor || staleByCompletedSummaryRegression || staleByEffectiveOutputRegression)
+              : (preserveExistingVisibleState
                 ? (previousDetail.blocker_scope || '')
                 : (shouldClearMergedBlocker ? '' : (agent.blocker_kind ? 'task' : (agent.coordinator_blocker_kind ? 'coordinator' : (previousDetail.blocker_scope || ''))))),
             wake_last_error: agent.wake_last_error || previousDetail.wake_last_error || '',
-            pending_request: shouldClearMergedBlocker
+            pending_request: preserveExistingVisibleState
+              ? (previousDetail.pending_request || null)
+              : (shouldClearMergedBlocker
               ? null
-              : (childSession?.pending_request || agent.pending_request || previousDetail.pending_request || null),
+              : (childSession?.pending_request || agent.pending_request || previousDetail.pending_request || null)),
             frames: childSession?.frames?.length
               ? (freezeChildSession
                 ? (previousDetail.frames || [])
@@ -644,14 +663,14 @@
           }
           nextDetail.pending_queue = preserveNewerDetail
             ? derivePendingQueue(nextDetail)
-            : (freezeChildSession
+            : ((freezeChildSession || preserveExistingVisibleState)
               ? derivePendingQueue(nextDetail)
               : (shouldClearMergedBlocker
                 ? derivePendingQueue(nextDetail)
                 : (childSession?.pending_queue || derivePendingQueue(nextDetail))));
           nextDetail.session_summary = preserveNewerDetail
             ? (previousDetail.session_summary || deriveSessionSummary(nextDetail, latestFrame) || '')
-            : (freezeChildSession
+            : ((freezeChildSession || preserveExistingVisibleState)
               ? (previousDetail.session_summary || deriveSessionSummary(nextDetail, latestFrame) || '')
               : (childVisibleOutput || childSession?.summary || deriveSessionSummary(nextDetail, latestFrame) || previousDetail.session_summary || ''));
           nextState.details.set(detailKey, nextDetail);
@@ -702,25 +721,16 @@
       ? normalizeInteractiveSnapshot(snapshot, chatId, interactiveUiConfig)
       : [];
     const explicitEmptySnapshot = coordinators.length === 0 && snapshotBlockers.length === 0;
-    const previousState = options?.previousState && typeof options.previousState === 'object'
-      ? options.previousState
-      : null;
-    let state = explicitEmptySnapshot
-      ? createEmptySubagentUiState()
-      : (previousState ? {
-          ...previousState,
-          coordinators: new Map(previousState.coordinators || []),
-          details: new Map(previousState.details || []),
-          eventLog: new Map(previousState.eventLog || []),
-          blockerLog: new Map(previousState.blockerLog || []),
-          interactive: new Map(previousState.interactive || []),
-        } : createEmptySubagentUiState());
+    let state = createEmptySubagentUiState();
+    if (explicitEmptySnapshot) {
+      return state;
+    }
     const snapshotVisibleRevision = cursorVisibleRevision(snapshot);
     const snapshotAfterVisibleRevision = cursorAfterVisibleRevision(snapshot);
     state.liveCursor = {
       ...(state.liveCursor || {}),
-      visibleRevision: Math.max(Number(state?.liveCursor?.visibleRevision) || 0, snapshotVisibleRevision),
-      afterVisibleRevision: Math.max(Number(state?.liveCursor?.afterVisibleRevision) || 0, snapshotAfterVisibleRevision),
+      visibleRevision: snapshotVisibleRevision,
+      afterVisibleRevision: snapshotAfterVisibleRevision,
     };
 
     for (const coordinator of coordinators) {

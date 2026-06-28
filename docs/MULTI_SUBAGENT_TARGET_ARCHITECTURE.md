@@ -52,6 +52,9 @@
 - drain changed coordinator
 - defer / retry / dedupe parent wake
 - websocket / http 向前端投影 coordinator 与 child session
+- `!test` 自检时先预检 `~/.agent-data/spiffs_data/workspace/opencode`
+- 若缺失则自动 clone `https://github.com/sst/opencode.git`
+- self-test follow-up 结束后由后端按 marker 自动 probe `agent.log`，把多 subagent 日志判定重新推回前端
 
 4. `session / projection export`
 
@@ -76,6 +79,7 @@
 职责：
 
 - websocket / http restore
+- 统一 session payload 获取、history-only 读取、snapshot replay、delta recovery
 - 单一 runtime state 容器
 
 2. `reducer / selector / bridge`
@@ -217,6 +221,57 @@
 
 这说明前端结构已经开始向 `opencode` 方向靠，但用户心智还没完全切过去。
 
+### 3.4 当前已经补上的 session-first 边界
+
+这轮代码基线下，有三个之前容易串状态的边界已经收紧：
+
+1. history-only fetch 与 snapshot restore 已分离
+
+- `spiffs_data/web/subagent-transport.js`
+- `spiffs_data/web/session-state-runtime.js`
+
+现在“为了 reconcile 历史消息而读取 unified session 数据”不会再顺手重放 subagent snapshot。
+
+也就是说：
+
+- 读 history 只读 history
+- restore snapshot 才会改 runtime subagent state
+
+这一步很关键，因为它避免了：
+
+- assistant 回复刚到时触发 history reconcile
+- reconcile 再把当前活跃 chat 的 subagent live state 用旧 snapshot 覆盖掉
+
+2. 显式 session switch 可以强制应用目标 snapshot
+
+- `spiffs_data/web/app.js`
+- `spiffs_data/web/session-restore.js`
+- `spiffs_data/web/subagent-transport.js`
+
+当前已经明确区分两类 restore：
+
+- 被动/live 恢复：
+  - 仍然受 stale snapshot guard 保护
+- 用户显式切会话：
+  - 允许 `forceApplySnapshot`
+  - 目标 chat 的 snapshot 会成为新的真相源
+
+这一步避免了“为了保护当前 live chat，不小心把显式切会话也一起拦住”。
+
+3. snapshot hydrate 不再继承上一 chat 的 subagent 运行态
+
+- `spiffs_data/web/subagent-state-reducer.js`
+
+现在非空 snapshot restore 会从空状态重建，而不是继承前一个 chat 的：
+
+- coordinators
+- details
+- eventLog
+- blockerLog
+- interactive 状态
+
+这避免了跨 chat 污染，符合 `opencode` 那种 session-first 浏览模型：切到哪个 session，就以哪个 session 的快照和 replay 为准。
+
 ---
 
 ## 4. 最终目标架构
@@ -322,6 +377,15 @@
 
 这正是 `opencode stream.transport -> session-data/subagent-data -> footer/detail` 的核心模式。
 
+当前还差的不是“有没有这条边界”，而是边界内部的 replay 语义还不够彻底：
+
+- `subagent-transport.js` 里虽然已经开始拆分
+  - `fetchUnifiedSessionPayload`
+  - `replayUnifiedSessionState`
+  - `fetchUnifiedSessionHistory`
+- 但 durable replay 仍然依赖 snapshot + delta recovery 的混合路径
+- 还不是 `opencode stream.transport` 那种由单一 durable event stream 驱动的最终形态
+
 ---
 
 ## 5. 下一阶段最值得做的顺序
@@ -388,6 +452,7 @@
 目标：
 
 - 让 restore/reconnect 更接近 `sessions.events(after)` 的消费方式
+- 继续把 `payload fetch`、`history-only fetch`、`snapshot replay`、`delta recovery` 明确拆成独立边界
 
 主要文件：
 
@@ -399,6 +464,8 @@
 验收标准：
 
 - reconnect / refresh / incremental delta 使用统一 cursor 语义，而不是多套“猜测式补偿”
+- history reconcile 不会再对 live subagent state 产生副作用
+- 显式 session switch 与被动 live recovery 的 snapshot apply 语义清晰分离
 
 ---
 
@@ -408,6 +475,7 @@
 
 - 项目已经支持真实多 subagent 调度，不是纸面能力
 - `!test` 已经能基于 `~/.agent-data/spiffs_data/workspace/opencode` 自动 clone、分析并回看日志验证调度
+- `!test` 的日志判定不再只依赖模型自己读日志，后端已经能在 follow-up 后自动 probe `agent.log` 并推送更新后的 `self_test_result`
 - `build-kbuild/agent --self-test` 当前已达到 `205/205 passed`
 
 但如果目标是“完美支持多 subagent”，当前还不能说已经完成。

@@ -201,6 +201,21 @@
       return collectCoordinatorRevision(runtimeState, chatId);
     }
 
+    function shouldApplySnapshot(snapshot, runtimeState, chatId) {
+      if (runtimeState && runtimeState.__forceApplySnapshot === true) {
+        return true;
+      }
+      const snapshotRevision = collectRecoveryCursor(snapshot, null, chatId);
+      const runtimeRevision = collectCoordinatorRevision(runtimeState, chatId);
+      if (runtimeRevision <= 0) {
+        return true;
+      }
+      if (snapshotRevision <= 0) {
+        return true;
+      }
+      return snapshotRevision >= runtimeRevision;
+    }
+
     async function recoverSnapshotDeltas(chatId, snapshot, token, options) {
       const runtimeState = typeof api.getRuntimeState === 'function' ? api.getRuntimeState() : null;
       const afterVisibleRevision = collectRecoveryCursor(snapshot, runtimeState, chatId);
@@ -533,12 +548,10 @@
       }
     }
 
-    async function loadUnifiedSessionState(targetChatId, options) {
+    async function fetchUnifiedSessionPayload(targetChatId, options) {
       const chatId = String(targetChatId || '').trim();
       const token = ++snapshotToken;
-      const emptySnapshot = options?.emptySnapshot || { coordinators: [] };
       if (!chatId) {
-        api.applySnapshot?.(emptySnapshot, { chatId: '', interactiveUiConfig: options?.interactiveUiConfig });
         return { token, chatId: '', status: 'empty', history: [] };
       }
 
@@ -571,61 +584,11 @@
         if (token !== snapshotToken || (typeof options?.isCurrentChatId === 'function' && !options.isCurrentChatId(chatId))) {
           return { token, chatId, status: 'stale', history: [] };
         }
-
-        const events = Array.isArray(data?.events) ? data.events : [];
-        const historyFromEvents = [];
-        let replayedTypedSessionEvent = false;
-        const snapshot = data?.subagent && typeof data.subagent === 'object'
-          ? data.subagent
-          : { chat_id: chatId, coordinators: [] };
-        const history = Array.isArray(data?.history) && data.history.length
-          ? data.history
-          : historyFromEvents;
-
-        api.applySnapshot?.(snapshot, { chatId, interactiveUiConfig: options?.interactiveUiConfig });
-        for (const event of events) {
-          if (!event || typeof event !== 'object') {
-            continue;
-          }
-          const eventType = String(event.type || '').trim();
-          const payload = event.payload && typeof event.payload === 'object' ? event.payload : null;
-          if (eventType === 'history_message' && payload) {
-            historyFromEvents.push(payload);
-            continue;
-          }
-          if (eventType === 'coordinator_snapshot' && payload) {
-            api.applyCoordinatorPayload?.(payload, {
-              markActive: false,
-              reason: 'session_events_replay',
-            });
-            continue;
-          }
-          if (eventType === 'subagent_session' && payload) {
-            replayedTypedSessionEvent = true;
-            api.applySessionPayload?.({ session: payload }, {
-              replaceChildSession: true,
-              reason: 'session_events_replay',
-            });
-            continue;
-          }
-          if (eventType === 'subagent_snapshot' && payload) {
-            }
-        }
-
-        if (!replayedTypedSessionEvent) {
-          const recovery = await recoverSnapshotDeltas(chatId, snapshot, token, {
-            ...options,
-            reasonBase: mode === 'session_events' ? 'session_events_recovery' : 'session_state_recovery',
-          });
-          if (recovery?.status === 'stale') {
-            return { token, chatId, status: 'stale', history: history.length ? history : historyFromEvents };
-          }
-        }
         return {
           token,
           chatId,
           status: 'ok',
-          history: history.length ? history : historyFromEvents,
+          history: Array.isArray(data?.history) ? data.history : [],
           data,
           mode,
         };
@@ -635,6 +598,128 @@
         }
         return { token, chatId, status: 'error', history: [] };
       }
+    }
+
+    async function replayUnifiedSessionState(payloadResult, options) {
+      const result = payloadResult && typeof payloadResult === 'object' ? payloadResult : null;
+      const chatId = String(result?.chatId || '').trim();
+      const token = Number(result?.token) || snapshotToken;
+      const data = result?.data && typeof result.data === 'object' ? result.data : null;
+      const mode = String(result?.mode || 'session_events').trim() || 'session_events';
+
+      if (!chatId || !data) {
+        return result;
+      }
+
+      const events = Array.isArray(data?.events) ? data.events : [];
+      const historyFromEvents = [];
+      let replayedTypedSessionEvent = false;
+      const snapshot = data?.subagent && typeof data.subagent === 'object'
+        ? data.subagent
+        : { chat_id: chatId, coordinators: [] };
+      const history = Array.isArray(data?.history) && data.history.length
+        ? data.history
+        : historyFromEvents;
+
+      {
+        const runtimeState = typeof api.getRuntimeState === 'function' ? api.getRuntimeState() : null;
+        const snapshotGuardState = options?.forceApplySnapshot === true
+          ? { ...(runtimeState || {}), __forceApplySnapshot: true }
+          : runtimeState;
+        if (shouldApplySnapshot(snapshot, snapshotGuardState, chatId)) {
+          api.applySnapshot?.(snapshot, { chatId, interactiveUiConfig: options?.interactiveUiConfig });
+        }
+      }
+      for (const event of events) {
+        if (!event || typeof event !== 'object') {
+          continue;
+        }
+        const eventType = String(event.type || '').trim();
+        const payload = event.payload && typeof event.payload === 'object' ? event.payload : null;
+        if (eventType === 'history_message' && payload) {
+          historyFromEvents.push(payload);
+          continue;
+        }
+        if (eventType === 'coordinator_snapshot' && payload) {
+          api.applyCoordinatorPayload?.(payload, {
+            markActive: false,
+            reason: 'session_events_replay',
+          });
+          continue;
+        }
+        if (eventType === 'subagent_session' && payload) {
+          replayedTypedSessionEvent = true;
+          api.applySessionPayload?.({ session: payload }, {
+            replaceChildSession: true,
+            reason: 'session_events_replay',
+          });
+          continue;
+        }
+      }
+
+      if (!replayedTypedSessionEvent) {
+        const recovery = await recoverSnapshotDeltas(chatId, snapshot, token, {
+          ...options,
+          reasonBase: mode === 'session_events' ? 'session_events_recovery' : 'session_state_recovery',
+        });
+        if (recovery?.status === 'stale') {
+          return {
+            ...result,
+            status: 'stale',
+            history: history.length ? history : historyFromEvents,
+          };
+        }
+      }
+
+      return {
+        ...result,
+        history: history.length ? history : historyFromEvents,
+      };
+    }
+
+    async function loadUnifiedSessionState(targetChatId, options) {
+      const chatId = String(targetChatId || '').trim();
+      const emptySnapshot = options?.emptySnapshot || { coordinators: [] };
+      if (!chatId) {
+        api.applySnapshot?.(emptySnapshot, { chatId: '', interactiveUiConfig: options?.interactiveUiConfig });
+        return { token: snapshotToken, chatId: '', status: 'empty', history: [] };
+      }
+
+      const payloadResult = await fetchUnifiedSessionPayload(chatId, options);
+      if (payloadResult?.status !== 'ok') {
+        return payloadResult;
+      }
+      return replayUnifiedSessionState(payloadResult, options);
+    }
+
+    async function fetchUnifiedSessionHistory(targetChatId, options) {
+      const payloadResult = await fetchUnifiedSessionPayload(targetChatId, options);
+      const data = payloadResult?.data && typeof payloadResult.data === 'object' ? payloadResult.data : null;
+      const events = Array.isArray(data?.events) ? data.events : [];
+      const historyFromEvents = [];
+
+      for (const event of events) {
+        if (!event || typeof event !== 'object') {
+          continue;
+        }
+        if (String(event.type || '').trim() !== 'history_message') {
+          continue;
+        }
+        const payload = event.payload && typeof event.payload === 'object' ? event.payload : null;
+        if (payload) {
+          historyFromEvents.push(payload);
+        }
+      }
+
+      if (!data) {
+        return payloadResult;
+      }
+      return {
+        ...payloadResult,
+        history: Array.isArray(data?.history) && data.history.length
+          ? data.history
+          : historyFromEvents,
+      };
     }
 
     async function restoreSessionState(targetChatId, options) {
@@ -808,6 +893,9 @@
       loadTaskDelta,
       loadTaskDeltas,
       loadSnapshot,
+      fetchUnifiedSessionPayload,
+      replayUnifiedSessionState,
+      fetchUnifiedSessionHistory,
       loadUnifiedSessionState,
       restoreSessionState,
       bindSocket,
