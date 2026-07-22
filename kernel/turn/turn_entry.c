@@ -24,6 +24,7 @@
 #include "bus.h"
 #include "turn_common.h"
 #include "linux/printk.h"
+#include "linux/slab.h"
 #include "text.h"
 
 static void agent_turn_finish_prepare_error(struct message *msg, err_t err)
@@ -31,7 +32,7 @@ static void agent_turn_finish_prepare_error(struct message *msg, err_t err)
 	char *final_text = NULL;
 	char *reasoning_text = NULL;
 
-	agent_turn_finish(msg, &final_text, &reasoning_text, err, 0, false, false);
+	agent_turn_finish(msg, &final_text, &reasoning_text, err, 0, false, false, NULL, NULL);
 }
 
 static const char *find_delegate_snapshot_json(const char *content)
@@ -591,7 +592,7 @@ static bool agent_turn_try_finish_delegate_completion(struct message *msg)
 		return false;
 	}
 
-	agent_turn_finish(msg, &final_text, &reasoning_text, 0, 0, false, false);
+	agent_turn_finish(msg, &final_text, &reasoning_text, 0, 0, false, false, NULL, NULL);
 	cJSON_Delete(root);
 	return true;
 }
@@ -651,6 +652,22 @@ static void agent_turn_run_from_prepared(struct message *msg,
 	const char *model_override =
 		agent_turn_resolve_model(msg, decision->active_role);
 
+	/* 工具门控：Specialist 只暴露其声明的工具 */
+	char *filtered_tools = NULL;
+	if (decision->route_checked &&
+	    decision->route_action == BOSS_ROUTE_DELEGATE &&
+	    decision->specialist_def.toolset[0]) {
+		filtered_tools = tool_bus_filter_tools_json(
+			tools_json, decision->specialist_def.toolset);
+		if (filtered_tools) {
+			pr_info("turn tool gate: specialist %s toolset=%s filtered=%zu bytes",
+				decision->specialist_def.name,
+				decision->specialist_def.toolset,
+				strlen(filtered_tools));
+			tools_json = filtered_tools;
+		}
+	}
+
 	pr_info("turn tool routing: chat=%s mode=%s delegate_only=%d expose_delegate=%d",
 		msg && msg->chat_id[0] ? msg->chat_id : "-",
 		tool_decomposition_mode_name(decomp_mode),
@@ -658,7 +675,9 @@ static void agent_turn_run_from_prepared(struct message *msg,
 		turn_should_expose_delegate_tool(msg) ? 1 : 0);
 
 	agent_run_prepared_turn(msg, io->system_prompt, io->messages, tools_json,
-				model_override, msg->chat_id, 0);
+				model_override, msg->chat_id, 0, decision);
+
+	kfree(filtered_tools);
 }
 
 void agent_turn_process_new_message(struct message *msg)
@@ -696,6 +715,28 @@ void agent_turn_process_new_message(struct message *msg)
 		agent_turn_append_role_prompt(io.system_prompt,
 					      AGENT_TURN_IO_BUF_SIZE,
 					      decision.active_role);
+
+		/* 当 Boss 路由决策为 delegate 时，注入 Specialist 的 system_prompt */
+		if (decision.route_checked &&
+		    decision.route_action == BOSS_ROUTE_DELEGATE &&
+		    decision.specialist_def.system_prompt[0]) {
+			size_t off = strnlen(io.system_prompt, AGENT_TURN_IO_BUF_SIZE - 1);
+			int n = snprintf(io.system_prompt + off,
+					AGENT_TURN_IO_BUF_SIZE - off,
+					"\n\n## Specialist Agent Identity\n"
+					"You are acting as the specialist agent \"%s\".\n"
+					"Your system prompt:\n%s\n\n"
+					"Core skills: %s\n"
+					"Follow the specialist identity above. "
+					"Use tools appropriate for this task.\n",
+					decision.matched_agent_name,
+					decision.specialist_def.system_prompt,
+					decision.specialist_def.core_skills);
+			if (n < 0 || (size_t)n >= AGENT_TURN_IO_BUF_SIZE - off)
+				io.system_prompt[AGENT_TURN_IO_BUF_SIZE - 1] = '\0';
+			pr_info("Boss delegate: injected specialist prompt for %s",
+				decision.matched_agent_name);
+		}
 	}
 
 	if (err == 0) {

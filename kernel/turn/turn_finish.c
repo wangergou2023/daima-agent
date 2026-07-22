@@ -12,9 +12,12 @@ void agent_turn_finish(
 	err_t turn_err,
 	int iteration,
 	bool tool_budget_exhausted,
-	bool cancelled)
+	bool cancelled,
+	const turn_exec_stats_t *stats,
+	const agent_turn_decision_t *decision)
 {
 	agent_turn_handle_reply(msg, io_final_text, io_reasoning_text, turn_err,
-				iteration, tool_budget_exhausted, cancelled);
+				iteration, tool_budget_exhausted, cancelled,
+				stats, decision);
 	agent_turn_run_post_actions(msg, turn_err, cancelled);
 }

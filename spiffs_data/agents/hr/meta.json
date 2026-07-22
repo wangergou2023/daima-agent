@@ -1,0 +1,18 @@
+{
+  "agent_id": "hr",
+  "name": "HR Agent",
+  "description": "后台优化组件，扫描 Boss Transcript，聚类蒸馏出新的 Specialist Agent。",
+  "origin": "manual",
+  "core_skills": "transcript-analysis pattern-mining agent-distillation task-clustering prompt-engineering",
+  "optional_skills": "session-search skill-extraction",
+  "toolset": "files terminal session_search skills todo webfetch",
+  "model_provider": "",
+  "model_name": "",
+  "context_limit": 0,
+  "max_tokens": 0,
+  "temperature": 0.3,
+  "lifecycle_status": "active",
+  "created_by": "manual",
+  "version": 1,
+  "distillation_confidence": 1.0
+}

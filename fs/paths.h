@@ -22,8 +22,6 @@ const char *path_feishu_image_dir(void);  /* 飞书图片缓存目录 */
 const char *path_skills_dir(void);        /* 技能目录 */
 const char *path_workspace_dir(void);     /* 工作区目录 */
 
-/** 判断路径是否在 SPIFFS 目录下。 */
 bool path_is_in_spiffs(const char *path);
-
-/** 解析 "spiffs_data" 快捷路径为绝对路径（拒绝 ".." 路径穿越）。 */
 bool path_resolve_spiffs_shortcut(const char *path, char *resolved, size_t resolved_size);
+

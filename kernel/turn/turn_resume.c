@@ -84,10 +84,10 @@ bool agent_turn_resume_poll(void)
     err_t err = agent_turn_run(
         snap.system_prompt, snap.messages, tools_json, &resume_msg,
         NULL, false, 0, snap.cancel_token,
-        &final_text, &reasoning_text, &iteration, &tool_budget_exhausted, &cancelled);
+        &final_text, &reasoning_text, &iteration, &tool_budget_exhausted, &cancelled, NULL);
 
     agent_finalize_turn(&resume_msg, &final_text, &reasoning_text, err, iteration,
-                        tool_budget_exhausted, cancelled, snap.iteration);
+                        tool_budget_exhausted, cancelled, snap.iteration, NULL, NULL);
 
     turn_context_remove(chat_id);
     turn_context_snapshot_cleanup(&snap);

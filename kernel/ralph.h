@@ -27,9 +27,6 @@ bool ralph_loop_should_continue(const char *chat_id,
 				int iteration,
 				const char *final_text);
 
-/* 重置指定 chat_id 的 Ralph Loop 状态 */
-void ralph_loop_reset(const char *chat_id);
-
 /* 如果当前轮仍有未完成 todo，追加警告到输出文本末尾 */
 bool ralph_loop_append_warning_if_needed(const char *chat_id, int iteration,
 					  char **io_final_text);

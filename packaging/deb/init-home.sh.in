@@ -83,6 +83,6 @@ with open(path, "w", encoding="utf-8") as f:
 PY
 fi
 
-for name in BOOTSTRAP.md IDENTITY.md SOUL.md USER.md AGENTS.md; do
+for name in BOOTSTRAP.md IDENTITY.md SOUL.md USER.md; do
     copy_file_missing "$AGENT_SEED_DIR/config/$name" "$AGENT_HOME/spiffs_data/config/$name"
 done

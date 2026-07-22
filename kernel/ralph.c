@@ -137,13 +137,6 @@ bool ralph_loop_should_continue(const char *chat_id, int iteration, const char *
     return should_continue;
 }
 
-void ralph_loop_reset(const char *chat_id)
-{
-    char path[BUF_PATH];
-    ralph_loop_build_todo_path(chat_id, path, sizeof(path));
-    unlink(path);
-}
-
 /** 若仍有未完成 TODO，在回复末尾追加警告。调用方 io_final_text 会被释放并替换为新指针。 */
 bool ralph_loop_append_warning_if_needed(const char *chat_id, int iteration,
                                           char **io_final_text)

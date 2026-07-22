@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "drivers/llm/llm_proxy.h"
 #include "drivers/llm/model_fallback.h"
@@ -194,7 +195,8 @@ err_t agent_turn_run(
     char **out_reasoning_text,
     int *out_iteration,
     bool *out_tool_budget_exhausted,
-    bool *out_cancelled)
+    bool *out_cancelled,
+    turn_exec_stats_t *out_stats)
 {
     if (unlikely(!system_prompt || !messages || !msg || !out_final_text || !out_reasoning_text || !out_iteration || !out_tool_budget_exhausted || !out_cancelled)) {
         return ERR_INVALID_ARG;
@@ -221,6 +223,10 @@ err_t agent_turn_run(
     char *final_reasoning_text = NULL;
     turn_exec_stats_t stats;
     memset(&stats, 0, sizeof(stats));
+
+    /* 记录本轮开始时间 */
+    struct timespec start_ts;
+    clock_gettime(CLOCK_MONOTONIC, &start_ts);
 
     while (iteration < max_tool_iterations) {
         /* 每次 LLM 调用前检查取消 */
@@ -268,6 +274,11 @@ err_t agent_turn_run(
             llm_response_free(&resp);
             break;
         }
+
+        /* 统计 LLM 调用次数 */
+        stats.model_calls++;
+        stats.tool_calls += resp.call_count;
+        /* total_tokens 暂不可用（llm_response_t 未暴露 token 计数），保持为 0 */
 
         /* 无工具调用 → LLM 给出最终文本回答，结束循环 */
         if (!resp.tool_use) {
@@ -330,6 +341,24 @@ err_t agent_turn_run(
         cJSON_AddItemToObject(result_msg, "content", tool_results);
         cJSON_AddItemToArray(messages, result_msg);
 
+        /* 记录本轮工具使用（去重追加） */
+        for (int ci = 0; ci < resp.call_count; ci++) {
+            const char *tname = resp.calls[ci].name;
+            if (!tname || !tname[0])
+                continue;
+            /* 检查是否已存在 */
+            if (!strstr(stats.tools_used, tname)) {
+                size_t off = strlen(stats.tools_used);
+                if (off > 0 && off < sizeof(stats.tools_used) - 1)
+                    stats.tools_used[off++] = ' ';
+                size_t remain = sizeof(stats.tools_used) - off - 1;
+                size_t nlen = strlen(tname);
+                if (nlen > remain) nlen = remain;
+                memcpy(stats.tools_used + off, tname, nlen);
+                stats.tools_used[off + nlen] = '\0';
+            }
+        }
+
         llm_response_free(&resp);
         iteration++;
 
@@ -383,9 +412,24 @@ err_t agent_turn_run(
         agent_turn_maybe_run_auto_verification(&stats, &final_text);
     }
 
+    /* 计算本轮耗时 */
+    {
+        struct timespec end_ts;
+        clock_gettime(CLOCK_MONOTONIC, &end_ts);
+        long delta_ms = (end_ts.tv_sec - start_ts.tv_sec) * 1000 +
+                        (end_ts.tv_nsec - start_ts.tv_nsec) / 1000000;
+        stats.duration_ms = (int)(delta_ms > 0 ? delta_ms : 0);
+        pr_info("Turn stats: chat=%s model_calls=%d tool_calls=%d tokens=%d duration=%dms tools=%s",
+                msg->chat_id, stats.model_calls, stats.tool_calls,
+                stats.total_tokens, stats.duration_ms,
+                stats.tools_used[0] ? stats.tools_used : "(none)");
+    }
+
     kfree(tool_output);
     *out_final_text = final_text;
     *out_reasoning_text = final_reasoning_text;
     *out_iteration = iteration;
+    if (out_stats)
+        *out_stats = stats;
     return err;
 }

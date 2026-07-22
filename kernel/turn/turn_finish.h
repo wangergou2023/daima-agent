@@ -8,18 +8,20 @@
 
 #include "bus.h"
 #include "err.h"
+#include "turn_exec.h"
+#include "turn_decision.h"
 
 /**
  * 完成当前 turn 的收尾处理。
- * 追加结束标记（如 incomplete turn 警告）、发送通道回复、
- * 触发 on_finish 钩子、清理临时资源。
- * @param msg                   入站消息（会原地修改回复字段）
- * @param io_final_text         最终文本（可能被追加/修改）
+ * @param msg                   入站消息
+ * @param io_final_text         最终文本
  * @param io_reasoning_text     推理文本
- * @param turn_err              turn 执行错误码（0 表示正常）
+ * @param turn_err              turn 执行错误码
  * @param iteration             实际 LLM 迭代次数
  * @param tool_budget_exhausted 是否工具预算耗尽
  * @param cancelled             是否被取消
+ * @param stats                 执行统计（供 Transcript 使用）
+ * @param decision              路由决策（供 Transcript 使用）
  */
 void agent_turn_finish(
 	struct message *msg,
@@ -28,4 +30,6 @@ void agent_turn_finish(
 	err_t turn_err,
 	int iteration,
 	bool tool_budget_exhausted,
-	bool cancelled);
+	bool cancelled,
+	const turn_exec_stats_t *stats,
+	const agent_turn_decision_t *decision);

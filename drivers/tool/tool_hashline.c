@@ -4,20 +4,11 @@
 
 #include "drivers/tool/tool_hashline.h"
 
+#include "hash.h"
+
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
-
-/* FNV-1a 32-bit 哈希，用于行内容校验。 */
-static uint32_t hashline_fnv1a_32(const char *data, size_t len)
-{
-    uint32_t hash = 0x811c9dc5;
-    for (size_t i = 0; i < len; i++) {
-        hash ^= (uint8_t)data[i];
-        hash *= 0x01000193;
-    }
-    return hash;
-}
 
 /* 计算单行内容的 4 位 hex 哈希值。 */
 void hashline_hash_line(const char *content, char hash_out[5])
@@ -25,7 +16,7 @@ void hashline_hash_line(const char *content, char hash_out[5])
     if (!hash_out) {
         return;
     }
-    uint32_t hash = hashline_fnv1a_32(content ? content : "", content ? strlen(content) : 0);
+    uint32_t hash = fnv1a_32(content ? content : "", content ? strlen(content) : 0);
     snprintf(hash_out, 5, "%04x", (unsigned)(hash & 0xffffu));
 }
 

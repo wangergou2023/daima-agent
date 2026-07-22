@@ -13,5 +13,3 @@ int env_int_or_default(const char *name, int fallback);
 /** 获取 bool 类型环境变量（1/true/yes → true）。 */
 bool env_bool_or_default(const char *name, bool fallback);
 
-/** 设置环境变量（覆盖已有值）。 */
-void env_set(const char *name, const char *value);

@@ -135,11 +135,34 @@ err_t agent_turn_build_prompt(const struct message *msg,
 		return ERR_INVALID_ARG;
 	}
 
+	/* 非 Boss Agent（HR、Specialist 等）：只用自己的 system_prompt + 基础上下文，
+	 * 不加载项目规则、会话压缩摘要、待办事项等无关内容。 */
+	bool is_boss = !msg->agent_id[0] ||
+	               strcmp(msg->agent_id, "boss") == 0;
+
 	char prompt_prefix[BUF_XLARGE] = {0};
 	if (system_prompt[0]) {
 		strscpy(prompt_prefix, system_prompt, sizeof(prompt_prefix));
 	}
 
+	if (!is_boss) {
+		/* 精简模式：仅 Agent 自己的 system_prompt + 基础 turn 信息 */
+		append_turn_context_prompt(system_prompt, system_prompt_size, msg);
+		if (prompt_prefix[0]) {
+			size_t off = strnlen(system_prompt, system_prompt_size - 1);
+			if (off < system_prompt_size - 1) {
+				system_prompt[off++] = '\n';
+				strscpy(system_prompt + off, prompt_prefix,
+					system_prompt_size - off);
+			}
+		}
+		pr_info("LLM turn context (minimal): channel=%s chat_id=%s agent=%s",
+			msg->channel, msg->chat_id,
+			msg->agent_id[0] ? msg->agent_id : "boss");
+		return 0;
+	}
+
+	/* Boss：完整上下文 */
 	context_build_system_prompt_for_channel_and_mode(
 		msg->channel,
 		strncmp(msg->chat_id, "delegate_sync_", 14) == 0,

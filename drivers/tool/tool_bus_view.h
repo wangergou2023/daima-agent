@@ -18,3 +18,4 @@ const char *tool_bus_tools_json(void);
 const char *tool_bus_tools_json_for_channel(const char *channel);
 const char *tool_bus_tools_json_for_channel_without_delegate(const char *channel);
 const char *tool_bus_tools_json_delegate_only(void);
+char *tool_bus_filter_tools_json(const char *tools_json, const char *toolset);

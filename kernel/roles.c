@@ -49,8 +49,3 @@ const char *agent_role_prompt_suffix(agent_role_t role)
     return def ? def->prompt_suffix : "";
 }
 
-const char *agent_role_category(agent_role_t role)
-{
-    const agent_role_def_t *def = role_def(role);
-    return def ? def->category : "unknown";
-}

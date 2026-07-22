@@ -5,6 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Agent</title>
   <link rel="stylesheet" href="/app.css" />
+  <script>
+    (function() {
+      var origSend = WebSocket.prototype.send;
+      WebSocket.prototype.send = function(data) {
+        try {
+          var obj = JSON.parse(data);
+          if (obj.type === 'message') {
+            if (!obj.agent_id) {
+              obj.agent_id = localStorage.getItem('agent_id') || 'boss';
+            }
+          }
+          data = JSON.stringify(obj);
+        } catch(e) {}
+        return origSend.call(this, data);
+      };
+    })();
+  </script>
 </head>
 <body>
   <main class="app-shell">
@@ -25,15 +42,13 @@
             <span id="dot" class="dot"></span>
             <span id="status">连接中</span>
           </div>
-          <div class="agent-state-row" id="agentStateRow" aria-live="polite">
-            <span id="agentIntentTag" class="agent-tag" hidden aria-hidden="true">
-              <span class="agent-tag-icon"></span>
-              <span class="agent-tag-label"></span>
-            </span>
-            <span id="agentRoleTag" class="agent-tag role-tag" hidden aria-hidden="true">
-              <span class="agent-tag-label"></span>
-            </span>
-          </div>
+          <label class="theme-control" aria-label="选择角色">
+            <span>角色</span>
+            <select id="agentSelect" class="theme-switch" aria-label="选择角色">
+              <option value="boss">Boss</option>
+              <option value="hr">HR</option>
+            </select>
+          </label>
           <label class="theme-control" aria-label="Theme">
             <span>主题</span>
             <select id="themeSelect" class="theme-switch" aria-label="Theme">
@@ -49,23 +64,62 @@
               <option value="build">Build</option>
             </select>
           </label>
-          <button id="coordinatorToggleBtn" class="self-test-btn" type="button" title="查看编排面板">编排</button>
-          <button id="selfTestBtn" class="self-test-btn" type="button" title="运行自检">🔍 自检</button>
+          <button id="hrScanBtn" class="self-test-btn" type="button" title="HR 扫描蒸馏">🧠 HR</button>
         </div>
       </header>
+
+      <section id="agentDetail" class="agent-detail" hidden aria-hidden="true">
+        <div class="agent-detail-head">
+          <h3 id="agentDetailName">Agent</h3>
+          <div>
+            <button id="agentDeleteBtn" class="agent-delete-btn" type="button" aria-label="删除角色">删除</button>
+            <button id="agentDetailClose" class="agent-detail-close" type="button" aria-label="关闭详情">×</button>
+          </div>
+        </div>
+        <div class="agent-detail-body">
+          <div class="agent-detail-field">
+            <label>工具 (toolset)</label>
+            <div id="agentToolsetTags" class="tag-list"></div>
+            <form id="agentAddToolForm" class="tag-add-form">
+              <input id="agentAddToolInput" class="tag-add-input" placeholder="+ 添加工具" autocomplete="off" />
+            </form>
+          </div>
+          <div class="agent-detail-field">
+            <label>核心技能 (core_skills)</label>
+            <div id="agentCoreSkillsTags" class="tag-list"></div>
+            <form id="agentAddSkillForm" class="tag-add-form">
+              <input id="agentAddSkillInput" class="tag-add-input" placeholder="+ 添加技能" autocomplete="off" />
+            </form>
+          </div>
+        </div>
+      </section>
+
       <script>
         document.addEventListener('DOMContentLoaded', function() {
-          var btn = document.getElementById('selfTestBtn');
-          if (btn) {
-            btn.addEventListener('click', function() {
+          var hrScanBtn = document.getElementById('hrScanBtn');
+          if (hrScanBtn) {
+            hrScanBtn.addEventListener('click', function() {
               var input = document.getElementById('input');
               if (input) {
-                input.value = '!test';
+                input.value = 'hr scan --auto';
                 input.dispatchEvent(new Event('input', {bubbles:true}));
               }
               var send = document.getElementById('sendBtn');
               if (send) send.click();
             });
+          }
+
+          var agentSelect = document.getElementById('agentSelect');
+          if (agentSelect) {
+            agentSelect.addEventListener('change', function() {
+              localStorage.setItem('agent_id', agentSelect.value);
+              /* 触发详情面板刷新 */
+              if (typeof window._onAgentSelectChange === 'function') {
+                window._onAgentSelectChange(agentSelect.value);
+              }
+            });
+            var saved = localStorage.getItem('agent_id');
+            if (saved) agentSelect.value = saved;
           }
         });
       </script>
@@ -135,33 +189,6 @@
     </div>
   </div>
 
-  <aside id="coordinatorPanel" class="coordinator-panel" hidden aria-hidden="true">
-    <div class="coordinator-head">
-      <div class="coordinator-head-copy">
-        <span class="coordinator-title">Coordinator</span>
-        <span class="coordinator-summary">等待子任务</span>
-      </div>
-      <button id="coordinatorClose" class="coordinator-close" type="button" aria-label="关闭">×</button>
-    </div>
-    <div class="coordinator-layout">
-      <div id="coordinatorAgents" class="coordinator-agents"></div>
-    </div>
-  </aside>
-
-  <aside id="subagentDetailPanel" class="subagent-detail-panel" hidden aria-hidden="true">
-    <div class="subagent-detail-head">
-      <div class="subagent-detail-copy">
-        <span id="subagentDetailTitle" class="subagent-detail-title">Subagent</span>
-        <span id="subagentDetailMeta" class="subagent-detail-meta">等待选择子任务</span>
-      </div>
-    </div>
-    <div id="subagentSessionRail" class="subagent-session-rail" aria-label="子会话列表"></div>
-    <div id="subagentDetailTabs" class="subagent-detail-tabs" role="tablist" aria-label="子任务详情标签"></div>
-    <div id="subagentDetailBlockers" class="subagent-detail-blockers"></div>
-    <div id="subagentDetailFrames" class="subagent-detail-frames"></div>
-    <div id="subagentDetailOutput" class="subagent-detail-output"></div>
-  </aside>
-
   <aside id="petDock" class="pet-dock" hidden aria-hidden="true">
     <div id="petChooser" class="pet-chooser" hidden aria-hidden="true">
       <button
@@ -188,33 +215,127 @@
     </div>
   </aside>
 
+  <div id="retireModal" class="sudo-modal" hidden aria-hidden="true">
+    <div class="sudo-card" style="max-width:420px;">
+      <div class="sudo-title">删除角色</div>
+      <div class="sudo-body" id="retirePrompt">确定要删除此角色吗？</div>
+      <label style="display:block;margin:0 0 8px;font-size:0.85em;color:var(--muted,#999);">
+        交接给
+        <select id="retireTargetSelect" style="width:100%;margin-top:4px;padding:6px 10px;border-radius:8px;border:1px solid var(--border,#ddd);background:var(--surface,#fff);color:var(--text,#333);"></select>
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:0.85em;">
+        <input type="checkbox" id="retireTransferSkills" checked /> 交接所有技能 (skills)
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;margin-bottom:12px;font-size:0.85em;">
+        <input type="checkbox" id="retireTransferTools" checked /> 交接所有工具 (tools)
+      </label>
+      <div class="sudo-actions">
+        <button id="retireCancel" type="button" class="ghost-btn">取消</button>
+        <button id="retireConfirm" type="button" style="background:#e74c3c;color:#fff;">确认删除</button>
+      </div>
+    </div>
+  </div>
+
   <div id="reconnectToast" class="reconnect-toast" hidden aria-hidden="true">
     <span class="reconnect-toast-icon">↻</span>
     <span id="reconnectToastText">正在恢复会话...</span>
     <button id="reconnectToastAction" class="reconnect-toast-action" type="button">恢复</button>
   </div>
 
+  <script>
+    /* 诊断：5 秒后如果还没连上，在页面显示排查信息 */
+    setTimeout(function() {
+      var st = document.getElementById('status');
+      var dot = document.getElementById('dot');
+      if (st && st.textContent === '连接中') {
+        st.textContent = '未连接 · 请检查';
+        dot.className = 'dot';
+        var msgs = document.getElementById('messages');
+        if (msgs && !msgs.querySelector('.ws-diag')) {
+          var div = document.createElement('div');
+          div.className = 'ws-diag';
+          var wsUrl = 'ws://' + location.host + '/ws';
+          div.innerHTML = '<div class="msg-body" style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px;margin:8px;font-size:0.9em;">'
+            + '<strong>⚠ 无法连接到 Agent</strong><br><br>'
+            + '<b>WebSocket:</b> <code>' + wsUrl + '</code><br>'
+            + '<b>HTTP API:</b> <code id="diagApi"></code><br><br>'
+            + '<b>可能原因:</b><br>'
+            + '1. Agent 进程未运行 → 执行 <code>~/.agent-data/bin/agent &</code><br>'
+            + '2. 端口被占用 → <code>ss -tlnp | grep 1234</code><br>'
+            + '3. 浏览器缓存旧文件 → <b>Ctrl+Shift+R 强制刷新</b><br>'
+            + '4. 浏览器拦截 WebSocket → 检查扩展/防火墙<br>'
+            + '</div>';
+          msgs.appendChild(div);
+          /* 测试 HTTP API */
+          fetch('/api/agents').then(function(r) {
+            var el = document.getElementById('diagApi');
+            if (el) el.textContent = '/api/agents → ' + (r.ok ? '✅ 可达' : '❌ ' + r.status);
+          }).catch(function() {
+            var el = document.getElementById('diagApi');
+            if (el) el.textContent = '/api/agents → ❌ 请求失败';
+          });
+        }
+      }
+    }, 5000);
+  </script>
+  <script>
+    /* 直接建立 WebSocket 连接，不依赖 app.js */
+    (function() {
+      var chatId = localStorage.getItem('agent_chat_id') || 'web_' + Math.random().toString(36).slice(2,8);
+      var url = (location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.host + '/ws?chat_id=' + chatId;
+      var st = document.getElementById('status');
+      var dot = document.getElementById('dot');
+      if (st) st.textContent = '连接中';
+      var ws = new WebSocket(url);
+      ws.onopen = function() {
+        if (st) st.textContent = '已连接';
+        if (dot) dot.className = 'dot on';
+      };
+      ws.onclose = function() {
+        if (st) st.textContent = '未连接';
+        if (dot) dot.className = 'dot';
+      };
+      ws.onerror = function() {
+        if (st) st.textContent = '未连接';
+        if (dot) dot.className = 'dot';
+      };
+      ws.onmessage = function(e) {
+        try {
+          var msg = JSON.parse(e.data);
+          var el = document.getElementById('messages');
+          if (!el) return;
+          if (msg.type === 'response' && msg.content) {
+            var div = document.createElement('div');
+            div.className = 'message assistant';
+            div.innerHTML = '<div class="msg-body"><div class="msg-text">' +
+              msg.content.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>') +
+              '</div></div>';
+            el.appendChild(div);
+            el.scrollTop = el.scrollHeight;
+          } else if (msg.type === 'tool' && msg.content) {
+            var tdiv = document.createElement('div');
+            tdiv.className = 'message tool';
+            tdiv.innerHTML = '<div class="msg-body" style="opacity:0.7;font-size:0.85em;">' +
+              msg.content.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>';
+            el.appendChild(tdiv);
+            el.scrollTop = el.scrollHeight;
+          } else if (msg.type === 'error' && msg.content) {
+            var ediv = document.createElement('div');
+            ediv.className = 'message error';
+            ediv.innerHTML = '<div class="msg-body" style="color:#e74c3c;">' +
+              msg.content.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>';
+            el.appendChild(ediv);
+            el.scrollTop = el.scrollHeight;
+          }
+        } catch(_) {}
+      };
+      window._bootstrapWs = ws;
+      window._bootstrapChatId = chatId;
+    })();
+  </script>
   <script src="/pet.js"></script>
-  <script src="/subagent-state-core.js"></script>
-  <script src="/subagent-state-selectors.js"></script>
-  <script src="/subagent-state-reducer.js"></script>
-  <script src="/subagent-state.js"></script>
-  <script src="/subagent-runtime.js"></script>
   <script src="/session-restore.js"></script>
   <script src="/session-state-runtime.js"></script>
-  <script src="/subagent-app-bridge.js"></script>
-  <script src="/subagent-panel-controller.js"></script>
-  <script src="/subagent-detail-view.js"></script>
-  <script src="/subagent-event-adapter.js"></script>
-  <script src="/subagent-interactive-controller.js"></script>
-  <script src="/subagent-coordinator-view.js"></script>
-  <script src="/subagent-coordinator-controller.js"></script>
-  <script src="/subagent-ui-orchestrator.js"></script>
-  <script src="/subagent-transport.js"></script>
-  <script src="/subagent-chat-transport.js"></script>
-  <script src="/subagent-bootstrap.js"></script>
-  <script src="/subagent-shell.js"></script>
-  <script src="/agent-state-presenter.js"></script>
   <script src="/connection-state-presenter.js"></script>
   <script src="/reconnect-controller.js"></script>
   <script src="/app.js"></script>

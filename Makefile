@@ -36,6 +36,7 @@ endif
 core-y := init/
 core-y += kernel/ kernel/turn/ kernel/printk/
 core-y += kernel/channel/ kernel/runtime/ kernel/context/ kernel/tooling/
+core-y += kernel/registry/ kernel/hr/
 core-y += ipc/ lib/ net/ fs/
 core-y += drivers/llm/ drivers/channel/feishu/ drivers/channel/vector/ drivers/channel/gateway/
 core-y += drivers/tool/ drivers/memory/ drivers/skill/ drivers/voice/
@@ -72,19 +73,9 @@ agent: $(agent-dirs) cjson arch-obj
 	$(Q)$(CC) $(AGENT_CFLAGS) -o $(AGENT_BIN) @$(BUILD_DIR)/objects.link $(LDFLAGS)
 	@echo "  DONE    agent"
 
-kbuild-doc-check:
-	$(Q)$(MAKE) KBUILD_DOC_ONLY=1 kbuild
-
-
 host: kbuild
 mips:
 	$(MAKE) ARCH=mips kbuild
-arm:
-	$(MAKE) ARCH=arm kbuild
-
-
-modules:
-	@echo "  MODULES  none"
 
 clean:
 	$(Q)rm -rf build-kbuild build-host build-mips build-arm

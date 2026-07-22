@@ -14,7 +14,7 @@
 
 typedef struct cJSON cJSON;
 
-/* 工具执行统计：跟踪本轮执行的关键副作用 */
+/* 工具执行统计：跟踪本轮执行的关键副作用及 Transcript 所需指标 */
 typedef struct {
 	bool modified_code_files;		/* 是否修改了代码文件 */
 	bool saw_explicit_verification;		/* 是否看到显式验证操作 */
@@ -27,6 +27,13 @@ typedef struct {
 	char background_delegate_reply[256];	/* 后台 delegate 的首响文案 */
 	char background_delegate_coordinator_id[64]; /* 当前轮已启动的后台 coordinator */
 	char sync_delegate_reply[1024];		/* 同步 delegate 的可消费总结 */
+
+	/* Transcript 指标 */
+	int model_calls;                        /* LLM 调用次数 */
+	int tool_calls;                         /* 工具调用次数 */
+	int total_tokens;                       /* 消耗 token 总数 */
+	int duration_ms;                        /* 耗时毫秒 */
+	char tools_used[512];                   /* 空格分隔的工具名列表 */
 } turn_exec_stats_t;
 
 /* 从 LLM 响应构建 assistant 消息内容 JSON */

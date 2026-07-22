@@ -45,7 +45,8 @@ static err_t run_prepared_turn_once(struct message *msg,
 				    char **out_reasoning_text,
 				    int *out_iteration,
 				    bool *out_tool_budget_exhausted,
-				    bool *out_cancelled)
+				    bool *out_cancelled,
+				    turn_exec_stats_t *out_stats)
 {
 	char directive_buf[4096];
 	pr_info("TurnPipeline begin: chat=%s channel=%s source=%s intent=%s content=%.160s",
@@ -118,7 +119,7 @@ static err_t run_prepared_turn_once(struct message *msg,
 			      0,
 			      cancel_token, out_final_text, out_reasoning_text,
 			      out_iteration, out_tool_budget_exhausted,
-			      out_cancelled);
+			      out_cancelled, out_stats);
 }
 
 void agent_run_prepared_turn(struct message *msg,
@@ -127,21 +128,25 @@ void agent_run_prepared_turn(struct message *msg,
 			     const char *tools_json,
 			     const char *model_override,
 			     const char *cancel_chat_id,
-			     int iteration_offset)
+			     int iteration_offset,
+			     const agent_turn_decision_t *decision)
 {
 	char *final_text = NULL;
 	char *reasoning_text = NULL;
 	int iteration = 0;
 	bool tool_budget_exhausted = false;
 	bool cancelled = false;
+	turn_exec_stats_t stats;
+	memset(&stats, 0, sizeof(stats));
 
 	err_t err = run_prepared_turn_once(msg, system_prompt, messages, tools_json,
 					   model_override, cancel_chat_id,
 					   &final_text, &reasoning_text, &iteration,
-					   &tool_budget_exhausted, &cancelled);
+					   &tool_budget_exhausted, &cancelled, &stats);
 
 	agent_finalize_turn(msg, &final_text, &reasoning_text, err, iteration,
-			    tool_budget_exhausted, cancelled, iteration_offset);
+			    tool_budget_exhausted, cancelled, iteration_offset,
+			    &stats, decision);
 }
 
 void agent_finalize_turn(struct message *msg,
@@ -151,8 +156,11 @@ void agent_finalize_turn(struct message *msg,
 			 int iteration,
 			 bool tool_budget_exhausted,
 			 bool cancelled,
-			 int iteration_offset)
+			 int iteration_offset,
+			 const turn_exec_stats_t *stats,
+			 const agent_turn_decision_t *decision)
 {
 	agent_turn_finish(msg, io_final_text, io_reasoning_text, turn_err,
-			  iteration + iteration_offset, tool_budget_exhausted, cancelled);
+			  iteration + iteration_offset, tool_budget_exhausted, cancelled,
+			  stats, decision);
 }

@@ -224,11 +224,6 @@ PATH_GETTER(path_feishu_image_dir, feishu_image_dir)
 PATH_GETTER(path_skills_dir, skills_dir)
 PATH_GETTER(path_workspace_dir, workspace_dir)
 
-/**
- * 判断路径是否在 SPIFFS 目录下。
- * @param path 待检查的路径
- * @return 在 SPIFFS 下返回 true
- */
 bool path_is_in_spiffs(const char *path)
 {
     ensure_initialized();
@@ -241,22 +236,12 @@ bool path_is_in_spiffs(const char *path)
     return path[base_len] == '\0' || path[base_len] == '/';
 }
 
-/**
- * 解析 "spiffs_data" 快捷路径为绝对路径。
- * 例如 "spiffs_data/config" → "/home/user/.agent-data/spiffs_data/config"
- * 拒绝包含 ".." 的路径以防目录遍历攻击。
- * @param path          快捷路径（如 "spiffs_data" 或 "spiffs_data/config"）
- * @param resolved      输出：解析后的绝对路径
- * @param resolved_size 输出缓冲区大小
- * @return 成功返回 true
- */
 bool path_resolve_spiffs_shortcut(const char *path, char *resolved, size_t resolved_size)
 {
     ensure_initialized();
     if (!path || !resolved || resolved_size == 0) {
         return false;
     }
-    /* 安全检查：拒绝路径穿越 */
     if (strstr(path, "..") != NULL) {
         return false;
     }

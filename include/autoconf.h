@@ -27,10 +27,8 @@
 #define AGENT_MAX_TOOL_ITER     20
 #define MAX_TOOL_CALLS          4
 #define MODEL_FALLBACK_ENABLED  1
-#define AGENT_EXTENSIONS_ENABLED      1
 #define TODO_ENFORCER_ENABLED   1
 #define RULES_INJECTION_ENABLED 1
-#define PROMETHEUS_INTERVIEW_ENABLED 1
 #ifndef SKILL_SCOPED_TOOLS_ENABLED
 #define SKILL_SCOPED_TOOLS_ENABLED  1
 #endif
@@ -47,13 +45,11 @@
 /* 图片理解 (Vision) */
 #ifdef ENABLE_VISION
 #define VISION_MAX_IMAGE_SIZE   (10 * 1024 * 1024)  /* 最大图片文件大小 10MB */
-#define VISION_MAX_IMAGES       8                    /* 单次请求最大图片数 */
 #endif
 
 /* 图像抓拍（MIPS/IMP）
  * - 仅 MIPS 平台使用
  */
-#define VISION_SNAPSHOT_DIR     "/tmp/agent_vision"
 #define VISION_JPEG_TIMEOUT_MS  10000
 #define VISION_JPEG_WARMUP_MS   500
 #define VISION_JPEG_QP          40
@@ -64,7 +60,6 @@
 #define BUS_QUEUE_LEN           16
 #define OUTBOUND_STACK          (12 * 1024)
 #define OUTBOUND_PRIO           5
-#define OUTBOUND_CORE           0
 
 /* 运行时数据目录
  * - 统一由 fs/paths.c 解析
@@ -72,7 +67,6 @@
  * - 否则尝试根据可执行文件位置推导
  * - 再回退到 ~/.agent-data
  */
-#define DEFAULT_HOME_DIR        "~/.agent-data"
 /* Prompt 调试快照
  * - last_prompt.md: 最近一次最终 prompt
  * - DEBUG_PROMPT_DUMP=0/1 可在运行时关闭/开启
@@ -128,10 +122,8 @@
 #define CRON_MAX_JOBS           16
 
 /* 飞书（Feishu/Lark） */
-#define FEISHU_MAX_MSG_LEN      4096
 #define FEISHU_POLL_STACK       (12 * 1024)
 #define FEISHU_POLL_PRIO        5
-#define FEISHU_POLL_CORE        0
 
 /* WebSocket 网关 */
 #define WS_MAX_CLIENTS          4
@@ -155,11 +147,6 @@
  * - GPIO 号 / 轮询 / 防抖等高收益参数已转入 config.json
  */
 #define VOICE_CHAT_ID           "voice"
-
-/* 串口 CLI */
-#define CLI_STACK               (4 * 1024)
-#define CLI_PRIO                3
-#define CLI_CORE                0
 
 /* Vector / MCP 集成
  * - robot-mcp 子进程路径和轮询参数
@@ -188,7 +175,6 @@
 #define TIMEOUT_SHORT       10000
 #define TIMEOUT_MEDIUM      15000
 #define TIMEOUT_DEFAULT     30000
-#define TIMEOUT_LONG        60000
 
 #define WS_PING_INTERVAL_SEC  20
 #define WS_PONG_TIMEOUT_SEC   60

@@ -25,6 +25,7 @@
 struct message {
     char channel[16];       /* "websocket", "voice", "feishu", "system" */
     char chat_id[64];       /* 会话 id（WS 客户端/Feishu open_id/chat_id） */
+    char agent_id[64];      /* 目标 Agent（"boss"/"hr"/"agent-xxx"，空=Boss） */
     char source[16];        /* "user", "cron", "heartbeat", "internal" */
     char *content;          /* 堆分配的消息文本（调用方需释放） */
     char *reasoning;        /* 可选：助手思考过程（调用方需释放） */

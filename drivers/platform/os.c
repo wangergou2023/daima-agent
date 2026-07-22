@@ -100,68 +100,6 @@ bool queue_receive(queue_t *queue, void *out_item, uint32_t timeout_ms)
     return true;
 }
 
-/* ── Event groups ────────────────────────────────────────────── */
-
-struct os_event_group {
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
-    uint32_t bits;
-};
-
-os_event_group_t *os_event_group_create(void)
-{
-    struct os_event_group *g = kzalloc(sizeof(*g), GFP_KERNEL);
-    if (!g) return NULL;
-    pthread_mutex_init(&g->mutex, NULL);
-    pthread_cond_init(&g->cond, NULL);
-    g->bits = 0;
-    return g;
-}
-
-uint32_t os_event_group_wait_bits(os_event_group_t *group,
-                                    uint32_t bits_to_wait_for,
-                                    bool clear_on_exit,
-                                    bool wait_for_all,
-                                    uint32_t timeout_ms)
-{
-    struct os_event_group *g = (struct os_event_group *)group;
-    if (!g) return 0;
-
-    pthread_mutex_lock(&g->mutex);
-
-    while (1) {
-        uint32_t current = g->bits;
-        bool ready = wait_for_all ? ((current & bits_to_wait_for) == bits_to_wait_for)
-                                  : ((current & bits_to_wait_for) != 0);
-        if (ready) {
-            if (clear_on_exit) {
-                g->bits &= ~bits_to_wait_for;
-            }
-            pthread_mutex_unlock(&g->mutex);
-            return current;
-        }
-
-        if (timeout_ms == 0 ||
-            wait_with_timeout(&g->cond, &g->mutex, timeout_ms) != 0) {
-            pthread_mutex_unlock(&g->mutex);
-            return g->bits;
-        }
-    }
-}
-
-uint32_t os_event_group_set_bits(os_event_group_t *group, uint32_t bits)
-{
-    struct os_event_group *g = (struct os_event_group *)group;
-    if (!g) return 0;
-
-    pthread_mutex_lock(&g->mutex);
-    g->bits |= bits;
-    pthread_cond_broadcast(&g->cond);
-    uint32_t out = g->bits;
-    pthread_mutex_unlock(&g->mutex);
-    return out;
-}
-
 /* ── Tasks ───────────────────────────────────────────────────── */
 
 struct os_task {

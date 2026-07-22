@@ -7,6 +7,7 @@
 
 #include "paths.h"
 #include "runtime.h"
+#include "registry/registry.h"
 #include "cjson.h"
 #include "autoconf.h"
 #include "linux/printk.h"
@@ -484,4 +485,97 @@ void category_router_reset_for_test(void)
     memset(&s_cfg, 0, sizeof(s_cfg));
     s_loaded = false;
     s_loaded_home[0] = '\0';
+}
+
+/* ──── Boss 路由 ──── */
+
+err_t boss_get_fallback_profile(agent_definition_t *out_profile)
+{
+    if (!out_profile)
+        return ERR_INVALID_ARG;
+    memset(out_profile, 0, sizeof(*out_profile));
+
+    strscpy(out_profile->agent_id, "boss", sizeof(out_profile->agent_id));
+    strscpy(out_profile->name, "Boss Agent", sizeof(out_profile->name));
+    strscpy(out_profile->description, "Task router and fallback executor",
+            sizeof(out_profile->description));
+    strscpy(out_profile->origin, "manual", sizeof(out_profile->origin));
+    strscpy(out_profile->lifecycle_status, "active", sizeof(out_profile->lifecycle_status));
+
+    strscpy(out_profile->model_provider,
+            runtime_config_get_active_provider_name(),
+            sizeof(out_profile->model_provider));
+    strscpy(out_profile->model_name,
+            runtime_config_get_provider_model(),
+            sizeof(out_profile->model_name));
+    out_profile->context_limit = runtime_config_get_context_limit_tokens();
+    out_profile->max_tokens = runtime_config_get_max_output_tokens();
+    out_profile->temperature = 0.3f;
+
+    strscpy(out_profile->system_prompt,
+            "You are the Boss Agent. Receive user tasks, analyze them, "
+            "and either delegate to a specialist or execute directly. "
+            "Work in focused steps using read/write/edit/bash tools.",
+            sizeof(out_profile->system_prompt));
+
+    return 0;
+}
+
+err_t boss_route_task(const task_analysis_t *analysis,
+                      boss_routing_decision_t *out_decision)
+{
+    if (!analysis || !out_decision)
+        return ERR_INVALID_ARG;
+    memset(out_decision, 0, sizeof(*out_decision));
+
+    if (!analysis->capability_tags[0]) {
+        out_decision->action = BOSS_ROUTE_FALLBACK;
+        strscpy(out_decision->reason, "No capability tags detected",
+                sizeof(out_decision->reason));
+        return 0;
+    }
+
+    agent_match_result_t matches[AGENT_MATCH_MAX];
+    int match_count = 0;
+    float threshold = 0.4f;
+    err_t err = agent_registry_find_matches(analysis->capability_tags,
+                                            threshold,
+                                            matches, AGENT_MATCH_MAX,
+                                            &match_count);
+    if (err != 0) {
+        out_decision->action = BOSS_ROUTE_FALLBACK;
+        strscpy(out_decision->reason, "Registry query failed",
+                sizeof(out_decision->reason));
+        return 0;
+    }
+
+    if (match_count == 0 || matches[0].fallback_recommended) {
+        out_decision->action = BOSS_ROUTE_FALLBACK;
+        if (match_count > 0) {
+            snprintf(out_decision->reason, sizeof(out_decision->reason),
+                     "Best match %s score %.2f below threshold",
+                     matches[0].agent_name, (double)matches[0].score);
+        } else {
+            strscpy(out_decision->reason, "No matching specialist",
+                    sizeof(out_decision->reason));
+        }
+        return 0;
+    }
+
+    out_decision->action = BOSS_ROUTE_DELEGATE;
+    out_decision->match_score = matches[0].score;
+    strscpy(out_decision->target_agent_id, matches[0].agent_id,
+            sizeof(out_decision->target_agent_id));
+    strscpy(out_decision->target_agent_name, matches[0].agent_name,
+            sizeof(out_decision->target_agent_name));
+    agent_registry_get(matches[0].agent_id, &out_decision->target_agent_def);
+
+    snprintf(out_decision->reason, sizeof(out_decision->reason),
+             "Matched %s (%.2f, %d/%d skills)",
+             matches[0].agent_name,
+             (double)matches[0].score,
+             matches[0].matched_skill_count,
+             matches[0].total_requested_skills);
+
+    return 0;
 }

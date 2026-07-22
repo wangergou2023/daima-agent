@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "turn_common.h"
 #include "context_compress.h"
@@ -13,7 +14,9 @@
 #include "runtime.h"
 #include "bus.h"
 #include "drivers/memory/session_store.h"
+#include "transcript.h"
 #include "linux/printk.h"
+#include "linux/kernel.h"
 #include "cjson.h"
 #include "linux/slab.h"
 #include "turn_dispatch.h"
@@ -99,6 +102,106 @@ void agent_turn_save_session(const struct message *msg, const char *final_text, 
     if (iteration >= 1 && runtime_config_get_learning_review_enabled()) {
         learning_review_schedule(msg->chat_id);
     }
+}
+
+/** 构建并写入结构化 TranscriptRecord。 */
+static void agent_turn_write_transcript(const struct message *msg,
+                                        const char *final_text,
+                                        int iteration,
+                                        int duration_ms,
+                                        int model_calls,
+                                        int tool_calls,
+                                        int total_tokens,
+                                        const char *routing_decision,
+                                        const char *match_agent_id,
+                                        float match_score,
+                                        const char *executed_by)
+{
+    if (!msg || !msg->chat_id[0])
+        return;
+
+    transcript_record_t rec;
+    memset(&rec, 0, sizeof(rec));
+
+    /* record_id: txn-YYYYMMDD-chat_slug-seq */
+    time_t now = time(NULL);
+    struct tm tm_now;
+    localtime_r(&now, &tm_now);
+    snprintf(rec.record_id, sizeof(rec.record_id),
+             "txn-%04d%02d%02d-%s-%d",
+             tm_now.tm_year + 1900, tm_now.tm_mon + 1, tm_now.tm_mday,
+             msg->chat_id, iteration);
+
+    snprintf(rec.task_id, sizeof(rec.task_id), "%s-%d", msg->chat_id, iteration);
+    strscpy(rec.chat_id, msg->chat_id, sizeof(rec.chat_id));
+
+    if (msg->content)
+        strscpy(rec.user_input, msg->content, sizeof(rec.user_input));
+
+    /* 提取技能标签（从用户输入 + 助手输出中匹配关键词） */
+    transcript_extract_skill_tags(msg->content ? msg->content : "",
+                                  final_text,
+                                  rec.skill_tags, sizeof(rec.skill_tags));
+
+    /* execution_summary 截取 final_text 前列 */
+    if (final_text) {
+        strscpy(rec.execution_summary, final_text, sizeof(rec.execution_summary));
+        strscpy(rec.output, final_text, sizeof(rec.output));
+    }
+
+    /* 结果状态 */
+    strscpy(rec.result_status, final_text ? "success" : "failure",
+            sizeof(rec.result_status));
+
+    /* 谁执行的 */
+    strscpy(rec.executed_by, executed_by ? executed_by : "boss",
+            sizeof(rec.executed_by));
+    if (match_agent_id && match_agent_id[0])
+        strscpy(rec.agent_id, match_agent_id, sizeof(rec.agent_id));
+
+    /* 指标 */
+    rec.total_tokens = total_tokens;
+    rec.model_calls = model_calls;
+    rec.tool_calls = tool_calls;
+    rec.duration_ms = duration_ms;
+
+    /* 路由决策 */
+    strscpy(rec.routing_decision, routing_decision ? routing_decision : "fallback",
+            sizeof(rec.routing_decision));
+    if (match_agent_id)
+        strscpy(rec.match_agent_id, match_agent_id, sizeof(rec.match_agent_id));
+    rec.match_score = match_score;
+
+    rec.timestamp = now;
+
+    transcript_append(&rec);
+}
+
+/** 保存会话 + 结构化Transcript。
+ *  在原有 agent_turn_save_session() 基础上追加 Transcript 写入。 */
+void agent_turn_save_session_with_transcript(
+    const struct message *msg,
+    const char *final_text,
+    const char *reasoning,
+    int iteration,
+    int duration_ms,
+    int model_calls,
+    int tool_calls,
+    int total_tokens,
+    const char *routing_decision,
+    const char *match_agent_id,
+    float match_score,
+    const char *executed_by)
+{
+    /* 先写原有会话历史 */
+    agent_turn_save_session(msg, final_text, reasoning, iteration);
+
+    /* 再写结构化 Transcript */
+    agent_turn_write_transcript(msg, final_text, iteration,
+                                duration_ms, model_calls, tool_calls,
+                                total_tokens,
+                                routing_decision, match_agent_id,
+                                match_score, executed_by);
 }
 
 /** 生成错误回复文本（工具预算耗尽时的中文提示或通用英文报错）。 */

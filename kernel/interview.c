@@ -201,11 +201,6 @@ static bool prometheus_message_is_specific(const char *user_message)
     return false;
 }
 
-bool prometheus_message_is_specific_for_test(const char *user_message)
-{
-    return prometheus_message_is_specific(user_message);
-}
-
 /** 不适合 LLM 时使用的硬编码 fallback 澄清问题。 */
 static void prometheus_fallback_questions(const char *user_message, char *out, size_t out_size)
 {
@@ -318,10 +313,7 @@ err_t prometheus_check_needs_interview(const char *user_message,
     memset(out, 0, sizeof(*out));
     out->enabled = true;
 
-#if !PROMETHEUS_INTERVIEW_ENABLED
-    return 0;
-#else
-    if (prometheus_must_force_interview(user_message)) {
+if (prometheus_must_force_interview(user_message)) {
         prometheus_fallback_questions(user_message, out->questions, sizeof(out->questions));
         out->needs_interview = true;
         pr_info("PrometheusInterview: forced needs_interview=1 message=%.160s questions=%.200s",
@@ -354,5 +346,4 @@ err_t prometheus_check_needs_interview(const char *user_message,
             user_message ? user_message : "",
             out->questions);
     return 0;
-#endif
 }

@@ -16,20 +16,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "linux/slab.h"
+#include "text.h"
 #include "linux/kernel.h"
-static bool add_provider(model_fallback_cfg_t *cfg, const char *provider_name);
-static bool find_provider_by_model_name(const char *model_name, char *provider_name, size_t provider_name_size);
-
-/**
- * 安全字符串拷贝。确保目标缓冲区始终以 '\0' 结尾。
- */
-static void safe_copy(char *dst, size_t dst_size, const char *src)
-{
-	if (!dst || dst_size == 0) {
-		return;
-	}
-	strscpy(dst, src ? src : "", dst_size);
-}
 
 /**
  * 读取文件内容到堆内存。

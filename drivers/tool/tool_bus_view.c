@@ -8,6 +8,7 @@
 #include "linux/printk.h"
 #include "linux/slab.h"
 #include "cjson.h"
+#include "kernel/registry/registry.h"
 
 #include <string.h>
 
@@ -208,4 +209,47 @@ const char *tool_bus_tools_json_delegate_only(void)
 {
     rebuild_tools_json();
     return s_delegate_only_json ? s_delegate_only_json : "[]";
+}
+
+/* 按 toolset（空格分隔的工具名列表）过滤 tools_json。
+ * 返回新 JSON 字符串，调用者负责 kfree。 */
+char *tool_bus_filter_tools_json(const char *tools_json, const char *toolset)
+{
+    if (!tools_json || !toolset || !toolset[0])
+        return NULL;
+
+    cJSON *src = cJSON_Parse(tools_json);
+    if (!src || !cJSON_IsArray(src)) {
+        if (src) cJSON_Delete(src);
+        return NULL;
+    }
+
+    cJSON *filtered = cJSON_CreateArray();
+    if (!filtered) { cJSON_Delete(src); return NULL; }
+
+    int count = cJSON_GetArraySize(src);
+    for (int i = 0; i < count; i++) {
+        cJSON *item = cJSON_GetArrayItem(src, i);
+        const char *name = cJSON_GetStringValue(
+            cJSON_GetObjectItem(item, "name"));
+        if (!name) continue;
+
+        /* 检查 name 是否在 toolset 中 */
+        char buf[AGENT_TOOLSET_LEN];
+        strscpy(buf, toolset, sizeof(buf));
+        char *save = NULL;
+        char *tok = strtok_r(buf, " ", &save);
+        bool allowed = false;
+        while (tok) {
+            if (strcmp(tok, name) == 0) { allowed = true; break; }
+            tok = strtok_r(NULL, " ", &save);
+        }
+        if (allowed)
+            cJSON_AddItemToArray(filtered, cJSON_Duplicate(item, 1));
+    }
+
+    cJSON_Delete(src);
+    char *result = cJSON_PrintUnformatted(filtered);
+    cJSON_Delete(filtered);
+    return result;
 }

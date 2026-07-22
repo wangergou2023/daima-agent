@@ -10,12 +10,22 @@ BIN_DIR="$AGENT_HOME/bin"
 CONFIG_DIR="$AGENT_HOME/spiffs_data/config"
 WEB_DIR="$AGENT_HOME/spiffs_data/web"
 SKILLS_DIR="$AGENT_HOME/spiffs_data/skills"
+AGENTS_DIR="$AGENT_HOME/spiffs_data/agents"
 CA_DIR="$AGENT_HOME/spiffs_data/ca"
 RUN_DIR="$AGENT_HOME/run"
 TARGET_BIN="$BIN_DIR/agent"
 PID_FILE="$RUN_DIR/agent.pid"
 LOG_FILE="${TMPDIR:-/tmp}/daima-agent-runtime.log"
 BASHRC="$HOME/.bashrc"
+
+FOREGROUND=1
+for arg in "$@"; do
+    case "$arg" in
+        --background)
+            FOREGROUND=0
+            ;;
+    esac
+done
 
 ensure_parent_dir() {
     local target="$1"
@@ -180,7 +190,7 @@ make clean
 make
 
 echo "=== Installing to $AGENT_HOME ==="
-mkdir -p "$BIN_DIR" "$CONFIG_DIR" "$WEB_DIR" "$SKILLS_DIR" "$CA_DIR" "$RUN_DIR"
+mkdir -p "$BIN_DIR" "$CONFIG_DIR" "$WEB_DIR" "$SKILLS_DIR" "$AGENTS_DIR" "$CA_DIR" "$RUN_DIR"
 mkdir -p "$AGENT_HOME/spiffs_data/memory" "$AGENT_HOME/spiffs_data/sessions" "$AGENT_HOME/spiffs_data/cache"
 
 rm -f "$TARGET_BIN"
@@ -189,6 +199,7 @@ install_data_file "./spiffs_data/ca/cacert.pem" "$CA_DIR/cacert.pem"
 
 sync_directory_clean "./spiffs_data/web" "$WEB_DIR"
 sync_directory_clean "./spiffs_data/skills" "$SKILLS_DIR"
+sync_directory_clean "./spiffs_data/agents" "$AGENTS_DIR"
 rm -rf "$SKILLS_DIR/robot-control" \
        "$SKILLS_DIR/feishu-card-writer" \
        "$SKILLS_DIR/pet-director"
@@ -211,7 +222,6 @@ copy_if_missing "./spiffs_data/config/BOOTSTRAP.md" "$CONFIG_DIR/BOOTSTRAP.md"
 copy_if_missing "./spiffs_data/config/IDENTITY.md" "$CONFIG_DIR/IDENTITY.md"
 copy_if_missing "./spiffs_data/config/SOUL.md" "$CONFIG_DIR/SOUL.md"
 copy_if_missing "./spiffs_data/config/USER.md" "$CONFIG_DIR/USER.md"
-copy_if_missing "./spiffs_data/config/AGENTS.md" "$CONFIG_DIR/AGENTS.md"
 
 ensure_path_snippet "$BASHRC"
 
@@ -219,25 +229,29 @@ WEB_PORT="$(resolve_web_port "$CONFIG_DIR/config.json")"
 
 echo "=== Restarting installed agent on port $WEB_PORT ==="
 stop_existing_agent
-launch_installed_agent
-NEW_PID="$!"
-echo "$NEW_PID" > "$PID_FILE"
-
-if ! wait_for_agent_ready "$WEB_PORT"; then
-    echo "Agent install succeeded, but runtime health check failed: http://127.0.0.1:${WEB_PORT}/health" >&2
-    if [ -f "$LOG_FILE" ]; then
-        tail -n 120 "$LOG_FILE" >&2 || true
-    fi
-    exit 1
-fi
 
 make clean
+
 echo ""
 echo "Agent installed successfully."
 echo "Home: $AGENT_HOME"
 echo "Binary: $TARGET_BIN"
-echo "PID: $NEW_PID"
 echo "Web UI: http://127.0.0.1:${WEB_PORT}"
+echo ""
+
+if [ "$FOREGROUND" -eq 1 ]; then
+    echo "=== Starting agent in foreground ==="
+    exec "$TARGET_BIN"
+fi
+
+launch_installed_agent
+NEW_PID="$!"
+echo "$NEW_PID" > "$PID_FILE"
+echo "PID: $NEW_PID  Log: $LOG_FILE"
+echo ""
+echo "管理命令:"
+echo "  停止: kill $NEW_PID"
+echo "  前台调试: ~/.agent-data/bin/agent"
 echo ""
 echo "If this is your first install, edit:"
 echo "  $CONFIG_DIR/config.json"

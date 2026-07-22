@@ -306,7 +306,8 @@ err_t tool_delegate_run_sync_single_subagent(delegate_subagent_kind_t kind,
         &reasoning_text,
         &iteration,
         &tool_budget_exhausted,
-        &cancelled);
+        &cancelled,
+        NULL);
 
     kfree(msg.content);
 

@@ -31,21 +31,6 @@ const petButton = document.getElementById('petButton');
 const petRunner = document.getElementById('petRunner');
 const petSprite = document.getElementById('petSprite');
 const petBubble = document.getElementById('petBubble');
-const agentStateRow = document.getElementById('agentStateRow');
-const agentIntentTag = document.getElementById('agentIntentTag');
-const agentRoleTag = document.getElementById('agentRoleTag');
-const coordinatorPanel = document.getElementById('coordinatorPanel');
-const coordinatorAgents = document.getElementById('coordinatorAgents');
-const coordinatorClose = document.getElementById('coordinatorClose');
-const coordinatorToggleBtn = document.getElementById('coordinatorToggleBtn');
-const subagentDetailPanel = document.getElementById('subagentDetailPanel');
-const subagentDetailTitle = document.getElementById('subagentDetailTitle');
-const subagentDetailMeta = document.getElementById('subagentDetailMeta');
-const subagentSessionRail = document.getElementById('subagentSessionRail');
-const subagentDetailTabs = document.getElementById('subagentDetailTabs');
-const subagentDetailBlockers = document.getElementById('subagentDetailBlockers');
-const subagentDetailFrames = document.getElementById('subagentDetailFrames');
-const subagentDetailOutput = document.getElementById('subagentDetailOutput');
 const reconnectToast = document.getElementById('reconnectToast');
 const reconnectToastText = document.getElementById('reconnectToastText');
 const reconnectToastAction = document.getElementById('reconnectToastAction');
@@ -65,125 +50,6 @@ const DEFAULT_UI_CONFIG = Object.freeze({
     security_level: 'build',
   },
 });
-
-const INTENT_CONFIG = Object.freeze({
-  implement: { icon: '🔧', label: 'IMPLEMENT', cssClass: 'intent-implement' },
-  qa: { icon: '💬', label: 'QA', cssClass: 'intent-qa' },
-  investigate: { icon: '🔍', label: 'INVESTIGATE', cssClass: 'intent-investigate' },
-  fix: { icon: '🐛', label: 'FIX', cssClass: 'intent-fix' },
-});
-
-const ROLE_LABELS = Object.freeze({
-  fast: 'FAST',
-  explore: 'EXPLORE',
-  librarian: 'LIBRARIAN',
-  oracle: 'ORACLE',
-  implement: 'IMPLEMENT',
-});
-
-const ROLE_EMOJI = Object.freeze({
-  fast: '⚡',
-  explore: '🗺️',
-  librarian: '📚',
-  oracle: '🧭',
-  implement: '🛠️',
-});
-
-const {
-  createEmptySubagentUiState,
-  currentSelectedSubagentKey: currentSelectedSubagentKeyFromState,
-  effectiveSelectedSubagentKey: effectiveSelectedSubagentKeyFromState,
-  orderedCoordinatorStates: orderedCoordinatorStatesFromState,
-  orderedSubagentDetails: orderedSubagentDetailsFromState,
-  subagentEventKey,
-  detailKeyForAgent,
-  subagentEventsForAgent: subagentEventsForAgentFromState,
-  interactiveBlockerKey,
-  currentInteractiveBlocker: currentInteractiveBlockerFromState,
-  selectedSubagentDetailView: selectedSubagentDetailViewFromState,
-  normalizeCoordinatorPayload,
-  reduceSubagentUiEvent: reduceSubagentUiEventCore,
-  hydrateStateFromSnapshot,
-  subagentSummary: subagentSummaryFromState,
-  coordinatorSummaryText: coordinatorSummaryTextFromState,
-  coordinatorPanelViewModel: coordinatorPanelViewModelFromState,
-  detailPanelViewModel: detailPanelViewModelFromState,
-  resolveAgentRole: resolveAgentRoleFromState,
-  formatElapsed: formatElapsedFromState,
-  subagentFocusLabel: subagentFocusLabelFromState,
-  coordinatorAgentHint: coordinatorAgentHintFromState,
-  visibleSubagentTabs: visibleSubagentTabsFromState,
-} = window.AgentSubagentState || {};
-const {
-  renderSubagentDetailPanel: renderSubagentDetailPanelView,
-} = window.AgentSubagentDetailView || {};
-const {
-  createSubagentEventAdapter,
-  interactiveUiConfig: interactiveUiConfigFromAdapter,
-  parseIncomingPayload: parseSubagentIncomingPayload,
-  isSubagentPayload,
-  normalizeSnapshot: normalizeSubagentSnapshot,
-  makeSubagentEventAction,
-  makeCoordinatorAction,
-  makeInteractiveBlockerClearAction,
-  makeHydrateInput,
-  makeInteractivePromptState,
-  resolveRestoredInteractivePrompt,
-  makeInteractiveReplyPayload,
-  makeInteractiveUnblockedEvent,
-  makeInteractiveControllerState,
-  makeInteractiveDismissActions,
-} = window.AgentSubagentEventAdapter || {};
-const {
-  createInteractiveController,
-} = window.AgentSubagentInteractiveController || {};
-const {
-  renderCoordinatorAgent: renderCoordinatorAgentView,
-  renderCoordinatorPanel: renderCoordinatorPanelView,
-  hideCoordinatorPanel: hideCoordinatorPanelView,
-} = window.AgentSubagentCoordinatorView || {};
-const {
-  createAgentStatePresenter,
-} = window.AgentStatePresenter || {};
-const {
-  createConnectionStatePresenter,
-} = window.AgentConnectionStatePresenter || {};
-const {
-  createReconnectController,
-} = window.AgentReconnectController || {};
-const {
-  createCoordinatorPanelController,
-} = window.AgentSubagentCoordinatorController || {};
-const {
-  createSubagentRuntime,
-} = window.AgentSubagentRuntime || {};
-const {
-  createSessionRestore,
-} = window.AgentSessionRestore || {};
-const {
-  createSessionStateRuntime,
-} = window.AgentSessionStateRuntime || {};
-const {
-  createSubagentAppBridge,
-} = window.AgentSubagentAppBridge || {};
-const {
-  createSubagentPanelController,
-} = window.AgentSubagentPanelController || {};
-const {
-  createSubagentUiOrchestrator,
-} = window.AgentSubagentUiOrchestrator || {};
-const {
-  createSubagentTransport,
-} = window.AgentSubagentTransport || {};
-const {
-  createSubagentChatTransport,
-} = window.AgentSubagentChatTransport || {};
-const {
-  createSubagentBootstrap,
-} = window.AgentSubagentBootstrap || {};
-const {
-  createSubagentShell,
-} = window.AgentSubagentShell || {};
 
 const RECONNECT_SESSION_KEY = 'agent_last_session';
 let storageWarningLogged = false;
@@ -241,21 +107,18 @@ let sessions = [];
 let selectedSessionId = '';
 let localSessions = [];
 let lastMessageSeq = 0;
-let currentAgentRole = '';
-let currentAgentModel = '';
-let coordinatorPanelController = null;
-let interactiveController = null;
-let subagentRuntime = null;
 let sessionRestore = null;
 let sessionStateRuntime = null;
-let subagentUiOrchestrator = null;
-let subagentTransport = null;
-let subagentChatTransport = null;
-let subagentBootstrap = null;
-let subagentShell = null;
-let agentStatePresenter = null;
 let connectionStatePresenter = null;
 let reconnectController = null;
+let interactiveController = null;
+var createSessionRestore = (window.AgentSessionRestore && window.AgentSessionRestore.createSessionRestore) || null;
+var createSessionStateRuntime = (window.AgentSessionStateRuntime && window.AgentSessionStateRuntime.createSessionStateRuntime) || null;
+var createConnectionStatePresenter = (window.AgentConnectionStatePresenter && window.AgentConnectionStatePresenter.createConnectionStatePresenter) || null;
+var createReconnectController = (window.AgentReconnectController && window.AgentReconnectController.createReconnectController) || null;
+var createInteractiveController = null;
+var interactiveUiConfigFromAdapter = null;
+var makeInteractiveReplyPayload = null;
 
 function setLastMessageSeq(nextSeq) {
   lastMessageSeq = Number(nextSeq) || 0;
@@ -347,14 +210,6 @@ function ensureSessionStateRuntime() {
     createSessionRestore,
     fetchImpl: fetch.bind(window),
     interactiveUiConfig,
-    ensureSubagentTransport,
-    applySubagentSnapshot(snapshot, options) {
-      return ensureSubagentShell()?.ensurePanelController?.()?.replaceSnapshot?.(snapshot, {
-        chatId: chatId,
-        interactiveUiConfig,
-        ...(options && typeof options === 'object' ? options : {}),
-      });
-    },
     renderHistoryMessages,
     renderSessions,
     saveReconnectSession,
@@ -379,278 +234,6 @@ function ensureSessionStateRuntime() {
     },
   });
   return sessionStateRuntime;
-}
-
-function ensureSubagentBootstrap() {
-  if (subagentBootstrap || !createSubagentBootstrap) {
-    return subagentBootstrap;
-  }
-  subagentBootstrap = createSubagentBootstrap({
-    createSubagentRuntime,
-    createSubagentUiOrchestrator,
-    createSubagentTransport,
-    createSubagentChatTransport,
-    createEmptySubagentUiState,
-    reduceSubagentUiEvent: reduceSubagentUiEventCore,
-    reduceSubagentUiEventInPlace(action) {
-      ensureSubagentShell()?.reduceSubagentUiEvent?.(action);
-    },
-    hydrateStateFromSnapshot,
-    makeHydrateInput,
-    currentInteractiveBlocker() {
-      return ensureSubagentShell()?.currentInteractiveBlocker?.(chatId) || null;
-    },
-    makeInteractiveControllerState,
-    ensureInteractiveController,
-    renderSubagentDetailPanel() {
-      ensureSubagentShell()?.renderSubagentDetailPanel?.();
-    },
-    renderCoordinatorPanelFromState() {
-      ensureSubagentShell()?.renderCoordinatorPanelFromState?.();
-    },
-    makeCoordinatorAction,
-    makeSubagentSessionAction: ensureSubagentShell()?.ensureEventAdapter?.()?.makeSubagentSessionAction,
-    normalizeCoordinatorPayload,
-    makeInteractiveDismissActions,
-    ensureCoordinatorPanelController,
-    getChatId() {
-      return chatId;
-    },
-    getLastMessageSeq() {
-      return lastMessageSeq;
-    },
-    setLastMessageSeq,
-    getMessageCount() {
-      return messages.childElementCount;
-    },
-    isStopRequested,
-    setStatus(nextOnlineState) {
-      ensureConnectionStatePresenter()?.setStatus?.(nextOnlineState);
-    },
-    clearAgentState() {
-      ensureAgentStatePresenter()?.clearAgentState?.();
-    },
-    onSocketOpenForPet,
-    saveReconnectSession,
-    loadSubagentStateSnapshot(targetChatId = chatId) {
-      return ensureSessionStateRuntime()?.loadSubagentStateSnapshot?.(targetChatId) || {
-        chatId: String(targetChatId || '').trim(),
-        status: 'error',
-      };
-    },
-    refreshContextStats,
-    showReconnectToast(chatIdToRestore, messageCount) {
-      ensureConnectionStatePresenter()?.showReconnectToast?.(chatIdToRestore, messageCount);
-    },
-    hideReconnectToast() {
-      ensureConnectionStatePresenter()?.hideReconnectToast?.();
-    },
-    syncSendState,
-    setAssistantIdle() {
-      pendingAssistantResponse = false;
-      stopRequested = false;
-    },
-    appendHistoryMessage,
-    applyUploadedImage,
-    clearPendingImage,
-    clearPendingReasoningCard,
-    addToolMessage(content) {
-      addMessage('tool', content);
-    },
-    onToolActivity,
-    onPetResponse,
-    resetCurrentToolGroup() {
-      currentToolGroup = null;
-    },
-    setPendingReasoningCardFromContent,
-    consumeAssistantText,
-    commitPendingReasoningCard,
-    appendAssistantMessage(text) {
-      if (!text) return;
-      appendNode(makeMessageNode('assistant', text));
-    },
-    scheduleCurrentSessionHistoryReconcile(targetChatId = chatId, options = {}) {
-      ensureSessionStateRuntime()?.scheduleCurrentSessionHistoryReconcile?.(targetChatId, options);
-    },
-    handleAgentStateMessage(data) {
-      ensureAgentStatePresenter()?.handleAgentStateMessage?.(data);
-    },
-    sendPing() {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'ping', ts: Date.now(), chat_id: chatId }));
-      }
-    },
-    ensureSocketConnection,
-    handlePlaintextMessage(text) {
-      pendingAssistantResponse = false;
-      stopRequested = false;
-      pendingReasoningCard = null;
-      const assistantText = consumeAssistantText(text);
-      addMessage('assistant', assistantText);
-      syncSendState();
-      saveReconnectSession();
-    },
-    parseIncomingPayload: parseSubagentIncomingPayload,
-    ensureSubagentEventAdapter() {
-      return ensureSubagentShell()?.ensureEventAdapter?.() || null;
-    },
-    isSubagentPayload,
-    fetchImpl: fetch.bind(window),
-  });
-  return subagentBootstrap;
-}
-
-function ensureSubagentRuntime() {
-  if (subagentRuntime) {
-    return subagentRuntime;
-  }
-  subagentRuntime = ensureSubagentBootstrap()?.ensureRuntime?.() || null;
-  return subagentRuntime;
-}
-
-function ensureSubagentUiOrchestrator() {
-  if (subagentUiOrchestrator) {
-    return subagentUiOrchestrator;
-  }
-  subagentUiOrchestrator = ensureSubagentBootstrap()?.ensureUiOrchestrator?.() || null;
-  return subagentUiOrchestrator;
-}
-
-function ensureSubagentChatTransport() {
-  if (subagentChatTransport) {
-    return subagentChatTransport;
-  }
-  subagentChatTransport = ensureSubagentBootstrap()?.ensureChatTransport?.() || null;
-  return subagentChatTransport;
-}
-
-function ensureSubagentTransport() {
-  if (subagentTransport) {
-    return subagentTransport;
-  }
-  subagentTransport = ensureSubagentBootstrap()?.ensureTransport?.() || null;
-  return subagentTransport;
-}
-
-function ensureSubagentShell() {
-  if (subagentShell || !createSubagentShell) {
-    return subagentShell;
-  }
-  subagentShell = createSubagentShell({
-    createSubagentAppBridge,
-    createSubagentPanelController,
-    createSubagentEventAdapter,
-    ensureSubagentRuntime,
-    ensureSubagentUiOrchestrator,
-    ensureSessionStateRuntime,
-    ensureCoordinatorPanelController,
-    ensureInteractiveController,
-    getChatId() {
-      return chatId;
-    },
-    currentSelectedSubagentKeySelector: currentSelectedSubagentKeyFromState,
-    currentInteractiveBlockerSelector: currentInteractiveBlockerFromState,
-    effectiveSelectedSubagentKeySelector: effectiveSelectedSubagentKeyFromState,
-    orderedCoordinatorStatesSelector: orderedCoordinatorStatesFromState,
-    orderedSubagentDetailsSelector: orderedSubagentDetailsFromState,
-    selectedSubagentDetailViewSelector: selectedSubagentDetailViewFromState,
-    subagentSummarySelector: subagentSummaryFromState,
-    visibleSubagentTabsSelector: visibleSubagentTabsFromState,
-    subagentEventsForAgentSelector: subagentEventsForAgentFromState,
-    normalizeSnapshot: normalizeSubagentSnapshot,
-    normalizeCoordinatorPayload,
-    makeSubagentEventAction,
-    makeCoordinatorAction,
-    subagentEventKey,
-    interactiveBlockerKey,
-    formatSubagentEvent,
-    trimText,
-    panelEl: subagentDetailPanel,
-    titleEl: subagentDetailTitle,
-    metaEl: subagentDetailMeta,
-    blockersEl: subagentDetailBlockers,
-    framesEl: subagentDetailFrames,
-    outputEl: subagentDetailOutput,
-    detailPanelEl: subagentDetailPanel,
-    sessionRailEl: subagentSessionRail,
-    detailTabsEl: subagentDetailTabs,
-    coordinatorPanelEl: coordinatorPanel,
-    coordinatorAgentsEl: coordinatorAgents,
-    coordinatorPanelState() {
-      return ensureCoordinatorPanelController()?.state?.() || { visible: false, dismissed: false };
-    },
-    renderSubagentDetailPanelView,
-    renderCoordinatorPanelView,
-    hideCoordinatorPanelView,
-    renderCoordinatorAgent(agent, maxElapsed) {
-      if (!renderCoordinatorAgentView) return document.createElement('div');
-      return renderCoordinatorAgentView(agent, maxElapsed, {
-        formatElapsed: formatElapsedFromState || (() => ''),
-        resolveAgentRole: resolveAgentRoleFromState || (() => ''),
-        roleEmoji: ROLE_EMOJI,
-        currentSelectedDetailKey: ensureSubagentShell()?.effectiveSelectedSubagentKey?.() || '',
-        detailKeyForAgent,
-        coordinatorAgentHint: coordinatorAgentHintFromState || (() => ''),
-        clipText,
-        subagentFocusLabel: subagentFocusLabelFromState || ((value) => String(value || '')),
-        subagentEventsForAgent(agentState) {
-          return ensureSubagentShell()?.subagentEventsForAgent?.(agentState) || [];
-        },
-        onSelectDetail(detailKey) {
-          ensureSubagentShell()?.selectSubagentTab?.(detailKey);
-          ensureSubagentShell()?.renderCoordinatorPanelFromState?.();
-        },
-      });
-    },
-    coordinatorSummaryText: coordinatorSummaryTextFromState || (() => ''),
-    detailPanelViewModelSelector: detailPanelViewModelFromState,
-    coordinatorPanelViewModelSelector: coordinatorPanelViewModelFromState,
-    makeReasoningNode,
-    renderAssistantMarkdown,
-    interactiveUiConfig,
-    addSystemNote,
-    handlePetToolMessage() {
-      if (petController) {
-        petController.handleToolMessage();
-      }
-    },
-    clearPendingReasoningCard() {
-      pendingReasoningCard = null;
-    },
-    setAssistantIdle() {
-      pendingAssistantResponse = false;
-      stopRequested = false;
-    },
-    appendAssistantMessage(text) {
-      if (!text) return;
-      appendNode(makeMessageNode('assistant', text));
-    },
-    syncSendState,
-  });
-  return subagentShell;
-}
-
-function ensureAgentStatePresenter() {
-  if (agentStatePresenter || !createAgentStatePresenter) {
-    return agentStatePresenter;
-  }
-  agentStatePresenter = createAgentStatePresenter({
-    agentStateRow,
-    agentIntentTag,
-    agentRoleTag,
-    intentConfig: INTENT_CONFIG,
-    roleLabels: ROLE_LABELS,
-    setCurrentAgentRole(nextRole) {
-      currentAgentRole = String(nextRole || '');
-    },
-    setCurrentAgentModel(nextModel) {
-      currentAgentModel = String(nextModel || '');
-    },
-    resetSubagentState() {
-      ensureSubagentShell()?.resetSubagentState?.();
-    },
-  });
-  return agentStatePresenter;
 }
 
 function ensureConnectionStatePresenter() {
@@ -697,13 +280,6 @@ function ensureReconnectController() {
   });
   return reconnectController;
 }
-
-Object.defineProperty(window, 'agentDebugSubagentUiState', {
-  configurable: true,
-  get() {
-    return ensureSubagentRuntime()?.currentState?.() || createEmptySubagentUiState();
-  },
-});
 
 function createChatId() {
   return `web_${Math.random().toString(36).slice(2, 8)}`;
@@ -890,7 +466,6 @@ async function deleteSession(targetChatId) {
     lastMessageSeq = 0;
     saveReconnectSession();
     renderHistoryMessages([]);
-    ensureSubagentShell()?.replaceSubagentStateSnapshot?.({ coordinators: [] });
   }
   renderSessions();
 
@@ -914,7 +489,6 @@ function startNewSession() {
   lastMessageSeq = 0;
   saveReconnectSession();
   renderHistoryMessages([]);
-  ensureSubagentShell()?.replaceSubagentStateSnapshot?.({ coordinators: [] });
   renderSessions();
   refreshContextStats();
 }
@@ -1590,21 +1164,6 @@ function makeMessageNode(role, text, reasoning = '') {
     label.className = 'message-label';
     label.textContent = 'Agent';
     card.appendChild(label);
-
-    if (currentAgentRole && ROLE_LABELS[currentAgentRole]) {
-      const badge = document.createElement('div');
-      badge.className = 'message-agent-badge';
-      const emoji = ROLE_EMOJI[currentAgentRole] || '';
-      const roleLabel = ROLE_LABELS[currentAgentRole];
-      badge.innerHTML = `<span class="message-agent-badge-role">${emoji} ${roleLabel}</span>`;
-      if (currentAgentModel) {
-        const modelSpan = document.createElement('span');
-        modelSpan.className = 'message-agent-badge-model';
-        modelSpan.textContent = currentAgentModel;
-        badge.appendChild(modelSpan);
-      }
-      card.appendChild(badge);
-    }
   }
 
   if (role === 'assistant' && reasoning) {
@@ -1688,30 +1247,6 @@ function addToolMessage(text) {
   syncScrollButton();
 }
 
-function formatSubagentEvent(data) {
-  const type = String(data?.subagent_type || '').trim() || 'subagent';
-  const task = String(data?.task || '').trim();
-  const detail = String(data?.detail || '').trim();
-  const title = task ? `${type} · ${task}` : type;
-  if (data.type === 'subagent_start') {
-    return detail ? `subagent start · ${title} · ${detail}` : `subagent start · ${title}`;
-  }
-  if (data.type === 'subagent_done') {
-    return detail ? `subagent done · ${title} · ${detail}` : `subagent done · ${title}`;
-  }
-  return detail ? `subagent · ${title} · ${detail}` : `subagent · ${title}`;
-}
-
-function trimText(value) {
-  return String(value || '').trim();
-}
-
-function clipText(value, limit = 240) {
-  const text = trimText(value).replace(/\s+/g, ' ');
-  if (!text) return '';
-  return text.length > limit ? `${text.slice(0, limit - 3)}...` : text;
-}
-
 function addMessage(role, text) {
   if (!text) return;
   if (role === 'tool') {
@@ -1760,45 +1295,143 @@ function ensureInteractiveController() {
   return interactiveController;
 }
 
-function ensureCoordinatorPanelController() {
-  if (coordinatorPanelController || !createCoordinatorPanelController) {
-    return coordinatorPanelController;
-  }
-  coordinatorPanelController = createCoordinatorPanelController({
-    panelEl: coordinatorPanel,
-    agentsEl: coordinatorAgents,
-    renderCoordinatorPanel: renderCoordinatorPanelView,
-    hideCoordinatorPanel: hideCoordinatorPanelView,
-    syncDockState() {
-      ensureSubagentShell()?.syncSubagentDetailDockState?.();
-    },
-  });
-  return coordinatorPanelController;
-}
-
 function submitInteractivePrompt(cancelled) {
   const controller = ensureInteractiveController();
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
   const payload = controller?.buildReplyPayload?.(makeInteractiveReplyPayload, chatId, !!cancelled) || null;
   if (!payload) return;
   ws.send(JSON.stringify(payload));
-  ensureSubagentShell()?.closeInteractivePrompt?.();
+}
+
+function onSocketOpen() {
+  isConnected = true;
+  connectionState = 'connected';
+  ensureConnectionStatePresenter()?.setStatus?.(true);
+  onSocketOpenForPet();
+  syncSendState();
+  refreshContextStats();
+}
+
+function onSocketClose() {
+  isConnected = false;
+  connectionState = 'disconnected';
+  pendingAssistantResponse = false;
+  stopRequested = false;
+  currentToolGroup = null;
+  pendingReasoningCard = null;
+  ensureConnectionStatePresenter()?.setStatus?.(false);
+  syncSendState();
+}
+
+function onSocketError() {
+  isConnected = false;
+  connectionState = 'disconnected';
+  ensureConnectionStatePresenter()?.setStatus?.(false);
+}
+
+function onSocketMessage(e) {
+  var data;
+  try { data = JSON.parse(e.data); } catch (_) { return; }
+  if (!data || typeof data !== 'object') return;
+
+  var msgType = data.type || '';
+  if (data.seq !== undefined) {
+    setLastMessageSeq(data.seq);
+  }
+
+  if (msgType === 'response') {
+    if (data.content) {
+      addMessage('assistant', data.content);
+    }
+    pendingAssistantResponse = false;
+    stopRequested = false;
+    syncSendState();
+    upsertLocalSession(chatId);
+    renderSessions();
+    saveReconnectSession();
+    setTimeout(loadSessions, 600);
+  } else if (msgType === 'tool' && data.content) {
+    addMessage('tool', data.content);
+  } else if (msgType === 'error' && data.content) {
+    addSystemNote(data.content);
+  } else if (msgType === 'stopped') {
+    pendingAssistantResponse = false;
+    stopRequested = false;
+    syncSendState();
+    if (data.content) {
+      addSystemNote(data.content);
+    }
+  } else if (msgType === 'reasoning') {
+    if (data.content) {
+      setPendingReasoningCardFromContent(data.content);
+    }
+  } else if (msgType === 'upload_error') {
+    imageUploadBusy = false;
+    pendingImagePath = '';
+    syncAttachmentPreview();
+    syncSendState();
+  } else if (msgType === 'upload_done') {
+    if (data.image_path) {
+      pendingImagePath = data.image_path;
+    }
+    imageUploadBusy = false;
+    syncAttachmentPreview();
+    syncSendState();
+  } else if (msgType === 'tool_activity') {
+    onToolActivity();
+  } else if (msgType === 'interactive_request') {
+    ensureInteractiveController()?.show?.(data, makeInteractiveReplyPayload);
+  }
+}
+
+function attachSocketHandlers(sock) {
+  sock.onopen = onSocketOpen;
+  sock.onclose = onSocketClose;
+  sock.onerror = onSocketError;
+  sock.onmessage = onSocketMessage;
 }
 
 function ensureSocketConnection() {
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  const transport = ensureSubagentTransport();
-  const lifecycle = transport?.lifecycle || {};
-  const socketUrl = `${proto}://${location.host}/ws?chat_id=${encodeURIComponent(chatId)}`;
-  lastConnectionErrorText = '';
-  ensureConnectionStatePresenter()?.setStatus?.('connecting');
-  ws = transport?.connectSocket
-    ? transport.connectSocket(socketUrl, lifecycle)
-    : new WebSocket(socketUrl);
-  if (transport?.connectSocket) {
-    return;
+  var boot = window._bootstrapWs;
+
+  /* 如果 bootstrap WebSocket 已关闭或不存在，重新创建一个 */
+  if (!boot || boot.readyState === WebSocket.CLOSED || boot.readyState === WebSocket.CLOSING) {
+    try {
+      var chatIdForWs = chatId || '';
+      var wsUrl = (location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.host + '/ws';
+      if (chatIdForWs) wsUrl += '?chat_id=' + encodeURIComponent(chatIdForWs);
+      boot = new WebSocket(wsUrl);
+      window._bootstrapWs = boot;
+      window._bootstrapChatId = chatId;
+    } catch (_) {
+      return;
+    }
   }
-  ensureSubagentTransport()?.bindSocket?.(ws, lifecycle);
+
+  ws = boot;
+  if (window._bootstrapChatId) chatId = window._bootstrapChatId;
+
+  /* 设置 app.js 处理器（覆盖任何已有处理器） */
+  boot.onopen = function(e) {
+    onSocketOpen(e);
+  };
+
+  boot.onclose = function(e) {
+    onSocketClose(e);
+  };
+
+  boot.onerror = function(e) {
+    onSocketError(e);
+  };
+
+  boot.onmessage = function(e) {
+    onSocketMessage(e);
+  };
+
+  /* 如果连接已经建立，立即同步状态 */
+  if (boot.readyState === WebSocket.OPEN) {
+    onSocketOpen();
+  }
 }
 
 function sendUserMessage(text, cancelCurrent) {
@@ -1943,14 +1576,6 @@ interactiveInput.addEventListener('keydown', (e) => {
   }
 });
 
-if (coordinatorClose) {
-  coordinatorClose.addEventListener('click', () => ensureSubagentShell()?.closeCoordinatorPanel?.());
-}
-
-if (coordinatorToggleBtn) {
-  coordinatorToggleBtn.addEventListener('click', () => ensureSubagentShell()?.toggleCoordinatorPanel?.());
-}
-
 if (reconnectToastAction) {
   reconnectToastAction.addEventListener('click', () => ensureReconnectController()?.handleReconnect?.());
 }
@@ -1968,21 +1593,274 @@ function saveReconnectSession() {
   } catch (_) {}
 }
 
-async function initApp() {
-  await refreshUiConfig();
-  activePetPackageId = resolveInitialPetPackageId(uiConfig);
-  renderPetChooser(activePetPackageId);
-  attachPetController();
+async function loadAgentList() {
+  const select = document.getElementById('agentSelect');
+  if (!select) return;
 
+  try {
+    const resp = await fetch('/api/agents', { cache: 'no-store' });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const agents = data?.agents;
+    if (!Array.isArray(agents) || !agents.length) return;
+
+    /* 保存当前选中值 */
+    const saved = localStorage.getItem('agent_id') || 'boss';
+
+    /* 重建选项列表 */
+    select.innerHTML = '';
+    for (const a of agents) {
+      const opt = document.createElement('option');
+      opt.value = a.id;
+      opt.textContent = a.name;
+      select.appendChild(opt);
+    }
+
+    /* 恢复选中 */
+    const exists = agents.some(function(a) { return a.id === saved; });
+    select.value = exists ? saved : 'boss';
+  } catch (_) {
+    /* 网络错误时保持 HTML 中硬编码的 Boss/HR 选项 */
+  }
+}
+
+/* ── Agent 详情面板：查看/增删工具和技能 ── */
+
+let agentDetailAgentId = '';
+let agentDetailPanel = null;
+let agentDetailName = null;
+let agentToolsetTags = null;
+let agentCoreSkillsTags = null;
+
+function ensureAgentDetailRefs() {
+  if (agentDetailPanel) return;
+  agentDetailPanel = document.getElementById('agentDetail');
+  agentDetailName = document.getElementById('agentDetailName');
+  agentToolsetTags = document.getElementById('agentToolsetTags');
+  agentCoreSkillsTags = document.getElementById('agentCoreSkillsTags');
+  document.getElementById('agentDetailClose')?.addEventListener('click', function() {
+    if (agentDetailPanel) agentDetailPanel.hidden = true;
+  });
+  document.getElementById('agentAddToolForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var input = document.getElementById('agentAddToolInput');
+    var val = (input?.value || '').trim();
+    if (val) { addAgentTag('toolset', val); if (input) input.value = ''; }
+  });
+  document.getElementById('agentAddSkillForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var input = document.getElementById('agentAddSkillInput');
+    var val = (input?.value || '').trim();
+    if (val) { addAgentTag('core_skills', val); if (input) input.value = ''; }
+  });
+  /* 删除按钮 */
+  document.getElementById('agentDeleteBtn')?.addEventListener('click', function() {
+    showRetireModal();
+  });
+  /* 交接弹窗 */
+  document.getElementById('retireCancel')?.addEventListener('click', hideRetireModal);
+  document.getElementById('retireConfirm')?.addEventListener('click', confirmRetire);
+}
+
+function renderTags(container, text, field) {
+  if (!container) return;
+  container.innerHTML = '';
+  var items = (text || '').split(/\\s+/).filter(Boolean);
+  for (var i = 0; i < items.length; i++) {
+    var tag = document.createElement('span');
+    tag.className = 'tag-chip';
+    tag.textContent = items[i];
+    var rm = document.createElement('button');
+    rm.className = 'tag-remove';
+    rm.textContent = '×';
+    rm.title = '移除 ' + items[i];
+    rm.setAttribute('aria-label', '移除 ' + items[i]);
+    rm.addEventListener('click', (function(tagName, f) {
+      return function() { removeAgentTag(f, tagName); };
+    })(items[i], field));
+    tag.appendChild(rm);
+    container.appendChild(tag);
+  }
+}
+
+async function loadAgentDetail(agentId) {
+  ensureAgentDetailRefs();
+  if (!agentDetailPanel) return;
+  if (!agentId || agentId === 'boss') {
+    agentDetailPanel.hidden = true;
+    return;
+  }
+  try {
+    var resp = await fetch('/api/agents/detail?agent_id=' + encodeURIComponent(agentId), { cache: 'no-store' });
+    if (!resp.ok) { agentDetailPanel.hidden = true; return; }
+    var data = await resp.json();
+    agentDetailAgentId = data.agent_id || agentId;
+    if (agentDetailName) agentDetailName.textContent = data.name || agentId;
+    renderTags(agentToolsetTags, data.toolset || '', 'toolset');
+    renderTags(agentCoreSkillsTags, data.core_skills || '', 'core_skills');
+    agentDetailPanel.hidden = false;
+  } catch (_) {
+    agentDetailPanel.hidden = true;
+  }
+}
+
+async function saveAgentDetail() {
+  if (!agentDetailAgentId) return;
+  try {
+    var tools = [];
+    var chips = agentToolsetTags?.querySelectorAll('.tag-chip');
+    if (chips) for (var i = 0; i < chips.length; i++) {
+      var t = chips[i].textContent.replace(/×/g, '').trim();
+      if (t) tools.push(t);
+    }
+    var skills = [];
+    chips = agentCoreSkillsTags?.querySelectorAll('.tag-chip');
+    if (chips) for (var j = 0; j < chips.length; j++) {
+      var s = chips[j].textContent.replace(/×/g, '').trim();
+      if (s) skills.push(s);
+    }
+    await fetch('/api/agents/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        agent_id: agentDetailAgentId,
+        toolset: tools.join(' '),
+        core_skills: skills.join(' '),
+      }),
+    });
+  } catch (_) {}
+}
+
+async function addAgentTag(field, value) {
+  if (!value || !agentDetailAgentId) return;
+  var container = field === 'toolset' ? agentToolsetTags : agentCoreSkillsTags;
+  if (!container) return;
+  /* 去重 */
+  var existing = container.querySelectorAll('.tag-chip');
+  for (var i = 0; i < existing.length; i++) {
+    var t = existing[i].textContent.replace(/×/g, '').trim();
+    if (t === value) return;
+  }
+  /* 添加 tag */
+  var tag = document.createElement('span');
+  tag.className = 'tag-chip';
+  tag.textContent = value;
+  var rm = document.createElement('button');
+  rm.className = 'tag-remove';
+  rm.textContent = '×';
+  rm.addEventListener('click', function() { removeAgentTag(field, value); });
+  tag.appendChild(rm);
+  container.appendChild(tag);
+  await saveAgentDetail();
+}
+
+async function removeAgentTag(field, value) {
+  if (!agentDetailAgentId) return;
+  var container = field === 'toolset' ? agentToolsetTags : agentCoreSkillsTags;
+  if (!container) return;
+  var chips = container.querySelectorAll('.tag-chip');
+  for (var i = 0; i < chips.length; i++) {
+    var t = chips[i].textContent.replace(/×/g, '').trim();
+    if (t === value) { chips[i].remove(); break; }
+  }
+  await saveAgentDetail();
+}
+
+/* ── Agent 删除 + 交接 ── */
+
+function showRetireModal() {
+  var modal = document.getElementById('retireModal');
+  var targetSelect = document.getElementById('retireTargetSelect');
+  if (!modal || !targetSelect || !agentDetailAgentId) return;
+
+  /* 填充目标 Agent 列表（排除自己和 boss） */
+  var agentSelect = document.getElementById('agentSelect');
+  targetSelect.innerHTML = '';
+  if (agentSelect) {
+    var options = agentSelect.options;
+    for (var i = 0; i < options.length; i++) {
+      if (options[i].value !== agentDetailAgentId && options[i].value !== 'boss') {
+        var opt = document.createElement('option');
+        opt.value = options[i].value;
+        opt.textContent = options[i].textContent;
+        targetSelect.appendChild(opt);
+      }
+    }
+  }
+  /* 默认选第一个 */
+  if (targetSelect.options.length > 0) targetSelect.selectedIndex = 0;
+
+  modal.hidden = false;
+  modal.removeAttribute('aria-hidden');
+  modal.classList.add('show');
+}
+
+function hideRetireModal() {
+  var modal = document.getElementById('retireModal');
+  if (modal) { modal.hidden = true; modal.setAttribute('aria-hidden', 'true'); modal.classList.remove('show'); }
+}
+
+async function confirmRetire() {
+  var targetSelect = document.getElementById('retireTargetSelect');
+  var transferSkills = document.getElementById('retireTransferSkills');
+  var transferTools = document.getElementById('retireTransferTools');
+  var targetId = targetSelect?.value;
+  if (!targetId || !agentDetailAgentId) { hideRetireModal(); return; }
+
+  try {
+    await fetch('/api/agents/retire', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        agent_id: agentDetailAgentId,
+        target_agent_id: targetId,
+        transfer_skills: transferSkills?.checked ? 'true' : 'false',
+        transfer_tools: transferTools?.checked ? 'true' : 'false',
+        reason: '用户手动删除',
+      }),
+    });
+  } catch (_) {}
+
+  hideRetireModal();
+  /* 隐藏详情面板 */
+  var panel = document.getElementById('agentDetail');
+  if (panel) panel.hidden = true;
+  agentDetailAgentId = '';
+  /* 刷新 Agent 列表 */
+  loadAgentList();
+}
+
+/* agentSelect change → 加载详情 */
+window._onAgentSelectChange = function(agentId) {
+  loadAgentDetail(agentId);
+};
+
+async function initApp() {
+  /* 1. 立即建 WebSocket 连接，不依赖任何 fetch */
   ensureConnectionStatePresenter()?.setStatus?.('connecting');
+  ensureSocketConnection();
+
+  /* 2. 同步 UI 初始化 */
   applyTheme(storedTheme);
   autoResize();
-  refreshContextStats();
   syncEmptyState();
   syncEmptyComposerLayout();
   syncScrollButton();
   syncSendState();
 
+  /* 3. 异步加载数据（不阻塞） */
+  refreshUiConfig().then(() => {
+    activePetPackageId = resolveInitialPetPackageId(uiConfig);
+    renderPetChooser(activePetPackageId);
+    attachPetController();
+    syncTerminalSecurityControl();
+  }).catch(function() {});
+
+  loadAgentList();
+  loadSessions();
+  refreshContextStats();
+
+  /* 4. 异步恢复上次会话 */
   try {
     const savedStr = readStorage(RECONNECT_SESSION_KEY, '');
     if (savedStr) {
@@ -2004,9 +1882,6 @@ async function initApp() {
       }
     }
   } catch (_) {}
-
-  await loadSessions();
-  ensureSocketConnection();
 }
 
 window.addEventListener('error', (event) => {

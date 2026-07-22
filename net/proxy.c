@@ -34,26 +34,6 @@ err_t http_proxy_init(void)
     return 0;
 }
 
-/** 运行时设置代理。 */
-err_t http_proxy_set(const char *host, uint16_t port, const char *type)
-{
-    strncpy(s_proxy_host, host, sizeof(s_proxy_host) - 1);
-    s_proxy_port = port;
-    strncpy(s_proxy_type, type, sizeof(s_proxy_type) - 1);
-    pr_info("Proxy set to %s:%d (%s)", s_proxy_host, s_proxy_port, s_proxy_type);
-    return 0;
-}
-
-/** 清空代理配置。 */
-err_t http_proxy_clear(void)
-{
-    s_proxy_host[0] = '\0';
-    s_proxy_port = 0;
-    strcpy(s_proxy_type, "http");
-    pr_info("Proxy cleared");
-    return 0;
-}
-
 /** 代理是否已配置。 */
 bool http_proxy_is_enabled(void)
 {
@@ -73,31 +53,4 @@ uint16_t http_proxy_port(void)
 const char *http_proxy_type(void)
 {
     return s_proxy_type;
-}
-
-/* 代理 TLS 隧道在 host 模式下未使用 */
-struct proxy_conn { int unused; };
-
-proxy_conn_t *proxy_conn_open(const char *host, int port, int timeout_ms)
-{
-    (void)host; (void)port; (void)timeout_ms;
-    pr_warn("proxy_conn_open not supported in host mode");
-    return NULL;
-}
-
-int proxy_conn_write(proxy_conn_t *conn, const char *data, int len)
-{
-    (void)conn; (void)data; (void)len;
-    return -1;
-}
-
-int proxy_conn_read(proxy_conn_t *conn, char *buf, int len, int timeout_ms)
-{
-    (void)conn; (void)buf; (void)len; (void)timeout_ms;
-    return -1;
-}
-
-void proxy_conn_close(proxy_conn_t *conn)
-{
-    (void)conn;
 }

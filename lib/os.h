@@ -11,7 +11,6 @@ extern "C" {
 #define WAIT_FOREVER UINT32_MAX
 
 typedef struct os_queue queue_t;
-typedef struct os_event_group os_event_group_t;
 typedef struct os_task os_task_t;
 typedef struct os_timer os_timer_t;
 
@@ -19,15 +18,6 @@ typedef struct os_timer os_timer_t;
 queue_t *queue_create(size_t queue_length, size_t item_size);
 bool queue_send(queue_t *queue, const void *item, uint32_t timeout_ms);
 bool queue_receive(queue_t *queue, void *out_item, uint32_t timeout_ms);
-
-/* Event groups (currently unused but provided for parity) */
-os_event_group_t *os_event_group_create(void);
-uint32_t os_event_group_wait_bits(os_event_group_t *group,
-                                    uint32_t bits_to_wait_for,
-                                    bool clear_on_exit,
-                                    bool wait_for_all,
-                                    uint32_t timeout_ms);
-uint32_t os_event_group_set_bits(os_event_group_t *group, uint32_t bits);
 
 /* Tasks */
 typedef void (*os_task_fn_t)(void *);

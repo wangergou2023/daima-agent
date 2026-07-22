@@ -5,4 +5,5 @@ obj-y += executor_core.o
 obj-y += memory_core.o
 obj-y += interactive.o rules.o
 obj-y += work_item.o workqueue.o
+obj-y += transcript.o
 obj-y += time/

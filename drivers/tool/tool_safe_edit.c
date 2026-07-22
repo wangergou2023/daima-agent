@@ -5,6 +5,7 @@
 
 #include "drivers/tool/tool_safe_edit.h"
 
+#include "hash.h"
 #include "linux/printk.h"
 
 #include <pthread.h>
@@ -19,17 +20,6 @@
 #define SAFE_EDIT_TTL_SECONDS   (5 * 60)          /* 指纹有效期 5 分钟 */
 static safe_edit_fingerprint_t s_fingerprints[SAFE_EDIT_MAX_TRACKED]; /* 指纹槽位数组 */
 static pthread_mutex_t s_fingerprints_mutex = PTHREAD_MUTEX_INITIALIZER; /* 指纹互斥锁 */
-
-/* FNV-1a 32-bit 哈希（初始种子 0x811c9dc5）。 */
-static uint32_t fnv1a_32(const char *data, size_t len)
-{
-    uint32_t hash = 0x811c9dc5;
-    for (size_t i = 0; i < len; i++) {
-        hash ^= (uint8_t)data[i];
-        hash *= 0x01000193;
-    }
-    return hash;
-}
 
 /* FNV-1a 增量更新：在已有哈希值基础上追加数据。 */
 static uint32_t fnv1a_32_update(uint32_t hash, const char *data, size_t len)

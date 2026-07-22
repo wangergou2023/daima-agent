@@ -1,0 +1,17 @@
+{
+  "agent_id": "office",
+  "name": "Office 文档专家",
+  "description": "处理 Word (docx)、PDF、PowerPoint (pptx)、Excel (xlsx) 文档的读写、转换和分析。",
+  "origin": "manual",
+  "core_skills": "docx pdf pptx xlsx document office word excel powerpoint",
+  "optional_skills": "markdown csv json data-analysis report-generation",
+  "toolset": "files read_file write_file bash terminal",
+  "model_provider": "",
+  "model_name": "",
+  "context_limit": 65536,
+  "max_tokens": 16384,
+  "temperature": 0.3,
+  "lifecycle_status": "active",
+  "created_by": "manual",
+  "version": 1
+}

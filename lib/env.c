@@ -64,15 +64,3 @@ bool env_bool_or_default(const char *name, bool fallback)
     return fallback;
 }
 
-/**
- * 设置环境变量（覆盖已有值）。
- * @param name  环境变量名
- * @param value 环境变量值
- */
-void env_set(const char *name, const char *value)
-{
-    if (!name || !name[0] || !value || !value[0]) {
-        return;
-    }
-    setenv(name, value, 1);
-}

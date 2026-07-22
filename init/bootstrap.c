@@ -12,6 +12,8 @@
 #include "drivers/memory/session_store.h"
 #include "proxy.h"
 #include "drivers/skill/skill_loader.h"
+#include "kernel/registry/registry.h"
+#include "kernel/transcript.h"
 #include "linux/init.h"
 #include "kernel/time/timer.h"
 #include "linux/workqueue.h"
@@ -45,6 +47,11 @@ static void ensure_spiffs_layout(void)
     fs_ensure_dir(path_feishu_image_dir());
     fs_ensure_dir(path_skills_dir());
     fs_ensure_dir(path_workspace_dir());
+
+    /* agents 目录 */
+    char agents_dir[512];
+    snprintf(agents_dir, sizeof(agents_dir), "%s/agents", path_spiffs_base());
+    fs_ensure_dir(agents_dir);
 }
 
 /**
@@ -120,12 +127,14 @@ int do_basic_setup(void)
     BUG_ON(memory_store_init() != 0);
     BUG_ON(session_store_init() != 0);
 
-    /* 第 3 级：subsys_initcall — 子系统（cron、心跳、代理、技能） */
+    /* 第 3 级：subsys_initcall — 子系统（cron、心跳、代理、技能、Registry、Transcript） */
     pr_info("subsys_initcall...");
     BUG_ON(cron_service_init() != 0);
     BUG_ON(heartbeat_init() != 0);
     BUG_ON(http_proxy_init() != 0);
     BUG_ON(skill_loader_init() != 0);
+    BUG_ON(agent_registry_init() != 0);
+    BUG_ON(transcript_init() != 0);
 
     /* 第 4 级：device_initcall — 设备总线 + 通道 + LLM + 多核启动 */
     pr_info("device_initcall...");

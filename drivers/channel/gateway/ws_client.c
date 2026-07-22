@@ -856,6 +856,8 @@ static void ws_handle_chat_message(int fd, ws_client_t *client, cJSON *root)
     }
 
     const char *chat_id = resolve_client_chat_id(client, root, fd);
+    cJSON *agent = cJSON_GetObjectItem(root, "agent_id");
+    const char *agent_id = agent && cJSON_IsString(agent) ? agent->valuestring : "";
     cJSON *image_path = cJSON_GetObjectItem(root, "image_path");
     const char *image_path_value = image_path && cJSON_IsString(image_path) ? image_path->valuestring : NULL;
 
@@ -867,6 +869,7 @@ static void ws_handle_chat_message(int fd, ws_client_t *client, cJSON *root)
     struct message msg = {0};
     strncpy(msg.channel, CHAN_WEBSOCKET, sizeof(msg.channel) - 1);
     strncpy(msg.chat_id, chat_id, sizeof(msg.chat_id) - 1);
+    strncpy(msg.agent_id, agent_id, sizeof(msg.agent_id) - 1);
     strncpy(msg.source, MSG_SOURCE_USER, sizeof(msg.source) - 1);
     msg.content = strdup(content->valuestring);
     if (valid_image_path) {

@@ -1,7 +1,9 @@
 /* intent 分类：全 LLM 驱动，无关键词匹配 */
 #include "intent.h"
 #include "linux/printk.h"
+#include "linux/kernel.h"
 #include "drivers/llm/llm_proxy.h"
+#include "transcript.h"
 #include "cjson.h"
 #include <ctype.h>
 #include <stdio.h>
@@ -154,5 +156,46 @@ err_t intent_gate_classify(const char *user_message, enum intent *out_intent)
                 intent_name(*out_intent),
                 user_message);
     }
+    return 0;
+}
+
+err_t intent_gate_analyze_task(const char *user_message,
+                               task_analysis_t *out_analysis)
+{
+    if (!user_message || !out_analysis)
+        return ERR_INVALID_ARG;
+
+    memset(out_analysis, 0, sizeof(*out_analysis));
+
+    /* 1. 意图分类 */
+    enum intent intent_type;
+    err_t err = intent_gate_classify(user_message, &intent_type);
+    if (err != 0)
+        intent_type = intent_gate_fallback_for_text(user_message);
+    out_analysis->intent_type = intent_type;
+
+    /* 2. 能力标签提取（仅基于用户消息） */
+    transcript_extract_skill_tags(user_message, NULL,
+                                  out_analysis->capability_tags,
+                                  sizeof(out_analysis->capability_tags));
+
+    /* 3. 启发式约束 */
+    out_analysis->requires_file_write =
+        (intent_type == INTENT_IMPLEMENT || intent_type == INTENT_FIX);
+    out_analysis->requires_network =
+        (strstr(user_message, "http") || strstr(user_message, "api") ||
+         strstr(user_message, "fetch") || strstr(user_message, "curl"));
+
+    /* 4. 复杂度估算 */
+    size_t len = strlen(user_message);
+    if (len < 50)
+        out_analysis->estimated_complexity = 1;
+    else if (len < 200)
+        out_analysis->estimated_complexity = 2;
+    else
+        out_analysis->estimated_complexity = 3;
+
+    out_analysis->confidence = (intent_type != INTENT_QA) ? 0.7f : 0.5f;
+
     return 0;
 }

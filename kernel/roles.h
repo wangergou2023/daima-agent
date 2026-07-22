@@ -13,4 +13,3 @@ typedef enum {
 
 const char *agent_role_name(agent_role_t role);
 const char *agent_role_prompt_suffix(agent_role_t role);
-const char *agent_role_category(agent_role_t role);

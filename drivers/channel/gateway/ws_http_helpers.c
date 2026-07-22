@@ -41,10 +41,13 @@
 #include "delegate/delegate_session_json.h"
 #include "delegate/delegate_task_store.h"
 #include "kernel/turn/turn_context.h"
+#include "kernel/registry/registry.h"
+#include "kernel/router.h"
 #include "drivers/llm/llm_proxy.h"
 #include "drivers/memory/session_store.h"
 #include "autoconf.h"
 #include "linux/printk.h"
+#include "linux/kernel.h"
 #include "cjson.h"
 
 #include <dirent.h>
@@ -549,6 +552,41 @@ static char *build_ui_config_json(void)
     }
 
     char *json = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+    return json;
+}
+
+/* 构建 /api/agents 响应：列出 Boss + HR + Registry 中所有 active Specialist。 */
+static char *build_agents_json(void)
+{
+    cJSON *root = cJSON_CreateObject();
+    if (!root) return NULL;
+
+    cJSON *agents = cJSON_CreateArray();
+    if (!agents) { cJSON_Delete(root); return NULL; }
+
+    /* Boss（唯一硬编码，HR 和 Specialist 由 Registry 提供） */
+    cJSON *boss = cJSON_CreateObject();
+    cJSON_AddStringToObject(boss, "id", "boss");
+    cJSON_AddStringToObject(boss, "name", "Boss");
+    cJSON_AddItemToArray(agents, boss);
+
+    /* Registry 中的 Agent（含 HR 和所有 Specialist） */
+    agent_definition_t defs[AGENT_PROFILES_MAX];
+    int count = 0;
+    agent_registry_list(false, defs, AGENT_PROFILES_MAX, &count);
+    for (int i = 0; i < count; i++) {
+        if (strcmp(defs[i].agent_id, "boss") == 0)
+            continue;
+        cJSON *item = cJSON_CreateObject();
+        cJSON_AddStringToObject(item, "id", defs[i].agent_id);
+        cJSON_AddStringToObject(item, "name", defs[i].name);
+        cJSON_AddStringToObject(item, "skills", defs[i].core_skills);
+        cJSON_AddItemToArray(agents, item);
+    }
+
+    cJSON_AddItemToObject(root, "agents", agents);
+    char *json = cJSON_Print(root);
     cJSON_Delete(root);
     return json;
 }
@@ -1077,6 +1115,7 @@ done:
  *   GET  /pet.js              → 宠物脚本
  *   GET  /pets/...            → 宠物资源（图片/配置，8MB 上限二进制）
  *   GET  /health              → "ok"
+ *   GET  /api/agents         → Agent 列表（Boss + HR + Specialist）
  *   GET  /api/context_stats   → {model, used_tokens, context_limit_tokens, usage_percent}
  *   GET  /api/sessions        → [{chat_id, latest_ts, has_history, has_facts, has_summary}]
  *   GET  /api/session_history → {chat_id, messages: [{role, content, reasoning}]}
@@ -1093,6 +1132,82 @@ done:
  * @param ui_fallback_html  当 index.html 不存在时使用的降级 HTML
  * @return 0 表示正常处理（fd 已关闭），-1 表示错误
  */
+
+/* 检查 token 是否在空格分隔的列表中（单词边界匹配） */
+static bool token_in_list(const char *list, const char *token)
+{
+    if (!list || !token || !token[0]) return false;
+    const char *p = list;
+    size_t tlen = strlen(token);
+    while (*p) {
+        while (*p == ' ') p++;
+        if (strncmp(p, token, tlen) == 0 &&
+            (p[tlen] == '\0' || p[tlen] == ' '))
+            return true;
+        while (*p && *p != ' ') p++;
+    }
+    return false;
+}
+
+/* 向输出追加 token，并在 seen 列表中记录 */
+static size_t append_token(char *out, size_t off, size_t out_size,
+                           char *seen, size_t seen_size, const char *token)
+{
+    size_t tlen = strlen(token);
+    if (tlen == 0) return off;
+
+    /* 输出 */
+    if (off > 0 && off < out_size - 2) out[off++] = ' ';
+    size_t remain = out_size - off - 1;
+    if (tlen > remain) tlen = remain;
+    memcpy(out + off, token, tlen);
+    off += tlen;
+    out[off] = '\0';
+
+    /* 记录到 seen */
+    size_t slen = strlen(seen);
+    if (slen > 0 && slen < seen_size - 2) seen[slen++] = ' ';
+    size_t remain_s = seen_size - slen - 1;
+    size_t ctlen = strlen(token);
+    if (ctlen > remain_s) ctlen = remain_s;
+    memcpy(seen + slen, token, ctlen);
+    seen[slen + ctlen] = '\0';
+
+    return off;
+}
+
+/* 合并空格分隔的 token 列表，完全去重（含已有脏数据归一化） */
+static void dedup_merge_tokens(const char *existing, const char *incoming,
+                               char *out, size_t out_size)
+{
+    if (!out || out_size == 0) return;
+    out[0] = '\0';
+    if (!existing) existing = "";
+    if (!incoming) incoming = "";
+
+    size_t off = 0;
+    char seen[AGENT_TOOLSET_LEN * 2];
+    seen[0] = '\0';
+    size_t seen_size = sizeof(seen);
+
+    /* 遍历两个列表中的所有 token，遇到未见过的就追加 */
+    const char *sources[2] = { existing, incoming };
+    for (int si = 0; si < 2; si++) {
+        char buf[AGENT_TOOLSET_LEN * 2];
+        strscpy(buf, sources[si], sizeof(buf));
+        char *save = NULL;
+        char *token = strtok_r(buf, " ", &save);
+        while (token) {
+            if (*token && !token_in_list(seen, token) &&
+                !token_in_list(out, token)) {
+                off = append_token(out, off, out_size,
+                                  seen, seen_size, token);
+            }
+            token = strtok_r(NULL, " ", &save);
+        }
+    }
+}
+
 int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallback_html)
 {
     char method[8] = {0};
@@ -1152,6 +1267,136 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
                                "{\"error\":\"save_failed\"}");
             return 0;
         }
+        http_send_response(client_fd, "200 OK",
+                           "application/json; charset=utf-8",
+                           "{\"ok\":true}");
+        return 0;
+    }
+
+    /* POST /api/agents/update → 更新 Agent 的 tools/skills */
+    if (strcmp(method, "POST") == 0 && strcmp(path, "/api/agents/update") == 0) {
+        const char *body = http_request_body(req);
+        char agent_id[64] = {0};
+        char core_skills[AGENT_CORE_SKILLS_LEN] = {0};
+        char optional_skills[AGENT_OPTIONAL_SKILLS_LEN] = {0};
+        char toolset[AGENT_TOOLSET_LEN] = {0};
+
+        json_body_get_string_field(body, "agent_id", agent_id, sizeof(agent_id));
+        if (!agent_id[0]) {
+            http_send_response(client_fd, "400 Bad Request",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"missing_agent_id\"}");
+            return 0;
+        }
+
+        json_body_get_string_field(body, "core_skills", core_skills, sizeof(core_skills));
+        json_body_get_string_field(body, "optional_skills", optional_skills, sizeof(optional_skills));
+        json_body_get_string_field(body, "toolset", toolset, sizeof(toolset));
+
+        agent_definition_t def;
+        memset(&def, 0, sizeof(def));
+        err_t err = agent_registry_get(agent_id, &def);
+        if (err != 0) {
+            http_send_response(client_fd, "404 Not Found",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"agent_not_found\"}");
+            return 0;
+        }
+
+        if (core_skills[0])
+            strscpy(def.core_skills, core_skills, sizeof(def.core_skills));
+        if (optional_skills[0])
+            strscpy(def.optional_skills, optional_skills, sizeof(def.optional_skills));
+        if (toolset[0])
+            strscpy(def.toolset, toolset, sizeof(def.toolset));
+
+        err = agent_registry_update(agent_id, &def);
+        if (err != 0) {
+            http_send_response(client_fd, "500 Internal Server Error",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"update_failed\"}");
+            return 0;
+        }
+
+        http_send_response(client_fd, "200 OK",
+                           "application/json; charset=utf-8",
+                           "{\"ok\":true}");
+        return 0;
+    }
+
+    /* POST /api/agents/retire → 退休 Agent，skill/tool 交接给目标 */
+    if (strcmp(method, "POST") == 0 && strcmp(path, "/api/agents/retire") == 0) {
+        const char *body = http_request_body(req);
+        char agent_id[64] = {0};
+        char target_agent_id[64] = {0};
+        char reason[256] = {0};
+        bool transfer_skills = false;
+        bool transfer_tools = false;
+
+        char transfer_skills_str[8] = {0};
+        char transfer_tools_str[8] = {0};
+
+        json_body_get_string_field(body, "agent_id", agent_id, sizeof(agent_id));
+        json_body_get_string_field(body, "target_agent_id", target_agent_id, sizeof(target_agent_id));
+        json_body_get_string_field(body, "reason", reason, sizeof(reason));
+        json_body_get_string_field(body, "transfer_skills", transfer_skills_str, sizeof(transfer_skills_str));
+        json_body_get_string_field(body, "transfer_tools", transfer_tools_str, sizeof(transfer_tools_str));
+        transfer_skills = (strcmp(transfer_skills_str, "true") == 0);
+        transfer_tools = (strcmp(transfer_tools_str, "true") == 0);
+
+        if (!agent_id[0] || !target_agent_id[0]) {
+            http_send_response(client_fd, "400 Bad Request",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"missing_agent_id_or_target\"}");
+            return 0;
+        }
+        if (strcmp(agent_id, "boss") == 0 || strcmp(agent_id, "hr") == 0) {
+            http_send_response(client_fd, "400 Bad Request",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"cannot_retire_system_agent\"}");
+            return 0;
+        }
+
+        /* 先做 skill/tool 交接 */
+        if (transfer_skills || transfer_tools) {
+            agent_definition_t source, target;
+            if (agent_registry_get(agent_id, &source) != 0 ||
+                agent_registry_get(target_agent_id, &target) != 0) {
+                http_send_response(client_fd, "404 Not Found",
+                                   "application/json; charset=utf-8",
+                                   "{\"error\":\"agent_not_found\"}");
+                return 0;
+            }
+
+            if (transfer_skills) {
+                /* 合并 skills，去重 */
+                char merged[AGENT_CORE_SKILLS_LEN * 2];
+                dedup_merge_tokens(target.core_skills, source.core_skills,
+                                   merged, sizeof(merged));
+                dedup_merge_tokens(merged, source.optional_skills,
+                                   merged, sizeof(merged));
+                strscpy(target.optional_skills, merged, sizeof(target.optional_skills));
+            }
+            if (transfer_tools) {
+                /* 合并 tools，去重 */
+                char merged[AGENT_TOOLSET_LEN * 2];
+                dedup_merge_tokens(target.toolset, source.toolset,
+                                   merged, sizeof(merged));
+                strscpy(target.toolset, merged, sizeof(target.toolset));
+            }
+            agent_registry_update(target_agent_id, &target);
+        }
+
+        /* 退休源 Agent */
+        err_t err = agent_registry_retire(agent_id,
+            reason[0] ? reason : "user_requested");
+        if (err != 0) {
+            http_send_response(client_fd, "500 Internal Server Error",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"retire_failed\"}");
+            return 0;
+        }
+
         http_send_response(client_fd, "200 OK",
                            "application/json; charset=utf-8",
                            "{\"ok\":true}");
@@ -1294,6 +1539,8 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
                 asset_type = "text/css; charset=utf-8";
             } else if (ext && strcmp(ext, ".js") == 0) {
                 asset_type = "application/javascript; charset=utf-8";
+            } else if (ext && strcmp(ext, ".html") == 0) {
+                asset_type = "text/html; charset=utf-8";
             }
             if (asset_type) {
                 char asset_path[BUF_LARGE];
@@ -1447,6 +1694,61 @@ int ws_http_handle_request(int client_fd, const char *req, const char *ui_fallba
         }
         http_send_response(client_fd, "200 OK",
                            "application/json; charset=utf-8", json);
+        kfree(json);
+        return 0;
+    }
+
+    /* GET /api/agents → Agent 列表（Boss + HR + Specialist） */
+    if (strcmp(path, "/api/agents") == 0) {
+        char *json = build_agents_json();
+        if (!json) {
+            http_send_response(client_fd, "500 Internal Server Error",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"agents_unavailable\"}");
+            return 0;
+        }
+        http_send_response(client_fd, "200 OK",
+                           "application/json; charset=utf-8", json);
+        kfree(json);
+        return 0;
+    }
+
+    /* GET /api/agents/detail?agent_id=... → 单个 Agent 完整定义 */
+    if (strcmp(path, "/api/agents/detail") == 0) {
+        char agent_id[64] = {0};
+        query_get_value(query, "agent_id", agent_id, sizeof(agent_id));
+        if (!agent_id[0]) {
+            http_send_response(client_fd, "400 Bad Request",
+                               "application/json; charset=utf-8",
+                               "{\"error\":\"missing_agent_id\"}");
+            return 0;
+        }
+        agent_definition_t def;
+        memset(&def, 0, sizeof(def));
+        if (strcmp(agent_id, "boss") == 0) {
+            boss_get_fallback_profile(&def);
+        } else {
+            err_t err = agent_registry_get(agent_id, &def);
+            if (err != 0) {
+                http_send_response(client_fd, "404 Not Found",
+                                   "application/json; charset=utf-8",
+                                   "{\"error\":\"agent_not_found\"}");
+                return 0;
+            }
+        }
+        cJSON *root = cJSON_CreateObject();
+        cJSON_AddStringToObject(root, "agent_id", def.agent_id[0] ? def.agent_id : agent_id);
+        cJSON_AddStringToObject(root, "name", def.name);
+        cJSON_AddStringToObject(root, "description", def.description);
+        cJSON_AddStringToObject(root, "core_skills", def.core_skills);
+        cJSON_AddStringToObject(root, "optional_skills", def.optional_skills);
+        cJSON_AddStringToObject(root, "toolset", def.toolset);
+        cJSON_AddStringToObject(root, "system_prompt", def.system_prompt);
+        cJSON_AddStringToObject(root, "lifecycle_status", def.lifecycle_status);
+        cJSON_AddNumberToObject(root, "version", def.version);
+        char *json = cJSON_Print(root);
+        cJSON_Delete(root);
+        http_send_response(client_fd, "200 OK", "application/json; charset=utf-8", json);
         kfree(json);
         return 0;
     }
